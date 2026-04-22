@@ -1,0 +1,42 @@
+{
+  "name": "cli-proxy-api-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows-only desktop shell for Cli Proxy API Desktop.",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "build:service": "go -C service build -o bin/cpad-service.exe ./cmd/cpad-service",
+    "build:shim": "go -C service build -o bin/codex.exe ./cmd/codex-shim",
+    "service:layout": "go -C service run ./cmd/cpad-service layout",
+    "service:status": "go -C service run ./cmd/cpad-service status",
+    "codex:mode:status": "go -C service run ./cmd/cpad-service codex-mode",
+    "codex:mode:official": "go -C service run ./cmd/cpad-service codex-mode official",
+    "codex:mode:cpa": "go -C service run ./cmd/cpad-service codex-mode cpa",
+    "cpa:runtime:status": "go -C service run ./cmd/cpad-service cpa-runtime status",
+    "cpa:runtime:build": "go -C service run ./cmd/cpad-service cpa-runtime build",
+    "cpa:runtime:start": "go -C service run ./cmd/cpad-service cpa-runtime start",
+    "cpa:runtime:stop": "go -C service run ./cmd/cpad-service cpa-runtime stop",
+    "plugin:market:status": "go -C service run ./cmd/cpad-service plugin-market status",
+    "plugin:market:refresh": "go -C service run ./cmd/cpad-service plugin-market refresh",
+    "update:center:status": "go -C service run ./cmd/cpad-service update-center status",
+    "update:center:check": "go -C service run ./cmd/cpad-service update-center check",
+    "shim:inspect": "service\\bin\\codex.exe inspect"
+  },
+  "dependencies": {
+    "electron": "^41.2.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7"
+  }
+}

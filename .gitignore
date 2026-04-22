@@ -1,8 +1,12 @@
 node_modules/
 dist/
+out/
+.vite/
 release/
 coverage/
 .env
 .env.*
 *.log
 tmp/
+service/bin/
+service/*.exe

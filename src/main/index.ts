@@ -113,6 +113,21 @@ async function resolveServiceExecutable(installRoot: string) {
   return null;
 }
 
+async function resolveAppIcon() {
+  const candidates = [
+    join(resolveRepoRoot(), "ico", "ico.png"),
+    join(process.resourcesPath, "ico", "ico.png"),
+  ];
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 async function runServiceJsonCommand(installRoot: string, args: string[]) {
   const stdout = await runServiceCommand(installRoot, args);
   return JSON.parse(stdout);
@@ -247,29 +262,32 @@ async function installManagedService() {
 }
 
 function createWindow(): void {
-  const browserWindow = new BrowserWindow({
-    width: 1520,
-    height: 980,
-    minWidth: 1180,
-    minHeight: 780,
-    show: false,
-    backgroundColor: "#efe4d3",
-    title: PRODUCT_NAME,
-    webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
-  });
+  void (async () => {
+    const browserWindow = new BrowserWindow({
+      width: 1520,
+      height: 980,
+      minWidth: 1180,
+      minHeight: 780,
+      show: false,
+      backgroundColor: "#efe4d3",
+      title: PRODUCT_NAME,
+      icon: await resolveAppIcon(),
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.js"),
+        sandbox: false,
+      },
+    });
 
-  browserWindow.once("ready-to-show", () => {
-    browserWindow.show();
-  });
+    browserWindow.once("ready-to-show", () => {
+      browserWindow.show();
+    });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    browserWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    browserWindow.loadFile(join(__dirname, "../renderer/index.html"));
-  }
+    if (process.env.ELECTRON_RENDERER_URL) {
+      await browserWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    } else {
+      await browserWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    }
+  })();
 }
 
 app.whenReady().then(() => {

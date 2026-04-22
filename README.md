@@ -1,5 +1,9 @@
 # Cli Proxy API Desktop
 
+<p align="center">
+  <img src="ico/ico.png" width="220" alt="CPAD icon" />
+</p>
+
 ## 简介
 
 Cli Proxy API Desktop 是一个面向 `Windows + 中文` 的统一控制平面，目标是把 CPA Runtime、Codex 模式切换、官方运行时接管、更新中心、插件市场和持久化状态收敛成一个可安装、可更新、可卸载、可持续演进的桌面产品。

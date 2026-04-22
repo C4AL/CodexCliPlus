@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -375,7 +376,7 @@ func runCommand(command *exec.Cmd) (string, error) {
 		if errText == "" {
 			errText = err.Error()
 		}
-		return "", fmt.Errorf(errText)
+		return "", errors.New(errText)
 	}
 
 	return strings.TrimSpace(stdout.String()), nil

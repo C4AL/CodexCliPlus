@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 
 import {
+  CURRENT_MILESTONE,
   PRODUCT_NAME,
   PRODUCT_SHORT_NAME,
   PRODUCT_TAGLINE,
@@ -156,7 +157,7 @@ async function createShellState(): Promise<ShellState> {
     productShortName: PRODUCT_SHORT_NAME,
     tagline: PRODUCT_TAGLINE,
     version: app.getVersion(),
-    milestone: "M4 插件市场",
+    milestone: CURRENT_MILESTONE,
     installLayout,
     processModel: PROCESS_MODEL,
     primarySurfaces: PRIMARY_SURFACES,

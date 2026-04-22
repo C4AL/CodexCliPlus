@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/windows"
 )
 
 const (
-	cpaBuildPackage = "./cmd/server"
-	DefaultCPAPort  = 2723
+	cpaBuildPackage          = "./cmd/server"
+	DefaultCPAPort           = 2723
+	ManagedCPABinaryName     = "CPAD-CPA.exe"
+	legacyManagedCPABinary   = "CPA-UV.exe"
 )
 
 type CPARuntimeState struct {
@@ -59,7 +62,7 @@ func ResolveCPASourceRoot() string {
 }
 
 func CPAManagedBinaryPath(layout Layout) string {
-	return filepath.Join(layout.Directories["cpaRuntime"], "CPA-UV.exe")
+	return filepath.Join(layout.Directories["cpaRuntime"], ManagedCPABinaryName)
 }
 
 func CPAManagedConfigPath(layout Layout) string {
@@ -86,6 +89,7 @@ func (layout Layout) WriteCPARuntimeState(state CPARuntimeState) error {
 	if state.ManagedBinary == "" {
 		state.ManagedBinary = CPAManagedBinaryPath(layout)
 	}
+	state.ManagedBinary = normalizeCPAManagedBinaryPath(layout, state.ManagedBinary)
 
 	if state.ConfigPath == "" {
 		state.ConfigPath = CPAManagedConfigPath(layout)
@@ -133,6 +137,7 @@ func (layout Layout) ReadCPARuntimeState() (*CPARuntimeState, error) {
 	if state.ManagedBinary == "" {
 		state.ManagedBinary = CPAManagedBinaryPath(layout)
 	}
+	state.ManagedBinary = normalizeCPAManagedBinaryPath(layout, state.ManagedBinary)
 
 	if state.ConfigPath == "" {
 		state.ConfigPath = CPAManagedConfigPath(layout)
@@ -168,7 +173,7 @@ func ResolveCPARuntime(layout Layout) (CPARuntimeStatus, error) {
 
 	if state != nil {
 		status.SourceRoot = state.SourceRoot
-		status.ManagedBinary = state.ManagedBinary
+		status.ManagedBinary = normalizeCPAManagedBinaryPath(layout, state.ManagedBinary)
 		status.ConfigPath = state.ConfigPath
 		status.LogPath = state.LogPath
 		status.Phase = state.Phase
@@ -200,6 +205,20 @@ func ResolveCPARuntime(layout Layout) (CPARuntimeStatus, error) {
 	}
 
 	return status, nil
+}
+
+func normalizeCPAManagedBinaryPath(layout Layout, managedBinary string) string {
+	defaultPath := CPAManagedBinaryPath(layout)
+	if strings.TrimSpace(managedBinary) == "" {
+		return defaultPath
+	}
+
+	cleaned := filepath.Clean(managedBinary)
+	if strings.EqualFold(filepath.Base(cleaned), legacyManagedCPABinary) {
+		return defaultPath
+	}
+
+	return cleaned
 }
 
 func isProcessRunning(pid int) bool {

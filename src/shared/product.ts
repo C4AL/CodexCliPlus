@@ -2,10 +2,12 @@ import { win32 } from "node:path";
 
 export const PRODUCT_NAME = "Cli Proxy API Desktop";
 export const PRODUCT_SHORT_NAME = "CPAD";
+export const CURRENT_MILESTONE = "M5 官方覆盖整合";
 export const PRODUCT_TAGLINE =
   "面向 Windows 的 CPA、Codex 与自有插件统一控制平面。";
 export const SERVICE_NAME = "CliProxyAPIDesktopService";
 export const INSTALL_DIR_NAME = "Cli Proxy API Desktop";
+export const CPA_MANAGED_BINARY_NAME = "CPAD-CPA.exe";
 
 export type InstallLayout = {
   installRoot: string;
@@ -231,7 +233,7 @@ export function getCPASourceRoot(homeDir: string, explicitRoot?: string) {
 }
 
 export function getCPAManagedBinaryPath(layout: InstallLayout) {
-  return win32.join(layout.directories.cpaRuntime, "CPA-UV.exe");
+  return win32.join(layout.directories.cpaRuntime, CPA_MANAGED_BINARY_NAME);
 }
 
 export function getCPAManagedConfigPath(layout: InstallLayout) {

@@ -1,17 +1,22 @@
 import { startTransition, useEffect, useState } from "react";
 
-import type { PluginRuntimeState } from "../../shared/product";
-import type { ShellState } from "../../shared/ipc";
+import type { SelfTestResult, ShellState } from "../../shared/ipc";
+import type { PluginRuntimeState, UpdateSourceState } from "../../shared/product";
 
-const OFFICIAL_CODEX_WINDOWS_GUIDE_URL = "https://developers.openai.com/codex/windows";
+const OFFICIAL_CODEX_WINDOWS_GUIDE_URL =
+  "https://developers.openai.com/codex/windows";
+const OFFICIAL_CORE_REPOSITORY_URL =
+  "https://github.com/router-for-me/CLIProxyAPI";
+const OFFICIAL_PANEL_REPOSITORY_URL =
+  "https://github.com/router-for-me/Cli-Proxy-API-Management-Center";
 
-function pathList(paths: Record<string, string>) {
-  return Object.entries(paths);
-}
+type ChipTone = "ok" | "warn" | "danger" | "neutral";
+type SourceTone = "healthy" | "drift" | "missing";
+type PluginTone = "live" | "idle" | "warning";
 
 function formatTimestamp(value: string | null) {
   if (!value) {
-    return "尚未生成";
+    return "尚未记录";
   }
 
   const parsed = new Date(value);
@@ -33,81 +38,231 @@ function formatPid(value: number | null) {
   return value === null ? "未运行" : String(value);
 }
 
-function formatBool(value: boolean) {
-  return value ? "true" : "false";
+function shortRef(value: string) {
+  return value ? value.slice(0, 12) : "未记录";
+}
+
+function boolLabel(value: boolean) {
+  return value ? "是" : "否";
+}
+
+function isOfficialBackendSource(state: ShellState) {
+  const sourceRoot = state.cpaRuntime.sourceRoot.toLowerCase();
+  return (
+    sourceRoot.endsWith("\\official-backend") ||
+    sourceRoot.endsWith("\\cliproxyapi")
+  );
+}
+
+function sourceTone(source: UpdateSourceState | null): SourceTone {
+  if (!source || !source.available || !source.currentRef) {
+    return "missing";
+  }
+  if (source.latestRef && source.currentRef !== source.latestRef) {
+    return "drift";
+  }
+  return "healthy";
+}
+
+function sourceToneLabel(source: UpdateSourceState | null) {
+  switch (sourceTone(source)) {
+    case "healthy":
+      return "已对齐";
+    case "drift":
+      return "待同步";
+    default:
+      return "未就绪";
+  }
+}
+
+function chipToneForRuntime(state: ShellState): ChipTone {
+  if (!state.cpaRuntime.sourceExists || !isOfficialBackendSource(state)) {
+    return "warn";
+  }
+  return state.cpaRuntime.running ? "ok" : "warn";
+}
+
+function chipToneForCodex(state: ShellState): ChipTone {
+  if (!state.codex.globalExists) {
+    return "danger";
+  }
+  return state.codex.mode === "official" ? "ok" : "warn";
 }
 
 function pluginSummary(plugin: PluginRuntimeState) {
   if (!plugin.installed) {
     return "未安装";
   }
-  if (!plugin.enabled) {
-    return "已安装，已禁用";
-  }
   if (plugin.needsUpdate) {
-    return "已安装，可更新";
+    return "已安装，待更新";
+  }
+  if (!plugin.enabled) {
+    return "已安装，未启用";
   }
   return "已安装，已启用";
 }
 
-function buildReleaseChecks(state: ShellState) {
-  return [
-    {
-      label: "服务宿主已安装",
-      ok: state.serviceManager.installed,
-      detail: state.serviceManager.installed
-        ? `当前状态 ${state.serviceManager.state}`
-        : "Windows 服务尚未安装",
-    },
-    {
-      label: "CPA Runtime 已构建",
-      ok: state.cpaRuntime.binaryExists,
-      detail: state.cpaRuntime.binaryExists
-        ? state.cpaRuntime.managedBinary
-        : "受控运行时二进制尚未生成",
-    },
-    {
-      label: "CPA Runtime 正在运行",
-      ok: state.cpaRuntime.running,
-      detail: state.cpaRuntime.running
-        ? `pid=${formatPid(state.cpaRuntime.pid)}`
-        : state.cpaRuntime.message,
-    },
-    {
-      label: "CPA Runtime 健康检查通过",
-      ok: state.cpaRuntime.healthCheck.healthy,
-      detail: state.cpaRuntime.healthCheck.message,
-    },
-    {
-      label: "管理入口已启用",
-      ok: state.cpaRuntime.configInsight.managementEnabled,
-      detail: state.cpaRuntime.configInsight.managementEnabled
-        ? "remote-management.secret-key 已配置"
-        : "管理密钥为空，/v0/management 将返回 404",
-    },
-    {
-      label: "Codex App Server 根代理已启用",
-      ok: state.cpaRuntime.configInsight.codexAppServerProxyEnabled,
-      detail: state.cpaRuntime.configInsight.codexAppServerProxyEnabled
-        ? state.cpaRuntime.configInsight.codexRemoteUrl
-        : "codex-app-server-proxy 当前未开启",
-    },
-    {
-      label: "当前 Codex 模式可实际启动",
-      ok: state.codex.launchReady,
-      detail: state.codex.launchReady
-        ? state.codex.launchMessage
-        : state.codex.launchMessage || `当前模式 ${state.codex.mode} 尚未达到可启动条件`,
-    },
-  ];
+function pluginTone(plugin: PluginRuntimeState): PluginTone {
+  if (!plugin.installed || plugin.needsUpdate || !plugin.sourceExists) {
+    return "warning";
+  }
+  if (!plugin.enabled) {
+    return "idle";
+  }
+  return "live";
+}
+
+function pluginMessage(plugin: PluginRuntimeState) {
+  if (plugin.message) {
+    return plugin.message;
+  }
+  if (!plugin.sourceExists) {
+    return "插件源码目录不可用，当前无法执行安装或更新。";
+  }
+  if (!plugin.installed) {
+    return "插件已经出现在市场中，但尚未同步到受控插件目录。";
+  }
+  if (plugin.needsUpdate) {
+    return "插件已安装，但仓库版本高于受控目录版本，可直接更新。";
+  }
+  if (!plugin.enabled) {
+    return "插件文件已就位，当前被标记为禁用。";
+  }
+  return "插件已进入桌面内核管理，可直接诊断或卸载。";
+}
+
+function statusLabel(state: ShellState) {
+  if (!state.cpaRuntime.sourceExists) {
+    return "后端源码缺失";
+  }
+  if (!isOfficialBackendSource(state)) {
+    return "后端未切换到官方基线";
+  }
+  if (!state.cpaRuntime.running) {
+    return "后端未运行";
+  }
+  return "统一内核运行中";
+}
+
+function sortPlugins(a: PluginRuntimeState, b: PluginRuntimeState) {
+  return (
+    Number(b.installed) - Number(a.installed) ||
+    Number(b.enabled) - Number(a.enabled) ||
+    Number(b.needsUpdate) - Number(a.needsUpdate) ||
+    a.name.localeCompare(b.name, "zh-CN")
+  );
+}
+
+function isPluginBusy(busyAction: string | null, pluginId: string) {
+  return busyAction === `plugin:${pluginId}`;
+}
+
+function StatusChip(props: {
+  label: string;
+  value: string;
+  tone: ChipTone;
+}) {
+  return (
+    <div className={`status-chip status-chip--${props.tone}`}>
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+    </div>
+  );
+}
+
+function MetricCard(props: { label: string; value: string; helper?: string }) {
+  return (
+    <div className="metric-card">
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+      {props.helper ? <p>{props.helper}</p> : null}
+    </div>
+  );
+}
+
+function SourceCard(props: {
+  title: string;
+  summary: string;
+  source: UpdateSourceState | null;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  const tone = sourceTone(props.source);
+
+  return (
+    <article className={`source-card source-card--${tone}`}>
+      <div className="source-card__header">
+        <div>
+          <p className="section-label">{props.title}</p>
+          <h3>{sourceToneLabel(props.source)}</h3>
+        </div>
+        {props.actionLabel && props.onAction ? (
+          <button
+            className="button button--ghost button--small"
+            onClick={props.onAction}
+            type="button"
+          >
+            {props.actionLabel}
+          </button>
+        ) : null}
+      </div>
+      <p className="source-card__summary">{props.summary}</p>
+      <dl className="detail-list">
+        <div>
+          <dt>本地路径</dt>
+          <dd>{props.source?.source ?? "未记录"}</dd>
+        </div>
+        <div>
+          <dt>当前提交</dt>
+          <dd>{shortRef(props.source?.currentRef ?? "")}</dd>
+        </div>
+        <div>
+          <dt>最新提交</dt>
+          <dd>{shortRef(props.source?.latestRef ?? "")}</dd>
+        </div>
+        <div>
+          <dt>本地改动</dt>
+          <dd>{boolLabel(props.source?.dirty ?? false)}</dd>
+        </div>
+      </dl>
+      <p className="source-card__message">
+        {props.source?.message ?? "尚未读取到源码快照状态。"}
+      </p>
+    </article>
+  );
+}
+
+function LogPanel(props: { title: string; lines: string[]; empty: string }) {
+  return (
+    <div className="log-panel">
+      <div className="log-panel__header">
+        <h3>{props.title}</h3>
+        <span>{props.lines.length} 条</span>
+      </div>
+      {props.lines.length === 0 ? (
+        <p className="log-panel__empty">{props.empty}</p>
+      ) : (
+        <div className="log-panel__body">
+          {props.lines.map((line, index) => (
+            <code className="log-line" key={`${props.title}-${index}`}>
+              {line}
+            </code>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function App() {
   const [state, setState] = useState<ShellState | null>(null);
+  const [selfTest, setSelfTest] = useState<SelfTestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [busyToken, setBusyToken] = useState<string | null>(null);
+  const [selfTesting, setSelfTesting] = useState(false);
 
   const loadState = () => {
     setLoading(true);
@@ -135,8 +290,10 @@ export function App() {
   const runAction = async (
     label: string,
     action: () => Promise<ShellState>,
+    busyKey = label,
   ) => {
     setBusyAction(label);
+    setBusyToken(busyKey);
     setNotice(null);
     setError(null);
 
@@ -145,7 +302,7 @@ export function App() {
       startTransition(() => {
         setState(nextState);
       });
-      setNotice(`${label} 已完成。`);
+      setNotice(`${label} 已完成`);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -154,6 +311,41 @@ export function App() {
       );
     } finally {
       setBusyAction(null);
+      setBusyToken(null);
+    }
+  };
+
+  const runPluginAction = (
+    plugin: PluginRuntimeState,
+    verb: string,
+    action: () => Promise<ShellState>,
+  ) => runAction(`${plugin.name}：${verb}`, action, `plugin:${plugin.id}`);
+
+  const runSelfTest = async () => {
+    setSelfTesting(true);
+    setNotice(null);
+    setError(null);
+
+    try {
+      const result = await window.cpad.runSelfTest();
+      startTransition(() => {
+        setSelfTest(result);
+      });
+
+      const shellState = await window.cpad.getShellState();
+      startTransition(() => {
+        setState(shellState);
+      });
+
+      setNotice(`全量自测完成：${result.summary}`);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : String(caughtError),
+      );
+    } finally {
+      setSelfTesting(false);
     }
   };
 
@@ -161,837 +353,650 @@ export function App() {
     void loadState();
   }, []);
 
-  if (error && !state) {
+  if (!state) {
+    if (error) {
+      return (
+        <main className="cpad-shell cpad-shell--error" data-cpad-view="error">
+          <section className="hero">
+            <p className="section-label">启动失败</p>
+            <h1>桌面内核未能读取状态</h1>
+            <p className="hero__copy">{error}</p>
+          </section>
+        </main>
+      );
+    }
+
     return (
-      <main className="app-shell">
-        <section className="hero-card hero-card--error">
-          <p className="eyebrow">启动失败</p>
-          <h1>桌面壳读取宿主状态失败</h1>
-          <p>{error}</p>
+      <main className="cpad-shell" data-cpad-ready="false">
+        <section className="hero">
+          <p className="section-label">CPAD Frontend Kernel</p>
+          <h1>正在装载统一产品内核</h1>
+          <p className="hero__copy">
+            正在读取 CPA Runtime、Codex、自测能力和仓库内源码快照。
+          </p>
         </section>
       </main>
     );
   }
 
-  if (!state || loading) {
-    return (
-      <main className="app-shell">
-        <section className="hero-card">
-          <p className="eyebrow">CPAD</p>
-          <h1>正在读取受控状态</h1>
-          <p>加载服务宿主、CPA Runtime、模式切换、更新中心与插件市场状态。</p>
-        </section>
-      </main>
-    );
-  }
-
-  const releaseChecks = buildReleaseChecks(state);
+  const officialCoreBaseline =
+    state.updateCenter.sources.find(
+      (source) => source.id === "official-core-baseline",
+    ) ?? null;
+  const officialPanelBaseline =
+    state.updateCenter.sources.find(
+      (source) => source.id === "official-panel-baseline",
+    ) ?? null;
+  const overlaySource =
+    state.updateCenter.sources.find((source) => source.id === "cpa-source") ??
+    null;
+  const installedPlugins = state.pluginMarket.plugins.filter(
+    (plugin) => plugin.installed,
+  );
+  const enabledPlugins = installedPlugins.filter((plugin) => plugin.enabled);
+  const outdatedPlugins = installedPlugins.filter((plugin) => plugin.needsUpdate);
+  const sortedPlugins = [...state.pluginMarket.plugins].sort(sortPlugins);
+  const selfTestPassedCount =
+    selfTest?.checks.filter((check) => check.ok).length ?? 0;
+  const panelRepository = state.cpaRuntime.configInsight.panelRepository;
+  const panelRepositoryLegacy = panelRepository.includes("CPA-UV");
+  const actionsDisabled = busyToken !== null || selfTesting;
 
   return (
-    <main className="app-shell">
-      <section className="hero-card">
-        <div className="hero-card__topline">
-          <p className="eyebrow">
-            {state.productShortName} / {state.milestone}
-          </p>
-          <div className="action-row">
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() => void loadState()}
-              type="button"
-            >
-              刷新总状态
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.installLayout.installRoot)
-              }
-              type="button"
-            >
-              打开安装目录
-            </button>
-          </div>
+    <main className="cpad-shell" data-cpad-ready="true" data-cpad-view="ready">
+      <section className="hero">
+        <div className="hero__topline">
+          <p className="section-label">CPAD Frontend Kernel</p>
+          <button
+            className="button button--ghost"
+            disabled={actionsDisabled}
+            onClick={() => void window.cpad.openPath(state.installLayout.installRoot)}
+            type="button"
+          >
+            打开安装目录
+          </button>
         </div>
-        <div className="hero-card__headline">
+
+        <div className="hero__headline">
           <div>
             <h1>{state.productShortName}</h1>
-            <p className="hero-card__tagline">{state.tagline}</p>
-            <div className="status-meta">
-              <span>服务模式: {state.service.mode}</span>
-              <span>服务阶段: {state.service.state}</span>
-              <span>更新时间: {formatTimestamp(state.service.updatedAt)}</span>
-            </div>
+            <p className="hero__tagline">{state.tagline}</p>
+            <p className="hero__copy">
+              当前首页继续保持 CPAD 自己的桌面内核，不回退到旧 HTML/WebUI
+              的直接搬运。插件市场、运行时、自测和源码基线现在都在同一层视图内收口。
+            </p>
           </div>
-          <div className="status-badge">
-            <span>当前里程碑</span>
-            <strong>{state.milestone}</strong>
+          <div className="hero__watermark" aria-hidden="true">
+            CPAD
           </div>
         </div>
-        <div className="hero-card__footer">
-          <p>版本 {state.version}</p>
-          <p>{notice ?? state.service.message ?? "等待宿主写入更多状态。"}</p>
+
+        <div className="chip-row">
+          <StatusChip
+            label="CPA Runtime"
+            tone={chipToneForRuntime(state)}
+            value={state.cpaRuntime.running ? "运行中" : "未运行"}
+          />
+          <StatusChip
+            label="Codex"
+            tone={chipToneForCodex(state)}
+            value={state.codex.globalExists ? "独立可用" : "未检测到"}
+          />
+          <StatusChip
+            label="官方后端"
+            tone={sourceTone(officialCoreBaseline) === "healthy" ? "ok" : "warn"}
+            value={sourceToneLabel(officialCoreBaseline)}
+          />
+          <StatusChip
+            label="插件市场"
+            tone={state.pluginMarket.sourceExists ? "ok" : "warn"}
+            value={`${enabledPlugins.length}/${state.pluginMarket.plugins.length} 已启用`}
+          />
         </div>
-        {error ? <p className="inline-error">{error}</p> : null}
+
+        <div className="metric-grid">
+          <MetricCard label="里程碑" value={state.milestone} />
+          <MetricCard label="版本" value={state.version} />
+          <MetricCard label="统一状态" value={statusLabel(state)} />
+          <MetricCard
+            label="最近自测"
+            value={
+              selfTest
+                ? `${selfTestPassedCount}/${selfTest.checks.length}`
+                : "未执行"
+            }
+            helper={selfTest ? formatTimestamp(selfTest.completedAt) : "尚未运行"}
+          />
+        </div>
+
+        <div className="hero__actions">
+          <button
+            className="button button--primary"
+            disabled={actionsDisabled}
+            onClick={() => void loadState()}
+            type="button"
+          >
+            {loading ? "刷新中..." : "刷新状态"}
+          </button>
+          <button
+            className="button button--secondary"
+            disabled={actionsDisabled}
+            onClick={() =>
+              void runAction("同步源码快照", () => window.cpad.syncOfficialBaselines())
+            }
+            type="button"
+          >
+            同步源码快照
+          </button>
+          <button
+            className="button button--secondary"
+            disabled={actionsDisabled}
+            onClick={() =>
+              void runAction("构建 CPA Runtime", () => window.cpad.buildCpaRuntime())
+            }
+            type="button"
+          >
+            构建后端
+          </button>
+          <button
+            className="button button--secondary"
+            disabled={actionsDisabled}
+            onClick={() =>
+              void runAction("启动 CPA Runtime", () => window.cpad.startCpaRuntime())
+            }
+            type="button"
+          >
+            启动后端
+          </button>
+          <button
+            className="button button--danger"
+            disabled={actionsDisabled}
+            onClick={() =>
+              void runAction("停止 CPA Runtime", () => window.cpad.stopCpaRuntime())
+            }
+            type="button"
+          >
+            停止后端
+          </button>
+          <button
+            className="button button--primary"
+            disabled={actionsDisabled}
+            onClick={() => void runSelfTest()}
+            type="button"
+          >
+            {selfTesting ? "自测中..." : "运行全量自测"}
+          </button>
+        </div>
+
+        {busyAction ? (
+          <p className="feedback feedback--busy">正在执行：{busyAction}</p>
+        ) : null}
+        {notice ? <p className="feedback feedback--notice">{notice}</p> : null}
+        {error ? <p className="feedback feedback--error">{error}</p> : null}
       </section>
 
-      <section className="overview-grid">
-        <article className="panel panel--warm">
+      <section className="panel-grid">
+        <section className="panel">
           <div className="panel__header">
-            <p className="eyebrow">产品边界</p>
-            <h2>当前桌面端职责面</h2>
+            <p className="section-label">统一产品视角</p>
+            <h2>当前运行与安装反馈</h2>
           </div>
-          <div className="chip-grid">
-            {state.primarySurfaces.map((item) => (
-              <span className="chip" key={item}>
-                {item}
-              </span>
-            ))}
-          </div>
-        </article>
 
-        <article className="panel panel--dark">
-          <div className="panel__header">
-            <p className="eyebrow">安装布局</p>
-            <h2>{state.installLayout.installRoot}</h2>
-          </div>
-          <div className="path-grid">
-            {pathList(state.installLayout.directories).map(
-              ([name, targetPath]) => (
-                <div className="path-row" key={name}>
-                  <span>{name}</span>
-                  <code>{targetPath}</code>
-                </div>
-              ),
-            )}
-            {pathList(state.installLayout.files).map(([name, targetPath]) => (
-              <div className="path-row path-row--file" key={name}>
-                <span>{name}</span>
-                <code>{targetPath}</code>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
+          <dl className="detail-list detail-list--wide">
+            <div>
+              <dt>安装目录</dt>
+              <dd>{state.installLayout.installRoot}</dd>
+            </div>
+            <div>
+              <dt>源码目录</dt>
+              <dd>{state.installLayout.directories.sources}</dd>
+            </div>
+            <div>
+              <dt>后端源码</dt>
+              <dd>{state.cpaRuntime.sourceRoot}</dd>
+            </div>
+            <div>
+              <dt>运行进程 PID</dt>
+              <dd>{formatPid(state.cpaRuntime.pid)}</dd>
+            </div>
+            <div>
+              <dt>健康检查</dt>
+              <dd>{state.cpaRuntime.healthCheck.message}</dd>
+            </div>
+            <div>
+              <dt>服务安装</dt>
+              <dd>{state.serviceManager.installed ? "已安装" : "未安装"}</dd>
+            </div>
+          </dl>
 
-      <section className="process-strip">
-        {state.processModel.map((processCard) => (
-          <article className="process-card" key={processCard.title}>
-            <p className="eyebrow">{processCard.title}</p>
-            <h3>{processCard.summary}</h3>
-            <ul>
-              {processCard.responsibilities.map((responsibility) => (
-                <li key={responsibility}>{responsibility}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </section>
-
-      <section className="overview-grid overview-grid--bottom">
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">首版自检</p>
-            <h2>发布前可用性检查</h2>
-          </div>
-          <p className="support-copy">
-            这组检查直接反映当前环境是否接近“可装、可跑、可控、可诊断”。
-          </p>
-          <ul className="check-list">
-            {releaseChecks.map((item) => (
-              <li key={item.label}>
-                <strong>{item.ok ? "OK" : "待补"}</strong>
-                {" "}
-                {item.label}
-                {"："}
-                {item.detail}
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">服务交付</p>
-            <h2>Windows 服务管理</h2>
-          </div>
-          <p className="support-copy">
-            安装、启动、停止和卸载正式服务宿主。涉及服务管理器写入时通常需要管理员权限。
-          </p>
-          <div className="action-row action-row--dense">
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || state.serviceManager.installed}
-              onClick={() =>
-                void runAction("安装服务", () => window.cpad.installService())
-              }
-              type="button"
+          {state.service.message ? (
+            <div
+              className={`inline-note ${
+                state.service.stale ? "inline-note--warn" : "inline-note--info"
+              }`}
             >
-              安装服务
-            </button>
-            <button
-              className="ghost-button"
-              disabled={
-                busyAction !== null ||
-                !state.serviceManager.installed ||
-                state.serviceManager.state === "running"
-              }
-              onClick={() =>
-                void runAction("启动服务", () => window.cpad.startService())
-              }
-              type="button"
-            >
-              启动服务
-            </button>
-            <button
-              className="ghost-button"
-              disabled={
-                busyAction !== null ||
-                !state.serviceManager.installed ||
-                state.serviceManager.state !== "running"
-              }
-              onClick={() =>
-                void runAction("停止服务", () => window.cpad.stopService())
-              }
-              type="button"
-            >
-              停止服务
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || !state.serviceManager.installed}
-              onClick={() =>
-                void runAction("卸载服务", () => window.cpad.removeService())
-              }
-              type="button"
-            >
-              卸载服务
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || !state.service.hostBinary}
-              onClick={() => void window.cpad.openPath(state.service.hostBinary)}
-              type="button"
-            >
-              打开服务二进制
-            </button>
-          </div>
-          <div className="path-grid">
-            <div className="path-row">
-              <span>installed</span>
-              <code>{formatBool(state.serviceManager.installed)}</code>
+              {state.service.message}
             </div>
-            <div className="path-row">
-              <span>state</span>
-              <code>{state.serviceManager.state}</code>
-            </div>
-            <div className="path-row">
-              <span>startType</span>
-              <code>{state.serviceManager.startType || "未安装"}</code>
-            </div>
-            <div className="path-row">
-              <span>binaryPath</span>
-              <code>{state.serviceManager.binaryPath || state.service.hostBinary}</code>
-            </div>
-          </div>
-        </article>
-
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">模式切换</p>
-            <h2>Codex 受控模式</h2>
-          </div>
-          <p className="support-copy">{state.codex.message}</p>
-          <div className="action-row action-row--dense">
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || state.codex.mode === "official"}
-              onClick={() =>
-                void runAction("切换到官方模式", () =>
-                  window.cpad.setCodexMode("official"),
-                )
-              }
-              type="button"
-            >
-              切到官方
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || state.codex.mode === "cpa"}
-              onClick={() =>
-                void runAction("切换到 CPA 模式", () =>
-                  window.cpad.setCodexMode("cpa"),
-                )
-              }
-              type="button"
-            >
-              切到 CPA
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() => void window.cpad.openPath(state.codex.modeFile)}
-              type="button"
-            >
-              打开模式文件
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() => void window.cpad.openUrl(OFFICIAL_CODEX_WINDOWS_GUIDE_URL)}
-              type="button"
-            >
-              官方 Windows 指南
-            </button>
-          </div>
-          <div className="path-grid">
-            <div className="path-row">
-              <span>currentMode</span>
-              <code>{state.codex.mode}</code>
-            </div>
-            <div className="path-row">
-              <span>shimPath</span>
-              <code>{state.codex.shimPath}</code>
-            </div>
-            <div className="path-row">
-              <span>targetPath</span>
-              <code>{state.codex.targetPath}</code>
-            </div>
-            <div className="path-row">
-              <span>targetExists</span>
-              <code>{state.codex.targetExists ? "true" : "false"}</code>
-            </div>
-            <div className="path-row">
-              <span>launchReady</span>
-              <code>{formatBool(state.codex.launchReady)}</code>
-            </div>
-            <div className="path-row">
-              <span>launchArgs</span>
-              <code>
-                {state.codex.launchArgs.length > 0
-                  ? state.codex.launchArgs.join(" ")
-                  : "(none)"}
-              </code>
-            </div>
-            <div className="path-row">
-              <span>launchMessage</span>
-              <code>{state.codex.launchMessage}</code>
-            </div>
-            <div className="path-row">
-              <span>updatedAt</span>
-              <code>{formatTimestamp(state.codex.updatedAt)}</code>
-            </div>
-          </div>
-          {state.codex.launchArgs.length > 0 ? (
-            <code className="command-line">
-              {`${state.codex.targetPath} ${state.codex.launchArgs.join(" ")}`}
-            </code>
           ) : null}
-          {state.codex.mode === "official" && !state.codex.targetExists ? (
-            <code className="command-line">
-              {"# OpenAI 当前官方 Windows 指南推荐在 WSL2 中安装 Codex CLI\n"}
-              {"wsl --install\n"}
-              {"wsl\n"}
-              {"npm i -g @openai/codex\n"}
-              {"codex"}
-            </code>
-          ) : null}
-          {state.codex.mode === "cpa" && !state.codex.launchReady ? (
-            <code className="command-line">
-              {"# 在 CPA Runtime 配置中启用 Codex App Server 根代理\n"}
-              {"codex-app-server-proxy:\n"}
-              {"  enable: true\n"}
-              {"  restrict-to-localhost: true\n"}
-              {"  codex-bin: \"codex\"\n"}
-              {"  use-pool-plan-type: true"}
-            </code>
-          ) : null}
-        </article>
 
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">后端接管</p>
-            <h2>CPA Runtime</h2>
-          </div>
-          <p className="support-copy">{state.cpaRuntime.message}</p>
-          <div className="action-row action-row--dense">
+          {panelRepositoryLegacy ? (
+            <div className="inline-note inline-note--warn">
+              当前后端配置仍保留旧的 `panel-github-repository`：
+              <code>{panelRepository}</code>。这说明运行链路虽然已经切到官方完整后端，
+              但旧控制面板配置还没有清干净。
+            </div>
+          ) : null}
+
+          {state.cpaRuntime.message ? (
+            <p className="panel__copy panel__copy--compact">
+              {state.cpaRuntime.message}
+            </p>
+          ) : null}
+
+          <div className="button-row">
             <button
-              className="ghost-button"
-              disabled={busyAction !== null || !state.cpaRuntime.sourceExists}
-              onClick={() =>
-                void runAction("构建 CPA Runtime", () =>
-                  window.cpad.buildCpaRuntime(),
-                )
-              }
-              type="button"
-            >
-              受控构建
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || state.cpaRuntime.running}
-              onClick={() =>
-                void runAction("启动 CPA Runtime", () =>
-                  window.cpad.startCpaRuntime(),
-                )
-              }
-              type="button"
-            >
-              启动 Runtime
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null || !state.cpaRuntime.running}
-              onClick={() =>
-                void runAction("停止 CPA Runtime", () =>
-                  window.cpad.stopCpaRuntime(),
-                )
-              }
-              type="button"
-            >
-              停止 Runtime
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openUrl(state.cpaRuntime.configInsight.healthUrl)
-              }
-              type="button"
-            >
-              打开 healthz
-            </button>
-            <button
-              className="ghost-button"
-              disabled={
-                busyAction !== null ||
-                !state.cpaRuntime.configInsight.controlPanelEnabled
-              }
-              onClick={() =>
-                void window.cpad.openUrl(
-                  state.cpaRuntime.configInsight.managementUrl,
-                )
-              }
-              type="button"
-            >
-              打开管理页
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openUrl(state.cpaRuntime.configInsight.usageUrl)
-              }
-              type="button"
-            >
-              打开 usage
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
+              className="button button--ghost button--small"
               onClick={() => void window.cpad.openPath(state.cpaRuntime.configPath)}
               type="button"
             >
-              打开配置
+              打开后端配置
             </button>
             <button
-              className="ghost-button"
-              disabled={busyAction !== null}
+              className="button button--ghost button--small"
               onClick={() => void window.cpad.openPath(state.cpaRuntime.logPath)}
               type="button"
             >
-              打开日志
+              打开后端日志
             </button>
-          </div>
-          <div className="path-grid">
-            <div className="path-row">
-              <span>phase</span>
-              <code>{state.cpaRuntime.phase}</code>
-            </div>
-            <div className="path-row">
-              <span>running</span>
-              <code>{formatBool(state.cpaRuntime.running)}</code>
-            </div>
-            <div className="path-row">
-              <span>pid</span>
-              <code>{formatPid(state.cpaRuntime.pid)}</code>
-            </div>
-            <div className="path-row">
-              <span>sourceExists</span>
-              <code>{formatBool(state.cpaRuntime.sourceExists)}</code>
-            </div>
-            <div className="path-row">
-              <span>binaryExists</span>
-              <code>{formatBool(state.cpaRuntime.binaryExists)}</code>
-            </div>
-            <div className="path-row">
-              <span>sourceRoot</span>
-              <code>{state.cpaRuntime.sourceRoot}</code>
-            </div>
-            <div className="path-row">
-              <span>managedBinary</span>
-              <code>{state.cpaRuntime.managedBinary}</code>
-            </div>
-            <div className="path-row">
-              <span>configPath</span>
-              <code>{state.cpaRuntime.configPath}</code>
-            </div>
-            <div className="path-row">
-              <span>logPath</span>
-              <code>{state.cpaRuntime.logPath}</code>
-            </div>
-            <div className="path-row">
-              <span>updatedAt</span>
-              <code>{formatTimestamp(state.cpaRuntime.updatedAt)}</code>
-            </div>
-          </div>
-          <div className="inline-status">
-            <span>host: {state.cpaRuntime.configInsight.host || "0.0.0.0 / all"}</span>
-            <span>port: {state.cpaRuntime.configInsight.port || "未解析"}</span>
-            <span>tls: {formatBool(state.cpaRuntime.configInsight.tlsEnabled)}</span>
-            <span>
-              managementEnabled:{" "}
-              {formatBool(state.cpaRuntime.configInsight.managementEnabled)}
-            </span>
-            <span>
-              controlPanelEnabled:{" "}
-              {formatBool(state.cpaRuntime.configInsight.controlPanelEnabled)}
-            </span>
-            <span>
-              rootProxyEnabled:{" "}
-              {formatBool(
-                state.cpaRuntime.configInsight.codexAppServerProxyEnabled,
-              )}
-            </span>
-            <span>
-              healthz:{" "}
-              {state.cpaRuntime.healthCheck.healthy
-                ? "pass"
-                : state.cpaRuntime.healthCheck.checked
-                  ? `fail(${state.cpaRuntime.healthCheck.statusCode || "n/a"})`
-                  : "not-checked"}
-            </span>
-          </div>
-          <div className="path-grid path-grid--compact">
-            <div className="path-row">
-              <span>baseUrl</span>
-              <code>{state.cpaRuntime.configInsight.baseUrl || "未解析"}</code>
-            </div>
-            <div className="path-row">
-              <span>healthUrl</span>
-              <code>{state.cpaRuntime.configInsight.healthUrl || "未解析"}</code>
-            </div>
-            <div className="path-row">
-              <span>managementUrl</span>
-              <code>
-                {state.cpaRuntime.configInsight.managementUrl || "未解析"}
-              </code>
-            </div>
-            <div className="path-row">
-              <span>usageUrl</span>
-              <code>{state.cpaRuntime.configInsight.usageUrl || "未解析"}</code>
-            </div>
-            <div className="path-row">
-              <span>panelRepository</span>
-              <code>
-                {state.cpaRuntime.configInsight.panelRepository || "未配置"}
-              </code>
-            </div>
-            <div className="path-row">
-              <span>healthMessage</span>
-              <code>{state.cpaRuntime.healthCheck.message || "未生成"}</code>
-            </div>
-            <div className="path-row">
-              <span>healthCheckedAt</span>
-              <code>{formatTimestamp(state.cpaRuntime.healthCheck.checkedAt)}</code>
-            </div>
-          </div>
-          {state.cpaRuntime.configInsight.codexAppServerProxyEnabled ? (
-            <code className="command-line">
-              {`codex --remote ${state.cpaRuntime.configInsight.codexRemoteUrl}`}
-            </code>
-          ) : null}
-        </article>
-
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">更新中心</p>
-            <h2>受控更新来源</h2>
-          </div>
-          <div className="action-row action-row--dense">
             <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void runAction("刷新更新中心", () => window.cpad.checkUpdates())
-              }
+              className="button button--ghost button--small"
+              onClick={() => void window.cpad.openPath(state.installLayout.directories.sources)}
               type="button"
             >
-              刷新更新来源
+              打开统一源码目录
             </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void runAction("同步官方双基线", () =>
-                  window.cpad.syncOfficialBaselines(),
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel__header">
+            <p className="section-label">源码整合</p>
+            <h2>三套源码快照已经进入当前仓库</h2>
+          </div>
+
+          <div className="source-grid">
+            <SourceCard
+              title="官方完整后端"
+              summary="受控 CPA Runtime 已从当前仓库内的官方完整后端源码构建。"
+              source={officialCoreBaseline}
+              actionLabel="打开仓库"
+              onAction={() => void window.cpad.openUrl(OFFICIAL_CORE_REPOSITORY_URL)}
+            />
+            <SourceCard
+              title="官方管理中心"
+              summary="当前仍是基线源码快照，后续会继续吸收到统一 CPAD 前端结构。"
+              source={officialPanelBaseline}
+              actionLabel="打开仓库"
+              onAction={() => void window.cpad.openUrl(OFFICIAL_PANEL_REPOSITORY_URL)}
+            />
+            <SourceCard
+              title="CPA-UV 覆盖层"
+              summary="作为覆盖层与参照物保留，不能继续作为默认首页或默认后端。"
+              source={overlaySource}
+              actionLabel="打开目录"
+              onAction={() =>
+                void window.cpad.openPath(
+                  state.installLayout.directories.cpaOverlaySource,
                 )
               }
-              type="button"
-            >
-              同步官方双基线
-            </button>
+            />
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel__header">
+            <p className="section-label">Codex 与自测</p>
+            <h2>当前只做隔离验证，不直接接开发版后端</h2>
+          </div>
+
+          <dl className="detail-list">
+            <div>
+              <dt>模式</dt>
+              <dd>{state.codex.mode}</dd>
+            </div>
+            <div>
+              <dt>系统 Codex</dt>
+              <dd>{state.codex.globalExists ? state.codex.globalPath : "未检测到"}</dd>
+            </div>
+            <div>
+              <dt>受控目标</dt>
+              <dd>{state.codex.targetPath}</dd>
+            </div>
+            <div>
+              <dt>启动说明</dt>
+              <dd>{state.codex.launchMessage}</dd>
+            </div>
+          </dl>
+
+          <p className="panel__copy">
+            当前策略是让 Codex 先以独立 CLI 方式完成全量自测，保证“像用户一样能跑测试”，
+            再决定是否继续下沉到受控运行时里。
+          </p>
+
+          <div className="button-row">
             <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.updateCenter.stateFile)
-              }
+              className="button button--ghost button--small"
+              onClick={() => void window.cpad.openUrl(OFFICIAL_CODEX_WINDOWS_GUIDE_URL)}
               type="button"
             >
-              打开状态文件
+              查看官方 Codex Windows 指南
             </button>
           </div>
-          <div className="source-list">
-            {state.updateCenter.sources.map((source) => (
-              <article className="source-card" key={source.id}>
-                <div className="source-card__top">
-                  <strong>{source.name}</strong>
-                  <span>{source.kind}</span>
-                </div>
-                <p>{source.message}</p>
-                <div className="inline-status">
-                  <span>current: {source.currentRef || "未建立"}</span>
-                  <span>latest: {source.latestRef || "未知"}</span>
-                  <span>dirty: {source.dirty ? "yes" : "no"}</span>
-                  <span>available: {source.available ? "yes" : "no"}</span>
-                </div>
-                <code>{source.source}</code>
-              </article>
-            ))}
-          </div>
-        </article>
+
+          {selfTest ? (
+            <div className="check-panel">
+              <div className="check-panel__header">
+                <strong>{selfTest.summary}</strong>
+                <span>{formatTimestamp(selfTest.completedAt)}</span>
+              </div>
+              <ul className="check-list">
+                {selfTest.checks.map((check) => (
+                  <li key={check.id} className={check.ok ? "check--ok" : "check--warn"}>
+                    <span>{check.label}</span>
+                    <code>{check.detail}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="panel__copy">
+              尚未执行全量自测。当前可通过上方按钮触发后端、页面、日志、Codex
+              独立执行的联合检查。
+            </p>
+          )}
+        </section>
       </section>
 
-      <section className="panel panel--market">
+      <section className="panel panel--full">
         <div className="panel__header">
           <div>
-            <p className="eyebrow">插件市场</p>
-            <h2>自有插件安装、更新、启停与诊断</h2>
+            <p className="section-label">插件市场</p>
+            <h2>插件状态与操作已经接入桌面内核</h2>
           </div>
-          <div className="action-row action-row--dense">
+          <div className="button-row button-row--tight">
             <button
-              className="ghost-button"
-              disabled={busyAction !== null}
+              className="button button--primary button--small"
+              disabled={actionsDisabled}
               onClick={() =>
-                void runAction("刷新插件市场", () =>
-                  window.cpad.refreshPluginMarket(),
+                void runAction(
+                  "刷新插件市场",
+                  () => window.cpad.refreshPluginMarket(),
+                  "plugin:refresh",
                 )
               }
               type="button"
             >
-              刷新插件清单
+              刷新插件市场
             </button>
             <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.pluginMarket.pluginsDir)
-              }
-              type="button"
-            >
-              打开安装插件目录
-            </button>
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.pluginMarket.sourceRoot)
-              }
+              className="button button--ghost button--small"
+              disabled={actionsDisabled}
+              onClick={() => void window.cpad.openPath(state.pluginMarket.sourceRoot)}
               type="button"
             >
               打开插件源目录
             </button>
+            <button
+              className="button button--ghost button--small"
+              disabled={actionsDisabled}
+              onClick={() => void window.cpad.openPath(state.pluginMarket.pluginsDir)}
+              type="button"
+            >
+              打开受控插件目录
+            </button>
+            <button
+              className="button button--ghost button--small"
+              disabled={actionsDisabled}
+              onClick={() => void window.cpad.openPath(state.pluginMarket.statePath)}
+              type="button"
+            >
+              打开插件状态文件
+            </button>
           </div>
         </div>
-        <p className="support-copy">
-          当前插件源目录：<code>{state.pluginMarket.sourceRoot}</code>
-          {"；"}最近刷新：{formatTimestamp(state.pluginMarket.updatedAt)}
+
+        <p className="panel__copy">
+          安装、卸载、启用、禁用、诊断和刷新都直接反馈到当前首页，不再让插件市场停留在只读展示。
         </p>
-        {state.pluginMarket.plugins.length === 0 ? (
-          <div className="empty-state">
-            <p>
-              当前还没有已加载的插件清单。先刷新插件市场，再执行安装或诊断。
-            </p>
+
+        <div className="metric-grid metric-grid--compact">
+          <MetricCard label="市场总数" value={String(state.pluginMarket.plugins.length)} />
+          <MetricCard label="已安装" value={String(installedPlugins.length)} />
+          <MetricCard label="已启用" value={String(enabledPlugins.length)} />
+          <MetricCard
+            label="待更新"
+            value={String(outdatedPlugins.length)}
+            helper={formatTimestamp(state.pluginMarket.updatedAt)}
+          />
+        </div>
+
+        {!state.pluginMarket.sourceExists ? (
+          <div className="inline-note inline-note--warn">
+            当前插件源目录不存在：<code>{state.pluginMarket.sourceRoot}</code>
           </div>
+        ) : null}
+
+        {sortedPlugins.length === 0 ? (
+          <p className="panel__copy">
+            插件市场当前没有可展示的插件。可以先执行“刷新插件市场”重建清单。
+          </p>
         ) : (
-          <div className="plugin-grid">
-            {state.pluginMarket.plugins.map((plugin) => (
-              <article className="plugin-card" key={plugin.id}>
-                <div className="plugin-card__header">
-                  <div>
-                    <p className="eyebrow">{plugin.id}</p>
-                    <h3>{plugin.name}</h3>
+          <div className="plugin-list">
+            {sortedPlugins.map((plugin) => {
+              const cardTone = pluginTone(plugin);
+              const pluginBusy = isPluginBusy(busyToken, plugin.id);
+              const installLabel = !plugin.installed
+                ? "安装"
+                : plugin.needsUpdate
+                  ? "更新"
+                  : "已是最新";
+
+              return (
+                <article
+                  className={`plugin-card plugin-card--${cardTone}`}
+                  key={plugin.id}
+                >
+                  <div className="plugin-card__header">
+                    <div className="plugin-card__headline">
+                      <div className="plugin-card__eyebrow">
+                        <span className="section-label">Plugin</span>
+                        <code>{plugin.id}</code>
+                        {pluginBusy ? (
+                          <span className="plugin-card__busy">执行中</span>
+                        ) : null}
+                      </div>
+                      <h3>{plugin.name}</h3>
+                      <p>{plugin.description || "未填写插件描述。"}</p>
+                    </div>
+                    <span className={`plugin-card__status plugin-card__status--${cardTone}`}>
+                      {pluginSummary(plugin)}
+                    </span>
                   </div>
-                  <span className="plugin-version">{plugin.version}</span>
-                </div>
-                <p className="plugin-description">{plugin.description}</p>
-                <div className="inline-status">
-                  <span>{pluginSummary(plugin)}</span>
-                  <span>源目录: {plugin.sourceExists ? "ok" : "missing"}</span>
-                  <span>README: {plugin.readmeExists ? "yes" : "no"}</span>
-                </div>
-                <div className="action-row action-row--dense">
-                  <button
-                    className="ghost-button"
-                    disabled={busyAction !== null || !plugin.sourceExists}
-                    onClick={() =>
-                      void runAction(
-                        plugin.installed
-                          ? `更新 ${plugin.id}`
-                          : `安装 ${plugin.id}`,
-                        () =>
-                          plugin.installed
-                            ? window.cpad.updatePlugin(plugin.id)
-                            : window.cpad.installPlugin(plugin.id),
-                      )
-                    }
-                    type="button"
-                  >
-                    {plugin.installed ? "更新" : "安装"}
-                  </button>
-                  <button
-                    className="ghost-button"
-                    disabled={
-                      busyAction !== null || !plugin.installed || plugin.enabled
-                    }
-                    onClick={() =>
-                      void runAction(`启用 ${plugin.id}`, () =>
-                        window.cpad.enablePlugin(plugin.id),
-                      )
-                    }
-                    type="button"
-                  >
-                    启用
-                  </button>
-                  <button
-                    className="ghost-button"
-                    disabled={
-                      busyAction !== null ||
-                      !plugin.installed ||
-                      !plugin.enabled
-                    }
-                    onClick={() =>
-                      void runAction(`禁用 ${plugin.id}`, () =>
-                        window.cpad.disablePlugin(plugin.id),
-                      )
-                    }
-                    type="button"
-                  >
-                    禁用
-                  </button>
-                  <button
-                    className="ghost-button"
-                    disabled={busyAction !== null}
-                    onClick={() =>
-                      void runAction(`诊断 ${plugin.id}`, () =>
-                        window.cpad.diagnosePlugin(plugin.id),
-                      )
-                    }
-                    type="button"
-                  >
-                    诊断
-                  </button>
-                </div>
-                <div className="path-grid path-grid--compact">
-                  <div className="path-row">
-                    <span>sourcePath</span>
-                    <code>{plugin.sourcePath}</code>
+
+                  <div className="plugin-card__meta">
+                    <div>
+                      <span>仓库版本</span>
+                      <strong>{plugin.version || "未记录"}</strong>
+                    </div>
+                    <div>
+                      <span>已装版本</span>
+                      <strong>{plugin.installedVersion || "未安装"}</strong>
+                    </div>
+                    <div>
+                      <span>源码状态</span>
+                      <strong>{plugin.sourceExists ? "可用" : "缺失"}</strong>
+                    </div>
+                    <div>
+                      <span>最近反馈</span>
+                      <strong>{formatTimestamp(plugin.updatedAt)}</strong>
+                    </div>
                   </div>
-                  <div className="path-row">
-                    <span>installPath</span>
-                    <code>{plugin.installPath}</code>
+
+                  <p className="plugin-card__message">{pluginMessage(plugin)}</p>
+
+                  <div className="plugin-card__actions">
+                    <button
+                      className="button button--primary button--small"
+                      disabled={
+                        actionsDisabled ||
+                        !plugin.sourceExists ||
+                        (plugin.installed && !plugin.needsUpdate)
+                      }
+                      onClick={() =>
+                        void runPluginAction(
+                          plugin,
+                          plugin.installed ? "更新插件" : "安装插件",
+                          () =>
+                            plugin.installed
+                              ? window.cpad.updatePlugin(plugin.id)
+                              : window.cpad.installPlugin(plugin.id),
+                        )
+                      }
+                      type="button"
+                    >
+                      {installLabel}
+                    </button>
+                    <button
+                      className="button button--secondary button--small"
+                      disabled={actionsDisabled || !plugin.installed || plugin.enabled}
+                      onClick={() =>
+                        void runPluginAction(plugin, "启用插件", () =>
+                          window.cpad.enablePlugin(plugin.id),
+                        )
+                      }
+                      type="button"
+                    >
+                      启用
+                    </button>
+                    <button
+                      className="button button--secondary button--small"
+                      disabled={actionsDisabled || !plugin.installed || !plugin.enabled}
+                      onClick={() =>
+                        void runPluginAction(plugin, "禁用插件", () =>
+                          window.cpad.disablePlugin(plugin.id),
+                        )
+                      }
+                      type="button"
+                    >
+                      禁用
+                    </button>
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={actionsDisabled || !plugin.installed}
+                      onClick={() =>
+                        void runPluginAction(plugin, "诊断插件", () =>
+                          window.cpad.diagnosePlugin(plugin.id),
+                        )
+                      }
+                      type="button"
+                    >
+                      诊断
+                    </button>
+                    <button
+                      className="button button--danger button--small"
+                      disabled={actionsDisabled || !plugin.installed}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `确认卸载插件“${plugin.name}”吗？这会移除受控插件目录中的已安装副本。`,
+                          )
+                        ) {
+                          return;
+                        }
+
+                        void runPluginAction(plugin, "卸载插件", () =>
+                          window.cpad.uninstallPlugin(plugin.id),
+                        );
+                      }}
+                      type="button"
+                    >
+                      卸载
+                    </button>
                   </div>
-                  <div className="path-row">
-                    <span>installedVersion</span>
-                    <code>{plugin.installedVersion || "尚未安装"}</code>
+
+                  <div className="plugin-card__tools">
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={actionsDisabled || !plugin.sourceExists}
+                      onClick={() => void window.cpad.openPath(plugin.sourcePath)}
+                      type="button"
+                    >
+                      打开源码
+                    </button>
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={actionsDisabled || !plugin.readmeExists}
+                      onClick={() => void window.cpad.openPath(plugin.readmePath)}
+                      type="button"
+                    >
+                      打开 README
+                    </button>
+                    <button
+                      className="button button--ghost button--small"
+                      disabled={actionsDisabled || !plugin.installed}
+                      onClick={() => void window.cpad.openPath(plugin.installPath)}
+                      type="button"
+                    >
+                      打开安装目录
+                    </button>
                   </div>
-                  <div className="path-row">
-                    <span>updatedAt</span>
-                    <code>{formatTimestamp(plugin.updatedAt)}</code>
-                  </div>
-                </div>
-                <p className="plugin-message">
-                  {plugin.message || "等待插件动作写入状态。"}
-                </p>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
+
+        <div className="log-stack">
+          <LogPanel
+            title="CPA Runtime 日志"
+            lines={state.logs.cpaRuntimeTail}
+            empty="当前没有读取到后端日志。"
+          />
+          <LogPanel
+            title="服务宿主日志"
+            lines={state.logs.serviceTail}
+            empty="当前没有读取到服务日志。"
+          />
+        </div>
       </section>
 
-      <section className="overview-grid">
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">日志与诊断</p>
-            <h2>服务宿主日志预览</h2>
-          </div>
-          <div className="action-row action-row--dense">
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.logs.serviceLogPath)
-              }
-              type="button"
-            >
-              打开服务日志
-            </button>
-          </div>
-          <div className="log-preview">
-            {state.logs.serviceTail.length === 0 ? (
-              <p className="log-empty">当前还没有服务日志内容。</p>
-            ) : (
-              state.logs.serviceTail.map((line, index) => (
-                <code className="log-line" key={`${index}-${line}`}>
-                  {line}
-                </code>
-              ))
-            )}
-          </div>
-        </article>
+      <section className="panel panel--full">
+        <div className="panel__header">
+          <p className="section-label">统一结构目标</p>
+          <h2>当前这些模块会继续吸收成一个整体 CPAD 源码仓</h2>
+        </div>
 
-        <article className="panel">
-          <div className="panel__header">
-            <p className="eyebrow">日志与诊断</p>
-            <h2>CPA Runtime 日志预览</h2>
-          </div>
-          <div className="action-row action-row--dense">
-            <button
-              className="ghost-button"
-              disabled={busyAction !== null}
-              onClick={() =>
-                void window.cpad.openPath(state.logs.cpaRuntimeLogPath)
-              }
-              type="button"
-            >
-              打开 Runtime 日志
-            </button>
-          </div>
-          <div className="log-preview">
-            {state.logs.cpaRuntimeTail.length === 0 ? (
-              <p className="log-empty">当前还没有 CPA Runtime 日志内容。</p>
-            ) : (
-              state.logs.cpaRuntimeTail.map((line, index) => (
-                <code className="log-line" key={`${index}-${line}`}>
-                  {line}
-                </code>
-              ))
-            )}
-          </div>
-        </article>
+        <div className="stack-grid">
+          {state.processModel.map((card) => (
+            <article className="stack-card" key={card.title}>
+              <p className="section-label">{card.title}</p>
+              <h3>{card.summary}</h3>
+              <ul>
+                {card.responsibilities.map((responsibility) => (
+                  <li key={responsibility}>{responsibility}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+
+        <div className="surface-strip">
+          {state.primarySurfaces.map((surface) => (
+            <span className="surface-pill" key={surface}>
+              {surface}
+            </span>
+          ))}
+        </div>
       </section>
     </main>
   );

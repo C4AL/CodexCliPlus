@@ -5,8 +5,9 @@ Builds the Windows packaging inputs for Cli Proxy API Desktop.
 
 .DESCRIPTION
 Builds the Go service binary and Codex shim first, then builds the Electron app,
-then packages Windows distributables with Electron Builder. Each step stops on
-failure and verifies the expected output files.
+then packages Windows distributables with Electron Builder. By default this
+produces only the real release artifacts (Setup and Portable). A separate
+layout-preview mode exposes the unpacked app root for inspection.
 
 .PARAMETER DryRun
 Prints the commands and output checks without running the builds.
@@ -14,8 +15,14 @@ Prints the commands and output checks without running the builds.
 .PARAMETER PrepareOnly
 Builds the packaging inputs but skips the Electron Builder packaging step.
 
-.PARAMETER DirOnly
-Packages only the unpacked Windows directory target.
+.PARAMETER UseExistingPackagingInputs
+Skips rebuilding Go and Electron packaging inputs and reuses the existing service/bin and out/ artifacts.
+
+.PARAMETER SkipElectronBuild
+Skips electron-vite build and reuses the existing out/ bundle.
+
+.PARAMETER LayoutOnly
+Packages only the unpacked Windows app image and renames it to layout-preview.
 
 .PARAMETER PortableOnly
 Packages only the portable EXE target.
@@ -24,20 +31,52 @@ Packages only the portable EXE target.
 powershell -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1
 
 .EXAMPLE
-pwsh -File .\scripts\package-windows.ps1 -DryRun
+pwsh -File .\scripts\package-windows.ps1 -LayoutOnly
 #>
 [CmdletBinding(DefaultParameterSetName = "Default")]
 param(
     [switch]$DryRun,
     [switch]$PrepareOnly,
-    [Parameter(ParameterSetName = "DirOnly")]
-    [switch]$DirOnly,
+    [switch]$UseExistingPackagingInputs,
+    [switch]$SkipElectronBuild,
+    [Parameter(ParameterSetName = "LayoutOnly")]
+    [Alias("DirOnly")]
+    [switch]$LayoutOnly,
     [Parameter(ParameterSetName = "PortableOnly")]
     [switch]$PortableOnly
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+function Resolve-AbsolutePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Assert-PathWithinRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $normalizedRoot = (Resolve-AbsolutePath -Path $Root).TrimEnd('\') + '\'
+    $normalizedPath = Resolve-AbsolutePath -Path $Path
+
+    if (-not $normalizedPath.StartsWith($normalizedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw ("Refusing to operate on {0} outside {1}: {2}" -f $Label, $normalizedRoot, $normalizedPath)
+    }
+}
 
 function Write-Step {
     param(
@@ -162,12 +201,108 @@ function Assert-Directory {
     Write-Host ("    verified {0}: {1}" -f $Description, $Path) -ForegroundColor DarkGreen
 }
 
+function Remove-ManagedPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    Assert-PathWithinRoot -Root $Root -Path $Path -Label $Description
+
+    if ($DryRun) {
+        Write-Host ("    would remove {0}: {1}" -f $Description, $Path)
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    Remove-Item -LiteralPath $Path -Recurse -Force
+    Write-Host ("    removed {0}: {1}" -f $Description, $Path) -ForegroundColor DarkYellow
+}
+
+function Move-ManagedDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Source,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Destination,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Description
+    )
+
+    Assert-PathWithinRoot -Root $Root -Path $Source -Label ($Description + " source")
+    Assert-PathWithinRoot -Root $Root -Path $Destination -Label ($Description + " destination")
+
+    if ($DryRun) {
+        Write-Host ("    would move {0}: {1} -> {2}" -f $Description, $Source, $Destination)
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
+        throw ("Expected {0} source directory at '{1}', but it was not found." -f $Description, $Source)
+    }
+
+    if (Test-Path -LiteralPath $Destination) {
+        Remove-ManagedPath -Root $Root -Path $Destination -Description ($Description + " destination")
+    }
+
+    Move-Item -LiteralPath $Source -Destination $Destination
+    Write-Host ("    moved {0}: {1} -> {2}" -f $Description, $Source, $Destination) -ForegroundColor DarkGreen
+}
+
+function Clear-ReleaseOutputs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ReleaseRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$FixedPaths
+    )
+
+    if (-not (Test-Path -LiteralPath $ReleaseRoot -PathType Container) -and -not $DryRun) {
+        return
+    }
+
+    Write-Step -Message "Clean previous release outputs"
+
+    foreach ($path in $FixedPaths) {
+        Remove-ManagedPath -Root $ReleaseRoot -Path $path -Description "previous release output"
+    }
+
+    if ($DryRun) {
+        Write-Host ("    would remove release blockmaps under {0}" -f $ReleaseRoot)
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $ReleaseRoot -PathType Container)) {
+        return
+    }
+
+    Get-ChildItem -LiteralPath $ReleaseRoot -Filter "*.blockmap" -File -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            Remove-ManagedPath -Root $ReleaseRoot -Path $_.FullName -Description "previous release blockmap"
+        }
+}
+
 if ($env:OS -ne "Windows_NT") {
     throw "This packaging helper is Windows-only."
 }
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = (Resolve-Path (Join-Path $scriptRoot "..")).Path
+$repoRoot = Resolve-AbsolutePath -Path (Join-Path $scriptRoot "..")
 
 $packageJsonPath = Join-Path $repoRoot "package.json"
 $serviceGoModPath = Join-Path (Join-Path $repoRoot "service") "go.mod"
@@ -189,7 +324,7 @@ $electronOutDir = Join-Path $repoRoot "out"
 $electronMainPath = Join-Path (Join-Path $electronOutDir "main") "index.js"
 $electronPreloadPath = Join-Path (Join-Path $electronOutDir "preload") "index.js"
 $electronRendererPath = Join-Path (Join-Path $electronOutDir "renderer") "index.html"
-$releaseDir = Join-Path $repoRoot "release"
+$releaseDir = Resolve-AbsolutePath -Path (Join-Path $repoRoot "release")
 
 $packageMetadata = Get-Content -Raw -LiteralPath $packageJsonPath | ConvertFrom-Json
 $version = [string]$packageMetadata.version
@@ -200,30 +335,56 @@ if ([string]::IsNullOrWhiteSpace($version)) {
 $expectedPortablePath = Join-Path $releaseDir ("Cli Proxy API Desktop-Portable-{0}-x64.exe" -f $version)
 $expectedSetupPath = Join-Path $releaseDir ("Cli Proxy API Desktop-Setup-{0}-x64.exe" -f $version)
 $expectedUnpackedDir = Join-Path $releaseDir "win-unpacked"
+$expectedLayoutPreviewDir = Join-Path $releaseDir "layout-preview"
+$expectedLatestYmlPath = Join-Path $releaseDir "latest.yml"
+$expectedBuilderDebugPath = Join-Path $releaseDir "builder-debug.yml"
 
 $builderTargets = @()
-if ($DirOnly) {
+if ($LayoutOnly) {
     $builderTargets = @("dir")
 } elseif ($PortableOnly) {
     $builderTargets = @("portable")
 } else {
-    $builderTargets = @("nsis", "portable", "dir")
+    $builderTargets = @("nsis", "portable")
 }
+
+$releaseArtifactsToClean = @(
+    $expectedPortablePath,
+    $expectedSetupPath,
+    $expectedUnpackedDir,
+    $expectedLayoutPreviewDir,
+    $expectedLatestYmlPath,
+    $expectedBuilderDebugPath
+)
 
 Push-Location $repoRoot
 try {
-    Invoke-StepCommand -Name "Build Go service binary for packaging" -Command $npmCommand -Arguments @("run", "build:service")
+    if ($UseExistingPackagingInputs) {
+        Write-Step -Message "Reuse existing Go service binary for packaging"
+    } else {
+        Invoke-StepCommand -Name "Build Go service binary for packaging" -Command $npmCommand -Arguments @("run", "build:service")
+    }
     Assert-Artifact -Path $serviceBinaryPath -Description "Go service binary"
 
-    Invoke-StepCommand -Name "Build Go Codex shim for packaging" -Command $npmCommand -Arguments @("run", "build:shim")
+    if ($UseExistingPackagingInputs) {
+        Write-Step -Message "Reuse existing Go Codex shim for packaging"
+    } else {
+        Invoke-StepCommand -Name "Build Go Codex shim for packaging" -Command $npmCommand -Arguments @("run", "build:shim")
+    }
     Assert-Artifact -Path $shimBinaryPath -Description "Go Codex shim"
 
-    Invoke-StepCommand -Name "Build Electron app bundle for packaging" -Command $npmCommand -Arguments @("run", "build")
+    if ($UseExistingPackagingInputs -or $SkipElectronBuild) {
+        Write-Step -Message "Reuse existing Electron app bundle"
+    } else {
+        Invoke-StepCommand -Name "Build Electron app bundle for packaging" -Command $npmCommand -Arguments @("run", "build")
+    }
     Assert-Artifact -Path $electronMainPath -Description "Electron main bundle"
     Assert-Artifact -Path $electronPreloadPath -Description "Electron preload bundle"
     Assert-Artifact -Path $electronRendererPath -Description "Electron renderer entrypoint"
 
     if (-not $PrepareOnly) {
+        Clear-ReleaseOutputs -ReleaseRoot $releaseDir -FixedPaths $releaseArtifactsToClean
+
         $previousAutoDiscovery = $env:CSC_IDENTITY_AUTO_DISCOVERY
         $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
 
@@ -247,9 +408,15 @@ try {
             }
         }
 
-        Assert-Directory -Path $expectedUnpackedDir -Description "unpacked Windows app directory"
+        Remove-ManagedPath -Root $releaseDir -Path $expectedBuilderDebugPath -Description "electron-builder debug manifest"
 
-        if (-not $DirOnly) {
+        if ($LayoutOnly) {
+            Assert-Directory -Path $expectedUnpackedDir -Description "Electron Builder unpacked app image"
+            Move-ManagedDirectory -Root $releaseDir -Source $expectedUnpackedDir -Destination $expectedLayoutPreviewDir -Description "layout preview"
+            Assert-Directory -Path $expectedLayoutPreviewDir -Description "layout preview directory"
+        } else {
+            Remove-ManagedPath -Root $releaseDir -Path $expectedUnpackedDir -Description "intermediate unpacked app image"
+
             if ($PortableOnly) {
                 Assert-Artifact -Path $expectedPortablePath -Description "portable Windows executable"
             } else {
@@ -269,14 +436,18 @@ if ($PrepareOnly) {
     Write-Host ("  Service:  {0}" -f $serviceBinaryPath)
     Write-Host ("  Shim:     {0}" -f $shimBinaryPath)
     Write-Host ("  Electron: {0}" -f $electronOutDir)
+} elseif ($LayoutOnly) {
+    Write-Host "Windows layout preview is ready:" -ForegroundColor Green
+    Write-Host ("  Release: {0}" -f $releaseDir)
+    Write-Host ("  Layout:  {0}" -f $expectedLayoutPreviewDir)
 } else {
     Write-Host "Windows distributables are ready:" -ForegroundColor Green
     Write-Host ("  Release:  {0}" -f $releaseDir)
-    Write-Host ("  Unpacked: {0}" -f $expectedUnpackedDir)
     if ($PortableOnly) {
         Write-Host ("  Portable: {0}" -f $expectedPortablePath)
-    } elseif (-not $DirOnly) {
+    } else {
         Write-Host ("  Setup:    {0}" -f $expectedSetupPath)
         Write-Host ("  Portable: {0}" -f $expectedPortablePath)
+        Write-Host ("  Preview:  npm run dist:win:layout")
     }
 }

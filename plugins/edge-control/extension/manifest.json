@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Codex Edge Control Bridge",
+  "version": "0.1.7",
+  "description": "Bridge the local Edge browser to Codex through a localhost control channel.",
+  "permissions": [
+    "alarms",
+    "debugger",
+    "scripting",
+    "storage",
+    "tabs",
+    "windows"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker-v4.js"
+  },
+  "action": {
+    "default_title": "Codex Edge Control"
+  }
+}

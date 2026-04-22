@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "edge-control": {
+      "command": "node",
+      "args": [
+        "./scripts/mcp-server.mjs"
+      ]
+    }
+  }
+}

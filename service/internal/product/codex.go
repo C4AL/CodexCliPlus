@@ -30,6 +30,8 @@ type CodexShimResolution struct {
 	ShimPath      string    `json:"shimPath"`
 	TargetPath    string    `json:"targetPath"`
 	TargetExists  bool      `json:"targetExists"`
+	GlobalPath    string    `json:"globalPath"`
+	GlobalExists  bool      `json:"globalExists"`
 	LaunchArgs    []string  `json:"launchArgs"`
 	LaunchReady   bool      `json:"launchReady"`
 	LaunchMessage string    `json:"launchMessage"`
@@ -151,6 +153,7 @@ func ResolveCodexShim(layout Layout) (CodexShimResolution, error) {
 	}
 
 	targetPath, targetExists := resolveFirstExisting(CodexRuntimeCandidates(layout, state.Mode))
+	globalPath := ResolveGlobalCodexExecutable()
 	launchArgs, launchReady, launchMessage := resolveCodexLaunchPlan(layout, state.Mode, targetExists)
 	if launchArgs == nil {
 		launchArgs = []string{}
@@ -162,6 +165,8 @@ func ResolveCodexShim(layout Layout) (CodexShimResolution, error) {
 		ShimPath:      CodexShimPath(layout),
 		TargetPath:    targetPath,
 		TargetExists:  targetExists,
+		GlobalPath:    globalPath,
+		GlobalExists:  globalPath != "",
 		LaunchArgs:    launchArgs,
 		LaunchReady:   launchReady,
 		LaunchMessage: launchMessage,
@@ -177,6 +182,14 @@ func resolveCodexLaunchPlan(layout Layout, mode CodexMode, targetExists bool) ([
 
 	if mode != CodexModeCPA {
 		return nil, true, "官方模式将直接调用受控 Codex Runtime。"
+	}
+
+	sourceRoot := ResolveCurrentManagedCPASourceRoot(layout)
+	if !ManagedCPASourceSupportsCodexRemote(sourceRoot) {
+		return nil, false, fmt.Sprintf(
+			"CPA 模式当前受控后端源码为 %s；运行链路已收口到官方源码树，不再直接把本地 Codex 接入开发版 CPAD 后端。",
+			sourceRoot,
+		)
 	}
 
 	insight, err := inspectCPARuntimeConfig(CPAManagedConfigPath(layout))

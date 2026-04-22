@@ -1,0 +1,16 @@
+﻿{
+    "kind":  "plugin-source-bundle",
+    "installDirectory":  "plugin-source",
+    "generatedAt":  "2026-04-22T17:15:29.7699222Z",
+    "entries":  [
+                    {
+                        "id":  "edge-control",
+                        "name":  "edge-control",
+                        "directory":  "edge-control",
+                        "installDirectory":  "plugin-source",
+                        "syncedPath":  "C:\\Users\\Reol\\workspace\\Cli-Proxy-API-Desktop\\plugins\\edge-control",
+                        "sourcePath":  "C:\\Users\\Reol\\plugins\\edge-control",
+                        "manifestFile":  ".cpad-source.json"
+                    }
+                ]
+}

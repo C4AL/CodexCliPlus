@@ -9,6 +9,21 @@ import type {
   UpdateCenterState,
 } from "./product";
 
+export type SelfTestCheck = {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+};
+
+export type SelfTestResult = {
+  startedAt: string;
+  completedAt: string;
+  success: boolean;
+  summary: string;
+  checks: SelfTestCheck[];
+};
+
 export type ShellState = {
   productName: string;
   productShortName: string;
@@ -44,6 +59,7 @@ export type CpadApi = {
   getShellState: () => Promise<ShellState>;
   openPath: (targetPath: string) => Promise<string>;
   openUrl: (targetUrl: string) => Promise<void>;
+  runSelfTest: () => Promise<SelfTestResult>;
   installService: () => Promise<ShellState>;
   removeService: () => Promise<ShellState>;
   startService: () => Promise<ShellState>;
@@ -54,6 +70,7 @@ export type CpadApi = {
   stopCpaRuntime: () => Promise<ShellState>;
   refreshPluginMarket: () => Promise<ShellState>;
   installPlugin: (id: string) => Promise<ShellState>;
+  uninstallPlugin: (id: string) => Promise<ShellState>;
   updatePlugin: (id: string) => Promise<ShellState>;
   enablePlugin: (id: string) => Promise<ShellState>;
   disablePlugin: (id: string) => Promise<ShellState>;

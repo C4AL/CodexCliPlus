@@ -4,7 +4,10 @@ param(
     [int]$Count = 50,
     [int]$BasePort = 9222,
     [int]$StartupTimeoutSec = 20,
-    [switch]$SkipSingleInstanceCheck
+    [switch]$SkipSingleInstanceCheck,
+    [string]$ExePath,
+    [string]$TempRoot,
+    [string]$OutputJsonPath
 )
 
 Set-StrictMode -Version Latest
@@ -189,84 +192,130 @@ function Test-SingleInstanceLock {
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path (Join-Path $scriptRoot "..")).Path
-$exePath = Join-Path $repoRoot "release\\win-unpacked\\Cli Proxy API Desktop.exe"
-$tempRoot = Join-Path $env:TEMP "cpad-debug-loops"
-
-if (-not (Test-Path -LiteralPath $exePath -PathType Leaf)) {
-    throw "Packaged app not found: $exePath. Run npm run dist:win first."
+if ([string]::IsNullOrWhiteSpace($ExePath)) {
+    $ExePath = Join-Path $repoRoot "release\\win-unpacked\\Cli Proxy API Desktop.exe"
+} else {
+    $ExePath = (Resolve-Path -LiteralPath $ExePath).Path
+}
+if ([string]::IsNullOrWhiteSpace($TempRoot)) {
+    $TempRoot = Join-Path $env:TEMP "cpad-debug-loops"
 }
 
-New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
-
-if (-not $SkipSingleInstanceCheck) {
-    Test-SingleInstanceLock -ExePath $exePath -TempRoot $tempRoot -BasePort $BasePort -StartupTimeoutSec $StartupTimeoutSec
+if (-not (Test-Path -LiteralPath $ExePath -PathType Leaf)) {
+    throw "Packaged app not found: $ExePath. Run npm run dist:win first."
 }
+
+New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
+$singleInstanceStatus = [pscustomobject]@{
+    skipped = [bool]$SkipSingleInstanceCheck
+    status = if ($SkipSingleInstanceCheck) { "skipped" } else { "pending" }
+}
+$failureMessage = $null
 
-for ($index = 1; $index -le $Count; $index++) {
-    $cycleName = "{0:D3}" -f $index
-    $port = $BasePort + 10 + $index
-    $userDataDir = Join-Path $tempRoot "cycle-$cycleName"
-    $logPath = Join-Path $tempRoot "cycle-$cycleName.log"
-
-    Write-Step "Debug cycle $cycleName / $Count (port $port)"
-
-    if (Test-Path $userDataDir) {
-        Remove-Item -LiteralPath $userDataDir -Recurse -Force
-    }
-    New-Item -ItemType Directory -Path $userDataDir -Force | Out-Null
-    if (Test-Path $logPath) {
-        Remove-Item -LiteralPath $logPath -Force
+try {
+    if (-not $SkipSingleInstanceCheck) {
+        Test-SingleInstanceLock -ExePath $ExePath -TempRoot $TempRoot -BasePort $BasePort -StartupTimeoutSec $StartupTimeoutSec
+        $singleInstanceStatus = [pscustomobject]@{
+            skipped = $false
+            status = "passed"
+        }
     }
 
-    try {
-        $process = Start-DebugApp -ExePath $exePath -Port $port -UserDataDir $userDataDir -LogPath $logPath
-        $versionResponse = Wait-DebugEndpoint -Port $port -TimeoutSec $StartupTimeoutSec
-        $version = $versionResponse.Content | ConvertFrom-Json
-        $targets = @(Get-DebugTargets -Port $port)
+    for ($index = 1; $index -le $Count; $index++) {
+        $cycleName = "{0:D3}" -f $index
+        $port = $BasePort + 10 + $index
+        $userDataDir = Join-Path $TempRoot "cycle-$cycleName"
+        $logPath = Join-Path $TempRoot "cycle-$cycleName.log"
 
-        if ($targets.Count -lt 1) {
-            throw "No page target returned from debug endpoint."
+        Write-Step "Debug cycle $cycleName / $Count (port $port)"
+
+        if (Test-Path $userDataDir) {
+            Remove-Item -LiteralPath $userDataDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $userDataDir -Force | Out-Null
+        if (Test-Path $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
         }
 
-        $pageTarget = $targets | Where-Object { $_.type -eq "page" } | Select-Object -First 1
-        if ($null -eq $pageTarget) {
-            throw "No page-type target returned from debug endpoint."
+        try {
+            $process = Start-DebugApp -ExePath $ExePath -Port $port -UserDataDir $userDataDir -LogPath $logPath
+            $versionResponse = Wait-DebugEndpoint -Port $port -TimeoutSec $StartupTimeoutSec
+            $version = $versionResponse.Content | ConvertFrom-Json
+            $targets = @(Get-DebugTargets -Port $port)
+
+            if ($targets.Count -lt 1) {
+                throw "No page target returned from debug endpoint."
+            }
+
+            $pageTarget = $targets | Where-Object { $_.type -eq "page" } | Select-Object -First 1
+            if ($null -eq $pageTarget) {
+                throw "No page-type target returned from debug endpoint."
+            }
+
+            if ($pageTarget.title -notlike "*Cli Proxy API Desktop*") {
+                throw "Unexpected page title: $($pageTarget.title)"
+            }
+
+            $rendererState = Assert-RendererReady -WebSocketDebuggerUrl $pageTarget.webSocketDebuggerUrl -RepoRoot $repoRoot -TimeoutSec $StartupTimeoutSec
+
+            $issues = @(Get-LogIssues -LogPath $logPath)
+            if ($issues.Count -gt 0) {
+                throw ("Log issues detected:`n" + ($issues -join "`n"))
+            }
+
+            $results.Add([pscustomobject]@{
+                Cycle = $index
+                Port = $port
+                Browser = $version.Browser
+                Title = $rendererState.title
+                Status = "pass"
+            }) | Out-Null
+
+            Write-Host ("    pass: {0} / {1}" -f $version.Browser, $rendererState.title) -ForegroundColor DarkGreen
+        } catch {
+            $results.Add([pscustomobject]@{
+                Cycle = $index
+                Port = $port
+                Browser = ""
+                Title = ""
+                Status = "fail"
+                Error = $_.Exception.Message
+            }) | Out-Null
+            throw
+        } finally {
+            Stop-AppProcessesByUserDataDir -UserDataDir $userDataDir
+        }
+    }
+} catch {
+    $failureMessage = $_.Exception.Message
+    if ($singleInstanceStatus.status -eq "pending") {
+        $singleInstanceStatus = [pscustomobject]@{
+            skipped = $false
+            status = "failed"
+            error = $failureMessage
+        }
+    }
+    throw
+} finally {
+    if ($OutputJsonPath) {
+        $outputDirectory = Split-Path -Parent $OutputJsonPath
+        if (-not [string]::IsNullOrWhiteSpace($outputDirectory)) {
+            New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
         }
 
-        if ($pageTarget.title -notlike "*Cli Proxy API Desktop*") {
-            throw "Unexpected page title: $($pageTarget.title)"
+        $summary = [pscustomobject]@{
+            status = if ($failureMessage) { "failed" } else { "passed" }
+            exePath = $ExePath
+            tempRoot = $TempRoot
+            count = $Count
+            startupTimeoutSec = $StartupTimeoutSec
+            singleInstanceCheck = $singleInstanceStatus
+            cycles = $results
+            completedAt = (Get-Date).ToUniversalTime().ToString("o")
         }
-
-        $rendererState = Assert-RendererReady -WebSocketDebuggerUrl $pageTarget.webSocketDebuggerUrl -RepoRoot $repoRoot -TimeoutSec $StartupTimeoutSec
-
-        $issues = @(Get-LogIssues -LogPath $logPath)
-        if ($issues.Count -gt 0) {
-            throw ("Log issues detected:`n" + ($issues -join "`n"))
-        }
-
-        $results.Add([pscustomobject]@{
-            Cycle = $index
-            Port = $port
-            Browser = $version.Browser
-            Title = $rendererState.title
-            Status = "pass"
-        }) | Out-Null
-
-        Write-Host ("    pass: {0} / {1}" -f $version.Browser, $rendererState.title) -ForegroundColor DarkGreen
-    } catch {
-        $results.Add([pscustomobject]@{
-            Cycle = $index
-            Port = $port
-            Browser = ""
-            Title = ""
-            Status = "fail"
-            Error = $_.Exception.Message
-        }) | Out-Null
-        throw
-    } finally {
-        Stop-AppProcessesByUserDataDir -UserDataDir $userDataDir
+        $summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $OutputJsonPath -Encoding UTF8
     }
 }
 

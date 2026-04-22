@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ const (
 	DefaultCPAPort         = 2723
 	ManagedCPABinaryName   = "CPAD-CPA.exe"
 	legacyManagedCPABinary = "CPA-UV.exe"
+	managedCPAPanelRepo    = "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
 )
 
 type CPARuntimeState struct {
@@ -99,17 +101,61 @@ type cpaConfigFile struct {
 	} `yaml:"codex-app-server-proxy"`
 }
 
-func ResolveCPASourceRoot() string {
+func ResolveCPAOverlaySourceRoot() string {
+	if custom := os.Getenv("CPAD_CPA_OVERLAY_SOURCE_ROOT"); custom != "" {
+		return filepath.Clean(custom)
+	}
+
+	candidates := []string{}
+	if repositorySourcesRoot := ResolveRepositorySourcesRoot(); repositorySourcesRoot != "" {
+		candidates = appendUniquePathCandidate(
+			candidates,
+			filepath.Join(repositorySourcesRoot, "cpa-uv-overlay"),
+		)
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		candidates = appendUniquePathCandidate(
+			candidates,
+			filepath.Join(homeDir, "workspace", "CPA-UV-publish"),
+		)
+	}
+
+	if resolved := firstExistingDirectory(candidates); resolved != "" {
+		return resolved
+	}
+	if len(candidates) > 0 {
+		return filepath.Clean(candidates[0])
+	}
+
+	return "CPA-UV-publish"
+}
+
+func ResolveManagedCPASourceRoot(layout Layout) string {
 	if custom := os.Getenv("CPAD_CPA_SOURCE_ROOT"); custom != "" {
 		return filepath.Clean(custom)
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "CPA-UV-publish"
+	candidates := []string{}
+	if officialBaseline := strings.TrimSpace(layout.Directories["officialCoreBaseline"]); officialBaseline != "" {
+		candidates = appendUniquePathCandidate(candidates, officialBaseline)
 	}
 
-	return filepath.Join(homeDir, "workspace", "CPA-UV-publish")
+	legacySourceBaseline := filepath.Join(ResolveLegacyHomeInstallRoot(), SourceDirName, "official-backend")
+	candidates = appendUniquePathCandidate(candidates, legacySourceBaseline)
+
+	legacyHomeBaseline := filepath.Join(ResolveLegacyHomeInstallRoot(), "upstream", "CLIProxyAPI")
+	candidates = appendUniquePathCandidate(candidates, legacyHomeBaseline)
+
+	if resolved := firstExistingDirectory(candidates); resolved != "" {
+		return resolved
+	}
+
+	if len(candidates) == 0 {
+		return ""
+	}
+	return filepath.Clean(candidates[0])
 }
 
 func CPAManagedBinaryPath(layout Layout) string {
@@ -134,7 +180,11 @@ func (layout Layout) WriteCPARuntimeState(state CPARuntimeState) error {
 	}
 
 	if state.SourceRoot == "" {
-		state.SourceRoot = ResolveCPASourceRoot()
+		state.SourceRoot = ResolveManagedCPASourceRoot(layout)
+	}
+
+	if shouldMigrateCPASourceRoot(state.SourceRoot) {
+		state.SourceRoot = ResolveManagedCPASourceRoot(layout)
 	}
 
 	if state.ManagedBinary == "" {
@@ -182,7 +232,10 @@ func (layout Layout) ReadCPARuntimeState() (*CPARuntimeState, error) {
 	}
 
 	if state.SourceRoot == "" {
-		state.SourceRoot = ResolveCPASourceRoot()
+		state.SourceRoot = ResolveManagedCPASourceRoot(layout)
+	}
+	if shouldMigrateCPASourceRoot(state.SourceRoot) {
+		state.SourceRoot = ResolveManagedCPASourceRoot(layout)
 	}
 
 	if state.ManagedBinary == "" {
@@ -207,7 +260,7 @@ func (layout Layout) ReadCPARuntimeState() (*CPARuntimeState, error) {
 
 func ResolveCPARuntime(layout Layout) (CPARuntimeStatus, error) {
 	status := CPARuntimeStatus{
-		SourceRoot:    ResolveCPASourceRoot(),
+		SourceRoot:    ResolveManagedCPASourceRoot(layout),
 		BuildPackage:  cpaBuildPackage,
 		ManagedBinary: CPAManagedBinaryPath(layout),
 		ConfigPath:    CPAManagedConfigPath(layout),
@@ -256,9 +309,15 @@ func ResolveCPARuntime(layout Layout) (CPARuntimeStatus, error) {
 	}
 
 	if status.ConfigExists {
+		if err := normalizeManagedCPARuntimeConfig(status.ConfigPath); err != nil {
+			status.HealthCheck.Message = fmt.Sprintf("运行时配置收口失败：%v", err)
+		}
+
 		insight, err := inspectCPARuntimeConfig(status.ConfigPath)
 		if err != nil {
-			status.HealthCheck.Message = fmt.Sprintf("运行时配置解析失败：%v", err)
+			if status.HealthCheck.Message == "" {
+				status.HealthCheck.Message = fmt.Sprintf("运行时配置解析失败：%v", err)
+			}
 		} else {
 			status.ConfigInsight = insight
 			status.HealthCheck = probeCPARuntimeHealth(insight, status.Running)
@@ -268,6 +327,131 @@ func ResolveCPARuntime(layout Layout) (CPARuntimeStatus, error) {
 	}
 
 	return status, nil
+}
+
+func samePath(left string, right string) bool {
+	if left == "" || right == "" {
+		return false
+	}
+
+	leftAbs, leftErr := filepath.Abs(left)
+	rightAbs, rightErr := filepath.Abs(right)
+	if leftErr != nil || rightErr != nil {
+		return strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
+	}
+
+	return strings.EqualFold(leftAbs, rightAbs)
+}
+
+func appendUniquePathCandidate(candidates []string, candidate string) []string {
+	if strings.TrimSpace(candidate) == "" {
+		return candidates
+	}
+
+	for _, existing := range candidates {
+		if samePath(existing, candidate) {
+			return candidates
+		}
+	}
+
+	return append(candidates, filepath.Clean(candidate))
+}
+
+func firstExistingDirectory(candidates []string) string {
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err == nil && info.IsDir() {
+			return filepath.Clean(candidate)
+		}
+	}
+
+	return ""
+}
+
+func isLegacyCPAOverlaySourceRoot(sourceRoot string) bool {
+	cleanedSourceRoot := strings.TrimSpace(sourceRoot)
+	if cleanedSourceRoot == "" {
+		return false
+	}
+
+	if samePath(cleanedSourceRoot, ResolveCPAOverlaySourceRoot()) {
+		return true
+	}
+
+	switch strings.ToLower(filepath.Base(filepath.Clean(cleanedSourceRoot))) {
+	case "cpa-uv-publish", "cpa-uv-overlay":
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldMigrateCPASourceRoot(sourceRoot string) bool {
+	return strings.TrimSpace(sourceRoot) == "" || isLegacyCPAOverlaySourceRoot(sourceRoot)
+}
+
+func ResolveManagedCPAPanelRepository() string {
+	return managedCPAPanelRepo
+}
+
+func normalizeManagedCPAPanelRepository(panelRepository string) string {
+	cleanedRepository := strings.TrimSpace(panelRepository)
+	if cleanedRepository == "" || strings.Contains(strings.ToLower(cleanedRepository), "/blackblock-inc/cpa-uv") {
+		return managedCPAPanelRepo
+	}
+
+	return cleanedRepository
+}
+
+func normalizeManagedCPARuntimeConfig(configPath string) error {
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	rewrittenContent := string(content)
+	for _, legacyRepository := range []string{
+		"https://github.com/Blackblock-inc/CPA-UV",
+		"https://api.github.com/repos/Blackblock-inc/CPA-UV/releases/latest",
+	} {
+		rewrittenContent = strings.ReplaceAll(rewrittenContent, legacyRepository, managedCPAPanelRepo)
+	}
+
+	if rewrittenContent == string(content) {
+		return nil
+	}
+
+	return os.WriteFile(configPath, []byte(rewrittenContent), 0o644)
+}
+
+func ResolveCurrentManagedCPASourceRoot(layout Layout) string {
+	if custom := os.Getenv("CPAD_CPA_SOURCE_ROOT"); custom != "" {
+		return filepath.Clean(custom)
+	}
+
+	if strings.TrimSpace(layout.Files["cpaRuntimeState"]) != "" {
+		state, err := layout.ReadCPARuntimeState()
+		if err == nil && state != nil && strings.TrimSpace(state.SourceRoot) != "" {
+			return filepath.Clean(state.SourceRoot)
+		}
+	}
+
+	return ResolveManagedCPASourceRoot(layout)
+}
+
+func ManagedCPASourceSupportsCodexRemote(sourceRoot string) bool {
+	return isLegacyCPAOverlaySourceRoot(sourceRoot)
+}
+
+func ResolveGlobalCodexExecutable() string {
+	for _, candidate := range []string{"codex.cmd", "codex.exe", "codex"} {
+		resolvedPath, err := exec.LookPath(candidate)
+		if err == nil {
+			return filepath.Clean(resolvedPath)
+		}
+	}
+
+	return ""
 }
 
 func inspectCPARuntimeConfig(configPath string) (CPARuntimeConfigInsight, error) {
@@ -312,7 +496,7 @@ func inspectCPARuntimeConfig(configPath string) (CPARuntimeConfigInsight, error)
 		ManagementAllowRemote:             cfg.RemoteManagement.AllowRemote,
 		ManagementEnabled:                 strings.TrimSpace(cfg.RemoteManagement.SecretKey) != "",
 		ControlPanelEnabled:               !cfg.RemoteManagement.DisableControlPanel,
-		PanelRepository:                   strings.TrimSpace(cfg.RemoteManagement.PanelGitHubRepository),
+		PanelRepository:                   normalizeManagedCPAPanelRepository(cfg.RemoteManagement.PanelGitHubRepository),
 		CodexAppServerProxyEnabled:        cfg.CodexAppServerProxy.Enable,
 		CodexAppServerRestrictToLocalhost: cfg.CodexAppServerProxy.RestrictToLocalhost,
 		CodexAppServerCodexBin:            codexBin,

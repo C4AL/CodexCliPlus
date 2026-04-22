@@ -1,6 +1,0 @@
-dist/
-extension/config.local.js
-scripts/node_modules/
-scripts/*.log
-*.zip
-*.tmp

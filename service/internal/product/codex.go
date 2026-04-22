@@ -152,6 +152,9 @@ func ResolveCodexShim(layout Layout) (CodexShimResolution, error) {
 
 	targetPath, targetExists := resolveFirstExisting(CodexRuntimeCandidates(layout, state.Mode))
 	launchArgs, launchReady, launchMessage := resolveCodexLaunchPlan(layout, state.Mode, targetExists)
+	if launchArgs == nil {
+		launchArgs = []string{}
+	}
 
 	return CodexShimResolution{
 		Mode:          state.Mode,

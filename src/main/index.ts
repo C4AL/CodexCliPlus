@@ -18,6 +18,7 @@ import {
 import type { ShellState } from "../shared/ipc";
 
 const execFileAsync = promisify(execFile);
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 type HostSnapshot = {
   installRoot: string;
@@ -159,6 +160,7 @@ async function resolveServiceExecutable(installRoot: string) {
   const candidates = [
     join(installRoot, `${PRODUCT_NAME} Service.exe`),
     ...getRuntimeAssetRoots().flatMap((root) => [
+      join(root, "bin", "cpad-service.exe"),
       join(root, "service", "bin", "cpad-service.exe"),
       join(root, "cpad-service.exe"),
       join(root, `${PRODUCT_NAME} Service.exe`),
@@ -272,6 +274,7 @@ async function createShellState(): Promise<ShellState> {
     serviceManager: hostSnapshot.managerStatus,
     codex: {
       ...hostSnapshot.codex,
+      launchArgs: hostSnapshot.codex.launchArgs ?? [],
       updatedAt: hostSnapshot.codex.updatedAt ?? null,
     },
     cpaRuntime: {
@@ -333,6 +336,23 @@ async function installManagedService() {
   return createShellState();
 }
 
+function focusPrimaryWindow() {
+  const [browserWindow] = BrowserWindow.getAllWindows();
+  if (!browserWindow) {
+    return;
+  }
+
+  if (browserWindow.isMinimized()) {
+    browserWindow.restore();
+  }
+
+  if (!browserWindow.isVisible()) {
+    browserWindow.show();
+  }
+
+  browserWindow.focus();
+}
+
 function createWindow(): void {
   void (async () => {
     const browserWindow = new BrowserWindow({
@@ -362,76 +382,84 @@ function createWindow(): void {
   })();
 }
 
-app.whenReady().then(() => {
-  app.setAppUserModelId("BlackblockInc.CPAD");
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    focusPrimaryWindow();
+  });
 
-  ipcMain.handle("cpad:get-shell-state", async () => createShellState());
-  ipcMain.handle("cpad:open-path", async (_event, targetPath: string) =>
-    shell.openPath(targetPath),
-  );
-  ipcMain.handle("cpad:open-url", async (_event, targetUrl: string) =>
-    shell.openExternal(targetUrl),
-  );
-  ipcMain.handle("cpad:install-service", async () => installManagedService());
-  ipcMain.handle("cpad:remove-service", async () =>
-    mutateShellStateWithCommand(["remove"]),
-  );
-  ipcMain.handle("cpad:start-service", async () =>
-    mutateShellStateWithCommand(["start"]),
-  );
-  ipcMain.handle("cpad:stop-service", async () =>
-    mutateShellStateWithCommand(["stop"]),
-  );
-  ipcMain.handle(
-    "cpad:set-codex-mode",
-    async (_event, mode: "official" | "cpa") =>
-      mutateShellState(["codex-mode", mode]),
-  );
-  ipcMain.handle("cpad:build-cpa-runtime", async () =>
-    mutateShellState(["cpa-runtime", "build"]),
-  );
-  ipcMain.handle("cpad:start-cpa-runtime", async () =>
-    mutateShellState(["cpa-runtime", "start"]),
-  );
-  ipcMain.handle("cpad:stop-cpa-runtime", async () =>
-    mutateShellState(["cpa-runtime", "stop"]),
-  );
-  ipcMain.handle("cpad:refresh-plugin-market", async () =>
-    mutateShellState(["plugin-market", "refresh"]),
-  );
-  ipcMain.handle("cpad:install-plugin", async (_event, id: string) =>
-    mutateShellState(["plugin-market", "install", id]),
-  );
-  ipcMain.handle("cpad:update-plugin", async (_event, id: string) =>
-    mutateShellState(["plugin-market", "update", id]),
-  );
-  ipcMain.handle("cpad:enable-plugin", async (_event, id: string) =>
-    mutateShellState(["plugin-market", "enable", id]),
-  );
-  ipcMain.handle("cpad:disable-plugin", async (_event, id: string) =>
-    mutateShellState(["plugin-market", "disable", id]),
-  );
-  ipcMain.handle("cpad:diagnose-plugin", async (_event, id: string) =>
-    mutateShellState(["plugin-market", "diagnose", id]),
-  );
-  ipcMain.handle("cpad:check-updates", async () =>
-    mutateShellState(["update-center", "check"]),
-  );
-  ipcMain.handle("cpad:sync-official-baselines", async () =>
-    mutateShellState(["update-center", "sync"]),
-  );
+  app.whenReady().then(() => {
+    app.setAppUserModelId("BlackblockInc.CPAD");
 
-  createWindow();
+    ipcMain.handle("cpad:get-shell-state", async () => createShellState());
+    ipcMain.handle("cpad:open-path", async (_event, targetPath: string) =>
+      shell.openPath(targetPath),
+    );
+    ipcMain.handle("cpad:open-url", async (_event, targetUrl: string) =>
+      shell.openExternal(targetUrl),
+    );
+    ipcMain.handle("cpad:install-service", async () => installManagedService());
+    ipcMain.handle("cpad:remove-service", async () =>
+      mutateShellStateWithCommand(["remove"]),
+    );
+    ipcMain.handle("cpad:start-service", async () =>
+      mutateShellStateWithCommand(["start"]),
+    );
+    ipcMain.handle("cpad:stop-service", async () =>
+      mutateShellStateWithCommand(["stop"]),
+    );
+    ipcMain.handle(
+      "cpad:set-codex-mode",
+      async (_event, mode: "official" | "cpa") =>
+        mutateShellState(["codex-mode", mode]),
+    );
+    ipcMain.handle("cpad:build-cpa-runtime", async () =>
+      mutateShellState(["cpa-runtime", "build"]),
+    );
+    ipcMain.handle("cpad:start-cpa-runtime", async () =>
+      mutateShellState(["cpa-runtime", "start"]),
+    );
+    ipcMain.handle("cpad:stop-cpa-runtime", async () =>
+      mutateShellState(["cpa-runtime", "stop"]),
+    );
+    ipcMain.handle("cpad:refresh-plugin-market", async () =>
+      mutateShellState(["plugin-market", "refresh"]),
+    );
+    ipcMain.handle("cpad:install-plugin", async (_event, id: string) =>
+      mutateShellState(["plugin-market", "install", id]),
+    );
+    ipcMain.handle("cpad:update-plugin", async (_event, id: string) =>
+      mutateShellState(["plugin-market", "update", id]),
+    );
+    ipcMain.handle("cpad:enable-plugin", async (_event, id: string) =>
+      mutateShellState(["plugin-market", "enable", id]),
+    );
+    ipcMain.handle("cpad:disable-plugin", async (_event, id: string) =>
+      mutateShellState(["plugin-market", "disable", id]),
+    );
+    ipcMain.handle("cpad:diagnose-plugin", async (_event, id: string) =>
+      mutateShellState(["plugin-market", "diagnose", id]),
+    );
+    ipcMain.handle("cpad:check-updates", async () =>
+      mutateShellState(["update-center", "check"]),
+    );
+    ipcMain.handle("cpad:sync-official-baselines", async () =>
+      mutateShellState(["update-center", "sync"]),
+    );
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+    createWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
     }
   });
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
+}

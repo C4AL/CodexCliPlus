@@ -1,6 +1,7 @@
 package shim
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,8 +42,23 @@ func (runner *Runner) Run(args []string) error {
 			runner.layout.InstallRoot,
 		)
 	}
+	if !resolution.LaunchReady {
+		if strings.TrimSpace(resolution.LaunchMessage) != "" {
+			return errors.New(resolution.LaunchMessage)
+		}
+		return fmt.Errorf("Codex 当前模式 %s 尚未达到可启动条件", resolution.Mode)
+	}
+	if resolution.Mode == product.CodexModeCPA {
+		runtimeStatus, runtimeErr := product.ResolveCPARuntime(runner.layout)
+		if runtimeErr != nil {
+			return runtimeErr
+		}
+		if !runtimeStatus.Running {
+			return fmt.Errorf("CPA 模式要求受控 CPA Runtime 先运行；当前状态为 %s", runtimeStatus.Phase)
+		}
+	}
 
-	command, err := buildCommand(resolution.TargetPath, args)
+	command, err := buildCommand(resolution.TargetPath, append(resolution.LaunchArgs, args...))
 	if err != nil {
 		return err
 	}

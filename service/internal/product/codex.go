@@ -25,13 +25,16 @@ type CodexModeState struct {
 }
 
 type CodexShimResolution struct {
-	Mode         CodexMode `json:"mode"`
-	ModeFile     string    `json:"modeFile"`
-	ShimPath     string    `json:"shimPath"`
-	TargetPath   string    `json:"targetPath"`
-	TargetExists bool      `json:"targetExists"`
-	Message      string    `json:"message"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	Mode          CodexMode `json:"mode"`
+	ModeFile      string    `json:"modeFile"`
+	ShimPath      string    `json:"shimPath"`
+	TargetPath    string    `json:"targetPath"`
+	TargetExists  bool      `json:"targetExists"`
+	LaunchArgs    []string  `json:"launchArgs"`
+	LaunchReady   bool      `json:"launchReady"`
+	LaunchMessage string    `json:"launchMessage"`
+	Message       string    `json:"message"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 func ParseCodexMode(value string) (CodexMode, error) {
@@ -60,12 +63,19 @@ func CodexShimPath(layout Layout) string {
 
 func CodexRuntimeCandidates(layout Layout, mode CodexMode) []string {
 	var candidates []string
+	officialCandidates := []string{
+		filepath.Join(layout.Directories["codexRuntime"], "codex.exe"),
+		filepath.Join(layout.Directories["codexRuntime"], "codex.cmd"),
+		filepath.Join(layout.Directories["codexRuntime"], "bin", "codex.exe"),
+		filepath.Join(layout.Directories["codexRuntime"], "bin", "codex.cmd"),
+	}
 
 	switch mode {
 	case CodexModeCPA:
 		if override := os.Getenv("CPAD_CODEX_CPA_EXECUTABLE"); override != "" {
 			candidates = append(candidates, filepath.Clean(override))
 		}
+		candidates = append(candidates, officialCandidates...)
 		candidates = append(candidates,
 			filepath.Join(layout.Directories["cpaRuntime"], "codex.exe"),
 			filepath.Join(layout.Directories["cpaRuntime"], "codex.cmd"),
@@ -76,12 +86,7 @@ func CodexRuntimeCandidates(layout Layout, mode CodexMode) []string {
 		if override := os.Getenv("CPAD_CODEX_OFFICIAL_EXECUTABLE"); override != "" {
 			candidates = append(candidates, filepath.Clean(override))
 		}
-		candidates = append(candidates,
-			filepath.Join(layout.Directories["codexRuntime"], "codex.exe"),
-			filepath.Join(layout.Directories["codexRuntime"], "codex.cmd"),
-			filepath.Join(layout.Directories["codexRuntime"], "bin", "codex.exe"),
-			filepath.Join(layout.Directories["codexRuntime"], "bin", "codex.cmd"),
-		)
+		candidates = append(candidates, officialCandidates...)
 	}
 
 	return candidates
@@ -146,16 +151,43 @@ func ResolveCodexShim(layout Layout) (CodexShimResolution, error) {
 	}
 
 	targetPath, targetExists := resolveFirstExisting(CodexRuntimeCandidates(layout, state.Mode))
+	launchArgs, launchReady, launchMessage := resolveCodexLaunchPlan(layout, state.Mode, targetExists)
 
 	return CodexShimResolution{
-		Mode:         state.Mode,
-		ModeFile:     layout.Files["codexMode"],
-		ShimPath:     CodexShimPath(layout),
-		TargetPath:   targetPath,
-		TargetExists: targetExists,
-		Message:      state.Message,
-		UpdatedAt:    state.UpdatedAt,
+		Mode:          state.Mode,
+		ModeFile:      layout.Files["codexMode"],
+		ShimPath:      CodexShimPath(layout),
+		TargetPath:    targetPath,
+		TargetExists:  targetExists,
+		LaunchArgs:    launchArgs,
+		LaunchReady:   launchReady,
+		LaunchMessage: launchMessage,
+		Message:       state.Message,
+		UpdatedAt:     state.UpdatedAt,
 	}, nil
+}
+
+func resolveCodexLaunchPlan(layout Layout, mode CodexMode, targetExists bool) ([]string, bool, string) {
+	if !targetExists {
+		return nil, false, "当前模式对应的 Codex 目标运行时不存在。"
+	}
+
+	if mode != CodexModeCPA {
+		return nil, true, "官方模式将直接调用受控 Codex Runtime。"
+	}
+
+	insight, err := inspectCPARuntimeConfig(CPAManagedConfigPath(layout))
+	if err != nil {
+		return nil, false, fmt.Sprintf("CPA 模式缺少可解析的运行时配置：%v", err)
+	}
+	if !insight.CodexAppServerProxyEnabled {
+		return nil, false, "CPA 模式依赖 codex-app-server-proxy；当前配置尚未启用。"
+	}
+
+	return []string{"--remote", insight.CodexRemoteURL}, true, fmt.Sprintf(
+		"CPA 模式将通过 %s 连接受控 CPA Runtime。",
+		insight.CodexRemoteURL,
+	)
 }
 
 func resolveFirstExisting(candidates []string) (string, bool) {

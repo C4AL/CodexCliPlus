@@ -45,6 +45,9 @@ export type CodexShimState = {
   shimPath: string;
   targetPath: string;
   targetExists: boolean;
+  launchArgs: string[];
+  launchReady: boolean;
+  launchMessage: string;
   message: string;
   updatedAt: string | null;
 };
@@ -282,21 +285,27 @@ export function getCodexRuntimeCandidates(
   layout: InstallLayout,
   mode: CodexMode,
 ) {
-  const runtimeRoot =
-    mode === "cpa"
-      ? layout.directories.cpaRuntime
-      : layout.directories.codexRuntime;
+  const officialCandidates = [
+    win32.join(layout.directories.codexRuntime, "codex.exe"),
+    win32.join(layout.directories.codexRuntime, "codex.cmd"),
+    win32.join(layout.directories.codexRuntime, "bin", "codex.exe"),
+    win32.join(layout.directories.codexRuntime, "bin", "codex.cmd"),
+  ];
   const override =
     mode === "cpa"
       ? process.env.CPAD_CODEX_CPA_EXECUTABLE
       : process.env.CPAD_CODEX_OFFICIAL_EXECUTABLE;
 
-  const candidates = [
-    win32.join(runtimeRoot, "codex.exe"),
-    win32.join(runtimeRoot, "codex.cmd"),
-    win32.join(runtimeRoot, "bin", "codex.exe"),
-    win32.join(runtimeRoot, "bin", "codex.cmd"),
-  ];
+  const candidates =
+    mode === "cpa"
+      ? [
+          ...officialCandidates,
+          win32.join(layout.directories.cpaRuntime, "codex.exe"),
+          win32.join(layout.directories.cpaRuntime, "codex.cmd"),
+          win32.join(layout.directories.cpaRuntime, "bin", "codex.exe"),
+          win32.join(layout.directories.cpaRuntime, "bin", "codex.cmd"),
+        ]
+      : officialCandidates;
 
   return override ? [win32.normalize(override), ...candidates] : candidates;
 }

@@ -91,11 +91,11 @@ function buildReleaseChecks(state: ShellState) {
         : "codex-app-server-proxy 当前未开启",
     },
     {
-      label: "当前 Codex 目标运行时存在",
-      ok: state.codex.targetExists,
-      detail: state.codex.targetExists
-        ? state.codex.targetPath
-        : `当前模式 ${state.codex.mode} 的目标运行时缺失`,
+      label: "当前 Codex 模式可实际启动",
+      ok: state.codex.launchReady,
+      detail: state.codex.launchReady
+        ? state.codex.launchMessage
+        : state.codex.launchMessage || `当前模式 ${state.codex.mode} 尚未达到可启动条件`,
     },
   ];
 }
@@ -454,10 +454,31 @@ export function App() {
               <code>{state.codex.targetExists ? "true" : "false"}</code>
             </div>
             <div className="path-row">
+              <span>launchReady</span>
+              <code>{formatBool(state.codex.launchReady)}</code>
+            </div>
+            <div className="path-row">
+              <span>launchArgs</span>
+              <code>
+                {state.codex.launchArgs.length > 0
+                  ? state.codex.launchArgs.join(" ")
+                  : "(none)"}
+              </code>
+            </div>
+            <div className="path-row">
+              <span>launchMessage</span>
+              <code>{state.codex.launchMessage}</code>
+            </div>
+            <div className="path-row">
               <span>updatedAt</span>
               <code>{formatTimestamp(state.codex.updatedAt)}</code>
             </div>
           </div>
+          {state.codex.launchArgs.length > 0 ? (
+            <code className="command-line">
+              {`${state.codex.targetPath} ${state.codex.launchArgs.join(" ")}`}
+            </code>
+          ) : null}
         </article>
 
         <article className="panel">

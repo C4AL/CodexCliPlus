@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 const (
 	officialCoreBaselineRepository  = "https://github.com/router-for-me/CLIProxyAPI"
 	officialPanelBaselineRepository = "https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
+	sourceManifestFileName          = ".cpad-source.json"
 )
 
 type officialBaselineSpec struct {
@@ -23,6 +25,16 @@ type officialBaselineSpec struct {
 	Name       string
 	Repository string
 	LocalPath  string
+}
+
+type syncedSourceManifest struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	SourcePath string `json:"sourcePath"`
+	Repository string `json:"repository"`
+	Branch     string `json:"branch"`
+	Commit     string `json:"commit"`
+	SyncedAt   string `json:"syncedAt"`
 }
 
 func InspectUpdateCenter() (product.UpdateCenterStatus, error) {
@@ -53,9 +65,9 @@ func refreshCachedUpdateCenterSources(layout product.Layout, state *product.Upda
 		case "cpa-source":
 			state.Sources[index] = buildLocalGitSourceStatus(
 				"cpa-source",
-				"CPA-UV 源仓",
-				"git-worktree",
-				product.ResolveCPASourceRoot(),
+				"CPA-UV 源码覆盖层",
+				"managed-source-snapshot",
+				product.ResolveCPAOverlaySourceRoot(),
 			)
 		case "plugin-source":
 			state.Sources[index] = buildLocalGitSourceStatus(
@@ -87,7 +99,12 @@ func CheckUpdateCenter() (product.UpdateCenterStatus, error) {
 	}
 	sources = append(
 		sources,
-		buildLocalGitSourceStatus("cpa-source", "CPA-UV 源仓", "git-worktree", product.ResolveCPASourceRoot()),
+		buildLocalGitSourceStatus(
+			"cpa-source",
+			"CPA-UV 源码覆盖层",
+			"managed-source-snapshot",
+			product.ResolveCPAOverlaySourceRoot(),
+		),
 		buildLocalGitSourceStatus("plugin-source", "插件源仓", "git-worktree", product.ResolvePluginSourceRoot()),
 		buildManagedRuntimeStatus(layout),
 		buildManagedCodexStatus(layout),
@@ -114,8 +131,19 @@ func SyncOfficialBaselines() (product.UpdateCenterStatus, error) {
 		return product.UpdateCenterStatus{}, err
 	}
 
+	if repositorySourcesRoot := product.ResolveRepositorySourcesRoot(); repositorySourcesRoot != "" &&
+		product.ResolveRepositoryRoot() != "" &&
+		samePath(repositorySourcesRoot, layout.Directories["sources"]) {
+		if err := syncRepositorySnapshots(product.ResolveRepositoryRoot()); err != nil {
+			return product.UpdateCenterStatus{}, err
+		}
+
+		_ = layout.AppendLog("已通过仓库内同步脚本刷新源码快照。")
+		return CheckUpdateCenter()
+	}
+
 	for _, spec := range officialBaselineSpecs(layout) {
-		if err := syncOfficialBaseline(spec, layout.Directories["upstream"]); err != nil {
+		if err := syncOfficialBaseline(spec, layout.Directories["sources"]); err != nil {
 			return product.UpdateCenterStatus{}, err
 		}
 	}
@@ -128,7 +156,7 @@ func officialBaselineSpecs(layout product.Layout) []officialBaselineSpec {
 	return []officialBaselineSpec{
 		{
 			ID:         "official-core-baseline",
-			Name:       "官方主程序基线",
+			Name:       "官方完整后端基线",
 			Repository: officialCoreBaselineRepository,
 			LocalPath:  layout.Directories["officialCoreBaseline"],
 		},
@@ -145,15 +173,15 @@ func buildOfficialBaselineStatus(spec officialBaselineSpec) product.UpdateSource
 	status := product.UpdateSourceStatus{
 		ID:        spec.ID,
 		Name:      spec.Name,
-		Kind:      "managed-git-baseline",
+		Kind:      "managed-source-snapshot",
 		Source:    spec.LocalPath,
-		Message:   "尚未建立本地官方基线工作树。",
+		Message:   "本地基线目录尚未建立。",
 		UpdatedAt: time.Now().UTC(),
 	}
 
 	latestRef, err := readRemoteHead(spec.Repository)
 	if err != nil {
-		status.Message = fmt.Sprintf("无法读取远端官方基线 %s：%v", spec.Repository, err)
+		status.Message = fmt.Sprintf("无法读取远端基线 %s：%v", spec.Repository, err)
 		return status
 	}
 	status.LatestRef = latestRef
@@ -161,30 +189,21 @@ func buildOfficialBaselineStatus(spec officialBaselineSpec) product.UpdateSource
 	sourceInfo, err := os.Stat(spec.LocalPath)
 	if err != nil || !sourceInfo.IsDir() {
 		status.Message = fmt.Sprintf(
-			"远端 main 当前为 %s；本地工作树尚未建立，可执行同步建立基线。",
+			"远端 main 当前为 %s；本地基线目录不存在。",
 			abbreviateRef(status.LatestRef),
 		)
 		return status
 	}
 
 	status.Available = true
-
-	status.CurrentRef, err = readGitOutput(spec.LocalPath, "rev-parse", "HEAD")
+	status.CurrentRef, status.Dirty, err = resolveSourceVersionStatus(spec.LocalPath)
 	if err != nil {
-		status.Message = fmt.Sprintf("本地工作树已存在，但无法读取 Git 提交：%v", err)
+		status.Message = fmt.Sprintf("无法解析本地基线版本状态：%v", err)
 		return status
 	}
 
-	dirtyOutput, err := readGitOutput(spec.LocalPath, "status", "--short")
-	if err == nil {
-		status.Dirty = strings.TrimSpace(dirtyOutput) != ""
-	}
-
 	if status.CurrentRef == status.LatestRef {
-		status.Message = fmt.Sprintf(
-			"本地基线已同步到 %s。",
-			abbreviateRef(status.CurrentRef),
-		)
+		status.Message = fmt.Sprintf("本地基线已同步到 %s。", abbreviateRef(status.CurrentRef))
 	} else {
 		status.Message = fmt.Sprintf(
 			"本地基线当前为 %s，远端最新为 %s。",
@@ -194,10 +213,23 @@ func buildOfficialBaselineStatus(spec officialBaselineSpec) product.UpdateSource
 	}
 
 	if status.Dirty {
-		status.Message += " 工作树有未提交改动。"
+		status.Message += " 源码目录有未提交改动。"
 	}
 
 	return status
+}
+
+func syncRepositorySnapshots(repositoryRoot string) error {
+	scriptPath := filepath.Join(repositoryRoot, "scripts", "sync-merged-sources.ps1")
+	if _, err := os.Stat(scriptPath); err != nil {
+		return fmt.Errorf("未找到仓库内同步脚本：%w", err)
+	}
+
+	if _, err := readCommandOutput("powershell", "-ExecutionPolicy", "Bypass", "-File", scriptPath); err != nil {
+		return fmt.Errorf("执行仓库内源码同步脚本失败：%w", err)
+	}
+
+	return nil
 }
 
 func syncOfficialBaseline(spec officialBaselineSpec, managedRoot string) error {
@@ -220,7 +252,7 @@ func syncOfficialBaseline(spec officialBaselineSpec, managedRoot string) error {
 			return readDirErr
 		}
 		if len(entries) != 0 {
-			return fmt.Errorf("官方基线路径不是 Git 工作树：%s", spec.LocalPath)
+			return fmt.Errorf("官方基线路径不是独立 Git 工作树：%s", spec.LocalPath)
 		}
 		if err := os.Remove(spec.LocalPath); err != nil {
 			return fmt.Errorf("清理空官方基线目录失败：%w", err)
@@ -247,7 +279,11 @@ func syncOfficialBaseline(spec officialBaselineSpec, managedRoot string) error {
 		return fmt.Errorf("读取官方基线 origin 失败：%w", err)
 	}
 	if strings.TrimSpace(remoteURL) != spec.Repository {
-		return fmt.Errorf("官方基线 origin 不匹配：期望 %s，实际 %s", spec.Repository, strings.TrimSpace(remoteURL))
+		return fmt.Errorf(
+			"官方基线 origin 不匹配：期望 %s，实际 %s",
+			spec.Repository,
+			strings.TrimSpace(remoteURL),
+		)
 	}
 
 	dirtyOutput, err := readGitOutput(spec.LocalPath, "status", "--short")
@@ -272,35 +308,116 @@ func buildLocalGitSourceStatus(id string, name string, kind string, sourceRoot s
 		Name:      name,
 		Kind:      kind,
 		Source:    sourceRoot,
-		Message:   "源仓尚未就绪。",
+		Message:   "源码目录尚未就绪。",
 		UpdatedAt: time.Now().UTC(),
 	}
 
 	sourceInfo, err := os.Stat(sourceRoot)
 	if err != nil || !sourceInfo.IsDir() {
-		status.Message = "源目录不存在。"
+		status.Message = "源码目录不存在。"
 		return status
 	}
 
-	status.CurrentRef, err = readGitOutput(sourceRoot, "rev-parse", "HEAD")
+	status.Available = true
+	status.CurrentRef, status.Dirty, err = resolveSourceVersionStatus(sourceRoot)
 	if err != nil {
-		status.Message = fmt.Sprintf("无法读取本地 Git 提交：%v", err)
+		status.Message = fmt.Sprintf("无法读取源码版本信息：%v", err)
 		return status
 	}
 
-	dirtyOutput, err := readGitOutput(sourceRoot, "status", "--short")
-	if err == nil {
-		status.Dirty = strings.TrimSpace(dirtyOutput) != ""
-	}
-
-	status.Message = fmt.Sprintf("当前提交 %s。", abbreviateRef(status.CurrentRef))
+	status.Message = fmt.Sprintf("当前源码快照 %s。", abbreviateRef(status.CurrentRef))
 	if status.Dirty {
-		status.Message += " 工作树有未提交改动。"
+		status.Message += " 源码目录有未提交改动。"
 	} else {
-		status.Message += " 工作树干净。"
+		status.Message += " 源码目录干净。"
 	}
 
 	return status
+}
+
+func resolveSourceVersionStatus(sourceRoot string) (string, bool, error) {
+	manifest, err := readSourceManifest(sourceRoot)
+	if err != nil {
+		return "", false, err
+	}
+
+	currentRef := ""
+	if manifest != nil {
+		currentRef = strings.TrimSpace(manifest.Commit)
+	}
+	if currentRef == "" {
+		currentRef, err = readStandaloneGitHead(sourceRoot)
+		if err != nil {
+			return "", false, err
+		}
+	}
+
+	dirty, err := readSourceDirtyState(sourceRoot)
+	if err != nil {
+		return "", false, err
+	}
+
+	return currentRef, dirty, nil
+}
+
+func readSourceManifest(sourceRoot string) (*syncedSourceManifest, error) {
+	content, err := os.ReadFile(filepath.Join(sourceRoot, sourceManifestFileName))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	content = bytes.TrimPrefix(content, []byte{0xEF, 0xBB, 0xBF})
+
+	var manifest syncedSourceManifest
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		return nil, err
+	}
+
+	return &manifest, nil
+}
+
+func readStandaloneGitHead(sourceRoot string) (string, error) {
+	if _, err := os.Stat(filepath.Join(sourceRoot, ".git")); err != nil {
+		return "", fmt.Errorf("缺少 %s 且不是独立 Git 工作树", sourceManifestFileName)
+	}
+
+	return readGitOutput(sourceRoot, "rev-parse", "HEAD")
+}
+
+func readSourceDirtyState(sourceRoot string) (bool, error) {
+	if _, err := os.Stat(filepath.Join(sourceRoot, ".git")); err == nil {
+		dirtyOutput, err := readGitOutput(sourceRoot, "status", "--short")
+		if err != nil {
+			return false, err
+		}
+		return strings.TrimSpace(dirtyOutput) != "", nil
+	}
+
+	repositoryRoot, err := readGitOutput(sourceRoot, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return false, err
+	}
+
+	relativePath, err := filepath.Rel(repositoryRoot, sourceRoot)
+	if err != nil {
+		return false, err
+	}
+
+	dirtyOutput, err := readGitOutput(
+		repositoryRoot,
+		"status",
+		"--short",
+		"--",
+		filepath.Clean(relativePath),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	return strings.TrimSpace(dirtyOutput) != "", nil
 }
 
 func readRemoteHead(repository string) (string, error) {
@@ -380,7 +497,11 @@ func buildManagedCodexStatus(layout product.Layout) product.UpdateSourceStatus {
 	status.Available = codexStatus.TargetExists
 	status.Message = codexStatus.Message
 	if !codexStatus.TargetExists {
-		status.Message = fmt.Sprintf("当前模式 %s 的目标运行时尚未落地：%s", codexStatus.Mode, codexStatus.TargetPath)
+		status.Message = fmt.Sprintf(
+			"当前模式 %s 的目标运行时尚未落地：%s",
+			codexStatus.Mode,
+			codexStatus.TargetPath,
+		)
 	}
 
 	return status
@@ -420,4 +541,18 @@ func abbreviateRef(ref string) string {
 	}
 
 	return ref[:12]
+}
+
+func samePath(left string, right string) bool {
+	if left == "" || right == "" {
+		return false
+	}
+
+	leftAbs, leftErr := filepath.Abs(left)
+	rightAbs, rightErr := filepath.Abs(right)
+	if leftErr != nil || rightErr != nil {
+		return strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
+	}
+
+	return strings.EqualFold(leftAbs, rightAbs)
 }

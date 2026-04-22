@@ -1,0 +1,9 @@
+﻿{
+    "id":  "edge-control",
+    "name":  "edge-control",
+    "sourcePath":  "C:\\Users\\Reol\\plugins\\edge-control",
+    "repository":  "https://github.com/Blackblock-inc/codex-edge-control-bridge.git",
+    "branch":  "main",
+    "commit":  "19fc3c00bd999c3a71041798b89a95059be066c4",
+    "syncedAt":  "2026-04-22T17:15:29.7617867Z"
+}

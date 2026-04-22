@@ -22,12 +22,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function summarizeText(text, maxLength = 600) {
+  if (!text) {
+    return "";
+  }
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength)}...`;
+}
+
 async function readRendererState() {
   const evaluation = await send("Runtime.evaluate", {
     expression: `(() => {
-      const hasError = Boolean(document.querySelector('.hero-card--error'));
+      const root = document.querySelector('[data-cpad-view]');
+      const hasError = root?.getAttribute('data-cpad-view') === 'error';
+      const ready = root?.getAttribute('data-cpad-ready') === 'true';
       const text = document.body.innerText.replace(/\\s+/g, ' ').trim();
-      return JSON.stringify({ title: document.title, hasError, text });
+      return JSON.stringify({ title: document.title, hasError, ready, text });
     })()`,
     returnByValue: true,
   });
@@ -69,11 +83,21 @@ ws.onopen = async () => {
     while (Date.now() < deadline) {
       payload = await readRendererState();
       if (payload.hasError) {
-        throw new Error(`Renderer error page detected: ${payload.text}`);
+        throw new Error(`Renderer error page detected: ${summarizeText(payload.text)}`);
       }
 
-      if (payload.text.includes("CPA Runtime") && payload.text.includes("Codex")) {
-        console.log(JSON.stringify(payload));
+      if (
+        payload.ready &&
+        payload.text.includes("CPA Runtime") &&
+        payload.text.includes("Codex")
+      ) {
+        console.log(
+          JSON.stringify({
+            title: payload.title,
+            hasError: payload.hasError,
+            ready: payload.ready,
+          }),
+        );
         ws.close();
         return;
       }
@@ -82,7 +106,7 @@ ws.onopen = async () => {
     }
 
     throw new Error(
-      `Renderer never reached ready state. Last content: ${payload ? payload.text : "(none)"}`,
+      `Renderer never reached ready state. Last content: ${payload ? summarizeText(payload.text) : "(none)"}`,
     );
   } catch (error) {
     console.error(error.stack || String(error));

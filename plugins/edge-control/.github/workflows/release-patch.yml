@@ -1,0 +1,58 @@
+name: Patch Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm ci
+
+      - name: Build patch release
+        id: release_patch
+        shell: pwsh
+        run: .\scripts\release-patch.ps1 -GitHubOutputPath $env:GITHUB_OUTPUT
+
+      - name: Commit version bump
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .codex-plugin/plugin.json extension/manifest.json scripts/package.json scripts/package-lock.json scripts/mcp-server.mjs
+          git commit -m "release: ${{ steps.release_patch.outputs.tag }}"
+
+      - name: Push branch and tag
+        shell: pwsh
+        run: |
+          git tag "${{ steps.release_patch.outputs.tag }}"
+          git push
+          git push origin "${{ steps.release_patch.outputs.tag }}"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_patch.outputs.tag }}
+          body_path: ${{ steps.release_patch.outputs.release_notes }}
+          files: |
+            ${{ steps.release_patch.outputs.source_zip }}
+            ${{ steps.release_patch.outputs.quick_deploy_zip }}
+            ${{ steps.release_patch.outputs.checksums_file }}

@@ -6,23 +6,37 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
+const (
+	PluginSourceTypeLocal  = "local"
+	PluginSourceTypeGitHub = "github"
+)
+
 type PluginCatalogEntry struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
-	SourcePath  string `json:"sourcePath"`
-	ReadmePath  string `json:"readmePath"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Version          string `json:"version"`
+	Description      string `json:"description"`
+	SourceType       string `json:"sourceType,omitempty"`
+	SourcePath       string `json:"sourcePath"`
+	ReadmePath       string `json:"readmePath"`
+	Category         string `json:"category,omitempty"`
+	RepositoryURL    string `json:"repositoryUrl,omitempty"`
+	RepositoryRef    string `json:"repositoryRef,omitempty"`
+	RepositorySubdir string `json:"repositorySubdir,omitempty"`
+	DownloadURL      string `json:"downloadUrl,omitempty"`
 }
 
 type PluginCatalog struct {
-	ProductName string               `json:"productName"`
-	SourceRoot  string               `json:"sourceRoot"`
-	Plugins     []PluginCatalogEntry `json:"plugins"`
-	UpdatedAt   time.Time            `json:"updatedAt"`
+	ProductName     string               `json:"productName"`
+	SourceRoot      string               `json:"sourceRoot"`
+	MarketplacePath string               `json:"marketplacePath,omitempty"`
+	CatalogSource   string               `json:"catalogSource,omitempty"`
+	Plugins         []PluginCatalogEntry `json:"plugins"`
+	UpdatedAt       time.Time            `json:"updatedAt"`
 }
 
 type PluginRuntimeState struct {
@@ -46,11 +60,18 @@ type PluginStatus struct {
 	Name             string    `json:"name"`
 	Version          string    `json:"version"`
 	Description      string    `json:"description"`
+	SourceType       string    `json:"sourceType"`
 	SourcePath       string    `json:"sourcePath"`
 	SourceExists     bool      `json:"sourceExists"`
 	ReadmePath       string    `json:"readmePath"`
 	ReadmeExists     bool      `json:"readmeExists"`
+	Category         string    `json:"category"`
+	RepositoryURL    string    `json:"repositoryUrl"`
+	RepositoryRef    string    `json:"repositoryRef"`
+	RepositorySubdir string    `json:"repositorySubdir"`
+	DownloadURL      string    `json:"downloadUrl"`
 	InstallPath      string    `json:"installPath"`
+	InstallExists    bool      `json:"installExists"`
 	Installed        bool      `json:"installed"`
 	Enabled          bool      `json:"enabled"`
 	InstalledVersion string    `json:"installedVersion"`
@@ -60,13 +81,16 @@ type PluginStatus struct {
 }
 
 type PluginMarketStatus struct {
-	SourceRoot   string         `json:"sourceRoot"`
-	SourceExists bool           `json:"sourceExists"`
-	CatalogPath  string         `json:"catalogPath"`
-	StatePath    string         `json:"statePath"`
-	PluginsDir   string         `json:"pluginsDir"`
-	Plugins      []PluginStatus `json:"plugins"`
-	UpdatedAt    time.Time      `json:"updatedAt"`
+	SourceRoot        string         `json:"sourceRoot"`
+	SourceExists      bool           `json:"sourceExists"`
+	MarketplacePath   string         `json:"marketplacePath"`
+	MarketplaceExists bool           `json:"marketplaceExists"`
+	CatalogSource     string         `json:"catalogSource"`
+	CatalogPath       string         `json:"catalogPath"`
+	StatePath         string         `json:"statePath"`
+	PluginsDir        string         `json:"pluginsDir"`
+	Plugins           []PluginStatus `json:"plugins"`
+	UpdatedAt         time.Time      `json:"updatedAt"`
 }
 
 func ResolvePluginSourceRoot() string {
@@ -74,12 +98,63 @@ func ResolvePluginSourceRoot() string {
 		return filepath.Clean(custom)
 	}
 
+	if repositoryRoot := ResolveRepositoryRoot(); repositoryRoot != "" {
+		return filepath.Join(repositoryRoot, "plugins")
+	}
+
+	candidates := []string{}
+	installRoot := ResolveInstallRoot()
+	for _, candidate := range []string{
+		filepath.Join(installRoot, "plugin-source"),
+		filepath.Join(installRoot, "resources", "plugin-source"),
+		filepath.Join(installRoot, "resources", "plugins"),
+		filepath.Join(ResolveLegacyHomeInstallRoot(), "plugin-source"),
+	} {
+		candidates = appendUniquePathCandidate(candidates, candidate)
+	}
+	if resolved := firstExistingDirectory(candidates); resolved != "" {
+		return resolved
+	}
+	if len(candidates) > 0 {
+		return filepath.Clean(candidates[0])
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "omni-bot-plugins-oss"
+		return filepath.Join(installRoot, "plugin-source")
 	}
 
 	return filepath.Join(homeDir, "workspace", "omni-bot-plugins-oss")
+}
+
+func ResolvePluginMarketplacePath() string {
+	if custom := os.Getenv("CPAD_PLUGIN_MARKETPLACE_FILE"); custom != "" {
+		return filepath.Clean(custom)
+	}
+
+	candidates := []string{}
+	if repositoryRoot := ResolveRepositoryRoot(); repositoryRoot != "" {
+		candidates = append(candidates, filepath.Join(repositoryRoot, ".agents", "plugins", "marketplace.json"))
+	}
+
+	installRoot := ResolveInstallRoot()
+	candidates = append(
+		candidates,
+		filepath.Join(installRoot, ".agents", "plugins", "marketplace.json"),
+		filepath.Join(installRoot, "resources", ".agents", "plugins", "marketplace.json"),
+	)
+
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return filepath.Clean(candidate)
+		}
+	}
+
+	if len(candidates) > 0 {
+		return filepath.Clean(candidates[0])
+	}
+
+	return filepath.Join(".agents", "plugins", "marketplace.json")
 }
 
 func PluginInstallPath(layout Layout, id string) string {
@@ -104,6 +179,9 @@ func (layout Layout) ReadPluginCatalog() (*PluginCatalog, error) {
 	if catalog.SourceRoot == "" {
 		catalog.SourceRoot = ResolvePluginSourceRoot()
 	}
+	if catalog.MarketplacePath == "" {
+		catalog.MarketplacePath = ResolvePluginMarketplacePath()
+	}
 
 	sort.Slice(catalog.Plugins, func(i int, j int) bool {
 		return catalog.Plugins[i].ID < catalog.Plugins[j].ID
@@ -119,6 +197,9 @@ func (layout Layout) WritePluginCatalog(catalog PluginCatalog) error {
 
 	if catalog.SourceRoot == "" {
 		catalog.SourceRoot = ResolvePluginSourceRoot()
+	}
+	if catalog.MarketplacePath == "" {
+		catalog.MarketplacePath = ResolvePluginMarketplacePath()
 	}
 
 	if catalog.UpdatedAt.IsZero() {
@@ -182,14 +263,18 @@ func (layout Layout) WritePluginState(state PluginStateFile) error {
 
 func ResolvePluginMarket(layout Layout) (PluginMarketStatus, error) {
 	status := PluginMarketStatus{
-		SourceRoot:  ResolvePluginSourceRoot(),
-		CatalogPath: layout.Files["pluginCatalog"],
-		StatePath:   layout.Files["pluginState"],
-		PluginsDir:  layout.Directories["plugins"],
+		SourceRoot:      ResolvePluginSourceRoot(),
+		MarketplacePath: ResolvePluginMarketplacePath(),
+		CatalogPath:     layout.Files["pluginCatalog"],
+		StatePath:       layout.Files["pluginState"],
+		PluginsDir:      layout.Directories["plugins"],
 	}
 
 	if sourceInfo, err := os.Stat(status.SourceRoot); err == nil && sourceInfo.IsDir() {
 		status.SourceExists = true
+	}
+	if _, err := os.Stat(status.MarketplacePath); err == nil {
+		status.MarketplaceExists = true
 	}
 
 	catalog, err := layout.ReadPluginCatalog()
@@ -199,9 +284,14 @@ func ResolvePluginMarket(layout Layout) (PluginMarketStatus, error) {
 
 	if catalog != nil {
 		status.SourceRoot = catalog.SourceRoot
+		status.MarketplacePath = catalog.MarketplacePath
+		status.CatalogSource = catalog.CatalogSource
 		status.UpdatedAt = catalog.UpdatedAt
 		if sourceInfo, err := os.Stat(status.SourceRoot); err == nil && sourceInfo.IsDir() {
 			status.SourceExists = true
+		}
+		if _, err := os.Stat(status.MarketplacePath); err == nil {
+			status.MarketplaceExists = true
 		}
 	}
 
@@ -218,19 +308,25 @@ func ResolvePluginMarket(layout Layout) (PluginMarketStatus, error) {
 		}
 	}
 
+	seenIDs := map[string]struct{}{}
 	if catalog != nil {
 		for _, entry := range catalog.Plugins {
+			seenIDs[entry.ID] = struct{}{}
 			runtimeState := stateMap[entry.ID]
 			pluginStatus := PluginStatus{
 				ID:               entry.ID,
 				Name:             entry.Name,
 				Version:          entry.Version,
 				Description:      entry.Description,
+				SourceType:       entry.SourceType,
 				SourcePath:       entry.SourcePath,
 				ReadmePath:       entry.ReadmePath,
+				Category:         entry.Category,
+				RepositoryURL:    entry.RepositoryURL,
+				RepositoryRef:    entry.RepositoryRef,
+				RepositorySubdir: entry.RepositorySubdir,
+				DownloadURL:      entry.DownloadURL,
 				InstallPath:      PluginInstallPath(layout, entry.ID),
-				Installed:        runtimeState.Installed,
-				Enabled:          runtimeState.Enabled,
 				InstalledVersion: runtimeState.InstalledVersion,
 				Message:          runtimeState.Message,
 				UpdatedAt:        runtimeState.UpdatedAt,
@@ -251,12 +347,45 @@ func ResolvePluginMarket(layout Layout) (PluginMarketStatus, error) {
 			}
 
 			if _, err := os.Stat(pluginStatus.InstallPath); err == nil {
-				pluginStatus.Installed = true
+				pluginStatus.InstallExists = true
 			}
 
-			pluginStatus.NeedsUpdate = pluginStatus.Installed && pluginStatus.InstalledVersion != "" && pluginStatus.InstalledVersion != pluginStatus.Version
+			pluginStatus.Installed = runtimeState.Installed && pluginStatus.InstallExists
+			pluginStatus.Enabled = pluginStatus.Installed && runtimeState.Enabled
+			pluginStatus.NeedsUpdate = pluginStatus.Installed &&
+				shouldComparePluginVersion(pluginStatus.Version) &&
+				pluginStatus.InstalledVersion != "" &&
+				pluginStatus.InstalledVersion != pluginStatus.Version
 			status.Plugins = append(status.Plugins, pluginStatus)
 		}
+	}
+
+	for id, runtimeState := range stateMap {
+		if _, seen := seenIDs[id]; seen || !shouldExposeStateOnlyPlugin(runtimeState) {
+			continue
+		}
+
+		pluginStatus := PluginStatus{
+			ID:               id,
+			Name:             id,
+			Version:          runtimeState.InstalledVersion,
+			Description:      "插件已不在当前目录中，可执行卸载清理。",
+			InstallPath:      PluginInstallPath(layout, id),
+			InstalledVersion: runtimeState.InstalledVersion,
+			Message:          runtimeState.Message,
+			UpdatedAt:        runtimeState.UpdatedAt,
+		}
+
+		if runtimeState.InstallPath != "" {
+			pluginStatus.InstallPath = runtimeState.InstallPath
+		}
+		if _, err := os.Stat(pluginStatus.InstallPath); err == nil {
+			pluginStatus.InstallExists = true
+		}
+
+		pluginStatus.Installed = runtimeState.Installed && pluginStatus.InstallExists
+		pluginStatus.Enabled = pluginStatus.Installed && runtimeState.Enabled
+		status.Plugins = append(status.Plugins, pluginStatus)
 	}
 
 	sort.Slice(status.Plugins, func(i int, j int) bool {
@@ -264,4 +393,17 @@ func ResolvePluginMarket(layout Layout) (PluginMarketStatus, error) {
 	})
 
 	return status, nil
+}
+
+func shouldComparePluginVersion(version string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(version))
+	return normalized != "" && normalized != "latest" && normalized != "0.0.0"
+}
+
+func shouldExposeStateOnlyPlugin(state PluginRuntimeState) bool {
+	return state.Installed ||
+		state.Enabled ||
+		strings.TrimSpace(state.InstallPath) != "" ||
+		strings.TrimSpace(state.Message) != "" ||
+		!state.UpdatedAt.IsZero()
 }

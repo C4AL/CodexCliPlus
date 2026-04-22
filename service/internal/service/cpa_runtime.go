@@ -92,14 +92,12 @@ func StartCPARuntime() (product.CPARuntimeStatus, error) {
 		}
 	}
 
-	if !status.ConfigExists {
-		if err := ensureCPAConfig(layout, status.SourceRoot); err != nil {
-			return status, err
-		}
-		status, err = product.ResolveCPARuntime(layout)
-		if err != nil {
-			return product.CPARuntimeStatus{}, err
-		}
+	if err := ensureCPAConfig(layout, status.SourceRoot); err != nil {
+		return status, err
+	}
+	status, err = product.ResolveCPARuntime(layout)
+	if err != nil {
+		return product.CPARuntimeStatus{}, err
 	}
 
 	logFile, err := os.OpenFile(status.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -220,6 +218,7 @@ func ensureCPAConfig(layout product.Layout, sourceRoot string) error {
 func rewriteCPAConfigDefaults(content string, layout product.Layout) string {
 	authDirLine := fmt.Sprintf("auth-dir: '%s'", strings.ReplaceAll(layout.Directories["cpaData"], "'", "''"))
 	portLine := fmt.Sprintf("port: %d", product.DefaultCPAPort)
+	panelRepository := product.ResolveManagedCPAPanelRepository()
 
 	replacements := []struct {
 		old string
@@ -230,6 +229,8 @@ func rewriteCPAConfigDefaults(content string, layout product.Layout) string {
 		{old: "port: 12723", new: portLine},
 		{old: "ws://127.0.0.1:8317", new: fmt.Sprintf("ws://127.0.0.1:%d", product.DefaultCPAPort)},
 		{old: "ws://127.0.0.1:12723", new: fmt.Sprintf("ws://127.0.0.1:%d", product.DefaultCPAPort)},
+		{old: "https://github.com/Blackblock-inc/CPA-UV", new: panelRepository},
+		{old: "https://api.github.com/repos/Blackblock-inc/CPA-UV/releases/latest", new: panelRepository},
 	}
 
 	rewritten := content

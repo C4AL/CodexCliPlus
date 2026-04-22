@@ -7,6 +7,7 @@ const api: CpadApi = {
   openPath: async (targetPath) =>
     ipcRenderer.invoke("cpad:open-path", targetPath),
   openUrl: async (targetUrl) => ipcRenderer.invoke("cpad:open-url", targetUrl),
+  runSelfTest: async () => ipcRenderer.invoke("cpad:run-self-test"),
   installService: async () => ipcRenderer.invoke("cpad:install-service"),
   removeService: async () => ipcRenderer.invoke("cpad:remove-service"),
   startService: async () => ipcRenderer.invoke("cpad:start-service"),
@@ -18,6 +19,8 @@ const api: CpadApi = {
   refreshPluginMarket: async () =>
     ipcRenderer.invoke("cpad:refresh-plugin-market"),
   installPlugin: async (id) => ipcRenderer.invoke("cpad:install-plugin", id),
+  uninstallPlugin: async (id) =>
+    ipcRenderer.invoke("cpad:uninstall-plugin", id),
   updatePlugin: async (id) => ipcRenderer.invoke("cpad:update-plugin", id),
   enablePlugin: async (id) => ipcRenderer.invoke("cpad:enable-plugin", id),
   disablePlugin: async (id) => ipcRenderer.invoke("cpad:disable-plugin", id),

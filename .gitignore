@@ -4,6 +4,7 @@ out/
 .vite/
 release/
 coverage/
+.agents/
 .env
 .env.*
 *.log

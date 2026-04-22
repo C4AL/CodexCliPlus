@@ -130,6 +130,11 @@ func run(args []string) error {
 					return fmt.Errorf("plugin-market update requires a plugin id")
 				}
 				status, err = service.UpdateManagedPlugin(args[2])
+			case "uninstall":
+				if len(args) < 3 {
+					return fmt.Errorf("plugin-market uninstall requires a plugin id")
+				}
+				status, err = service.UninstallManagedPlugin(args[2])
 			case "enable":
 				if len(args) < 3 {
 					return fmt.Errorf("plugin-market enable requires a plugin id")

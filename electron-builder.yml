@@ -11,6 +11,44 @@ files:
   - package.json
   - '!**/*.map'
 
+extraFiles:
+  - from: sources
+    to: sources
+    filter:
+      - '**/*'
+      - '!**/node_modules/**/*'
+      - '!**/dist/**/*'
+      - '!**/out/**/*'
+      - '!**/release/**/*'
+      - '!**/.vite/**/*'
+      - '!**/coverage/**/*'
+  - from: plugins
+    to: plugin-source
+    filter:
+      - '**/*'
+      - '!**/node_modules/**/*'
+      - '!**/dist/**/*'
+      - '!**/out/**/*'
+      - '!**/release/**/*'
+      - '!**/.vite/**/*'
+      - '!**/coverage/**/*'
+  - from: scripts/package-layout/root
+    to: .
+    filter:
+      - '**/*'
+  - from: scripts/package-layout/sources
+    to: sources
+    filter:
+      - '**/*'
+  - from: scripts/package-layout/plugin-source
+    to: plugin-source
+    filter:
+      - '**/*'
+  - from: scripts/package-layout/plugins
+    to: plugins
+    filter:
+      - '**/*'
+
 extraResources:
   - from: service/bin
     to: bin
@@ -20,7 +58,7 @@ extraResources:
   - from: ico
     to: ico
     filter:
-      - "**/*"
+      - '**/*'
 
 win:
   executableName: Cli Proxy API Desktop
@@ -30,9 +68,6 @@ win:
       arch:
         - x64
     - target: portable
-      arch:
-        - x64
-    - target: dir
       arch:
         - x64
 

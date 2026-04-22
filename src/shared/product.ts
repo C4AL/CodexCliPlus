@@ -8,6 +8,7 @@ export const PRODUCT_TAGLINE =
 export const SERVICE_NAME = "CliProxyAPIDesktopService";
 export const INSTALL_DIR_NAME = "Cli Proxy API Desktop";
 export const CPA_MANAGED_BINARY_NAME = "CPAD-CPA.exe";
+export const SOURCE_DIR_NAME = "sources";
 
 export type InstallLayout = {
   installRoot: string;
@@ -20,9 +21,11 @@ export type InstallLayout = {
     plugins: string;
     logs: string;
     tmp: string;
+    sources: string;
     upstream: string;
     officialCoreBaseline: string;
     officialPanelBaseline: string;
+    cpaOverlaySource: string;
   };
   files: {
     database: string;
@@ -45,6 +48,8 @@ export type CodexShimState = {
   shimPath: string;
   targetPath: string;
   targetExists: boolean;
+  globalPath: string;
+  globalExists: boolean;
   launchArgs: string[];
   launchReady: boolean;
   launchMessage: string;
@@ -209,12 +214,16 @@ export const PRIMARY_SURFACES = [
 export function buildInstallLayout(
   homeDir: string,
   explicitRoot?: string,
+  repositoryRoot?: string,
 ): InstallLayout {
   const installRoot = explicitRoot
     ? win32.normalize(explicitRoot)
     : win32.join(homeDir, INSTALL_DIR_NAME);
   const data = win32.join(installRoot, "data");
   const logs = win32.join(installRoot, "logs");
+  const sources = repositoryRoot
+    ? win32.join(win32.normalize(repositoryRoot), SOURCE_DIR_NAME)
+    : win32.join(installRoot, SOURCE_DIR_NAME);
 
   return {
     installRoot,
@@ -227,17 +236,14 @@ export function buildInstallLayout(
       plugins: win32.join(installRoot, "plugins"),
       logs,
       tmp: win32.join(installRoot, "tmp"),
-      upstream: win32.join(installRoot, "upstream"),
-      officialCoreBaseline: win32.join(
-        installRoot,
-        "upstream",
-        "CLIProxyAPI",
-      ),
+      sources,
+      upstream: sources,
+      officialCoreBaseline: win32.join(sources, "official-backend"),
       officialPanelBaseline: win32.join(
-        installRoot,
-        "upstream",
-        "Cli-Proxy-API-Management-Center",
+        sources,
+        "official-management-center",
       ),
+      cpaOverlaySource: win32.join(sources, "cpa-uv-overlay"),
     },
     files: {
       database: win32.join(data, "app.db"),

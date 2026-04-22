@@ -1,0 +1,21 @@
+Cli Proxy API Desktop package layout
+
+Setup installs this managed app root into the selected install directory.
+Portable embeds the same app root and extracts it at runtime.
+The optional layout preview reproduces the same root layout directly on disk.
+
+Relevant packaged paths:
+- resources/bin: bundled service and shim executables
+- resources/ico: bundled icon assets
+- sources: bundled upstream and overlay source snapshots
+- plugin-source: bundled plugin source snapshots used to seed the plugin market
+- plugins: managed plugin install root populated by the app at runtime
+
+Runtime-created paths:
+- data
+- logs
+- runtime
+- tmp
+
+win-unpacked is not an installer.
+It is only an unpacked app image that Electron Builder uses to assemble real distributables.

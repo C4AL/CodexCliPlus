@@ -1,0 +1,41 @@
+{
+  "name": "edge-control",
+  "version": "0.1.7",
+  "description": "Local Edge browser control for Codex through a localhost bridge, an Edge extension, and direct MCP tools.",
+  "author": {
+    "name": "Reol"
+  },
+  "homepage": "https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/",
+  "license": "UNLICENSED",
+  "keywords": [
+    "edge",
+    "browser",
+    "automation",
+    "mcp",
+    "local"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Edge Control",
+    "shortDescription": "Drive the local Edge browser with DOM and CDP-level access instead of screenshots",
+    "longDescription": "Edge Control gives Codex a local browser-control surface backed by an unpacked Edge extension, a localhost bridge, and MCP tools for tab control, DOM operations, arbitrary page evaluation, and direct Chrome DevTools Protocol commands.",
+    "developerName": "Reol",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/",
+    "defaultPrompt": [
+      "Inspect the current Edge tabs and operate the page directly through Edge Control instead of screenshots",
+      "Use Edge Control to navigate, click, type, and evaluate page state in my current Edge session",
+      "Use Edge Control CDP commands when normal DOM actions are insufficient"
+    ],
+    "brandColor": "#0F6CBD",
+    "composerIcon": "./assets/edge-control-small.svg",
+    "logo": "./assets/edge-control.svg",
+    "screenshots": []
+  }
+}

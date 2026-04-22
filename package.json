@@ -10,6 +10,10 @@
     "start": "npm run build && electron .",
     "debug:smoke": "powershell -ExecutionPolicy Bypass -File scripts/debug-loop.ps1 -Count 1",
     "debug:50": "powershell -ExecutionPolicy Bypass -File scripts/debug-loop.ps1 -Count 50",
+    "test:go": "go -C service test ./...",
+    "test:electron:smoke": "powershell -ExecutionPolicy Bypass -File scripts/test-electron-smoke.ps1",
+    "test:full": "powershell -ExecutionPolicy Bypass -File scripts/full-validation.ps1",
+    "sources:sync": "powershell -ExecutionPolicy Bypass -File scripts/sync-merged-sources.ps1",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:service": "go -C service build -o bin/cpad-service.exe ./cmd/cpad-service",
@@ -29,6 +33,8 @@
     "update:center:check": "go -C service run ./cmd/cpad-service update-center check",
     "update:center:sync": "go -C service run ./cmd/cpad-service update-center sync",
     "dist:win": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
+    "dist:win:layout": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1 -LayoutOnly",
+    "dist:win:prepare": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1 -PrepareOnly",
     "shim:inspect": "service\\bin\\codex.exe inspect"
   },
   "dependencies": {

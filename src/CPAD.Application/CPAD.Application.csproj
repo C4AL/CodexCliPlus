@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CPAD.Contracts\CPAD.Contracts.csproj" />
+    <ProjectReference Include="..\CPAD.Domain\CPAD.Domain.csproj" />
+  </ItemGroup>
+</Project>

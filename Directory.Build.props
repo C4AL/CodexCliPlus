@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Blackblock Inc.</Company>
+    <Authors>Blackblock Inc.</Authors>
+    <RootNamespace>CPAD</RootNamespace>
+  </PropertyGroup>
+</Project>

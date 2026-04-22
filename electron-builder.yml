@@ -1,0 +1,48 @@
+appId: BlackblockInc.CPAD
+productName: Cli Proxy API Desktop
+artifactName: ${productName}-${version}-${arch}.${ext}
+asar: true
+
+directories:
+  output: release
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+
+extraResources:
+  - from: service/bin
+    to: bin
+    filter:
+      - cpad-service.exe
+      - codex.exe
+  - from: ico
+    to: ico
+    filter:
+      - "**/*"
+
+win:
+  executableName: Cli Proxy API Desktop
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+
+nsis:
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+
+portable:
+  artifactName: ${productName}-Portable-${version}-${arch}.${ext}

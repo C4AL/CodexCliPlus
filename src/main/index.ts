@@ -79,11 +79,69 @@ async function readLogTail(targetPath: string, limit: number) {
 }
 
 function resolveRepoRoot() {
-  if (process.env.CPAD_REPO_ROOT) {
-    return resolve(process.env.CPAD_REPO_ROOT);
+  return getDevelopmentRootCandidates()[0] ?? resolve(__dirname, "../..");
+}
+
+function uniquePaths(candidates: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const resolvedPaths: string[] = [];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    const resolvedPath = resolve(candidate);
+    const key = resolvedPath.toLowerCase();
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    resolvedPaths.push(resolvedPath);
   }
 
-  return resolve(__dirname, "../..");
+  return resolvedPaths;
+}
+
+function getDevelopmentRootCandidates() {
+  return uniquePaths([
+    process.env.CPAD_REPO_ROOT,
+    app.getAppPath(),
+    resolve(__dirname, "../.."),
+  ]);
+}
+
+function getPackagedRootCandidates() {
+  if (!app.isPackaged) {
+    return [];
+  }
+
+  const appPath = app.getAppPath();
+
+  return uniquePaths([
+    process.resourcesPath,
+    resolve(process.resourcesPath, "app.asar.unpacked"),
+    appPath,
+    resolve(appPath, ".."),
+    resolve(appPath, "..", "app.asar.unpacked"),
+    resolve(__dirname, "../.."),
+  ]);
+}
+
+function getRuntimeAssetRoots() {
+  return app.isPackaged
+    ? [...getPackagedRootCandidates(), ...getDevelopmentRootCandidates()]
+    : [...getDevelopmentRootCandidates(), ...getPackagedRootCandidates()];
+}
+
+function isPackagedArchivePath(targetPath: string) {
+  const normalizedPath = targetPath.replace(/\\/g, "/").toLowerCase();
+  return (
+    normalizedPath.includes("/app.asar/") ||
+    normalizedPath.endsWith("/app.asar")
+  );
 }
 
 function normalizeTimestamp(value: string | undefined) {
@@ -95,16 +153,24 @@ function normalizeTimestamp(value: string | undefined) {
 }
 
 async function resolveServiceExecutable(installRoot: string) {
+  const explicitServiceBinary = process.env.CPAD_SERVICE_BINARY
+    ? resolve(process.env.CPAD_SERVICE_BINARY)
+    : null;
   const candidates = [
-    process.env.CPAD_SERVICE_BINARY,
-    join(resolveRepoRoot(), "service", "bin", "cpad-service.exe"),
     join(installRoot, `${PRODUCT_NAME} Service.exe`),
-  ].filter(
-    (candidate): candidate is string =>
-      typeof candidate === "string" && candidate.length > 0,
-  );
+    ...getRuntimeAssetRoots().flatMap((root) => [
+      join(root, "service", "bin", "cpad-service.exe"),
+      join(root, "cpad-service.exe"),
+      join(root, `${PRODUCT_NAME} Service.exe`),
+    ]),
+  ];
 
-  for (const candidate of candidates) {
+  for (const candidate of uniquePaths([explicitServiceBinary, ...candidates])) {
+    // Windows cannot execute a bundled binary from inside app.asar.
+    if (candidate !== explicitServiceBinary && isPackagedArchivePath(candidate)) {
+      continue;
+    }
+
     if (await pathExists(candidate)) {
       return candidate;
     }
@@ -114,14 +180,12 @@ async function resolveServiceExecutable(installRoot: string) {
 }
 
 async function resolveAppIcon() {
-  const candidates = [
-    join(resolveRepoRoot(), "ico", "ico-transparent.png"),
-    join(resolveRepoRoot(), "ico", "ico.png"),
-    join(process.resourcesPath, "ico", "ico-transparent.png"),
-    join(process.resourcesPath, "ico", "ico.png"),
-  ];
+  const candidates = getRuntimeAssetRoots().flatMap((root) => [
+    join(root, "ico", "ico-transparent.png"),
+    join(root, "ico", "ico.png"),
+  ]);
 
-  for (const candidate of candidates) {
+  for (const candidate of uniquePaths(candidates)) {
     if (await pathExists(candidate)) {
       return candidate;
     }
@@ -144,6 +208,12 @@ async function runServiceCommand(installRoot: string, args: string[]) {
       maxBuffer: 16 * 1024 * 1024,
     });
     return stdout;
+  }
+
+  if (app.isPackaged) {
+    throw new Error(
+      "Unable to locate the bundled service executable in packaged app resources.",
+    );
   }
 
   const repoRoot = resolveRepoRoot();

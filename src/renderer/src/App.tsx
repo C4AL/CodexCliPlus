@@ -48,6 +48,58 @@ function pluginSummary(plugin: PluginRuntimeState) {
   return "已安装，已启用";
 }
 
+function buildReleaseChecks(state: ShellState) {
+  return [
+    {
+      label: "服务宿主已安装",
+      ok: state.serviceManager.installed,
+      detail: state.serviceManager.installed
+        ? `当前状态 ${state.serviceManager.state}`
+        : "Windows 服务尚未安装",
+    },
+    {
+      label: "CPA Runtime 已构建",
+      ok: state.cpaRuntime.binaryExists,
+      detail: state.cpaRuntime.binaryExists
+        ? state.cpaRuntime.managedBinary
+        : "受控运行时二进制尚未生成",
+    },
+    {
+      label: "CPA Runtime 正在运行",
+      ok: state.cpaRuntime.running,
+      detail: state.cpaRuntime.running
+        ? `pid=${formatPid(state.cpaRuntime.pid)}`
+        : state.cpaRuntime.message,
+    },
+    {
+      label: "CPA Runtime 健康检查通过",
+      ok: state.cpaRuntime.healthCheck.healthy,
+      detail: state.cpaRuntime.healthCheck.message,
+    },
+    {
+      label: "管理入口已启用",
+      ok: state.cpaRuntime.configInsight.managementEnabled,
+      detail: state.cpaRuntime.configInsight.managementEnabled
+        ? "remote-management.secret-key 已配置"
+        : "管理密钥为空，/v0/management 将返回 404",
+    },
+    {
+      label: "Codex App Server 根代理已启用",
+      ok: state.cpaRuntime.configInsight.codexAppServerProxyEnabled,
+      detail: state.cpaRuntime.configInsight.codexAppServerProxyEnabled
+        ? state.cpaRuntime.configInsight.codexRemoteUrl
+        : "codex-app-server-proxy 当前未开启",
+    },
+    {
+      label: "当前 Codex 目标运行时存在",
+      ok: state.codex.targetExists,
+      detail: state.codex.targetExists
+        ? state.codex.targetPath
+        : `当前模式 ${state.codex.mode} 的目标运行时缺失`,
+    },
+  ];
+}
+
 export function App() {
   const [state, setState] = useState<ShellState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +182,8 @@ export function App() {
       </main>
     );
   }
+
+  const releaseChecks = buildReleaseChecks(state);
 
   return (
     <main className="app-shell">
@@ -235,6 +289,27 @@ export function App() {
       </section>
 
       <section className="overview-grid overview-grid--bottom">
+        <article className="panel">
+          <div className="panel__header">
+            <p className="eyebrow">首版自检</p>
+            <h2>发布前可用性检查</h2>
+          </div>
+          <p className="support-copy">
+            这组检查直接反映当前环境是否接近“可装、可跑、可控、可诊断”。
+          </p>
+          <ul className="check-list">
+            {releaseChecks.map((item) => (
+              <li key={item.label}>
+                <strong>{item.ok ? "OK" : "待补"}</strong>
+                {" "}
+                {item.label}
+                {"："}
+                {item.detail}
+              </li>
+            ))}
+          </ul>
+        </article>
+
         <article className="panel">
           <div className="panel__header">
             <p className="eyebrow">服务交付</p>
@@ -431,6 +506,41 @@ export function App() {
             <button
               className="ghost-button"
               disabled={busyAction !== null}
+              onClick={() =>
+                void window.cpad.openUrl(state.cpaRuntime.configInsight.healthUrl)
+              }
+              type="button"
+            >
+              打开 healthz
+            </button>
+            <button
+              className="ghost-button"
+              disabled={
+                busyAction !== null ||
+                !state.cpaRuntime.configInsight.controlPanelEnabled
+              }
+              onClick={() =>
+                void window.cpad.openUrl(
+                  state.cpaRuntime.configInsight.managementUrl,
+                )
+              }
+              type="button"
+            >
+              打开管理页
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
+              onClick={() =>
+                void window.cpad.openUrl(state.cpaRuntime.configInsight.usageUrl)
+              }
+              type="button"
+            >
+              打开 usage
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
               onClick={() => void window.cpad.openPath(state.cpaRuntime.configPath)}
               type="button"
             >
@@ -487,6 +597,72 @@ export function App() {
               <code>{formatTimestamp(state.cpaRuntime.updatedAt)}</code>
             </div>
           </div>
+          <div className="inline-status">
+            <span>host: {state.cpaRuntime.configInsight.host || "0.0.0.0 / all"}</span>
+            <span>port: {state.cpaRuntime.configInsight.port || "未解析"}</span>
+            <span>tls: {formatBool(state.cpaRuntime.configInsight.tlsEnabled)}</span>
+            <span>
+              managementEnabled:{" "}
+              {formatBool(state.cpaRuntime.configInsight.managementEnabled)}
+            </span>
+            <span>
+              controlPanelEnabled:{" "}
+              {formatBool(state.cpaRuntime.configInsight.controlPanelEnabled)}
+            </span>
+            <span>
+              rootProxyEnabled:{" "}
+              {formatBool(
+                state.cpaRuntime.configInsight.codexAppServerProxyEnabled,
+              )}
+            </span>
+            <span>
+              healthz:{" "}
+              {state.cpaRuntime.healthCheck.healthy
+                ? "pass"
+                : state.cpaRuntime.healthCheck.checked
+                  ? `fail(${state.cpaRuntime.healthCheck.statusCode || "n/a"})`
+                  : "not-checked"}
+            </span>
+          </div>
+          <div className="path-grid path-grid--compact">
+            <div className="path-row">
+              <span>baseUrl</span>
+              <code>{state.cpaRuntime.configInsight.baseUrl || "未解析"}</code>
+            </div>
+            <div className="path-row">
+              <span>healthUrl</span>
+              <code>{state.cpaRuntime.configInsight.healthUrl || "未解析"}</code>
+            </div>
+            <div className="path-row">
+              <span>managementUrl</span>
+              <code>
+                {state.cpaRuntime.configInsight.managementUrl || "未解析"}
+              </code>
+            </div>
+            <div className="path-row">
+              <span>usageUrl</span>
+              <code>{state.cpaRuntime.configInsight.usageUrl || "未解析"}</code>
+            </div>
+            <div className="path-row">
+              <span>panelRepository</span>
+              <code>
+                {state.cpaRuntime.configInsight.panelRepository || "未配置"}
+              </code>
+            </div>
+            <div className="path-row">
+              <span>healthMessage</span>
+              <code>{state.cpaRuntime.healthCheck.message || "未生成"}</code>
+            </div>
+            <div className="path-row">
+              <span>healthCheckedAt</span>
+              <code>{formatTimestamp(state.cpaRuntime.healthCheck.checkedAt)}</code>
+            </div>
+          </div>
+          {state.cpaRuntime.configInsight.codexAppServerProxyEnabled ? (
+            <code className="command-line">
+              {`codex --remote ${state.cpaRuntime.configInsight.codexRemoteUrl}`}
+            </code>
+          ) : null}
         </article>
 
         <article className="panel">

@@ -35,22 +35,7 @@ type HostSnapshot = {
     binaryPath: string;
   };
   codex: ShellState["codex"];
-  cpaRuntime: {
-    sourceRoot: string;
-    sourceExists: boolean;
-    buildPackage: string;
-    managedBinary: string;
-    binaryExists: boolean;
-    configPath: string;
-    configExists: boolean;
-    stateFile: string;
-    logPath: string;
-    phase: string;
-    pid: number;
-    running: boolean;
-    message: string;
-    updatedAt: string;
-  };
+  cpaRuntime: ShellState["cpaRuntime"];
   pluginMarket: ShellState["pluginMarket"];
   updateCenter: ShellState["updateCenter"];
 };
@@ -99,6 +84,14 @@ function resolveRepoRoot() {
   }
 
   return resolve(__dirname, "../..");
+}
+
+function normalizeTimestamp(value: string | undefined) {
+  if (!value || value.startsWith("0001-01-01")) {
+    return null;
+  }
+
+  return value;
 }
 
 async function resolveServiceExecutable(installRoot: string) {
@@ -197,7 +190,13 @@ async function createShellState(): Promise<ShellState> {
     cpaRuntime: {
       ...hostSnapshot.cpaRuntime,
       pid: hostSnapshot.cpaRuntime.pid > 0 ? hostSnapshot.cpaRuntime.pid : null,
-      updatedAt: hostSnapshot.cpaRuntime.updatedAt ?? null,
+      updatedAt: normalizeTimestamp(hostSnapshot.cpaRuntime.updatedAt),
+      healthCheck: {
+        ...hostSnapshot.cpaRuntime.healthCheck,
+        checkedAt: normalizeTimestamp(
+          hostSnapshot.cpaRuntime.healthCheck.checkedAt ?? undefined,
+        ),
+      },
     },
     logs: {
       serviceLogPath: installLayout.files.serviceLog,
@@ -279,6 +278,9 @@ app.whenReady().then(() => {
   ipcMain.handle("cpad:get-shell-state", async () => createShellState());
   ipcMain.handle("cpad:open-path", async (_event, targetPath: string) =>
     shell.openPath(targetPath),
+  );
+  ipcMain.handle("cpad:open-url", async (_event, targetUrl: string) =>
+    shell.openExternal(targetUrl),
   );
   ipcMain.handle("cpad:install-service", async () => installManagedService());
   ipcMain.handle("cpad:remove-service", async () =>

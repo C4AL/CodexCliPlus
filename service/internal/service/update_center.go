@@ -70,6 +70,8 @@ func refreshCachedUpdateCenterSources(layout product.Layout, state *product.Upda
 			state.Sources[index] = buildManagedCodexStatus(layout)
 		}
 	}
+
+	state.UpdatedAt = time.Now().UTC()
 }
 
 func CheckUpdateCenter() (product.UpdateCenterStatus, error) {

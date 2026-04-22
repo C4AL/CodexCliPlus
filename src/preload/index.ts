@@ -6,6 +6,7 @@ const api: CpadApi = {
   getShellState: async () => ipcRenderer.invoke("cpad:get-shell-state"),
   openPath: async (targetPath) =>
     ipcRenderer.invoke("cpad:open-path", targetPath),
+  openUrl: async (targetUrl) => ipcRenderer.invoke("cpad:open-url", targetUrl),
   installService: async () => ipcRenderer.invoke("cpad:install-service"),
   removeService: async () => ipcRenderer.invoke("cpad:remove-service"),
   startService: async () => ipcRenderer.invoke("cpad:start-service"),

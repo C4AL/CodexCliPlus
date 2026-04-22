@@ -43,6 +43,7 @@ export type ShellState = {
 export type CpadApi = {
   getShellState: () => Promise<ShellState>;
   openPath: (targetPath: string) => Promise<string>;
+  openUrl: (targetUrl: string) => Promise<void>;
   installService: () => Promise<ShellState>;
   removeService: () => Promise<ShellState>;
   startService: () => Promise<ShellState>;

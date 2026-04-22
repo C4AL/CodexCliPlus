@@ -64,6 +64,30 @@ export type CPARuntimeState = {
   running: boolean;
   message: string;
   updatedAt: string | null;
+  configInsight: {
+    host: string;
+    port: number;
+    tlsEnabled: boolean;
+    baseUrl: string;
+    healthUrl: string;
+    managementUrl: string;
+    usageUrl: string;
+    codexRemoteUrl: string;
+    managementAllowRemote: boolean;
+    managementEnabled: boolean;
+    controlPanelEnabled: boolean;
+    panelRepository: string;
+    codexAppServerProxyEnabled: boolean;
+    codexAppServerRestrictToLocalhost: boolean;
+    codexAppServerCodexBin: string;
+  };
+  healthCheck: {
+    checked: boolean;
+    healthy: boolean;
+    statusCode: number;
+    message: string;
+    checkedAt: string | null;
+  };
 };
 
 export type ServiceManagerState = {

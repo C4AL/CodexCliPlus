@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "start": "npm run build && electron .",
+    "debug:smoke": "powershell -ExecutionPolicy Bypass -File scripts/debug-loop.ps1 -Count 1",
+    "debug:50": "powershell -ExecutionPolicy Bypass -File scripts/debug-loop.ps1 -Count 50",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:service": "go -C service build -o bin/cpad-service.exe ./cmd/cpad-service",

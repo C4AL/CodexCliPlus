@@ -16,6 +16,21 @@ import (
 
 var pluginFieldPattern = regexp.MustCompile(`^\s*([A-Za-z0-9_-]+)\s*=\s*"([^"]*)"`)
 
+func fallbackPluginMarketStatus(layout product.Layout) product.PluginMarketStatus {
+	status := product.PluginMarketStatus{
+		SourceRoot:  product.ResolvePluginSourceRoot(),
+		CatalogPath: layout.Files["pluginCatalog"],
+		StatePath:   layout.Files["pluginState"],
+		PluginsDir:  layout.Directories["plugins"],
+	}
+
+	if sourceInfo, err := os.Stat(status.SourceRoot); err == nil && sourceInfo.IsDir() {
+		status.SourceExists = true
+	}
+
+	return status
+}
+
 func InspectPluginMarket() (product.PluginMarketStatus, error) {
 	layout := product.NewLayout()
 	if err := layout.Ensure(); err != nil {
@@ -23,14 +38,19 @@ func InspectPluginMarket() (product.PluginMarketStatus, error) {
 	}
 
 	if _, err := layout.ReadPluginCatalog(); err != nil {
-		return product.PluginMarketStatus{}, err
+		return fallbackPluginMarketStatus(layout), nil
 	} else if _, err := os.Stat(layout.Files["pluginCatalog"]); os.IsNotExist(err) {
 		if _, refreshErr := RefreshPluginMarket(); refreshErr != nil {
-			return product.PluginMarketStatus{}, refreshErr
+			return fallbackPluginMarketStatus(layout), nil
 		}
 	}
 
-	return product.ResolvePluginMarket(layout)
+	status, err := product.ResolvePluginMarket(layout)
+	if err != nil {
+		return fallbackPluginMarketStatus(layout), nil
+	}
+
+	return status, nil
 }
 
 func RefreshPluginMarket() (product.PluginMarketStatus, error) {

@@ -78,3 +78,41 @@ codex-app-server-proxy:
 		t.Fatalf("unexpected launch args: %#v", resolution.LaunchArgs)
 	}
 }
+
+func TestResolveCodexShimReturnsEmptyLaunchArgsSliceWhenTargetMissing(t *testing.T) {
+	rootDir := t.TempDir()
+	layout := Layout{
+		InstallRoot: rootDir,
+		Directories: map[string]string{
+			"codexRuntime": filepath.Join(rootDir, "runtime", "codex"),
+			"cpaRuntime":   filepath.Join(rootDir, "runtime", "cpa"),
+		},
+		Files: map[string]string{
+			"codexMode": filepath.Join(rootDir, "data", "codex-mode.json"),
+		},
+	}
+
+	for _, directory := range layout.Directories {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", directory, err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(layout.Files["codexMode"]), 0o755); err != nil {
+		t.Fatalf("mkdir codex state dir: %v", err)
+	}
+	if err := layout.WriteCodexMode(CodexModeOfficial, "switch"); err != nil {
+		t.Fatalf("write codex mode: %v", err)
+	}
+
+	resolution, err := ResolveCodexShim(layout)
+	if err != nil {
+		t.Fatalf("ResolveCodexShim: %v", err)
+	}
+
+	if resolution.LaunchArgs == nil {
+		t.Fatal("expected launch args to be an empty slice, got nil")
+	}
+	if len(resolution.LaunchArgs) != 0 {
+		t.Fatalf("expected empty launch args, got %#v", resolution.LaunchArgs)
+	}
+}

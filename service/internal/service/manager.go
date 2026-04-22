@@ -160,7 +160,8 @@ func QueryServiceStatus() (ManagerStatus, error) {
 
 	manager, err := mgr.Connect()
 	if err != nil {
-		return status, err
+		status.State = "unavailable"
+		return status, nil
 	}
 	defer manager.Disconnect()
 
@@ -170,7 +171,8 @@ func QueryServiceStatus() (ManagerStatus, error) {
 			return status, nil
 		}
 
-		return status, err
+		status.State = "unavailable"
+		return status, nil
 	}
 	defer service.Close()
 
@@ -178,15 +180,16 @@ func QueryServiceStatus() (ManagerStatus, error) {
 
 	queryStatus, err := service.Query()
 	if err != nil {
-		return status, err
+		status.State = "unavailable"
+		return status, nil
 	}
+	status.State = serviceStateName(queryStatus.State)
 
 	config, err := service.Config()
 	if err != nil {
-		return status, err
+		return status, nil
 	}
 
-	status.State = serviceStateName(queryStatus.State)
 	status.StartType = startTypeName(config.StartType)
 	status.BinaryPath = config.BinaryPathName
 
@@ -273,22 +276,19 @@ func LoadHostSnapshot() (HostSnapshot, error) {
 	snapshot.ManagerStatus = managerStatus
 
 	state, err := layout.ReadState()
-	if err != nil {
-		return HostSnapshot{}, err
+	if err == nil {
+		snapshot.ServiceState = state
 	}
-	snapshot.ServiceState = state
 
 	database, err := store.Open(layout.Files["database"])
-	if err != nil {
-		return HostSnapshot{}, err
-	}
-	defer database.Close()
+	if err == nil {
+		defer database.Close()
 
-	dbSnapshot, err := database.Snapshot()
-	if err != nil {
-		return HostSnapshot{}, err
+		dbSnapshot, snapshotErr := database.Snapshot()
+		if snapshotErr == nil {
+			snapshot.Database = &dbSnapshot
+		}
 	}
-	snapshot.Database = &dbSnapshot
 
 	return snapshot, nil
 }

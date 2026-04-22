@@ -66,6 +66,14 @@ export type CPARuntimeState = {
   updatedAt: string | null;
 };
 
+export type ServiceManagerState = {
+  serviceName: string;
+  installed: boolean;
+  state: string;
+  startType: string;
+  binaryPath: string;
+};
+
 export type PluginRuntimeState = {
   id: string;
   name: string;

@@ -6,7 +6,14 @@ const api: CpadApi = {
   getShellState: async () => ipcRenderer.invoke("cpad:get-shell-state"),
   openPath: async (targetPath) =>
     ipcRenderer.invoke("cpad:open-path", targetPath),
+  installService: async () => ipcRenderer.invoke("cpad:install-service"),
+  removeService: async () => ipcRenderer.invoke("cpad:remove-service"),
+  startService: async () => ipcRenderer.invoke("cpad:start-service"),
+  stopService: async () => ipcRenderer.invoke("cpad:stop-service"),
   setCodexMode: async (mode) => ipcRenderer.invoke("cpad:set-codex-mode", mode),
+  buildCpaRuntime: async () => ipcRenderer.invoke("cpad:build-cpa-runtime"),
+  startCpaRuntime: async () => ipcRenderer.invoke("cpad:start-cpa-runtime"),
+  stopCpaRuntime: async () => ipcRenderer.invoke("cpad:stop-cpa-runtime"),
   refreshPluginMarket: async () =>
     ipcRenderer.invoke("cpad:refresh-plugin-market"),
   installPlugin: async (id) => ipcRenderer.invoke("cpad:install-plugin", id),

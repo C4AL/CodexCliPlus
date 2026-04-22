@@ -5,6 +5,7 @@ import type {
   InstallLayout,
   PluginMarketState,
   ProcessCard,
+  ServiceManagerState,
   UpdateCenterState,
 } from "./product";
 
@@ -26,6 +27,7 @@ export type ShellState = {
     updatedAt: string | null;
     message: string | null;
   };
+  serviceManager: ServiceManagerState;
   codex: CodexShimState;
   cpaRuntime: CPARuntimeState;
   logs: {
@@ -41,7 +43,14 @@ export type ShellState = {
 export type CpadApi = {
   getShellState: () => Promise<ShellState>;
   openPath: (targetPath: string) => Promise<string>;
+  installService: () => Promise<ShellState>;
+  removeService: () => Promise<ShellState>;
+  startService: () => Promise<ShellState>;
+  stopService: () => Promise<ShellState>;
   setCodexMode: (mode: CodexMode) => Promise<ShellState>;
+  buildCpaRuntime: () => Promise<ShellState>;
+  startCpaRuntime: () => Promise<ShellState>;
+  stopCpaRuntime: () => Promise<ShellState>;
   refreshPluginMarket: () => Promise<ShellState>;
   installPlugin: (id: string) => Promise<ShellState>;
   updatePlugin: (id: string) => Promise<ShellState>;

@@ -31,6 +31,10 @@ function formatPid(value: number | null) {
   return value === null ? "未运行" : String(value);
 }
 
+function formatBool(value: boolean) {
+  return value ? "true" : "false";
+}
+
 function pluginSummary(plugin: PluginRuntimeState) {
   if (!plugin.installed) {
     return "未安装";
@@ -233,6 +237,92 @@ export function App() {
       <section className="overview-grid overview-grid--bottom">
         <article className="panel">
           <div className="panel__header">
+            <p className="eyebrow">服务交付</p>
+            <h2>Windows 服务管理</h2>
+          </div>
+          <p className="support-copy">
+            安装、启动、停止和卸载正式服务宿主。涉及服务管理器写入时通常需要管理员权限。
+          </p>
+          <div className="action-row action-row--dense">
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || state.serviceManager.installed}
+              onClick={() =>
+                void runAction("安装服务", () => window.cpad.installService())
+              }
+              type="button"
+            >
+              安装服务
+            </button>
+            <button
+              className="ghost-button"
+              disabled={
+                busyAction !== null ||
+                !state.serviceManager.installed ||
+                state.serviceManager.state === "running"
+              }
+              onClick={() =>
+                void runAction("启动服务", () => window.cpad.startService())
+              }
+              type="button"
+            >
+              启动服务
+            </button>
+            <button
+              className="ghost-button"
+              disabled={
+                busyAction !== null ||
+                !state.serviceManager.installed ||
+                state.serviceManager.state !== "running"
+              }
+              onClick={() =>
+                void runAction("停止服务", () => window.cpad.stopService())
+              }
+              type="button"
+            >
+              停止服务
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || !state.serviceManager.installed}
+              onClick={() =>
+                void runAction("卸载服务", () => window.cpad.removeService())
+              }
+              type="button"
+            >
+              卸载服务
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || !state.service.hostBinary}
+              onClick={() => void window.cpad.openPath(state.service.hostBinary)}
+              type="button"
+            >
+              打开服务二进制
+            </button>
+          </div>
+          <div className="path-grid">
+            <div className="path-row">
+              <span>installed</span>
+              <code>{formatBool(state.serviceManager.installed)}</code>
+            </div>
+            <div className="path-row">
+              <span>state</span>
+              <code>{state.serviceManager.state}</code>
+            </div>
+            <div className="path-row">
+              <span>startType</span>
+              <code>{state.serviceManager.startType || "未安装"}</code>
+            </div>
+            <div className="path-row">
+              <span>binaryPath</span>
+              <code>{state.serviceManager.binaryPath || state.service.hostBinary}</code>
+            </div>
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel__header">
             <p className="eyebrow">模式切换</p>
             <h2>Codex 受控模式</h2>
           </div>
@@ -301,6 +391,60 @@ export function App() {
             <h2>CPA Runtime</h2>
           </div>
           <p className="support-copy">{state.cpaRuntime.message}</p>
+          <div className="action-row action-row--dense">
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || !state.cpaRuntime.sourceExists}
+              onClick={() =>
+                void runAction("构建 CPA Runtime", () =>
+                  window.cpad.buildCpaRuntime(),
+                )
+              }
+              type="button"
+            >
+              受控构建
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || state.cpaRuntime.running}
+              onClick={() =>
+                void runAction("启动 CPA Runtime", () =>
+                  window.cpad.startCpaRuntime(),
+                )
+              }
+              type="button"
+            >
+              启动 Runtime
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null || !state.cpaRuntime.running}
+              onClick={() =>
+                void runAction("停止 CPA Runtime", () =>
+                  window.cpad.stopCpaRuntime(),
+                )
+              }
+              type="button"
+            >
+              停止 Runtime
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
+              onClick={() => void window.cpad.openPath(state.cpaRuntime.configPath)}
+              type="button"
+            >
+              打开配置
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
+              onClick={() => void window.cpad.openPath(state.cpaRuntime.logPath)}
+              type="button"
+            >
+              打开日志
+            </button>
+          </div>
           <div className="path-grid">
             <div className="path-row">
               <span>phase</span>
@@ -308,11 +452,19 @@ export function App() {
             </div>
             <div className="path-row">
               <span>running</span>
-              <code>{state.cpaRuntime.running ? "true" : "false"}</code>
+              <code>{formatBool(state.cpaRuntime.running)}</code>
             </div>
             <div className="path-row">
               <span>pid</span>
               <code>{formatPid(state.cpaRuntime.pid)}</code>
+            </div>
+            <div className="path-row">
+              <span>sourceExists</span>
+              <code>{formatBool(state.cpaRuntime.sourceExists)}</code>
+            </div>
+            <div className="path-row">
+              <span>binaryExists</span>
+              <code>{formatBool(state.cpaRuntime.binaryExists)}</code>
             </div>
             <div className="path-row">
               <span>sourceRoot</span>
@@ -329,6 +481,10 @@ export function App() {
             <div className="path-row">
               <span>logPath</span>
               <code>{state.cpaRuntime.logPath}</code>
+            </div>
+            <div className="path-row">
+              <span>updatedAt</span>
+              <code>{formatTimestamp(state.cpaRuntime.updatedAt)}</code>
             </div>
           </div>
         </article>

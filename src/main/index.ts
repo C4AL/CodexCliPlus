@@ -27,6 +27,13 @@ type HostSnapshot = {
     message?: string;
     updatedAt?: string;
   } | null;
+  managerStatus: {
+    serviceName: string;
+    installed: boolean;
+    state: string;
+    startType: string;
+    binaryPath: string;
+  };
   codex: ShellState["codex"];
   cpaRuntime: {
     sourceRoot: string;
@@ -114,6 +121,11 @@ async function resolveServiceExecutable(installRoot: string) {
 }
 
 async function runServiceJsonCommand(installRoot: string, args: string[]) {
+  const stdout = await runServiceCommand(installRoot, args);
+  return JSON.parse(stdout);
+}
+
+async function runServiceCommand(installRoot: string, args: string[]) {
   const serviceExecutable = await resolveServiceExecutable(installRoot);
 
   if (serviceExecutable) {
@@ -121,7 +133,7 @@ async function runServiceJsonCommand(installRoot: string, args: string[]) {
       windowsHide: true,
       maxBuffer: 16 * 1024 * 1024,
     });
-    return JSON.parse(stdout);
+    return stdout;
   }
 
   const repoRoot = resolveRepoRoot();
@@ -136,7 +148,7 @@ async function runServiceJsonCommand(installRoot: string, args: string[]) {
     },
   );
 
-  return JSON.parse(stdout);
+  return stdout;
 }
 
 async function createShellState(): Promise<ShellState> {
@@ -163,10 +175,10 @@ async function createShellState(): Promise<ShellState> {
     primarySurfaces: PRIMARY_SURFACES,
     service: {
       serviceName: SERVICE_NAME,
-      hostBinary: join(
-        installLayout.installRoot,
-        `${PRODUCT_NAME} Service.exe`,
-      ),
+      hostBinary:
+        hostSnapshot.managerStatus.binaryPath ||
+        (await resolveServiceExecutable(installLayout.installRoot)) ||
+        join(installLayout.installRoot, `${PRODUCT_NAME} Service.exe`),
       state: stale
         ? "stale"
         : (hostSnapshot.serviceState?.phase ?? "not-initialized"),
@@ -177,6 +189,7 @@ async function createShellState(): Promise<ShellState> {
         ? "最近一次服务心跳已超时，当前持久化状态可能已经过期。"
         : (hostSnapshot.serviceState?.message ?? null),
     },
+    serviceManager: hostSnapshot.managerStatus,
     codex: {
       ...hostSnapshot.codex,
       updatedAt: hostSnapshot.codex.updatedAt ?? null,
@@ -203,6 +216,34 @@ async function mutateShellState(args: string[]) {
     process.env.CPAD_INSTALL_ROOT,
   );
   await runServiceJsonCommand(installLayout.installRoot, args);
+  return createShellState();
+}
+
+async function mutateShellStateWithCommand(args: string[]) {
+  const installLayout = buildInstallLayout(
+    app.getPath("home"),
+    process.env.CPAD_INSTALL_ROOT,
+  );
+  await runServiceCommand(installLayout.installRoot, args);
+  return createShellState();
+}
+
+async function installManagedService() {
+  const installLayout = buildInstallLayout(
+    app.getPath("home"),
+    process.env.CPAD_INSTALL_ROOT,
+  );
+  const serviceExecutable = await resolveServiceExecutable(installLayout.installRoot);
+  if (!serviceExecutable) {
+    throw new Error(
+      "未找到可安装的服务二进制。请先构建 service/bin/cpad-service.exe，或提供已打包的服务可执行文件。",
+    );
+  }
+
+  await runServiceCommand(installLayout.installRoot, [
+    "install",
+    serviceExecutable,
+  ]);
   return createShellState();
 }
 
@@ -239,10 +280,29 @@ app.whenReady().then(() => {
   ipcMain.handle("cpad:open-path", async (_event, targetPath: string) =>
     shell.openPath(targetPath),
   );
+  ipcMain.handle("cpad:install-service", async () => installManagedService());
+  ipcMain.handle("cpad:remove-service", async () =>
+    mutateShellStateWithCommand(["remove"]),
+  );
+  ipcMain.handle("cpad:start-service", async () =>
+    mutateShellStateWithCommand(["start"]),
+  );
+  ipcMain.handle("cpad:stop-service", async () =>
+    mutateShellStateWithCommand(["stop"]),
+  );
   ipcMain.handle(
     "cpad:set-codex-mode",
     async (_event, mode: "official" | "cpa") =>
       mutateShellState(["codex-mode", mode]),
+  );
+  ipcMain.handle("cpad:build-cpa-runtime", async () =>
+    mutateShellState(["cpa-runtime", "build"]),
+  );
+  ipcMain.handle("cpad:start-cpa-runtime", async () =>
+    mutateShellState(["cpa-runtime", "start"]),
+  );
+  ipcMain.handle("cpad:stop-cpa-runtime", async () =>
+    mutateShellState(["cpa-runtime", "stop"]),
   );
   ipcMain.handle("cpad:refresh-plugin-market", async () =>
     mutateShellState(["plugin-market", "refresh"]),

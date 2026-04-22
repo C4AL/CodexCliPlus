@@ -36,10 +36,40 @@ func InspectUpdateCenter() (product.UpdateCenterStatus, error) {
 		return product.UpdateCenterStatus{}, err
 	}
 	if state != nil {
+		refreshCachedUpdateCenterSources(layout, state)
 		return *state, nil
 	}
 
 	return CheckUpdateCenter()
+}
+
+func refreshCachedUpdateCenterSources(layout product.Layout, state *product.UpdateCenterStatus) {
+	if state == nil {
+		return
+	}
+
+	for index := range state.Sources {
+		switch state.Sources[index].ID {
+		case "cpa-source":
+			state.Sources[index] = buildLocalGitSourceStatus(
+				"cpa-source",
+				"CPA-UV 源仓",
+				"git-worktree",
+				product.ResolveCPASourceRoot(),
+			)
+		case "plugin-source":
+			state.Sources[index] = buildLocalGitSourceStatus(
+				"plugin-source",
+				"插件源仓",
+				"git-worktree",
+				product.ResolvePluginSourceRoot(),
+			)
+		case "managed-cpa-runtime":
+			state.Sources[index] = buildManagedRuntimeStatus(layout)
+		case "managed-codex-runtime":
+			state.Sources[index] = buildManagedCodexStatus(layout)
+		}
+	}
 }
 
 func CheckUpdateCenter() (product.UpdateCenterStatus, error) {

@@ -3,6 +3,8 @@ import { startTransition, useEffect, useState } from "react";
 import type { PluginRuntimeState } from "../../shared/product";
 import type { ShellState } from "../../shared/ipc";
 
+const OFFICIAL_CODEX_WINDOWS_GUIDE_URL = "https://developers.openai.com/codex/windows";
+
 function pathList(paths: Record<string, string>) {
   return Object.entries(paths);
 }
@@ -435,6 +437,14 @@ export function App() {
             >
               打开模式文件
             </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
+              onClick={() => void window.cpad.openUrl(OFFICIAL_CODEX_WINDOWS_GUIDE_URL)}
+              type="button"
+            >
+              官方 Windows 指南
+            </button>
           </div>
           <div className="path-grid">
             <div className="path-row">
@@ -477,6 +487,25 @@ export function App() {
           {state.codex.launchArgs.length > 0 ? (
             <code className="command-line">
               {`${state.codex.targetPath} ${state.codex.launchArgs.join(" ")}`}
+            </code>
+          ) : null}
+          {state.codex.mode === "official" && !state.codex.targetExists ? (
+            <code className="command-line">
+              {"# OpenAI 当前官方 Windows 指南推荐在 WSL2 中安装 Codex CLI\n"}
+              {"wsl --install\n"}
+              {"wsl\n"}
+              {"npm i -g @openai/codex\n"}
+              {"codex"}
+            </code>
+          ) : null}
+          {state.codex.mode === "cpa" && !state.codex.launchReady ? (
+            <code className="command-line">
+              {"# 在 CPA Runtime 配置中启用 Codex App Server 根代理\n"}
+              {"codex-app-server-proxy:\n"}
+              {"  enable: true\n"}
+              {"  restrict-to-localhost: true\n"}
+              {"  codex-bin: \"codex\"\n"}
+              {"  use-pool-plan-type: true"}
             </code>
           ) : null}
         </article>

@@ -6,6 +6,8 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 
 本项目当前处于建库与架构冻结阶段。首版目标不是继续维护多个分散仓库，而是以 `Cli Proxy API Desktop` 为唯一主仓库，逐步吸收原 `CPA-UV` 及其相关桥接项目、管理中心项目和自有插件集合。
 
+点击链接加入群聊【CPAD(CLI Proxy API Desktop)交流群】：https://qm.qq.com/q/OgLgNmwk2O
+
 相关文档：
 
 - [完整开发计划](docs/开发计划.md)

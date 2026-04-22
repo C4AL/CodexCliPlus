@@ -2,9 +2,9 @@
 
 ## 简介
 
-Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目标是把当前分散的 CPA、Codex、本地模式切换、插件市场、更新中心和持久化统计统一成一个可安装、可更新、可卸载、可持续演进的桌面产品。
+Cli Proxy API Desktop 是一个面向 `Windows + 中文` 的统一控制平面，目标是把 CPA Runtime、Codex 模式切换、官方运行时接管、更新中心、插件市场和持久化状态收敛成一个可安装、可更新、可卸载、可持续演进的桌面产品。
 
-本项目当前处于建库与架构冻结阶段。首版目标不是继续维护多个分散仓库，而是以 `Cli Proxy API Desktop` 为唯一主仓库，逐步吸收原 `CPA-UV` 及其相关桥接项目、管理中心项目和自有插件集合。
+`Cli Proxy API Desktop` 现在已经不是“建库中的新想法”，而是一个已经推进到 `M4 插件市场`、并完成双官方基线同步能力的主仓。当前主仓只保留 CPAD 自己的 Electron + Go 结构；`CPA-UV`、官方主程序基线、官方管理中心基线和插件源仓都作为受控外部资产存在，不再反向污染主仓目录。
 
 点击链接加入群聊【CPAD(CLI Proxy API Desktop)交流群】：https://qm.qq.com/q/OgLgNmwk2O
 
@@ -16,46 +16,66 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 - [开源继承声明](docs/开源继承声明.md)
 - [Codex 仓库协作约束](AGENTS.md)
 
-## 当前开发状态
+## 当前状态
 
-仓库现已推进到 `M4 插件市场`，当前已落地：
+当前仓库执行状态：
 
-- Electron 桌面主进程、预加载桥和前端首页骨架
-- Windows Service Go 宿主骨架
-- 安装目录布局、`service-state.json` 与 `app.db` 约定
-- SQLite 状态持久化骨架与服务事件记录
-- `codex-mode.json` 与 `codex.exe` shim 骨架
-- Windows Service 管理命令骨架：`install / remove / start / stop / status`
-- CPA Runtime 受控命令骨架：`cpa-runtime status / build / start / stop`
-- 受控 CPA Runtime 构建输出、状态文件、日志文件与托管 `config.yaml`
-- 受控 CPA Runtime 默认端口收敛为 `127.0.0.1:2723` 对应的托管配置基线，旧默认端口会在托管配置中自动迁移
-- Codex 模式切换已宿主化，并接入桌面前端动作入口
-- 更新中心状态检查与同步骨架，已能跟踪官方主程序基线、官方管理中心基线、CPA-UV 源仓、插件源仓与受控运行时
-- 插件市场清单格式、刷新、安装、更新、启用、禁用与诊断命令已落地
-- CPAD 主仓已保持为独立的 Electron + Go 构建项目，旧项目只作为来源与受控外部资产，不再反向污染主仓结构
-- 本地构建链路：`npm run build`、`npm run build:service`、`npm run build:shim`、`npm run service:status`、`npm run cpa:runtime:*`、`npm run plugin:market:*` 与 `npm run update:center:*`
+- 当前里程碑：`M4 插件市场`
+- 已完成里程碑：`M0`、`M1`、`M2`、`M3`、`M4`
+- 当前收尾阶段：`4.3 后端接管` 的兼容收口与 `4.5/4.6` 预备工作
+- 当前主分支：`origin/main`
 
-当前目标是继续完成 `4.3 第三阶段：后端接管` 的收尾动作，在保持 CPAD 主仓结构干净的前提下，对接官方主程序仓 `router-for-me/CLIProxyAPI` 与官方管理中心仓 `router-for-me/Cli-Proxy-API-Management-Center` 的最新基线，并确保 CPA-UV 覆盖兼容不丢能力。
+截至 `2026-04-22` 最近一次同步，当前已确认的基线如下：
 
-## 相对官方 CPA 的新特性
+- 官方主程序基线：`router-for-me/CLIProxyAPI` -> `a188159632429b3400d5dadd2b0322afba60de3c`
+- 官方管理中心基线：`router-for-me/Cli-Proxy-API-Management-Center` -> `b45639aa0169de8441bc964fb765f2405c10ccf4`
+- 本地 CPA-UV 源仓：`C:\Users\Reol\workspace\CPA-UV-publish` -> `788076c630035c307b6cdf675554dd7b54cc6cee`
+- 本地插件源仓：`C:\Users\Reol\workspace\omni-bot-plugins-oss` -> `d5be4b069448f9ebfb01c18b037022f015e9eb54`
 
-- 只支持 `Windows + 中文`，不再为其他平台和多语言分散工程精力。
-- 提供基于 Chromium 的桌面前端，统一承载安装、设置、状态、日志、更新和插件市场。
-- 提供统一安装目录 `C:\Users\<主用户>\Cli Proxy API Desktop\`，实现更直观的目录管理与完整卸载。
-- 将原先分散在脚本、配置文件、桌面快捷方式和本地桥接中的 Codex 切换逻辑收敛为产品内受控能力。
-- 通过系统服务实现开机静默常驻，在未登录时也能维持后台服务运行。
-- 统一管理 CPA、Codex CLI、插件市场、更新中心和持久化统计，不再依赖用户手工拼装环境。
-- 仅支持自有插件集合，并在桌面端内置插件市场入口。
-- 统一更新入口，桌面端负责兼容性策略，Codex CLI 不再建议通过 `npm` 直接升级。
-- 将统计、状态、日志和本地数据库持久化到安装目录内，替代“后端重启后易丢失”的临时态体验。
-- 通过最小桥接兼容旧路径，同时把真实数据统一收敛到安装目录。
-- 变更同步采用点对点方式执行，每次同步只允许一个明确源与一个明确目标，避免重新引入多份真实状态源。
+官方双基线本地受控工作树已建立到：
 
-## 开源继承与许可证声明
+- `C:\Users\Reol\Cli Proxy API Desktop\upstream\CLIProxyAPI`
+- `C:\Users\Reol\Cli Proxy API Desktop\upstream\Cli-Proxy-API-Management-Center`
 
-本项目的方向不是从零开始另起炉灶，而是要逐步吸收并重构现有 `CPA-UV` 及其相关桥接能力。`CPA-UV` 当前基于上游 `router-for-me/CLIProxyAPI` 演进，而 `CLIProxyAPI` 当前采用 `MIT License`；本项目在后续整合其实质代码、资源或其重要衍生部分时，将继续遵守并保留该开源许可链路中的版权与许可声明。
+## 已落地能力
 
-当前仓库已直接采用 MIT 许可证，并明确保留上游许可继承关系。后续只要有来自 `CLIProxyAPI` / `CPA-UV` 的代码或实质性衍生内容进入本仓库，就必须继续保留相应版权与许可文本。
+当前已完成并可验证的能力包括：
+
+- Electron 桌面主进程、预加载桥、前端首页和操作入口
+- Windows Service 宿主、状态落盘、服务事件持久化与日志预览
+- 安装目录布局、`service-state.json`、`app.db`、运行时日志与插件状态文件
+- `codex-mode.json` 与 `codex.exe` shim 的受控模式切换
+- CPA Runtime 的受控 `status / build / start / stop`
+- 受控 `config.yaml` 托管与旧默认端口自动迁移
+- CPAD 默认托管端口已收敛到 `127.0.0.1:2723`
+- 插件市场的刷新、安装、更新、启用、禁用和诊断
+- 更新中心对官方双基线、CPA-UV 源仓、插件源仓、受控运行时的状态检查
+- 官方双基线同步命令与桌面端触发入口
+- CPAD 主仓结构清理，旧仓只保留为来源与基线
+
+## 当前缺口
+
+当前还没有完成的主线工作：
+
+- 把 `CPA-UV` 对最新官方主程序基线的覆盖差异系统化梳理出来，并形成稳定兼容层
+- 把官方管理中心能力按 CPAD 产品边界重新接入，而不是简单搬运原仓结构
+- 把官方 Codex CLI 私有运行时的下载、安装、升级和版本放行真正落地
+- 把 Windows Service 的正式安装/卸载流程与安装器交付链路打通
+- 为首版发布补足端到端验证、卸载清理、ACL、服务账户权限和发布文档
+
+## 相对官方项目的产品化差异
+
+- 只支持 `Windows + 中文`，不为其他平台和多语言分散工程精力
+- 统一使用安装目录 `C:\Users\<主用户>\Cli Proxy API Desktop\`
+- 通过系统服务承担后台常驻职责，桌面端只负责交互与管理
+- 通过产品内部状态文件、数据库和日志替代零散脚本拼装
+- 通过桌面端统一管理 CPA Runtime、Codex 模式、插件市场和更新中心
+- 统一采用点对点同步，不引入新的中心化多端同步层
+- 保持 CPAD 主仓干净，把官方基线、CPA-UV 和插件源都放在受控外部资产层
+
+## 开源继承与许可证
+
+本项目不是否认 `CLIProxyAPI / CPA-UV` 的来源关系，而是在其能力基础上进行 Windows 中文桌面产品化重组。只要本仓或后续发布产物中继续包含来自 `CLIProxyAPI`、`Cli-Proxy-API-Management-Center`、`CPA-UV` 或其重要衍生部分的代码与资源，就必须继续保留对应的开源许可链路与版权说明。
 
 详细说明见：
 
@@ -64,7 +84,7 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 
 ## 依赖
 
-运行与开发基线按当前规划限定为必要依赖：
+当前开发与运行基线限定为：
 
 - Windows 10/11 x64
 - Git
@@ -76,16 +96,16 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 
 说明：
 
-- 不支持 WSL 作为默认运行前置。
-- 不纳入与 CPAD/Codex 主链路无关的第三方依赖集合。
-- Codex CLI 由桌面端统一管理版本与更新策略。
+- 不支持 WSL 作为默认运行前置
+- 不纳入与 CPAD 主链路无关的第三方依赖集合
+- Codex CLI 的版本选择与更新放行由桌面端统一管理
 
-## 安装方式
+## 开发使用
 
-当前仓库尚未发布正式安装器，但已提供本地开发骨架。当前阶段建议按以下方式使用：
+当前阶段建议按以下方式使用：
 
 1. 克隆本仓库。
-2. 阅读 [完整开发计划](docs/开发计划.md)、[已确认条目](docs/已确认事项.md) 与 [开源继承声明](docs/开源继承声明.md)。
+2. 阅读 [完整开发计划](docs/开发计划.md)、[已确认条目](docs/已确认事项.md)、[待整合资产清单](docs/待整合资产清单.md) 与 [开源继承声明](docs/开源继承声明.md)。
 3. 安装 Node.js 依赖：`npm install`
 4. 构建桌面壳：`npm run build`
 5. 构建服务宿主：`npm run build:service`
@@ -104,11 +124,14 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 18. 同步官方双基线工作树：`npm run update:center:sync`
 19. 启动桌面开发环境：`npm run dev`
 
-首版发布目标：
+## 近期路线
 
-- 提供 Windows `exe` 安装器。
-- 默认安装到 `C:\Users\<主用户>\Cli Proxy API Desktop\`。
-- 安装完成后自动注册后台服务、创建桌面入口，并接管受控 `codex` 调用入口。
+下一阶段优先级按当前主线排序如下：
+
+1. 完成 `CPA-UV -> 官方主程序基线` 的覆盖差异矩阵、兼容层和收口清单。
+2. 落地受控 Codex CLI 私有运行时的下载、校验、安装和更新放行。
+3. 完成 Windows Service 安装/卸载、安装目录 ACL、安装器与卸载器链路。
+4. 建立首版发布前的端到端验证矩阵、日志诊断与回滚策略。
 
 ## Star History
 

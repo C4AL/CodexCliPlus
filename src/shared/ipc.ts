@@ -49,4 +49,5 @@ export type CpadApi = {
   disablePlugin: (id: string) => Promise<ShellState>;
   diagnosePlugin: (id: string) => Promise<ShellState>;
   checkUpdates: () => Promise<ShellState>;
+  syncOfficialBaselines: () => Promise<ShellState>;
 };

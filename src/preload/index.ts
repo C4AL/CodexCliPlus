@@ -15,6 +15,8 @@ const api: CpadApi = {
   disablePlugin: async (id) => ipcRenderer.invoke("cpad:disable-plugin", id),
   diagnosePlugin: async (id) => ipcRenderer.invoke("cpad:diagnose-plugin", id),
   checkUpdates: async () => ipcRenderer.invoke("cpad:check-updates"),
+  syncOfficialBaselines: async () =>
+    ipcRenderer.invoke("cpad:sync-official-baselines"),
 };
 
 contextBridge.exposeInMainWorld("cpad", api);

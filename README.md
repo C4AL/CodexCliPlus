@@ -30,12 +30,12 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 - 受控 CPA Runtime 构建输出、状态文件、日志文件与托管 `config.yaml`
 - 受控 CPA Runtime 默认端口收敛为 `127.0.0.1:2723` 对应的托管配置基线，旧默认端口会在托管配置中自动迁移
 - Codex 模式切换已宿主化，并接入桌面前端动作入口
-- 更新中心状态检查骨架，已能跟踪官方基线、CPA-UV 源仓、插件源仓与受控运行时
+- 更新中心状态检查与同步骨架，已能跟踪官方主程序基线、官方管理中心基线、CPA-UV 源仓、插件源仓与受控运行时
 - 插件市场清单格式、刷新、安装、更新、启用、禁用与诊断命令已落地
 - CPAD 主仓已保持为独立的 Electron + Go 构建项目，旧项目只作为来源与受控外部资产，不再反向污染主仓结构
 - 本地构建链路：`npm run build`、`npm run build:service`、`npm run build:shim`、`npm run service:status`、`npm run cpa:runtime:*`、`npm run plugin:market:*` 与 `npm run update:center:*`
 
-当前目标是继续完成 `4.3 第三阶段：后端接管` 的收尾动作，在保持 CPAD 主仓结构干净的前提下，对接官方最新基线并确保 CPA-UV 覆盖兼容不丢能力。
+当前目标是继续完成 `4.3 第三阶段：后端接管` 的收尾动作，在保持 CPAD 主仓结构干净的前提下，对接官方主程序仓 `router-for-me/CLIProxyAPI` 与官方管理中心仓 `router-for-me/Cli-Proxy-API-Management-Center` 的最新基线，并确保 CPA-UV 覆盖兼容不丢能力。
 
 ## 相对官方 CPA 的新特性
 
@@ -101,7 +101,8 @@ Cli Proxy API Desktop 是一个面向 Windows 的中文桌面一站式 Hub，目
 15. 查看插件市场状态：`npm run plugin:market:status`
 16. 刷新更新中心状态：`npm run update:center:check`
 17. 查看更新中心状态：`npm run update:center:status`
-18. 启动桌面开发环境：`npm run dev`
+18. 同步官方双基线工作树：`npm run update:center:sync`
+19. 启动桌面开发环境：`npm run dev`
 
 首版发布目标：
 

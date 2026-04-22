@@ -264,6 +264,9 @@ app.whenReady().then(() => {
   ipcMain.handle("cpad:check-updates", async () =>
     mutateShellState(["update-center", "check"]),
   );
+  ipcMain.handle("cpad:sync-official-baselines", async () =>
+    mutateShellState(["update-center", "sync"]),
+  );
 
   createWindow();
 

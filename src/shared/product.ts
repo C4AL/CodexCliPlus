@@ -18,6 +18,9 @@ export type InstallLayout = {
     plugins: string;
     logs: string;
     tmp: string;
+    upstream: string;
+    officialCoreBaseline: string;
+    officialPanelBaseline: string;
   };
   files: {
     database: string;
@@ -187,6 +190,17 @@ export function buildInstallLayout(
       plugins: win32.join(installRoot, "plugins"),
       logs,
       tmp: win32.join(installRoot, "tmp"),
+      upstream: win32.join(installRoot, "upstream"),
+      officialCoreBaseline: win32.join(
+        installRoot,
+        "upstream",
+        "CLIProxyAPI",
+      ),
+      officialPanelBaseline: win32.join(
+        installRoot,
+        "upstream",
+        "Cli-Proxy-API-Management-Center",
+      ),
     },
     files: {
       database: win32.join(data, "app.db"),

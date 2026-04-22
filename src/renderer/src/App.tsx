@@ -353,6 +353,18 @@ export function App() {
               className="ghost-button"
               disabled={busyAction !== null}
               onClick={() =>
+                void runAction("同步官方双基线", () =>
+                  window.cpad.syncOfficialBaselines(),
+                )
+              }
+              type="button"
+            >
+              同步官方双基线
+            </button>
+            <button
+              className="ghost-button"
+              disabled={busyAction !== null}
+              onClick={() =>
                 void window.cpad.openPath(state.updateCenter.stateFile)
               }
               type="button"

@@ -175,6 +175,8 @@ func run(args []string) error {
 				status, err = service.InspectUpdateCenter()
 			case "check", "refresh":
 				status, err = service.CheckUpdateCenter()
+			case "sync":
+				status, err = service.SyncOfficialBaselines()
 			default:
 				return fmt.Errorf("unknown update-center action: %s", action)
 			}

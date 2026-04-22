@@ -2,10 +2,12 @@
   "name": "cli-proxy-api-desktop",
   "version": "0.1.0",
   "private": true,
+  "author": "Blackblock Inc.",
   "description": "Windows-only desktop shell for Cli Proxy API Desktop.",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "start": "npm run build && electron .",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:service": "go -C service build -o bin/cpad-service.exe ./cmd/cpad-service",
@@ -24,10 +26,10 @@
     "update:center:status": "go -C service run ./cmd/cpad-service update-center status",
     "update:center:check": "go -C service run ./cmd/cpad-service update-center check",
     "update:center:sync": "go -C service run ./cmd/cpad-service update-center sync",
+    "dist:win": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1",
     "shim:inspect": "service\\bin\\codex.exe inspect"
   },
   "dependencies": {
-    "electron": "^41.2.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -36,6 +38,8 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^5.0.4",
+    "electron": "^41.2.2",
+    "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"

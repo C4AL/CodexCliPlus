@@ -1,7 +1,7 @@
 # Cli Proxy API Desktop
 
 <p align="center">
-  <img src="ico/ico.png" width="220" alt="CPAD icon" />
+  <img src="ico/ico-transparent.png" width="220" alt="CPAD icon" />
 </p>
 
 ## 简介

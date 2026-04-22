@@ -115,7 +115,9 @@ async function resolveServiceExecutable(installRoot: string) {
 
 async function resolveAppIcon() {
   const candidates = [
+    join(resolveRepoRoot(), "ico", "ico-transparent.png"),
     join(resolveRepoRoot(), "ico", "ico.png"),
+    join(process.resourcesPath, "ico", "ico-transparent.png"),
     join(process.resourcesPath, "ico", "ico.png"),
   ];
 

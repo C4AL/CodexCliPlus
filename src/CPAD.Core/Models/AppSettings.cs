@@ -11,6 +11,8 @@ public sealed class AppSettings
 
     public string ManagementKey { get; set; } = string.Empty;
 
+    public string ManagementKeyReference { get; set; } = AppConstants.DefaultManagementKeyReference;
+
     public CodexSourceKind PreferredCodexSource { get; set; } = CodexSourceKind.Official;
 
     public bool StartWithWindows { get; set; }

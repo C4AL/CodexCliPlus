@@ -2,6 +2,7 @@ using CPAD.Core.Abstractions.Configuration;
 using CPAD.Core.Abstractions.Logging;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Abstractions.Processes;
+using CPAD.Core.Abstractions.Security;
 using CPAD.Infrastructure.Backend;
 using CPAD.Infrastructure.Codex;
 using CPAD.Infrastructure.Configuration;
@@ -10,6 +11,7 @@ using CPAD.Infrastructure.Logging;
 using CPAD.Infrastructure.Paths;
 using CPAD.Infrastructure.Platform;
 using CPAD.Infrastructure.Processes;
+using CPAD.Infrastructure.Security;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient();
         services.AddHttpClient<BackendAssetService>();
         services.AddSingleton<IPathService, AppPathService>();
+        services.AddSingleton<ISecureCredentialStore, DpapiCredentialStore>();
         services.AddSingleton<IAppLogger, FileAppLogger>();
         services.AddSingleton<IAppConfigurationService, JsonAppConfigurationService>();
         services.AddSingleton<IProcessService, SystemProcessService>();

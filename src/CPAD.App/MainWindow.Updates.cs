@@ -386,6 +386,13 @@ public partial class MainWindow
 
     private void OpenUpdatesPage(bool startCheck)
     {
+        if (IsRepairModeActive())
+        {
+            _dependencyRepairStatusMessage = "Updates & Version is locked while dependency repair mode is active.";
+            OpenDependencyRepairPage();
+            return;
+        }
+
         var index = _sections.FindIndex(section => section.Key == "updates");
         if (index >= 0)
         {

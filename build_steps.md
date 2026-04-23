@@ -36,12 +36,12 @@
 - [x] 除最后一步外，**禁止删除或重命名本文件**。
 
 ### 0.4 最终交付定义（100%）
-- [ ] 原生 WPF 多页面桌面前端完成。
+- [x] 原生 WPF 多页面桌面前端完成。
 - [x] WebView2 路线、Onboarding、PowerShell、Inno Setup 全部移除。
 - [ ] C# BuildTool 完成资源拉取、校验、发布、安装器生成、验包。
 - [ ] 安装版 + 便携版 + 开发版产物可用。
 - [ ] Stable 更新链可用，Beta 预留。
-- [ ] 主功能页全部可用。
+- [x] 主功能页全部可用。
 - [ ] 托盘、关闭行为、依赖修复、卸载清理行为符合本文档。
 - [ ] 所有必须测试通过。
 - [ ] 本文件在完成全部工作后删除。
@@ -120,14 +120,14 @@
 - [x] 更新与版本
 - [x] 设置
 - [x] 关于
-- [ ] 依赖修复页（异常触发页）
+- [x] 依赖修复页（异常触发页）
 
 ### 页面验收通用规则
-- [ ] 页面可导航进入。
-- [ ] 页面无明显占位残缺。
-- [ ] 页面有加载态、错误态、空态。
-- [ ] 页面在浅色/深色主题下均可用。
-- [ ] 页面接入真实后端或真实 API，禁止纯静态假页面作为完成态。
+- [x] 页面可导航进入。
+- [x] 页面无明显占位残缺。
+- [x] 页面有加载态、错误态、空态。
+- [x] 页面在浅色/深色主题下均可用。
+- [x] 页面接入真实后端或真实 API，禁止纯静态假页面作为完成态。
 
 ---
 
@@ -335,24 +335,24 @@
 - [x] 验收：信息完整。
 
 ### 8.11 依赖修复页
-- [ ] 顶部横幅提醒。
-- [ ] 不可用功能显示感叹号标记并禁用。
-- [ ] 默认禁用大部分核心功能，仅保留概览、设置、诊断、关于。
-- [ ] 按钮：立即修复 / 查看详情 / 重新检测 / 导出诊断。
-- [ ] 触发条件至少包括：
-  - [ ] 运行时缺失或版本不满足
-  - [ ] Go 后端运行文件缺失/损坏/校验失败
-  - [ ] 首次启动初始化未完成
-  - [ ] Credential Manager / DPAPI 不可用
-  - [ ] 更新组件缺失或损坏
-  - [ ] 关键端口占用且自动换端口失败
-  - [ ] 必需资源包缺失或版本不匹配
-- [ ] 验收：依赖异常时可正确进入修复模式。
+- [x] 顶部横幅提醒。
+- [x] 不可用功能显示感叹号标记并禁用。
+- [x] 默认禁用大部分核心功能，仅保留概览、设置、诊断、关于。
+- [x] 按钮：立即修复 / 查看详情 / 重新检测 / 导出诊断。
+- [x] 触发条件至少包括：
+  - [x] 运行时缺失或版本不满足
+  - [x] Go 后端运行文件缺失/损坏/校验失败
+  - [x] 首次启动初始化未完成
+  - [x] Credential Manager / DPAPI 不可用
+  - [x] 更新组件缺失或损坏
+  - [x] 关键端口占用且自动换端口失败
+  - [x] 必需资源包缺失或版本不匹配
+- [x] 验收：依赖异常时可正确进入修复模式。
 
 ### 8.12 阶段结果记录
-> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看；配额与用量页（8.3）已接入 `/usage`、`/usage/export`、`/usage/import` 与 `/auth-files`，展示请求数、成功率、Token、RPM/TPM、分 API/分模型统计、认证文件配额信号与最近请求事件；配置页（8.4）已接入 `/config`、`/config.yaml`、`/debug`、`/proxy-url`、`/request-retry`、`/max-retry-interval`、`/quota-exceeded/*`、`/usage-statistics-enabled`、`/request-log`、`/logging-to-file`、`/logs-max-total-size-mb`、`/error-logs-max-files`、`/ws-auth`、`/force-model-prefix` 与 `/routing/strategy`，同时提供结构化表单编辑、原始 YAML 校验保存、后端错误提示与回显快照；日志与请求诊断页（8.5）已接入 `/logs`、`/request-error-logs`、`/request-log-by-id/:id`、`DELETE /logs` 和桌面诊断包导出，支持独立日志浏览、搜索/等级筛选、请求诊断、错误日志清单与脱敏诊断包导出；系统与模型页（8.6）已接入 `/latest-version`、`/v1/models`、`/api-call` 与本地 `/healthz`，展示桌面托管状态、版本元数据、模型分组、健康检查和可编辑连通性探针；源切换与工具集成页（8.7）已接入 `CodexConfigService`、`CodexLocator`、`CodexVersionReader`、`CodexAuthStateReader` 与 `CodexLaunchService`，支持 `official/cpa` 真实 profile/auth 切换、官方 auth 备份恢复、CPA 本地后端 profile 写入、命令预览和桌面工具目录入口；更新与版本页（8.8）已接入桌面仓库 GitHub Releases Stable 查询、Beta 预留 channel entry、桌面/后端版本诊断、release assets 展示与 GitHub 404 无 release 正常态处理；设置页（8.9）已接入桌面 `desktop.json` 真实读写、主题偏好、启动项 Run Key 状态、托盘与关闭行为、目录写入诊断、更新偏好、日志级别与调试工具开关，并回显持久化快照；关于页（8.10）已改为原生 WPF 页面，展示桌面/后端版本、桌面与后端许可证预览、结构化组件来源清单，以及脱敏诊断导出与诊断目录入口。
-> - 仍待打磨页面：依赖修复页。
-> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）；8.3 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（37/37）与 UI Automation smoke（进入 Quota & Usage 并确认 Usage Summary、Quota Signals、Requests by API、Requests by Model、Recent Request Events 区块）；8.4 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（38/38）与 UI Automation smoke（进入 Configuration 并确认 Editable Settings、Raw YAML Editor、Validation & Echo、Live Snapshot、Apply Structured Changes、Validate & Save YAML 入口）；8.5 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（39/39）与 UI Automation smoke（进入 Logs & Diagnostics 并确认 Log Browser、Request Diagnostics、Diagnostics Export、Refresh Logs、Export Diagnostic Package 入口）；8.6 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（40/40）与 UI Automation smoke（进入 System & Models 并确认 System Status、Health Check、Model Inventory、Connectivity Probe、Refresh System Status、Run Connectivity Probe 入口）；8.7 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（42/42）与隔离 UI Automation smoke（进入 Sources & Tools 并确认 Source Switching、Codex Desktop Integration、Desktop Tool Entries、Apply Source Switch、Launch Selected Source、Refresh Codex Status 入口）；8.8 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（45/45）与隔离 UI Automation smoke（进入 Updates & Version 并确认 Channel Summary、Desktop Stable Release、Backend Version Diagnostics、Release Assets、Open Release Page 入口，当前真实状态为 `No stable release`）；8.9 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（46/46）与隔离 UI Automation smoke（进入 Settings 并确认 Appearance & Shell、Startup & Tray、Directories、Update Preferences、Privacy & Diagnostics、Persisted Snapshot、Save Settings、Reload Settings，验收过程中未点击保存以避免改写当前用户启动项）；8.10 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（47/47）与隔离 UI Automation smoke（进入 About 并确认 Version Information、Licenses、Component Sources、Diagnostics Entry、Desktop License Preview、Backend License Preview、Export Diagnostics、Open Diagnostics Folder 入口，验收过程中未启动 backend）。
+> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看；配额与用量页（8.3）已接入 `/usage`、`/usage/export`、`/usage/import` 与 `/auth-files`，展示请求数、成功率、Token、RPM/TPM、分 API/分模型统计、认证文件配额信号与最近请求事件；配置页（8.4）已接入 `/config`、`/config.yaml`、`/debug`、`/proxy-url`、`/request-retry`、`/max-retry-interval`、`/quota-exceeded/*`、`/usage-statistics-enabled`、`/request-log`、`/logging-to-file`、`/logs-max-total-size-mb`、`/error-logs-max-files`、`/ws-auth`、`/force-model-prefix` 与 `/routing/strategy`，同时提供结构化表单编辑、原始 YAML 校验保存、后端错误提示与回显快照；日志与请求诊断页（8.5）已接入 `/logs`、`/request-error-logs`、`/request-log-by-id/:id`、`DELETE /logs` 和桌面诊断包导出，支持独立日志浏览、搜索/等级筛选、请求诊断、错误日志清单与脱敏诊断包导出；系统与模型页（8.6）已接入 `/latest-version`、`/v1/models`、`/api-call` 与本地 `/healthz`，展示桌面托管状态、版本元数据、模型分组、健康检查和可编辑连通性探针；源切换与工具集成页（8.7）已接入 `CodexConfigService`、`CodexLocator`、`CodexVersionReader`、`CodexAuthStateReader` 与 `CodexLaunchService`，支持 `official/cpa` 真实 profile/auth 切换、官方 auth 备份恢复、CPA 本地后端 profile 写入、命令预览和桌面工具目录入口；更新与版本页（8.8）已接入桌面仓库 GitHub Releases Stable 查询、Beta 预留 channel entry、桌面/后端版本诊断、release assets 展示与 GitHub 404 无 release 正常态处理；设置页（8.9）已接入桌面 `desktop.json` 真实读写、主题偏好、启动项 Run Key 状态、托盘与关闭行为、目录写入诊断、更新偏好、日志级别与调试工具开关，并回显持久化快照；关于页（8.10）已改为原生 WPF 页面，展示桌面/后端版本、桌面与后端许可证预览、结构化组件来源清单，以及脱敏诊断导出与诊断目录入口；依赖修复页（8.11）已接入桌面依赖健康检查与修复模式，支持顶部修复横幅、不可用导航禁用与感叹号标记、仅保留概览/日志与诊断/设置/关于/依赖修复入口、立即修复、查看详情、重新检测、导出诊断，并覆盖运行时版本、后端运行文件、初始化状态、Credential Manager / DPAPI、更新组件、端口分配、资源包缺失或版本不匹配等阻断项。
+> - 仍待打磨页面：无。
+> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）；8.3 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（37/37）与 UI Automation smoke（进入 Quota & Usage 并确认 Usage Summary、Quota Signals、Requests by API、Requests by Model、Recent Request Events 区块）；8.4 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（38/38）与 UI Automation smoke（进入 Configuration 并确认 Editable Settings、Raw YAML Editor、Validation & Echo、Live Snapshot、Apply Structured Changes、Validate & Save YAML 入口）；8.5 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（39/39）与 UI Automation smoke（进入 Logs & Diagnostics 并确认 Log Browser、Request Diagnostics、Diagnostics Export、Refresh Logs、Export Diagnostic Package 入口）；8.6 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（40/40）与 UI Automation smoke（进入 System & Models 并确认 System Status、Health Check、Model Inventory、Connectivity Probe、Refresh System Status、Run Connectivity Probe 入口）；8.7 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（42/42）与隔离 UI Automation smoke（进入 Sources & Tools 并确认 Source Switching、Codex Desktop Integration、Desktop Tool Entries、Apply Source Switch、Launch Selected Source、Refresh Codex Status 入口）；8.8 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（45/45）与隔离 UI Automation smoke（进入 Updates & Version 并确认 Channel Summary、Desktop Stable Release、Backend Version Diagnostics、Release Assets、Open Release Page 入口，当前真实状态为 `No stable release`）；8.9 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（46/46）与隔离 UI Automation smoke（进入 Settings 并确认 Appearance & Shell、Startup & Tray、Directories、Update Preferences、Privacy & Diagnostics、Persisted Snapshot、Save Settings、Reload Settings，验收过程中未点击保存以避免改写当前用户启动项）；8.10 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（47/47）与隔离 UI Automation smoke（进入 About 并确认 Version Information、Licenses、Component Sources、Diagnostics Entry、Desktop License Preview、Backend License Preview、Export Diagnostics、Open Diagnostics Folder 入口，验收过程中未启动 backend）；8.11 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（57/57）与隔离 UI Automation smoke（占用 32 个本次创建的 loopback 监听端口触发端口分配失败，进入 Dependency Repair，确认 Dependency Repair Mode 横幅、Repair Summary、Safe Routes、Repair Actions、Issue Details、Repair Now、View Details、Re-check、Export Diagnostics 可见，Accounts & Auth 等核心路由禁用且不启动/停止现有 CPA-UV 进程）。
 
 ---
 

@@ -48,6 +48,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -67,6 +68,9 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="#D9F1EE" />
                                 <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ItemBorder" Property="Opacity" Value="0.58" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -177,6 +181,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="24" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock FontFamily="Segoe Fluent Icons"
                                            FontSize="15"
@@ -192,6 +197,13 @@
                                                Foreground="{DynamicResource SecondaryTextBrush}"
                                                Text="{Binding Subtitle}" />
                                 </StackPanel>
+                                <TextBlock Grid.Column="2"
+                                           Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="14"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           Text="{Binding WarningBadge}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -210,6 +222,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -226,7 +239,12 @@
                            Foreground="{DynamicResource SecondaryTextBrush}"
                            TextWrapping="Wrap" />
 
-                <Grid Grid.Row="2" Margin="0,24,0,0">
+                <ContentControl x:Name="RepairModeBannerHost"
+                                Grid.Row="2"
+                                Margin="0,18,0,0"
+                                Visibility="Collapsed" />
+
+                <Grid Grid.Row="3" Margin="0,24,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
@@ -249,7 +267,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Border Grid.Row="3"
+                <Border Grid.Row="4"
                         Margin="0,20,0,0"
                         Padding="14,12"
                         Background="#F6FBFB"

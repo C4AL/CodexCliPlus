@@ -18,6 +18,7 @@ using CPAD.Core.Models;
 using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
 using CPAD.Infrastructure.Codex;
+using CPAD.Infrastructure.Dependencies;
 using CPAD.Infrastructure.Diagnostics;
 using CPAD.Infrastructure.Platform;
 
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
     private readonly DiagnosticsService _diagnosticsService;
     private readonly StartupRegistrationService _startupRegistrationService;
     private readonly DirectoryAccessService _directoryAccessService;
+    private readonly DependencyHealthService _dependencyHealthService;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly List<ShellSection> _sections = CreateSections();
 
@@ -62,6 +64,7 @@ public partial class MainWindow : Window
     private string? _overviewError;
     private Forms.NotifyIcon? _notifyIcon;
     private bool _allowClose;
+    private bool _shellReady;
 
     public MainWindow(
         BackendAssetService backendAssetService,
@@ -84,6 +87,7 @@ public partial class MainWindow : Window
         DiagnosticsService diagnosticsService,
         StartupRegistrationService startupRegistrationService,
         DirectoryAccessService directoryAccessService,
+        DependencyHealthService dependencyHealthService,
         IUpdateCheckService updateCheckService)
     {
         _backendAssetService = backendAssetService;
@@ -106,6 +110,7 @@ public partial class MainWindow : Window
         _diagnosticsService = diagnosticsService;
         _startupRegistrationService = startupRegistrationService;
         _directoryAccessService = directoryAccessService;
+        _dependencyHealthService = dependencyHealthService;
         _updateCheckService = updateCheckService;
 
         InitializeComponent();
@@ -125,11 +130,13 @@ public partial class MainWindow : Window
         LoadSettingsDrafts(_settings);
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
-        UpdateSelectedSection();
         UpdateBackendStatus(_backendProcessManager.CurrentStatus);
         UpdateFooter();
+        await RefreshDependencyStatusAsync(force: true, navigateToRepairPage: true);
+        _shellReady = true;
+        UpdateSelectedSection();
 
-        if (_settings.CheckForUpdatesOnStartup)
+        if (_settings.CheckForUpdatesOnStartup && !IsRepairModeActive())
         {
             _ = RefreshUpdatesAsync(force: true);
         }
@@ -174,11 +181,25 @@ public partial class MainWindow : Window
 
     private void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsRepairModeActive())
+        {
+            _dependencyRepairStatusMessage = "Dependency repair mode is active. Updates & Version stays locked until blocking checks are resolved.";
+            OpenDependencyRepairPage();
+            return;
+        }
+
         OpenUpdatesPage(startCheck: true);
     }
 
     private async void BackendActionButton_Click(object sender, RoutedEventArgs e)
     {
+        if (IsRepairModeActive())
+        {
+            _dependencyRepairStatusMessage = "Backend start/restart is locked while dependency repair mode is active. Repair or re-check dependencies first.";
+            OpenDependencyRepairPage();
+            return;
+        }
+
         if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
         {
             await _backendProcessManager.RestartAsync();
@@ -190,6 +211,19 @@ public partial class MainWindow : Window
 
     private void NavigationList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        if (!_shellReady)
+        {
+            return;
+        }
+
+        if (NavigationList.SelectedItem is ShellSection section &&
+            IsRepairModeActive() &&
+            !section.IsEnabled)
+        {
+            OpenDependencyRepairPage();
+            return;
+        }
+
         UpdateSelectedSection();
     }
 
@@ -226,6 +260,9 @@ public partial class MainWindow : Window
                 break;
             case "about":
                 await ExportAboutDiagnosticsAsync();
+                break;
+            case "dependency-repair":
+                await RepairDependencyIssuesAsync();
                 break;
             default:
                 RestoreFromTray();
@@ -287,6 +324,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (section?.Key == "dependency-repair")
+        {
+            await RefreshDependencyStatusAsync(force: true);
+            return;
+        }
+
         ProcessStartFolder(_pathService.Directories.ConfigDirectory);
     }
 
@@ -296,7 +339,7 @@ public partial class MainWindow : Window
         {
             UpdateBackendStatus(snapshot);
             UpdateFooter();
-            UpdateSelectedSection();
+            _ = RefreshDependencyStatusAsync(force: true, navigateToRepairPage: true);
         });
     }
 
@@ -336,6 +379,13 @@ public partial class MainWindow : Window
         menu.Items.Add("Open Main Interface", null, (_, _) => RestoreFromTray());
         menu.Items.Add("Restart Backend", null, async (_, _) => await Dispatcher.InvokeAsync(async () =>
         {
+            if (IsRepairModeActive())
+            {
+                _dependencyRepairStatusMessage = "Tray backend restart is locked while dependency repair mode is active.";
+                OpenDependencyRepairPage();
+                return;
+            }
+
             if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
             {
                 await _backendProcessManager.RestartAsync();
@@ -363,6 +413,11 @@ public partial class MainWindow : Window
     private void UpdateSelectedSection()
     {
         var section = NavigationList.SelectedItem as ShellSection ?? _sections[0];
+        if (IsRepairModeActive() && !section.IsEnabled)
+        {
+            OpenDependencyRepairPage();
+            return;
+        }
 
         PageTitleText.Text = section.Title;
         PageSubtitleText.Text = section.Subtitle;
@@ -377,7 +432,10 @@ public partial class MainWindow : Window
                 PrimaryPageActionButton.IsEnabled = !_overviewLoading;
                 SecondaryPageActionButton.Content = "Open Config Folder";
                 PageContentHost.Content = BuildOverviewContent();
-                if (_overviewSnapshot is null && !_overviewLoading)
+                if (!IsRepairModeActive() &&
+                    _backendProcessManager.CurrentStatus.State != BackendStateKind.Error &&
+                    _overviewSnapshot is null &&
+                    !_overviewLoading)
                 {
                     _ = RefreshOverviewAsync(force: false);
                 }
@@ -427,7 +485,7 @@ public partial class MainWindow : Window
                 SecondaryPageActionButton.Content = "Export Diagnostics";
                 SecondaryPageActionButton.IsEnabled = !_logsLoading && !_logsClearing;
                 PageContentHost.Content = BuildLogsContent();
-                if (_logsSnapshot is null && !_logsLoading)
+                if (!IsRepairModeActive() && _logsSnapshot is null && !_logsLoading)
                 {
                     _ = RefreshLogsAsync(force: false);
                 }
@@ -500,6 +558,15 @@ public partial class MainWindow : Window
                 SecondaryPageActionButton.IsEnabled = true;
                 PageContentHost.Content = BuildAboutContent();
                 break;
+            case "dependency-repair":
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
+                SecondaryPageActionButton.Visibility = Visibility.Visible;
+                PrimaryPageActionButton.IsEnabled = !_dependencyRepairLoading && !_dependencyRepairing;
+                PrimaryPageActionButton.Content = _dependencyRepairing ? "Repairing..." : "Repair Now";
+                SecondaryPageActionButton.Content = _dependencyRepairLoading ? "Checking..." : "Re-check";
+                SecondaryPageActionButton.IsEnabled = !_dependencyRepairLoading && !_dependencyRepairing;
+                PageContentHost.Content = BuildDependencyRepairContent();
+                break;
             default:
                 PrimaryPageActionButton.Visibility = Visibility.Collapsed;
                 SecondaryPageActionButton.Visibility = Visibility.Visible;
@@ -519,7 +586,9 @@ public partial class MainWindow : Window
     private void UpdateFooter()
     {
         SourceStatusText.Text = $"Source: {_settings.PreferredCodexSource}";
-        VersionStatusText.Text = $"Version: {_buildInfo.ApplicationVersion}";
+        VersionStatusText.Text = IsRepairModeActive()
+            ? $"Version: {_buildInfo.ApplicationVersion} | Repair mode active"
+            : $"Version: {_buildInfo.ApplicationVersion}";
     }
 
     private async Task RefreshOverviewAsync(bool force)
@@ -577,6 +646,19 @@ public partial class MainWindow : Window
         var snapshot = _overviewSnapshot;
         if (snapshot is null)
         {
+            if (IsRepairModeActive())
+            {
+                var repairRoot = new StackPanel { Orientation = WpfOrientation.Vertical };
+                repairRoot.Children.Add(CreateStatePanel(
+                    "Overview stays available in repair mode.",
+                    "Live Management API loading is paused while dependency repair mode is active. Use the cards below for local desktop context and repair entry points."));
+                repairRoot.Children.Add(CreateSectionHeader("Dependency Status"));
+                repairRoot.Children.Add(CreateDependencySummary());
+                repairRoot.Children.Add(CreateSectionHeader("Quick Entries"));
+                repairRoot.Children.Add(CreateQuickActionsPanel());
+                return repairRoot;
+            }
+
             return CreateStatePanel(
                 "No overview data loaded yet.",
                 "Use Refresh Overview to start the backend and load live Management API data.");
@@ -741,10 +823,18 @@ public partial class MainWindow : Window
     {
         var panel = new WrapPanel();
         panel.Children.Add(CreateActionButton("Refresh Overview", async () => await RefreshOverviewAsync(force: true)));
-        panel.Children.Add(CreateActionButton(
+
+        var backendAction = CreateActionButton(
             _backendProcessManager.CurrentStatus.State == BackendStateKind.Running ? "Restart Backend" : "Start Backend",
             async () =>
             {
+                if (IsRepairModeActive())
+                {
+                    _dependencyRepairStatusMessage = "Backend start/restart is locked while dependency repair mode is active.";
+                    OpenDependencyRepairPage();
+                    return;
+                }
+
                 if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
                 {
                     await _backendProcessManager.RestartAsync();
@@ -755,7 +845,14 @@ public partial class MainWindow : Window
                 }
 
                 await RefreshOverviewAsync(force: true);
-            }));
+            });
+        if (IsRepairModeActive())
+        {
+            backendAction.Content = "Backend Locked";
+            backendAction.IsEnabled = false;
+        }
+
+        panel.Children.Add(backendAction);
         panel.Children.Add(CreateActionButton("Open Config Folder", () =>
         {
             ProcessStartFolder(_pathService.Directories.ConfigDirectory);
@@ -766,6 +863,15 @@ public partial class MainWindow : Window
             ProcessStartFolder(_pathService.Directories.RootDirectory);
             return Task.CompletedTask;
         }));
+        if (IsRepairModeActive())
+        {
+            panel.Children.Add(CreateActionButton("Open Dependency Repair", () =>
+            {
+                OpenDependencyRepairPage();
+                return Task.CompletedTask;
+            }));
+        }
+
         panel.Children.Add(CreateActionButton("Repair Backend Files", RepairBackendAssetsAsync));
 
         return CreateCard(panel, new Thickness(0, 0, 0, 18));
@@ -917,9 +1023,16 @@ public partial class MainWindow : Window
 
     private async Task RepairBackendAssetsAsync()
     {
+        if (IsRepairModeActive())
+        {
+            await RepairDependencyIssuesAsync();
+            return;
+        }
+
         try
         {
-            await _backendAssetService.EnsureAssetsAsync();
+            await _backendAssetService.RepairAssetsAsync();
+            await RefreshDependencyStatusAsync(force: true);
             UpdateSelectedSection();
         }
         catch (Exception exception)
@@ -935,23 +1048,7 @@ public partial class MainWindow : Window
 
     private DependencyCheckResult GetDependencyStatus()
     {
-        var backendExecutablePath = Path.Combine(_pathService.Directories.BackendDirectory, BackendExecutableFileName);
-        if (File.Exists(backendExecutablePath))
-        {
-            return new DependencyCheckResult
-            {
-                IsAvailable = true,
-                Summary = "Backend runtime files are present and ready for the desktop manager.",
-                Detail = backendExecutablePath
-            };
-        }
-
-        return new DependencyCheckResult
-        {
-            IsAvailable = false,
-            Summary = "Backend runtime files are missing from the managed backend directory.",
-            Detail = $"Expected executable: {backendExecutablePath}"
-        };
+        return _dependencyStatus;
     }
 
     private static string BuildUpdateStatus(ManagementOverviewSnapshot snapshot)
@@ -1016,6 +1113,8 @@ public partial class MainWindow : Window
                 "This route is reserved for theme, startup, tray, directory, update, and privacy preferences. Theme switching already works at the shell level and persists to desktop settings.",
             "about" =>
                 $"Cli Proxy API Desktop {_buildInfo.InformationalVersion}. The native desktop shell now manages the backend directly and is being expanded page by page around the audited management APIs.",
+            "dependency-repair" =>
+                "Dependency repair mode isolates the shell to safe routes, surfaces blocking environment issues, and offers repair, re-check, detail, and diagnostics actions.",
             _ => section.Subtitle
         };
     }
@@ -1026,13 +1125,19 @@ public partial class MainWindow : Window
         {
             "overview" => "The overview is now driven by live management data plus local desktop runtime state.",
             "updates" => "Stable update checks now query the desktop repository's GitHub Releases endpoint directly. Beta remains a reserved channel entry until a beta release line exists.",
+            "dependency-repair" => "This route stays available during repair mode so blocking dependency issues can be repaired or exported without relying on Management API startup.",
             _ => "This route is reserved in the native shell and will be connected to the audited management APIs as a first-class desktop page."
         };
     }
 
     private string BuildPageStatus(ShellSection section)
     {
-        return $"Route key: {section.Key} | Backend: {_backendProcessManager.CurrentStatus.State} | Theme: {GetThemeLabel(_settings.ThemeMode)} | Tray: {(_settings.EnableTrayIcon ? "Enabled" : "Disabled")}";
+        var repairStatus = !IsRepairModeActive()
+            ? "Repair: Off"
+            : section.IsEnabled
+                ? "Repair: Active"
+                : "Repair: Locked";
+        return $"Route key: {section.Key} | Backend: {_backendProcessManager.CurrentStatus.State} | {repairStatus} | Theme: {GetThemeLabel(_settings.ThemeMode)} | Tray: {(_settings.EnableTrayIcon ? "Enabled" : "Disabled")}";
     }
 
     private void HideToTray()
@@ -1068,6 +1173,12 @@ public partial class MainWindow : Window
 
     private void ShowUpdatesPlaceholder()
     {
+        if (IsRepairModeActive())
+        {
+            OpenDependencyRepairPage();
+            return;
+        }
+
         OpenUpdatesPage(startCheck: true);
     }
 
@@ -1117,7 +1228,8 @@ public partial class MainWindow : Window
             new ShellSection("tools", "\uE9CA", "Sources & Tools", "Official/CPA switching and desktop integrations."),
             new ShellSection("updates", "\uE895", "Updates & Version", "Stable update checks and release diagnostics."),
             new ShellSection("settings", "\uE713", "Settings", "Theme, startup, tray, and privacy preferences."),
-            new ShellSection("about", "\uE946", "About", "Version, notices, and diagnostics entry.")
+            new ShellSection("about", "\uE946", "About", "Version, notices, and diagnostics entry."),
+            new ShellSection("dependency-repair", "\uF404", "Dependency Repair", "Repair mode, issue details, and safe diagnostics.")
         ];
     }
 
@@ -1154,5 +1266,26 @@ public partial class MainWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool DestroyIcon(IntPtr handle);
 
-    private sealed record ShellSection(string Key, string Glyph, string Title, string Subtitle);
+    private sealed class ShellSection
+    {
+        public ShellSection(string key, string glyph, string title, string subtitle)
+        {
+            Key = key;
+            Glyph = glyph;
+            Title = title;
+            Subtitle = subtitle;
+        }
+
+        public string Key { get; }
+
+        public string Glyph { get; }
+
+        public string Title { get; }
+
+        public string Subtitle { get; }
+
+        public bool IsEnabled { get; set; } = true;
+
+        public string WarningBadge { get; set; } = string.Empty;
+    }
 }

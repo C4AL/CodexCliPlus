@@ -476,6 +476,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             new BackendConfigWriter(configurationService, pathService),
             new BackendHealthChecker(services.GetRequiredService<IHttpClientFactory>()),
             configurationService,
+            pathService,
             new SystemProcessService(),
             logger);
     }
@@ -504,6 +505,8 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             Directory.CreateDirectory(Directories.ConfigDirectory);
             Directory.CreateDirectory(Directories.BackendDirectory);
             Directory.CreateDirectory(Directories.CacheDirectory);
+            Directory.CreateDirectory(Directories.DiagnosticsDirectory);
+            Directory.CreateDirectory(Directories.RuntimeDirectory);
             return Task.CompletedTask;
         }
     }

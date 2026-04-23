@@ -67,6 +67,31 @@ public sealed class CodexConfigServiceTests : IDisposable
         Assert.Equal(invalidToml, finalContent);
     }
 
+    [Fact]
+    public async Task InspectAsyncReadsAppliedProfileAndProjectConfig()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var repositoryPath = Path.Combine(_codexHome, "repo");
+        Directory.CreateDirectory(Path.Combine(repositoryPath, ".codex"));
+        await File.WriteAllTextAsync(
+            Path.Combine(repositoryPath, ".codex", "config.toml"),
+            "model = \"gpt-5.4\"\n");
+
+        var service = new CodexConfigService();
+        await service.ApplyDesktopModeAsync(9318, CodexSourceKind.Cpa);
+
+        var status = await service.InspectAsync(repositoryPath, @"C:\tools\codex.cmd", "1.2.3", "signed-in");
+
+        Assert.True(status.IsInstalled);
+        Assert.True(status.HasUserConfig);
+        Assert.True(status.HasProjectConfig);
+        Assert.Equal("cpa", status.DefaultProfile);
+        Assert.Equal("cpa", status.EffectiveSource);
+        Assert.Equal("signed-in", status.AuthenticationState);
+    }
+
     public void Dispose()
     {
         Environment.SetEnvironmentVariable("CODEX_HOME", _originalCodexHome);

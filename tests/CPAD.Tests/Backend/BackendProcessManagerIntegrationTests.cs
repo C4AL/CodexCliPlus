@@ -33,8 +33,15 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
         using var response = await client.GetAsync(running.Runtime.HealthUrl);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
+        var runtimeDirectory = Path.Combine(_rootDirectory, "runtime");
+        Directory.CreateDirectory(Path.Combine(runtimeDirectory, "nested"));
+        await File.WriteAllTextAsync(Path.Combine(runtimeDirectory, "stale.tmp"), "runtime");
+        await File.WriteAllTextAsync(Path.Combine(runtimeDirectory, "nested", "stale.txt"), "runtime");
+
         var stopped = await manager.StopAsync();
         Assert.Equal(Core.Enums.BackendStateKind.Stopped, stopped.State);
+        Assert.Throws<ArgumentException>(() => Process.GetProcessById(running.ProcessId.Value));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(runtimeDirectory));
     }
 
     [Fact]
@@ -79,6 +86,7 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             new BackendConfigWriter(configurationService, pathService),
             new BackendHealthChecker(services.GetRequiredService<IHttpClientFactory>()),
             configurationService,
+            pathService,
             new ThrowingProcessService(new FileNotFoundException("The system cannot find the file specified.")),
             logger);
 
@@ -132,6 +140,7 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             new BackendConfigWriter(configurationService, pathService),
             new BackendHealthChecker(httpClientFactory),
             configurationService,
+            pathService,
             new SystemProcessService(),
             logger);
     }
@@ -179,6 +188,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             Directory.CreateDirectory(Directories.ConfigDirectory);
             Directory.CreateDirectory(Directories.BackendDirectory);
             Directory.CreateDirectory(Directories.CacheDirectory);
+            Directory.CreateDirectory(Directories.DiagnosticsDirectory);
+            Directory.CreateDirectory(Directories.RuntimeDirectory);
             return Task.CompletedTask;
         }
     }

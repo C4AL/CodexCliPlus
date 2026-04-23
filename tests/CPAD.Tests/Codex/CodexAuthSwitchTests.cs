@@ -47,6 +47,28 @@ public sealed class CodexAuthSwitchTests : IDisposable
         Assert.Contains("\"auth_mode\": \"chatgpt\"", currentAuth, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ApplyDesktopModeAsyncCanRoundTripCpaBackToOfficial()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var authPath = Path.Combine(_codexHome, "auth.json");
+        await File.WriteAllTextAsync(authPath, "{\n  \"auth_mode\": \"chatgpt\",\n  \"token\": \"official\"\n}\n");
+
+        var service = new CodexConfigService();
+        await service.ApplyDesktopModeAsync(9318, CodexSourceKind.Cpa);
+        await service.ApplyDesktopModeAsync(9318, CodexSourceKind.Official);
+
+        var config = await File.ReadAllTextAsync(service.GetUserConfigPath());
+        var currentAuth = await File.ReadAllTextAsync(authPath);
+
+        Assert.Contains("profile = \"official\"", config, StringComparison.Ordinal);
+        Assert.Contains("[profiles.cpa]", config, StringComparison.Ordinal);
+        Assert.Contains("\"token\": \"official\"", currentAuth, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"OPENAI_API_KEY\": \"sk-dummy\"", currentAuth, StringComparison.Ordinal);
+    }
+
     public void Dispose()
     {
         Environment.SetEnvironmentVariable("CODEX_HOME", _originalCodexHome);

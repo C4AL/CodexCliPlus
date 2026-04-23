@@ -1,5 +1,6 @@
 using CPAD.Core.Abstractions.Configuration;
 using CPAD.Core.Abstractions.Logging;
+using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Abstractions.Processes;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
@@ -13,6 +14,7 @@ public sealed class BackendProcessManager : IDisposable
     private readonly BackendConfigWriter _configWriter;
     private readonly BackendHealthChecker _healthChecker;
     private readonly IAppConfigurationService _configurationService;
+    private readonly IPathService _pathService;
     private readonly IProcessService _processService;
     private readonly IAppLogger _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -26,6 +28,7 @@ public sealed class BackendProcessManager : IDisposable
         BackendConfigWriter configWriter,
         BackendHealthChecker healthChecker,
         IAppConfigurationService configurationService,
+        IPathService pathService,
         IProcessService processService,
         IAppLogger logger)
     {
@@ -33,6 +36,7 @@ public sealed class BackendProcessManager : IDisposable
         _configWriter = configWriter;
         _healthChecker = healthChecker;
         _configurationService = configurationService;
+        _pathService = pathService;
         _processService = processService;
         _logger = logger;
     }
@@ -75,6 +79,7 @@ public sealed class BackendProcessManager : IDisposable
             });
 
             var assetLayout = await _assetService.EnsureAssetsAsync(cancellationToken);
+            CleanupRuntimeArtifacts();
             var settings = await _configurationService.LoadAsync(cancellationToken);
             var runtime = await _configWriter.WriteAsync(settings, cancellationToken);
 
@@ -130,6 +135,7 @@ public sealed class BackendProcessManager : IDisposable
         {
             _logger.LogError("Failed to start backend process.", exception);
             await StopManagedProcessAsync(cancellationToken);
+            CleanupRuntimeArtifacts();
             UpdateStatus(new BackendStatusSnapshot
             {
                 State = BackendStateKind.Error,
@@ -153,6 +159,7 @@ public sealed class BackendProcessManager : IDisposable
             var runtime = CurrentStatus.Runtime;
             _stopRequested = true;
             await StopManagedProcessAsync(cancellationToken);
+            CleanupRuntimeArtifacts();
 
             UpdateStatus(new BackendStatusSnapshot
             {
@@ -244,6 +251,32 @@ public sealed class BackendProcessManager : IDisposable
         {
             _managedProcess.Dispose();
             _managedProcess = null;
+        }
+    }
+
+    private void CleanupRuntimeArtifacts()
+    {
+        var runtimeDirectory = _pathService.Directories.RuntimeDirectory;
+
+        try
+        {
+            Directory.CreateDirectory(runtimeDirectory);
+
+            foreach (var file in Directory.EnumerateFiles(runtimeDirectory))
+            {
+                File.Delete(file);
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(runtimeDirectory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+
+            AppendLogLine($"Cleaned runtime artifacts in {runtimeDirectory}.");
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"Failed to clean runtime artifacts in {runtimeDirectory}: {exception.Message}");
         }
     }
 }

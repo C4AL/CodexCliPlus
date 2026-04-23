@@ -81,16 +81,17 @@
 
 ## 5. 涓荤獥鍙ｄ笌搴旂敤澶栧３閲嶅缓锛?0% -> 22%锛?
 ### 5.1 搴旂敤澹充綋
-- [ ] 閲嶅啓涓荤獥鍙ｄ负鍘熺敓 WPF 瀵艰埅寮忓３浣撱€?- [ ] 寤虹珛缁熶竴鏍囬鏍忋€佸鑸爮銆佸唴瀹瑰尯銆佺姸鎬佸尯銆?- [ ] 鏀寔娴呰壊/娣辫壊涓婚鍒囨崲涓庤窡闅忕郴缁熴€?- [ ] 鎺ュ叆鑷湁鍥炬爣涓庡搧鐗岃祫婧愶紙鏉ヨ嚜 `resources/`锛夈€?
+- [x] 閲嶅啓涓荤獥鍙ｄ负鍘熺敓 WPF 瀵艰埅寮忓３浣撱€?- [x] 寤虹珛缁熶竴鏍囬鏍忋€佸鑸爮銆佸唴瀹瑰尯銆佺姸鎬佸尯銆?- [x] 鏀寔娴呰壊/娣辫壊涓婚鍒囨崲涓庤窡闅忕郴缁熴€?- [x] 鎺ュ叆鑷湁鍥炬爣涓庡搧鐗岃祫婧愶紙鏉ヨ嚜 `resources/`锛夈€?
 ### 5.2 瀵艰埅缁撴瀯
-- [ ] 瀹炵幇宸︿晶/渚ц竟瀵艰埅缁撴瀯銆?- [ ] 鍥哄畾棣栧彂椤甸潰璺敱涓庡鑸叆鍙ｃ€?- [ ] 鍏充簬椤典笌璁剧疆椤电撼鍏ョ粺涓€瀵艰埅浣撶郴銆?
+- [x] 瀹炵幇宸︿晶/渚ц竟瀵艰埅缁撴瀯銆?- [x] 鍥哄畾棣栧彂椤甸潰璺敱涓庡鑸叆鍙ｃ€?- [x] 鍏充簬椤典笌璁剧疆椤电撼鍏ョ粺涓€瀵艰埅浣撶郴銆?
 ### 5.3 鎵樼洏
-- [ ] 瀹炵幇鎵樼洏鍥炬爣銆?- [ ] 瀹炵幇鎵樼洏鑿滃崟锛氭墦寮€涓荤晫闈?/ 閲嶅惎鍚庣 / 妫€鏌ユ洿鏂?/ 閫€鍑哄苟鍋滄鍚庣銆?- [ ] 瀹炵幇鍏抽棴鎸夐挳鏈€灏忓寲鍒版墭鐩樸€?- [ ] 瀹炵幇鈥滈€€鍑哄苟鍋滄鍚庣鈥濈殑鍙潬鏀跺熬閫昏緫銆?
-### 5.4 鏈€浣庨獙鏀?- [ ] 绋嬪簭鍚姩杩涘叆鍘熺敓涓荤獥鍙ｏ紝鑰岄潪 WebView2 瀹夸富椤点€?- [ ] 瀵艰埅瀛樺湪骞跺彲鍒囨崲銆?- [ ] 鎵樼洏琛屼负绗﹀悎瑕佹眰銆?- [ ] 涓嶅嚭鐜版棫瀹夸富甯冨眬銆?
+- [x] 瀹炵幇鎵樼洏鍥炬爣銆?- [x] 瀹炵幇鎵樼洏鑿滃崟锛氭墦寮€涓荤晫闈?/ 閲嶅惎鍚庣 / 妫€鏌ユ洿鏂?/ 閫€鍑哄苟鍋滄鍚庣銆?- [x] 瀹炵幇鍏抽棴鎸夐挳鏈€灏忓寲鍒版墭鐩樸€?- [x] 瀹炵幇鈥滈€€鍑哄苟鍋滄鍚庣鈥濈殑鍙潬鏀跺熬閫昏緫銆?
+### 5.4 鏈€浣庨獙鏀?- [x] 绋嬪簭鍚姩杩涘叆鍘熺敓涓荤獥鍙ｏ紝鑰岄潪 WebView2 瀹夸富椤点€?- [x] 瀵艰埅瀛樺湪骞跺彲鍒囨崲銆?- [x] 鎵樼洏琛屼负绗﹀悎瑕佹眰銆?- [x] 涓嶅嚭鐜版棫瀹夸富甯冨眬銆?
 ### 5.5 闃舵缁撴灉璁板綍
-> - 涓荤獥鍙ｅ畬鎴愬害锛?> - 瀵艰埅瀹屾垚搴︼細
-> - 鎵樼洏瀹屾垚搴︼細
-> - 鏋勫缓/杩愯缁撴灉锛?
+> - Shell completion: Replaced the placeholder host with a native WPF shell using a branded header, left navigation, content region, footer, and persisted theme switching.
+> - Navigation completion: Added the fixed first-release routes for Overview, Accounts & Auth, Quota & Usage, Configuration, Logs & Diagnostics, System & Models, Sources & Tools, Updates & Version, Settings, and About.
+> - Tray completion: Added the tray icon, required tray menu actions, close-to-tray behavior, and controlled exit that stops the managed backend.
+> - Build/run result: `dotnet build CliProxyApiDesktop.sln`, `dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`, and a startup smoke launch of `src/CPAD.App/bin/Debug/net10.0-windows/CPAD.exe` all passed.
 ---
 
 ## 6. 鍩虹璁炬柦杩佺Щ锛?2% -> 34%锛?

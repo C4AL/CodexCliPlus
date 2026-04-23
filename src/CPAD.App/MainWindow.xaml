@@ -2,33 +2,321 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Cli Proxy API Desktop"
-        Width="960"
-        Height="640"
-        MinWidth="720"
-        MinHeight="480"
-        WindowStartupLocation="CenterScreen">
-    <Grid Background="#F4F6FA">
-        <Border Margin="32"
-                Padding="28"
-                Background="White"
-                BorderBrush="#D7DCE5"
+        Width="1280"
+        Height="820"
+        MinWidth="1100"
+        MinHeight="720"
+        Icon="pack://application:,,,/Resources/Icons/ico.png"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
+        WindowStartupLocation="CenterScreen"
+        Closing="Window_Closing"
+        Closed="Window_Closed"
+        Loaded="Window_Loaded">
+    <Window.Resources>
+        <Style x:Key="CaptionButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Padding="14,12"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#D9F1EE" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="20" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Row="0"
+                Grid.ColumnSpan="3"
+                Margin="0,0,0,20"
+                Padding="18"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Width="46"
+                        Height="46"
+                        CornerRadius="14"
+                        Background="#DBEEEB"
+                        VerticalAlignment="Center">
+                    <Image Width="28"
+                           Height="28"
+                           Source="pack://application:,,,/Resources/Icons/ico-transparent.png"
+                           Stretch="Uniform" />
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               Text="Cli Proxy API Desktop" />
+                    <TextBlock FontSize="13"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Text="Native desktop shell inspired by BetterGI and prepared for Management Center semantics." />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button x:Name="ThemeButton"
+                            Style="{StaticResource CaptionButtonStyle}"
+                            Click="ThemeButton_Click" />
+                    <Button Style="{StaticResource CaptionButtonStyle}"
+                            Content="Check Updates"
+                            Click="CheckUpdatesButton_Click" />
+                    <Button x:Name="BackendActionButton"
+                            Style="{StaticResource CaptionButtonStyle}"
+                            Content="Start Backend"
+                            Click="BackendActionButton_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Grid.Column="0"
+                Padding="18"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Text="Navigation" />
+                    <TextBlock Margin="0,4,0,0"
+                               FontSize="14"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               Text="Phase 5 shell routes fixed before native page work." />
+                </StackPanel>
+
+                <ListBox x:Name="NavigationList"
+                         Grid.Row="1"
+                         Margin="0,18,0,0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         SelectionChanged="NavigationList_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="24" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock FontFamily="Segoe Fluent Icons"
+                                           FontSize="15"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           Text="{Binding Glyph}" />
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               Text="{Binding Title}" />
+                                    <TextBlock Margin="0,2,0,0"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               Text="{Binding Subtitle}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Grid.Column="2"
+                Padding="24"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="PageTitleText"
+                           FontSize="28"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource PrimaryTextBrush}" />
+
+                <TextBlock x:Name="PageSubtitleText"
+                           Grid.Row="1"
+                           Margin="0,8,0,0"
+                           FontSize="14"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           TextWrapping="Wrap" />
+
+                <Grid Grid.Row="2" Margin="0,24,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Border Padding="18"
+                            Background="{DynamicResource SurfaceAltBrush}"
+                            CornerRadius="16">
+                        <TextBlock x:Name="PageBodyText"
+                                   FontSize="15"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+
+                    <Border Grid.Row="1"
+                            Margin="0,16,0,0"
+                            Padding="16"
+                            Background="#F4FAF9"
+                            BorderBrush="#C7E7E1"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <TextBlock x:Name="PageReferenceText"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+
+                    <StackPanel Grid.Row="2"
+                                Margin="0,20,0,0"
+                                Orientation="Horizontal">
+                        <Button x:Name="PrimaryPageActionButton"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Click="PrimaryPageActionButton_Click" />
+                        <Button x:Name="SecondaryPageActionButton"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Click="SecondaryPageActionButton_Click" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="3"
+                        Margin="0,20,0,0"
+                        Padding="14,12"
+                        Background="#F6FBFB"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <TextBlock x:Name="PageStatusText"
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Grid.ColumnSpan="3"
+                Margin="0,20,0,0"
+                Padding="14"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="1"
                 CornerRadius="16">
-            <StackPanel>
-                <TextBlock FontSize="30"
-                           FontWeight="SemiBold"
-                           Foreground="#1D2733"
-                           Text="Cli Proxy API Desktop" />
-                <TextBlock Margin="0,10,0,0"
-                           FontSize="14"
-                           Foreground="#526070"
-                           Text="Phase 4 placeholder shell for the native rewrite." />
-                <TextBlock Margin="0,24,0,0"
-                           FontSize="14"
-                           Foreground="#324154"
-                           TextWrapping="Wrap"
-                           Text="The repository structure, infrastructure layer, and tests are being restored first. The formal native desktop shell will be rebuilt in phase 5 against the audited BetterGI and Management Center references." />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="BackendStatusText"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="SourceStatusText"
+                           Grid.Column="1"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="ThemeStatusText"
+                           Grid.Column="2"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock x:Name="VersionStatusText"
+                           Grid.Column="3"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           VerticalAlignment="Center" />
+            </Grid>
         </Border>
     </Grid>
 </Window>

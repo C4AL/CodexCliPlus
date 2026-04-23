@@ -11,6 +11,10 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3240.44" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="..\..\resources\icons\*.png" Link="Resources\Icons\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>

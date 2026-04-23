@@ -8,6 +8,7 @@ using CPAD.Core.Abstractions.Updates;
 using CPAD.Infrastructure.Backend;
 using CPAD.Infrastructure.Codex;
 using CPAD.Infrastructure.Configuration;
+using CPAD.Infrastructure.Dependencies;
 using CPAD.Infrastructure.Diagnostics;
 using CPAD.Infrastructure.Logging;
 using CPAD.Infrastructure.Management;
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAppConfigurationService, JsonAppConfigurationService>();
         services.AddSingleton<IProcessService, SystemProcessService>();
         services.AddSingleton<DirectoryAccessService>();
+        services.AddSingleton<DependencyHealthService>();
         services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<DiagnosticsService>();
         services.AddSingleton<BackendConfigWriter>();

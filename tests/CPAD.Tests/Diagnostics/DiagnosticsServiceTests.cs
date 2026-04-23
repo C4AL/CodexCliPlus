@@ -45,10 +45,10 @@ public sealed class DiagnosticsServiceTests : IDisposable
     }
 
     [Fact]
-    public void ExportPackageWritesRedactedDiagnosticArchive()
+    public async Task ExportPackageWritesRedactedDiagnosticArchive()
     {
         var pathService = new TestPathService(_rootDirectory);
-        pathService.EnsureCreatedAsync().GetAwaiter().GetResult();
+        await pathService.EnsureCreatedAsync();
         Directory.CreateDirectory(pathService.Directories.LogsDirectory);
 
         File.WriteAllText(
@@ -65,7 +65,21 @@ public sealed class DiagnosticsServiceTests : IDisposable
         var packagePath = service.ExportPackage(
             new BackendStatusSnapshot { Message = "Running" },
             new CodexStatusSnapshot { AuthenticationState = "signed-in" },
-            new DependencyCheckResult { Summary = "Dependency OK" });
+            new DependencyCheckResult
+            {
+                Summary = "Dependency OK",
+                RequiresRepairMode = true,
+                Issues =
+                [
+                    new DependencyCheckIssue
+                    {
+                        Code = "backend-runtime",
+                        Title = "Backend runtime files are missing.",
+                        Detail = "Expected executable was not found.",
+                        CanRepairNow = true
+                    }
+                ]
+            });
 
         Assert.True(File.Exists(packagePath));
 
@@ -75,6 +89,10 @@ public sealed class DiagnosticsServiceTests : IDisposable
         var backendConfig = ReadEntryText(archive, "cliproxyapi.yaml");
 
         Assert.Contains("Dependency OK", report, StringComparison.Ordinal);
+        Assert.Contains("Dependency repair mode: True", report, StringComparison.Ordinal);
+        Assert.Contains("[backend-runtime]", report, StringComparison.Ordinal);
+        Assert.Contains("Backend runtime files are missing.", report, StringComparison.Ordinal);
+        Assert.Contains("Repair now: True", report, StringComparison.Ordinal);
         Assert.DoesNotContain("test-token", log, StringComparison.Ordinal);
         Assert.Contains("***", log, StringComparison.Ordinal);
         Assert.DoesNotContain("phase6-secret", backendConfig, StringComparison.Ordinal);

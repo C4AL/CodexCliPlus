@@ -38,6 +38,18 @@ public sealed class DiagnosticsService
         builder.AppendLine($"Codex default profile: {codexStatus.DefaultProfile}");
         builder.AppendLine($"Codex authentication state: {codexStatus.AuthenticationState}");
         builder.AppendLine($"Dependency summary: {dependencyStatus.Summary}");
+        builder.AppendLine($"Dependency repair mode: {dependencyStatus.RequiresRepairMode}");
+
+        if (dependencyStatus.Issues.Count > 0)
+        {
+            builder.AppendLine("Dependency issues:");
+            foreach (var issue in dependencyStatus.Issues)
+            {
+                builder.AppendLine(
+                    $"- [{issue.Code}] {issue.Title} | Repair now: {issue.CanRepairNow} | {issue.Detail}");
+            }
+        }
+
         builder.AppendLine($"App root: {_pathService.Directories.RootDirectory}");
         builder.AppendLine($"Logs directory: {_pathService.Directories.LogsDirectory}");
         builder.AppendLine($"Config directory: {_pathService.Directories.ConfigDirectory}");

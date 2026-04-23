@@ -41,6 +41,17 @@ public sealed class BackendAssetService
             return CreateLayout(workingDirectory, executablePath);
         }
 
+        return await RepairAssetsAsync(cancellationToken);
+    }
+
+    public async Task<BackendAssetLayout> RepairAssetsAsync(CancellationToken cancellationToken = default)
+    {
+        await _pathService.EnsureCreatedAsync(cancellationToken);
+
+        var workingDirectory = _pathService.Directories.BackendDirectory;
+        var executablePath = Path.Combine(workingDirectory, "cli-proxy-api.exe");
+        Directory.CreateDirectory(workingDirectory);
+
         if (TryCopyFromBundledAssets(workingDirectory, executablePath))
         {
             _logger.Info("Copied backend files from the application bundle.");
@@ -127,7 +138,8 @@ public sealed class BackendAssetService
 
         ExtractEntry(executableEntry, executablePath);
 
-        foreach (var entry in archive.Entries.Where(item => item.Name is "LICENSE" or "README.md" or "README_CN.md"))
+        foreach (var entry in archive.Entries.Where(
+            item => item.Name is "LICENSE" or "README.md" or "README_CN.md" or "config.example.yaml"))
         {
             ExtractEntry(entry, Path.Combine(workingDirectory, entry.Name));
         }

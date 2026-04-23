@@ -1,9 +1,0 @@
-﻿{
-    "id":  "cpa-source",
-    "name":  "cpa-uv-overlay",
-    "sourcePath":  "C:\\Users\\Reol\\workspace\\CPA-UV-publish",
-    "repository":  "https://github.com/Blackblock-inc/CPA-UV.git",
-    "branch":  "main",
-    "commit":  "788076c630035c307b6cdf675554dd7b54cc6cee",
-    "syncedAt":  "2026-04-22T17:15:29.6951570Z"
-}

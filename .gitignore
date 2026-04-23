@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.vs/
+artifacts/
+
+resources/backend/windows-x64/*
+!resources/backend/windows-x64/.gitkeep
+
+resources/webview2/*
+!resources/webview2/.gitkeep

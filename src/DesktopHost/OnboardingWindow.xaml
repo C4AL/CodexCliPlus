@@ -1,0 +1,332 @@
+<Window x:Class="DesktopHost.OnboardingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CPAD 首次运行向导"
+        Width="1120"
+        Height="760"
+        MinWidth="980"
+        MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{DynamicResource AppWindowBackgroundBrush}">
+    <Grid Margin="22">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="290" />
+            <ColumnDefinition Width="18" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Padding="22"
+                Background="{DynamicResource AppCardBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18">
+            <StackPanel>
+                <TextBlock FontSize="30"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AppPrimaryBrush}"
+                           Text="首次运行向导" />
+                <TextBlock Margin="0,10,0,0"
+                           FontSize="14"
+                           Foreground="{DynamicResource AppMutedBrush}"
+                           Text="这一轮会把桌面目录、后端资源、Codex profile 和默认源一次性初始化完成。"
+                           TextWrapping="Wrap" />
+
+                <Border x:Name="StepCard0"
+                        Margin="0,24,0,12"
+                        Padding="14"
+                        Background="#EAF2F8"
+                        BorderBrush="{DynamicResource AppPrimaryBrush}"
+                        BorderThickness="2"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="1. 欢迎" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="确认产品范围与初始化动作。" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="StepCard1"
+                        Margin="0,0,0,12"
+                        Padding="14"
+                        Background="#FFF7EF"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="2. 依赖检查" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="检查 WebView2、Codex CLI 与后端资源。" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="StepCard2"
+                        Margin="0,0,0,12"
+                        Padding="14"
+                        Background="#F6EFE7"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="3. 写入配置" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="创建目录并写入桌面配置与后端配置。" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="StepCard3"
+                        Margin="0,0,0,12"
+                        Padding="14"
+                        Background="#EEF7E7"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="4. 默认源" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="选择 official 或 cpa 作为默认 Codex 源。" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="StepCard4"
+                        Padding="14"
+                        Background="#F8F1E9"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="5. 完成" />
+                        <TextBlock Margin="0,6,0,0"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="启动后端并进入主界面。" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2"
+                Padding="24"
+                Background="{DynamicResource AppCardBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock x:Name="StepTitleTextBlock"
+                               FontSize="28"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppPrimaryBrush}"
+                               Text="欢迎" />
+                    <TextBlock x:Name="StepSubtitleTextBlock"
+                               Margin="0,10,0,0"
+                               FontSize="14"
+                               Foreground="{DynamicResource AppMutedBrush}"
+                               TextWrapping="Wrap"
+                               Text="首次运行会完成依赖检查、配置写入和默认源初始化。" />
+                </StackPanel>
+
+                <Grid Grid.Row="1" Margin="0,24,0,24">
+                    <Grid x:Name="WelcomePanel">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Padding="18"
+                                Background="#EAF2F8"
+                                CornerRadius="16">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="本向导会做这些事" />
+                                <TextBlock Margin="0,12,0,0" FontSize="14" Text="1. 创建 `%LocalAppData%\\CliProxyApiDesktop` 运行目录。" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,8,0,0" FontSize="14" Text="2. 准备 CLIProxyAPI 后端与原版 management.html。" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,8,0,0" FontSize="14" Text="3. 初始化 Codex 的 `official` / `cpa` profile，并保存默认源。" TextWrapping="Wrap" />
+                                <TextBlock Margin="0,8,0,0" FontSize="14" Text="4. 首次拉起后端，随后进入桌面宿主主界面。" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Grid.Row="1"
+                                   Margin="0,18,0,0"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="如果缺少 WebView2 Runtime 或 Codex CLI，向导会在下一步给出中文状态说明；Codex 缺失不会阻断桌面宿主初始化。"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+
+                    <ScrollViewer x:Name="DependencyPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Margin="0,0,0,14"
+                                    Padding="18"
+                                    Background="#EAF2F8"
+                                    CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="WebView2 Runtime" />
+                                    <TextBlock x:Name="WebViewDependencyTextBlock"
+                                               Margin="0,10,0,0"
+                                               FontSize="14"
+                                               Text="等待检查..." TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,0,0,14"
+                                    Padding="18"
+                                    Background="#FFF7EF"
+                                    CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Codex CLI" />
+                                    <TextBlock x:Name="CodexDependencyTextBlock"
+                                               Margin="0,10,0,0"
+                                               FontSize="14"
+                                               Text="等待检查..."
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Padding="18"
+                                    Background="#EEF7E7"
+                                    CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="后端资源" />
+                                    <TextBlock x:Name="BackendDependencyTextBlock"
+                                               Margin="0,10,0,0"
+                                               FontSize="14"
+                                               Text="等待检查..."
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="InitializationPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Padding="18"
+                                    Background="#F6EFE7"
+                                    CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="初始化结果" />
+                                    <TextBlock x:Name="InitializationStatusTextBlock"
+                                               Margin="0,10,0,0"
+                                               FontSize="14"
+                                               Text="等待写入配置..."
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Margin="0,18,0,0" FontSize="14" FontWeight="SemiBold" Text="关键路径" />
+                            <TextBlock x:Name="AppRootTextBlock" Margin="0,10,0,0" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+                            <TextBlock x:Name="DesktopConfigTextBlock" Margin="0,8,0,0" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+                            <TextBlock x:Name="BackendConfigTextBlock" Margin="0,8,0,0" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <Grid x:Name="SourcePanel" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock FontSize="15"
+                                   Foreground="{DynamicResource AppMutedBrush}"
+                                   Text="选择桌面宿主默认写入的 Codex 源。之后仍可在主界面一键切换。"
+                                   TextWrapping="Wrap" />
+
+                        <Border Grid.Row="1"
+                                Margin="0,18,0,14"
+                                Padding="18"
+                                Background="#EAF2F8"
+                                CornerRadius="16">
+                            <StackPanel>
+                                <RadioButton x:Name="OfficialSourceRadioButton"
+                                             GroupName="CodexSource"
+                                             IsChecked="True"
+                                             FontSize="16"
+                                             FontWeight="SemiBold"
+                                             Content="official" />
+                                <TextBlock Margin="28,10,0,0"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource AppMutedBrush}"
+                                           Text="保持官方认证路径，继续使用 ChatGPT 登录或 API Key 登录。" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2"
+                                Padding="18"
+                                Background="#FFF7EF"
+                                CornerRadius="16"
+                                VerticalAlignment="Top">
+                            <StackPanel>
+                                <RadioButton x:Name="CpaSourceRadioButton"
+                                             GroupName="CodexSource"
+                                             FontSize="16"
+                                             FontWeight="SemiBold"
+                                             Content="cpa" />
+                                <TextBlock Margin="28,10,0,0"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource AppMutedBrush}"
+                                           Text="写入本地 CPA provider，并同步切换 Codex 认证文件到桌面宿主需要的 dummy auth。" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <ScrollViewer x:Name="CompletionPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Padding="18"
+                                    Background="#EEF7E7"
+                                    CornerRadius="16">
+                                <StackPanel>
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="初始化完成" />
+                                    <TextBlock x:Name="CompletionStatusTextBlock"
+                                               Margin="0,10,0,0"
+                                               FontSize="14"
+                                               Text="等待完成..."
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock x:Name="CompletionDetailTextBlock"
+                                       Margin="0,18,0,0"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource AppMutedBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <DockPanel Grid.Row="2">
+                    <TextBlock x:Name="FooterTextBlock"
+                               VerticalAlignment="Center"
+                               FontSize="13"
+                               Foreground="{DynamicResource AppMutedBrush}"
+                               Text="准备开始首次运行初始化。" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="BackButton"
+                                Width="110"
+                                Margin="0,0,10,0"
+                                Padding="14,8"
+                                Click="BackButton_Click">上一步</Button>
+                        <Button x:Name="NextButton"
+                                Width="140"
+                                Padding="14,8"
+                                Click="NextButton_Click">开始</Button>
+                    </StackPanel>
+                </DockPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

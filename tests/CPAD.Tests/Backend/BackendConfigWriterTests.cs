@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Enums;
@@ -32,6 +33,8 @@ public sealed class BackendConfigWriterTests : IDisposable
 
         var runtime = await writer.WriteAsync(settings, assetLayout);
         var yaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
+        var secondRuntime = await writer.WriteAsync(settings, assetLayout);
+        var secondYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
 
         Assert.Equal(9317, runtime.RequestedPort);
         Assert.Equal(9317, runtime.Port);
@@ -39,9 +42,18 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.Equal("http://127.0.0.1:9317", runtime.BaseUrl);
         Assert.Equal("http://127.0.0.1:9317/healthz", runtime.HealthUrl);
         Assert.False(string.IsNullOrWhiteSpace(runtime.ManagementKey));
+        Assert.DoesNotContain(runtime.ManagementKey, yaml, StringComparison.Ordinal);
         Assert.Contains("host: \"127.0.0.1\"", yaml, StringComparison.Ordinal);
         Assert.Contains("allow-remote: false", yaml, StringComparison.Ordinal);
         Assert.Contains("secret-key:", yaml, StringComparison.Ordinal);
+
+        var match = Regex.Match(yaml, "secret-key: \"(?<hash>.+)\"");
+        var secondMatch = Regex.Match(secondYaml, "secret-key: \"(?<hash>.+)\"");
+        Assert.True(match.Success);
+        Assert.True(secondMatch.Success);
+        Assert.True(BCrypt.Net.BCrypt.Verify(runtime.ManagementKey, match.Groups["hash"].Value));
+        Assert.Equal(match.Groups["hash"].Value, secondMatch.Groups["hash"].Value);
+        Assert.Equal(runtime.ManagementKey, secondRuntime.ManagementKey);
     }
 
     [Fact]
@@ -99,6 +111,8 @@ public sealed class BackendConfigWriterTests : IDisposable
             Directory.CreateDirectory(Directories.ConfigDirectory);
             Directory.CreateDirectory(Directories.BackendDirectory);
             Directory.CreateDirectory(Directories.CacheDirectory);
+            Directory.CreateDirectory(Directories.DiagnosticsDirectory);
+            Directory.CreateDirectory(Directories.RuntimeDirectory);
             return Task.CompletedTask;
         }
     }

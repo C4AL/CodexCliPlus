@@ -1,8 +1,11 @@
+using System.IO.Compression;
 using System.Text;
 
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Constants;
 using CPAD.Core.Models;
+using CPAD.Infrastructure.Security;
 
 namespace CPAD.Infrastructure.Diagnostics;
 
@@ -39,7 +42,32 @@ public sealed class DiagnosticsService
         builder.AppendLine($"Logs directory: {_pathService.Directories.LogsDirectory}");
         builder.AppendLine($"Config directory: {_pathService.Directories.ConfigDirectory}");
         builder.AppendLine($"Diagnostics directory: {_pathService.Directories.DiagnosticsDirectory}");
-        return builder.ToString();
+        return SensitiveDataRedactor.Redact(builder.ToString());
+    }
+
+    public string ExportPackage(
+        BackendStatusSnapshot backendStatus,
+        CodexStatusSnapshot codexStatus,
+        DependencyCheckResult webViewRuntimeStatus)
+    {
+        Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
+
+        var packagePath = Path.Combine(
+            _pathService.Directories.DiagnosticsDirectory,
+            $"diagnostics-{DateTimeOffset.Now:yyyyMMddHHmmss}.zip");
+
+        if (File.Exists(packagePath))
+        {
+            File.Delete(packagePath);
+        }
+
+        using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
+        WriteArchiveEntry(archive, "report.txt", BuildReport(backendStatus, codexStatus, webViewRuntimeStatus));
+        AddFileIfPresent(archive, "desktop.log", Path.Combine(_pathService.Directories.LogsDirectory, AppConstants.DefaultLogFileName));
+        AddFileIfPresent(archive, "desktop.json", _pathService.Directories.SettingsFilePath);
+        AddFileIfPresent(archive, "cliproxyapi.yaml", _pathService.Directories.BackendConfigFilePath);
+
+        return packagePath;
     }
 
     public string CreateErrorSnapshot(
@@ -64,21 +92,39 @@ public sealed class DiagnosticsService
         {
             builder.AppendLine();
             builder.AppendLine("Detail:");
-            builder.AppendLine(detail);
+            builder.AppendLine(SensitiveDataRedactor.Redact(detail));
         }
 
         if (exception is not null)
         {
             builder.AppendLine();
             builder.AppendLine("Exception:");
-            builder.AppendLine(exception.ToString());
+            builder.AppendLine(SensitiveDataRedactor.Redact(exception.ToString()));
         }
 
         builder.AppendLine();
         builder.AppendLine("Environment report:");
         builder.AppendLine(BuildReport(backendStatus, codexStatus, webViewRuntimeStatus));
 
-        File.WriteAllText(snapshotPath, builder.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        File.WriteAllText(snapshotPath, SensitiveDataRedactor.Redact(builder.ToString()), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return snapshotPath;
+    }
+
+    private static void WriteArchiveEntry(ZipArchive archive, string entryName, string content)
+    {
+        var entry = archive.CreateEntry(entryName);
+        using var stream = entry.Open();
+        using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        writer.Write(content);
+    }
+
+    private static void AddFileIfPresent(ZipArchive archive, string entryName, string sourcePath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            return;
+        }
+
+        WriteArchiveEntry(archive, entryName, SensitiveDataRedactor.Redact(File.ReadAllText(sourcePath)));
     }
 }

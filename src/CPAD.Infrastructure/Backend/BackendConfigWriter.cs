@@ -2,11 +2,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 using CPAD.Core.Abstractions.Configuration;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Constants;
 using CPAD.Core.Models;
+using CPAD.Infrastructure.Security;
 
 using YamlDotNet.Serialization;
 
@@ -45,8 +47,13 @@ public sealed class BackendConfigWriter
         var legacyConfig = TryLoadLegacyConfig();
         var authDirectory = ResolveAuthDirectory(legacyConfig);
         Directory.CreateDirectory(authDirectory);
+        var managementKeyHash = ResolveManagementKeyHash(settings.ManagementKey);
 
-        var yaml = BuildYaml(settings.BackendPort, settings.ManagementKey, authDirectory, legacyConfig);
+        var yaml = BuildYaml(
+            settings.BackendPort,
+            managementKeyHash,
+            authDirectory,
+            legacyConfig);
         await File.WriteAllTextAsync(
             _pathService.Directories.BackendConfigFilePath,
             yaml,
@@ -154,6 +161,17 @@ public sealed class BackendConfigWriter
         return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
+    private string ResolveManagementKeyHash(string managementKey)
+    {
+        var existingHash = TryLoadExistingManagementKeyHash();
+        if (!string.IsNullOrWhiteSpace(existingHash) && BCrypt.Net.BCrypt.Verify(managementKey, existingHash))
+        {
+            return existingHash;
+        }
+
+        return ManagementKeyHasher.Hash(managementKey);
+    }
+
     private static string GenerateManagementKey()
     {
         return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
@@ -179,6 +197,25 @@ public sealed class BackendConfigWriter
 
             using var reader = File.OpenText(legacyConfigPath);
             return deserializer.Deserialize<LegacyCliProxyApiConfig>(reader);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? TryLoadExistingManagementKeyHash()
+    {
+        if (!File.Exists(_pathService.Directories.BackendConfigFilePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var yaml = File.ReadAllText(_pathService.Directories.BackendConfigFilePath);
+            var match = Regex.Match(yaml, "secret-key:\\s*\"(?<hash>\\$2[aby]\\$.+)\"");
+            return match.Success ? match.Groups["hash"].Value : null;
         }
         catch
         {

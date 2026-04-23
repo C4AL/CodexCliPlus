@@ -3,6 +3,7 @@ using System.Text;
 using CPAD.Core.Abstractions.Logging;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Constants;
+using CPAD.Infrastructure.Security;
 
 namespace CPAD.Infrastructure.Logging;
 
@@ -36,7 +37,7 @@ public sealed class FileAppLogger : IAppLogger
 
     private void Write(string level, string message)
     {
-        var line = $"{DateTimeOffset.Now:O} [{level}] {message}{Environment.NewLine}";
+        var line = $"{DateTimeOffset.Now:O} [{level}] {SensitiveDataRedactor.Redact(message)}{Environment.NewLine}";
         lock (_gate)
         {
             File.AppendAllText(LogFilePath, line, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));

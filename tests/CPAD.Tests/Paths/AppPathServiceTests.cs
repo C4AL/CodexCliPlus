@@ -57,4 +57,52 @@ public sealed class AppPathServiceTests
             Environment.SetEnvironmentVariable("CPAD_APP_MODE", originalMode);
         }
     }
+
+    [Fact]
+    public void DirectoriesUsePortableModeWhenRequested()
+    {
+        var originalMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("CPAD_APP_MODE", "portable");
+            var service = new AppPathService();
+
+            Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+            Assert.EndsWith(Path.Combine("data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CPAD_APP_MODE", originalMode);
+        }
+    }
+
+    [Fact]
+    public async Task EnsureCreatedAsyncCreatesAllManagedDirectories()
+    {
+        var originalRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
+        var overrideRoot = Path.Combine(Path.GetTempPath(), $"cpad-path-create-{Guid.NewGuid():N}");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", overrideRoot);
+            var service = new AppPathService();
+
+            await service.EnsureCreatedAsync();
+
+            Assert.True(Directory.Exists(service.Directories.ConfigDirectory));
+            Assert.True(Directory.Exists(service.Directories.CacheDirectory));
+            Assert.True(Directory.Exists(service.Directories.LogsDirectory));
+            Assert.True(Directory.Exists(service.Directories.DiagnosticsDirectory));
+            Assert.True(Directory.Exists(service.Directories.RuntimeDirectory));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", originalRoot);
+            if (Directory.Exists(overrideRoot))
+            {
+                Directory.Delete(overrideRoot, recursive: true);
+            }
+        }
+    }
 }

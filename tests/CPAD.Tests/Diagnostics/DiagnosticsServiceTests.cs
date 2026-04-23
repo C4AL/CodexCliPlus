@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Models;
@@ -17,8 +19,8 @@ public sealed class DiagnosticsServiceTests : IDisposable
 
         var snapshotPath = service.CreateErrorSnapshot(
             "Desktop startup failed",
-            "The backend binary could not be launched during bootstrap.",
-            new InvalidOperationException("boom"),
+            "The backend binary could not be launched during bootstrap. token=abc123",
+            new InvalidOperationException("boom secret-key=phase6-secret"),
             new BackendStatusSnapshot
             {
                 Message = "Backend failed to start."
@@ -38,6 +40,45 @@ public sealed class DiagnosticsServiceTests : IDisposable
         Assert.Contains("Desktop startup failed", content, StringComparison.Ordinal);
         Assert.Contains("The backend binary could not be launched during bootstrap.", content, StringComparison.Ordinal);
         Assert.Contains("boom", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("abc123", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("phase6-secret", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExportPackageWritesRedactedDiagnosticArchive()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        pathService.EnsureCreatedAsync().GetAwaiter().GetResult();
+        Directory.CreateDirectory(pathService.Directories.LogsDirectory);
+
+        File.WriteAllText(
+            Path.Combine(pathService.Directories.LogsDirectory, "desktop.log"),
+            "authorization: Bearer test-token");
+        File.WriteAllText(
+            pathService.Directories.SettingsFilePath,
+            "{ \"managementKeyReference\": \"management-key\" }");
+        File.WriteAllText(
+            pathService.Directories.BackendConfigFilePath,
+            "remote-management:\n  secret-key: \"phase6-secret\"");
+
+        var service = new DiagnosticsService(pathService, new TestBuildInfo());
+        var packagePath = service.ExportPackage(
+            new BackendStatusSnapshot { Message = "Running" },
+            new CodexStatusSnapshot { AuthenticationState = "signed-in" },
+            new DependencyCheckResult { Summary = "Dependency OK" });
+
+        Assert.True(File.Exists(packagePath));
+
+        using var archive = ZipFile.OpenRead(packagePath);
+        var report = ReadEntryText(archive, "report.txt");
+        var log = ReadEntryText(archive, "desktop.log");
+        var backendConfig = ReadEntryText(archive, "cliproxyapi.yaml");
+
+        Assert.Contains("Dependency OK", report, StringComparison.Ordinal);
+        Assert.DoesNotContain("test-token", log, StringComparison.Ordinal);
+        Assert.Contains("***", log, StringComparison.Ordinal);
+        Assert.DoesNotContain("phase6-secret", backendConfig, StringComparison.Ordinal);
+        Assert.Contains("***", backendConfig, StringComparison.Ordinal);
     }
 
     public void Dispose()
@@ -80,8 +121,19 @@ public sealed class DiagnosticsServiceTests : IDisposable
             Directory.CreateDirectory(Directories.ConfigDirectory);
             Directory.CreateDirectory(Directories.BackendDirectory);
             Directory.CreateDirectory(Directories.CacheDirectory);
+            Directory.CreateDirectory(Directories.DiagnosticsDirectory);
+            Directory.CreateDirectory(Directories.RuntimeDirectory);
 
             return Task.CompletedTask;
         }
+    }
+
+    private static string ReadEntryText(ZipArchive archive, string name)
+    {
+        var entry = archive.GetEntry(name);
+        Assert.NotNull(entry);
+        using var stream = entry!.Open();
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }

@@ -3,6 +3,7 @@ using CPAD.Core.Abstractions.Logging;
 using CPAD.Core.Abstractions.Processes;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
+using CPAD.Infrastructure.Security;
 
 namespace CPAD.Infrastructure.Backend;
 
@@ -204,10 +205,11 @@ public sealed class BackendProcessManager : IDisposable
 
     private void AppendLogLine(string line)
     {
-        _logger.Info(line);
+        var safeLine = SensitiveDataRedactor.Redact(line);
+        _logger.Info(safeLine);
         lock (_recentLogLines)
         {
-            _recentLogLines.Add($"{DateTimeOffset.Now:HH:mm:ss} {line}");
+            _recentLogLines.Add($"{DateTimeOffset.Now:HH:mm:ss} {safeLine}");
             if (_recentLogLines.Count > 200)
             {
                 _recentLogLines.RemoveRange(0, _recentLogLines.Count - 200);

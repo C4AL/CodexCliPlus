@@ -16,7 +16,7 @@
 | Native page/domain | Upstream endpoint set | Desktop service |
 | --- | --- | --- |
 | Overview | `/config`, `/api-keys`, `/auth-files`, `/gemini-api-key`, `/codex-api-key`, `/claude-api-key`, `/vertex-api-key`, `/openai-compatibility`, `/v1/models` | `IManagementOverviewService` |
-| Accounts & Auth | `/auth-files`, `/auth-files/models`, `/model-definitions/:channel`, `/oauth-excluded-models`, `/oauth-model-alias`, `/{provider}-auth-url`, `/get-auth-status`, `/oauth-callback` | `IManagementAuthService` |
+| Accounts & Auth | `/api-keys`, `/auth-files`, `/auth-files/models`, `/auth-files/status`, `/model-definitions/:channel`, `/oauth-excluded-models`, `/oauth-model-alias`, `/{provider}-auth-url`, `/get-auth-status`, `/oauth-callback` | `IManagementAuthService` |
 | Quota & Usage | `/usage`, `/usage/export`, `/usage/import` | `IManagementUsageService` |
 | Configuration | `/config`, `/config.yaml`, `/debug`, `/proxy-url`, `/request-retry`, `/quota-exceeded/*`, `/usage-statistics-enabled`, `/request-log`, `/logging-to-file`, `/logs-max-total-size-mb`, `/error-logs-max-files`, `/ws-auth`, `/force-model-prefix`, `/routing/strategy` | `IManagementConfigurationService` |
 | Logs & Diagnostics | `/logs`, `/request-error-logs`, `/request-log-by-id/:id` | `IManagementLogsService` |

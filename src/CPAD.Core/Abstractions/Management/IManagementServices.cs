@@ -28,7 +28,15 @@ public interface IManagementAuthService
 {
     Task<ManagementApiResponse<IReadOnlyList<string>>> GetApiKeysAsync(CancellationToken cancellationToken = default);
 
+    Task<ManagementApiResponse<ManagementOperationResult>> ReplaceApiKeysAsync(IReadOnlyList<string> apiKeys, CancellationToken cancellationToken = default);
+
     Task<ManagementApiResponse<IReadOnlyList<ManagementAuthFileItem>>> GetAuthFilesAsync(CancellationToken cancellationToken = default);
+
+    Task<ManagementApiResponse<ManagementOperationResult>> UploadAuthFileAsync(string fileName, string jsonContent, CancellationToken cancellationToken = default);
+
+    Task<ManagementApiResponse<ManagementOperationResult>> DeleteAuthFileAsync(string name, CancellationToken cancellationToken = default);
+
+    Task<ManagementApiResponse<ManagementOperationResult>> SetAuthFileDisabledAsync(string name, bool disabled, CancellationToken cancellationToken = default);
 
     Task<ManagementApiResponse<IReadOnlyList<ManagementGeminiKeyConfiguration>>> GetGeminiKeysAsync(CancellationToken cancellationToken = default);
 

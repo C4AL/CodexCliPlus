@@ -30,6 +30,7 @@ public partial class MainWindow : Window
 
     private readonly BackendAssetService _backendAssetService;
     private readonly BackendProcessManager _backendProcessManager;
+    private readonly IManagementAuthService _authService;
     private readonly IManagementOverviewService _overviewService;
     private readonly IAppConfigurationService _configurationService;
     private readonly IPathService _pathService;
@@ -46,6 +47,7 @@ public partial class MainWindow : Window
     public MainWindow(
         BackendAssetService backendAssetService,
         BackendProcessManager backendProcessManager,
+        IManagementAuthService authService,
         IManagementOverviewService overviewService,
         IAppConfigurationService configurationService,
         IPathService pathService,
@@ -53,6 +55,7 @@ public partial class MainWindow : Window
     {
         _backendAssetService = backendAssetService;
         _backendProcessManager = backendProcessManager;
+        _authService = authService;
         _overviewService = overviewService;
         _configurationService = configurationService;
         _pathService = pathService;
@@ -68,6 +71,7 @@ public partial class MainWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         _settings = await _configurationService.LoadAsync();
+        _managementKeyDraft = _settings.ManagementKey;
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
         UpdateSelectedSection();
@@ -78,6 +82,7 @@ public partial class MainWindow : Window
     private void Window_Closed(object? sender, EventArgs e)
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
+        StopAccountsPagePolling();
         if (_notifyIcon is not null)
         {
             _notifyIcon.Visible = false;
@@ -265,6 +270,17 @@ public partial class MainWindow : Window
                 if (_overviewSnapshot is null && !_overviewLoading)
                 {
                     _ = RefreshOverviewAsync(force: false);
+                }
+
+                break;
+            case "accounts":
+                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
+                SecondaryPageActionButton.Visibility = Visibility.Collapsed;
+                PrimaryPageActionButton.IsEnabled = true;
+                PageContentHost.Content = BuildAccountsContent();
+                if (_accountsAuthFiles is null && !_accountsLoading)
+                {
+                    _ = RefreshAccountsAsync(force: false);
                 }
 
                 break;

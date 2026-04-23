@@ -29,9 +29,79 @@ public sealed class ManagementAuthService : IManagementAuthService
         return ManagementResponseFactory.Map(response, ManagementMappers.MapApiKeys(document.RootElement));
     }
 
+    public async Task<ManagementApiResponse<ManagementOperationResult>> ReplaceApiKeysAsync(
+        IReadOnlyList<string> apiKeys,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedApiKeys = apiKeys
+            .Select(key => key.Trim())
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var response = await _apiClient.SendManagementAsync(
+            HttpMethod.Put,
+            "api-keys",
+            ManagementJson.Serialize(normalizedApiKeys),
+            cancellationToken: cancellationToken);
+        using var document = ManagementJson.Parse(response.Value);
+        return ManagementResponseFactory.Map(response, ManagementMappers.MapOperation(document.RootElement));
+    }
+
     public Task<ManagementApiResponse<IReadOnlyList<ManagementAuthFileItem>>> GetAuthFilesAsync(CancellationToken cancellationToken = default)
     {
         return GetListAsync("auth-files", ManagementMappers.MapAuthFiles, cancellationToken);
+    }
+
+    public async Task<ManagementApiResponse<ManagementOperationResult>> UploadAuthFileAsync(
+        string fileName,
+        string jsonContent,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedFileName = Path.GetFileName(fileName.Trim());
+        if (string.IsNullOrWhiteSpace(normalizedFileName))
+        {
+            throw new ArgumentException("Auth file name cannot be empty.", nameof(fileName));
+        }
+
+        if (!normalizedFileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedFileName += ".json";
+        }
+
+        var response = await _apiClient.SendManagementAsync(
+            HttpMethod.Post,
+            $"auth-files?name={Uri.EscapeDataString(normalizedFileName)}",
+            jsonContent,
+            cancellationToken: cancellationToken);
+        using var document = ManagementJson.Parse(response.Value);
+        return ManagementResponseFactory.Map(response, ManagementMappers.MapOperation(document.RootElement));
+    }
+
+    public async Task<ManagementApiResponse<ManagementOperationResult>> DeleteAuthFileAsync(
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await _apiClient.SendManagementAsync(
+            HttpMethod.Delete,
+            $"auth-files?name={Uri.EscapeDataString(name.Trim())}",
+            cancellationToken: cancellationToken);
+        using var document = ManagementJson.Parse(response.Value);
+        return ManagementResponseFactory.Map(response, ManagementMappers.MapOperation(document.RootElement));
+    }
+
+    public async Task<ManagementApiResponse<ManagementOperationResult>> SetAuthFileDisabledAsync(
+        string name,
+        bool disabled,
+        CancellationToken cancellationToken = default)
+    {
+        var body = ManagementJson.Serialize(new Dictionary<string, object?>
+        {
+            ["name"] = name,
+            ["disabled"] = disabled
+        });
+        var response = await _apiClient.SendManagementAsync(HttpMethod.Patch, "auth-files/status", body, cancellationToken: cancellationToken);
+        using var document = ManagementJson.Parse(response.Value);
+        return ManagementResponseFactory.Map(response, ManagementMappers.MapOperation(document.RootElement));
     }
 
     public Task<ManagementApiResponse<IReadOnlyList<ManagementGeminiKeyConfiguration>>> GetGeminiKeysAsync(CancellationToken cancellationToken = default)

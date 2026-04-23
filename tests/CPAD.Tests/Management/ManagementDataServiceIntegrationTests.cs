@@ -81,6 +81,55 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task AuthServiceMutatesLiveBackendStateThroughAuditedEndpoints()
+    {
+        var manager = CreateManager();
+        var running = await manager.StartAsync();
+
+        try
+        {
+            Assert.Equal(Core.Enums.BackendStateKind.Running, running.State);
+
+            var services = new ServiceCollection()
+                .AddHttpClient()
+                .BuildServiceProvider();
+            var connectionProvider = new BackendManagementConnectionProvider(manager);
+            var apiClient = new ManagementApiClient(connectionProvider, services.GetRequiredService<IHttpClientFactory>());
+            var authService = new ManagementAuthService(apiClient);
+
+            await authService.ReplaceApiKeysAsync(["sk-phase82-a", "sk-phase82-b", "sk-phase82-a"]);
+            var apiKeys = await authService.GetApiKeysAsync();
+            Assert.Equal(["sk-phase82-a", "sk-phase82-b"], apiKeys.Value);
+
+            const string authFileName = "phase82-cookie.json";
+            const string authJson = """{"type":"codex","email":"phase82@example.com","metadata":{"cookie":"session=phase82"}}""";
+
+            var upload = await authService.UploadAuthFileAsync(authFileName, authJson);
+            Assert.Equal("ok", upload.Value.Status);
+
+            var authFiles = await authService.GetAuthFilesAsync();
+            var uploadedAuth = Assert.Single(authFiles.Value, item => item.Name == authFileName);
+            Assert.Equal("phase82@example.com", uploadedAuth.Email);
+
+            var disable = await authService.SetAuthFileDisabledAsync(authFileName, disabled: true);
+            Assert.Equal("ok", disable.Value.Status);
+
+            authFiles = await authService.GetAuthFilesAsync();
+            Assert.True(authFiles.Value.Single(item => item.Name == authFileName).Disabled);
+
+            var delete = await authService.DeleteAuthFileAsync(authFileName);
+            Assert.Equal("ok", delete.Value.Status);
+
+            authFiles = await authService.GetAuthFilesAsync();
+            Assert.DoesNotContain(authFiles.Value, item => item.Name == authFileName);
+        }
+        finally
+        {
+            await manager.StopAsync();
+        }
+    }
+
     public void Dispose()
     {
         foreach (var process in Process.GetProcessesByName("cli-proxy-api"))

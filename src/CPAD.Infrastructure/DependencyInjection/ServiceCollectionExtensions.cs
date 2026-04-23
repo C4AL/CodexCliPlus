@@ -49,6 +49,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManagementLogsService, ManagementLogsService>();
         services.AddSingleton<IManagementSystemService, ManagementSystemService>();
         services.AddSingleton<IUpdateCheckService, GitHubReleaseUpdateService>();
+        services.AddSingleton<IUpdateInstallerService, UpdateInstallerService>();
         services.AddSingleton<CodexLocator>();
         services.AddSingleton<CodexVersionReader>();
         services.AddSingleton<CodexAuthStateReader>();

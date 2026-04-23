@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     private readonly DirectoryAccessService _directoryAccessService;
     private readonly DependencyHealthService _dependencyHealthService;
     private readonly IUpdateCheckService _updateCheckService;
+    private readonly IUpdateInstallerService _updateInstallerService;
     private readonly List<ShellSection> _sections = CreateSections();
 
     private AppSettings _settings = new();
@@ -88,7 +89,8 @@ public partial class MainWindow : Window
         StartupRegistrationService startupRegistrationService,
         DirectoryAccessService directoryAccessService,
         DependencyHealthService dependencyHealthService,
-        IUpdateCheckService updateCheckService)
+        IUpdateCheckService updateCheckService,
+        IUpdateInstallerService updateInstallerService)
     {
         _backendAssetService = backendAssetService;
         _backendProcessManager = backendProcessManager;
@@ -112,6 +114,7 @@ public partial class MainWindow : Window
         _directoryAccessService = directoryAccessService;
         _dependencyHealthService = dependencyHealthService;
         _updateCheckService = updateCheckService;
+        _updateInstallerService = updateInstallerService;
 
         InitializeComponent();
 
@@ -136,7 +139,9 @@ public partial class MainWindow : Window
         _shellReady = true;
         UpdateSelectedSection();
 
-        if (_settings.CheckForUpdatesOnStartup && !IsRepairModeActive())
+        if (_settings.CheckForUpdatesOnStartup &&
+            !IsRepairModeActive() &&
+            CanRunAutomaticUpdateCheckOnStartup())
         {
             _ = RefreshUpdatesAsync(force: true);
         }
@@ -253,7 +258,7 @@ public partial class MainWindow : Window
                 await ApplyToolsSourceAsync();
                 break;
             case "updates":
-                await RefreshUpdatesAsync(force: true);
+                await RunUpdatesPrimaryActionAsync();
                 break;
             case "settings":
                 await SaveSettingsAsync();
@@ -314,7 +319,7 @@ public partial class MainWindow : Window
 
         if (section?.Key == "updates")
         {
-            OpenUpdatesReleasePage();
+            await RunUpdatesSecondaryActionAsync();
             return;
         }
 
@@ -524,10 +529,10 @@ public partial class MainWindow : Window
             case "updates":
                 PrimaryPageActionButton.Visibility = Visibility.Visible;
                 SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = !_updatesLoading;
-                PrimaryPageActionButton.Content = _updatesLoading ? "Checking..." : "Check Updates";
-                SecondaryPageActionButton.Content = "Open Release Page";
-                SecondaryPageActionButton.IsEnabled = true;
+                PrimaryPageActionButton.IsEnabled = !_updatesLoading && !_updatesInstallerPreparing;
+                PrimaryPageActionButton.Content = GetUpdatesPrimaryActionLabel();
+                SecondaryPageActionButton.Content = GetUpdatesSecondaryActionLabel();
+                SecondaryPageActionButton.IsEnabled = !_updatesInstallerPreparing;
                 PageContentHost.Content = BuildUpdatesContent();
                 if (_updatesLastCheckedAt is null && !_updatesLoading)
                 {
@@ -1108,7 +1113,7 @@ public partial class MainWindow : Window
             "tools" =>
                 "This route is reserved for official/cpa source switching and desktop tool integration entry points.",
             "updates" =>
-                "This page checks the desktop application's GitHub Releases stable channel, preserves a reserved beta entry, and shows version/package diagnostics without fabricating an available release.",
+                $"This page checks the desktop application's GitHub Releases stable channel, preserves a reserved beta entry, and applies the {FormatAppDataMode(_pathService.Directories.DataMode)} update policy without fabricating an available release.",
             "settings" =>
                 "This route is reserved for theme, startup, tray, directory, update, and privacy preferences. Theme switching already works at the shell level and persists to desktop settings.",
             "about" =>

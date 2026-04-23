@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private readonly BackendAssetService _backendAssetService;
     private readonly BackendProcessManager _backendProcessManager;
     private readonly IManagementAuthService _authService;
+    private readonly IManagementConfigurationService _managementConfigurationService;
     private readonly IManagementOverviewService _overviewService;
     private readonly IManagementUsageService _usageService;
     private readonly IAppConfigurationService _configurationService;
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
         BackendAssetService backendAssetService,
         BackendProcessManager backendProcessManager,
         IManagementAuthService authService,
+        IManagementConfigurationService managementConfigurationService,
         IManagementOverviewService overviewService,
         IManagementUsageService usageService,
         IAppConfigurationService configurationService,
@@ -58,6 +60,7 @@ public partial class MainWindow : Window
         _backendAssetService = backendAssetService;
         _backendProcessManager = backendProcessManager;
         _authService = authService;
+        _managementConfigurationService = managementConfigurationService;
         _overviewService = overviewService;
         _usageService = usageService;
         _configurationService = configurationService;
@@ -151,6 +154,9 @@ public partial class MainWindow : Window
             case "overview":
                 await RefreshOverviewAsync(force: true);
                 break;
+            case "config":
+                await ApplyConfigurationAsync();
+                break;
             case "system":
                 if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
                 {
@@ -171,12 +177,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SecondaryPageActionButton_Click(object sender, RoutedEventArgs e)
+    private async void SecondaryPageActionButton_Click(object sender, RoutedEventArgs e)
     {
         var section = NavigationList.SelectedItem as ShellSection;
         if (section?.Key == "about")
         {
             ProcessStartFolder(_pathService.Directories.RootDirectory);
+            return;
+        }
+
+        if (section?.Key == "config")
+        {
+            await ReloadConfigurationAsync();
             return;
         }
 
@@ -295,6 +307,20 @@ public partial class MainWindow : Window
                 if (_quotaSnapshot is null && !_quotaLoading)
                 {
                     _ = RefreshQuotaAsync(force: false);
+                }
+
+                break;
+            case "config":
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
+                SecondaryPageActionButton.Visibility = Visibility.Visible;
+                PrimaryPageActionButton.Content = _configSaving ? "Saving..." : "Apply Structured Changes";
+                PrimaryPageActionButton.IsEnabled = !_configLoading && !_configSaving;
+                SecondaryPageActionButton.Content = _configLoading ? "Reloading..." : "Reload Config";
+                SecondaryPageActionButton.IsEnabled = !_configLoading && !_configSaving;
+                PageContentHost.Content = BuildConfigurationContent();
+                if (_configSnapshot is null && !_configLoading)
+                {
+                    _ = RefreshConfigurationAsync(force: false);
                 }
 
                 break;

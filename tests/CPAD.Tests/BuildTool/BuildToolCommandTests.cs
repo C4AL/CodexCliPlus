@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 
 using CPAD.BuildTool;
 
@@ -85,12 +86,19 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateZipWithEntry(Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"), "CPAD.exe");
-        CreateZipWithEntry(Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"), "app/CPAD.exe");
         CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
+            "CPAD.exe",
+            "portable-mode.json");
+        CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
+            "app/CPAD.exe",
+            "app/dev-mode.json",
+            "app/artifacts/dev-data/.gitkeep");
+        CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
+        CreateInstallerStagingZip(
             Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
-            "payload/app/CPAD.exe",
-            "mica-setup.json");
+            CreateStubExecutableBytes());
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -103,6 +111,81 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Contains("package verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task VerifyPackageRejectsInstallerExecutableWithoutPeHeader()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
+            "CPAD.exe",
+            "portable-mode.json");
+        CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
+            "app/CPAD.exe",
+            "app/dev-mode.json",
+            "app/artifacts/dev-data/.gitkeep");
+        File.WriteAllBytes(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"), new byte[80]);
+        CreateInstallerStagingZip(
+            Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
+            CreateStubExecutableBytes());
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            output,
+            error,
+            new RecordingProcessRunner());
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("Windows PE header", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task VerifyPackageRejectsInvalidExecutableInsideInstallerStagingArchive()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
+            "CPAD.exe",
+            "portable-mode.json");
+        CreateZipWithEntries(
+            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
+            "app/CPAD.exe",
+            "app/dev-mode.json",
+            "app/artifacts/dev-data/.gitkeep");
+        CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
+        CreateZipWithExecutableEntries(
+            Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
+            new Dictionary<string, byte[]>
+            {
+                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["output/CPAD.Setup.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
+                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
+            });
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            output,
+            error,
+            new RecordingProcessRunner());
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("output/CPAD.Setup.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
     }
 
     public void Dispose()
@@ -141,6 +224,46 @@ public sealed class BuildToolCommandTests : IDisposable
             using var writer = new StreamWriter(stream);
             writer.Write("test");
         }
+    }
+
+    private static void CreateZipWithExecutableEntries(string packagePath, IReadOnlyDictionary<string, byte[]> entries)
+    {
+        using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
+        foreach (var entryPair in entries)
+        {
+            var entry = archive.CreateEntry(entryPair.Key);
+            using var stream = entry.Open();
+            stream.Write(entryPair.Value, 0, entryPair.Value.Length);
+        }
+    }
+
+    private static void CreateInstallerStagingZip(string packagePath, byte[] installerBytes)
+    {
+        CreateZipWithExecutableEntries(
+            packagePath,
+            new Dictionary<string, byte[]>
+            {
+                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["output/CPAD.Setup.9.9.9.exe"] = installerBytes,
+                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
+            });
+    }
+
+    private static void CreateStubExecutable(string path)
+    {
+        File.WriteAllBytes(path, CreateStubExecutableBytes());
+    }
+
+    private static byte[] CreateStubExecutableBytes()
+    {
+        var bytes = new byte[80];
+        bytes[0] = (byte)'M';
+        bytes[1] = (byte)'Z';
+        return bytes;
     }
 
     private sealed class RecordingProcessRunner : IProcessRunner

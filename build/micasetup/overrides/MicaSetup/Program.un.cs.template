@@ -1,0 +1,81 @@
+using System;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+using MicaSetup.Attributes;
+using MicaSetup.Design.Controls;
+using MicaSetup.Extension.DependencyInjection;
+using MicaSetup.Services;
+using MicaSetup.Views;
+
+[assembly: Guid("__PRODUCT_GUID__")]
+[assembly: AssemblyTitle("Cli Proxy API Desktop Uninst")]
+[assembly: AssemblyProduct("Cli Proxy API Desktop")]
+[assembly: AssemblyDescription("Cli Proxy API Desktop Uninst")]
+[assembly: AssemblyCompany("__PUBLISHER__")]
+[assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
+[assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
+[assembly: RequestExecutionLevel("user")]
+
+namespace MicaSetup;
+
+internal static class Program
+{
+    [STAThread]
+    internal static void Main()
+    {
+        Hosting.CreateBuilder()
+            .UseAsUninst()
+            .UseLogger(false)
+            .UseSingleInstance("BlackblockInc.CPAD.Uninstall")
+            .UseTempPathFork()
+            .UseDpiAware()
+            .UseOptions(option =>
+            {
+                option.IsCreateDesktopShortcut = true;
+                option.IsCreateUninst = true;
+                option.IsUninstLower = false;
+                option.IsCreateRegistryKeys = true;
+                option.IsCreateStartMenu = true;
+                option.IsCreateQuickLaunch = false;
+                option.IsCreateAsAutoRun = false;
+                option.IsUseRegistryPreferX86 = null;
+                option.IsAllowFirewall = false;
+                option.IsRefreshExplorer = true;
+                option.IsInstallCertificate = false;
+                option.IsEnableUninstallDelayUntilReboot = true;
+                option.IsEnvironmentVariable = false;
+                option.AppName = "Cli Proxy API Desktop";
+                option.KeyName = "CPAD";
+                option.ExeName = "CPAD.exe";
+                option.KeepMyData = false;
+                option.DisplayName = option.AppName;
+                option.DisplayIcon = option.ExeName;
+                option.DisplayVersion = "__DISPLAY_VERSION__";
+                option.Publisher = "__PUBLISHER__";
+                option.SetupName = option.AppName + " Uninstall";
+                option.MessageOfPage1 = "Cli Proxy API Desktop";
+                option.MessageOfPage2 = "Removing Cli Proxy API Desktop";
+                option.MessageOfPage3 = "Cli Proxy API Desktop has been removed.";
+            })
+            .UseServices(service =>
+            {
+                // Optional future hook:
+                // Load cleanup-manifest.json here, surface a keep-user-data choice,
+                // then execute the selected cleanup profile before exit.
+            })
+            .CreateApp()
+            .UseLocale()
+            .UseTheme(WindowsTheme.Auto)
+            .UsePages(page =>
+            {
+                page.Add(nameof(MainPage), typeof(MainPage));
+                page.Add(nameof(UninstallPage), typeof(UninstallPage));
+                page.Add(nameof(FinishPage), typeof(FinishPage));
+            })
+            .UseDispatcherUnhandledExceptionCatched()
+            .UseDomainUnhandledExceptionCatched()
+            .UseUnobservedTaskExceptionCatched()
+            .RunApp();
+    }
+}

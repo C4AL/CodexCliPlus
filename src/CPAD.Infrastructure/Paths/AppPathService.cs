@@ -59,8 +59,24 @@ public sealed class AppPathService : IPathService
         {
             "portable" => AppDataMode.Portable,
             "development" => AppDataMode.Development,
-            _ => AppDataMode.Installed
+            _ => ResolveDataModeFromPackageMarker()
         };
+    }
+
+    private static AppDataMode ResolveDataModeFromPackageMarker()
+    {
+        var baseDirectory = AppContext.BaseDirectory;
+        if (File.Exists(Path.Combine(baseDirectory, "portable-mode.json")))
+        {
+            return AppDataMode.Portable;
+        }
+
+        if (File.Exists(Path.Combine(baseDirectory, "dev-mode.json")))
+        {
+            return AppDataMode.Development;
+        }
+
+        return AppDataMode.Installed;
     }
 
     private static string ResolveDefaultRootDirectory(AppDataMode dataMode)
@@ -68,14 +84,22 @@ public sealed class AppPathService : IPathService
         return dataMode switch
         {
             AppDataMode.Portable => Path.Combine(AppContext.BaseDirectory, "data"),
-            AppDataMode.Development => Path.Combine(ResolveRepositoryRoot(), "artifacts", "dev-data"),
+            AppDataMode.Development => ResolveDevelopmentRootDirectory(),
             _ => Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 AppConstants.ProductKey)
         };
     }
 
-    private static string ResolveRepositoryRoot()
+    private static string ResolveDevelopmentRootDirectory()
+    {
+        var repositoryRoot = TryResolveRepositoryRoot();
+        return repositoryRoot is null
+            ? Path.Combine(AppContext.BaseDirectory, "artifacts", "dev-data")
+            : Path.Combine(repositoryRoot, "artifacts", "dev-data");
+    }
+
+    private static string? TryResolveRepositoryRoot()
     {
         var currentDirectory = new DirectoryInfo(AppContext.BaseDirectory);
         while (currentDirectory is not null)
@@ -88,6 +112,6 @@ public sealed class AppPathService : IPathService
             currentDirectory = currentDirectory.Parent;
         }
 
-        return Directory.GetCurrentDirectory();
+        return null;
     }
 }

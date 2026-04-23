@@ -1,0 +1,113 @@
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
+namespace MicaSetup.Support;
+
+// Mirrors build/micasetup/templates/cleanup-manifest.template.json.
+internal sealed class CleanupManifest
+{
+    [JsonPropertyName("schemaVersion")]
+    public int SchemaVersion { get; init; }
+
+    [JsonPropertyName("manifestId")]
+    public string ManifestId { get; init; } = string.Empty;
+
+    [JsonPropertyName("product")]
+    public CleanupProduct Product { get; init; } = new();
+
+    [JsonPropertyName("options")]
+    public CleanupOptions Options { get; init; } = new();
+
+    [JsonPropertyName("groups")]
+    public List<CleanupGroup> Groups { get; init; } = new List<CleanupGroup>();
+
+    [JsonPropertyName("profiles")]
+    public List<CleanupProfile> Profiles { get; init; } = new List<CleanupProfile>();
+}
+
+internal sealed class CleanupProduct
+{
+    [JsonPropertyName("appName")]
+    public string AppName { get; init; } = string.Empty;
+
+    [JsonPropertyName("productKey")]
+    public string ProductKey { get; init; } = string.Empty;
+
+    [JsonPropertyName("appUserModelId")]
+    public string AppUserModelId { get; init; } = string.Empty;
+}
+
+internal sealed class CleanupOptions
+{
+    [JsonPropertyName("keepUserDataOptionName")]
+    public string KeepUserDataOptionName { get; init; } = string.Empty;
+
+    [JsonPropertyName("keepUserDataDefault")]
+    public bool KeepUserDataDefault { get; init; }
+
+    [JsonPropertyName("keepUserDataArgument")]
+    public string KeepUserDataArgument { get; init; } = string.Empty;
+
+    [JsonPropertyName("keepUserDataEnvironmentVariable")]
+    public string KeepUserDataEnvironmentVariable { get; init; } = string.Empty;
+
+    [JsonPropertyName("installDirectoryHint")]
+    public string InstallDirectoryHint { get; init; } = string.Empty;
+}
+
+internal sealed class CleanupGroup
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string Description { get; init; } = string.Empty;
+
+    [JsonPropertyName("removeWhenKeepUserData")]
+    public bool RemoveWhenKeepUserData { get; init; }
+
+    [JsonPropertyName("targets")]
+    public List<CleanupTarget> Targets { get; init; } = new List<CleanupTarget>();
+}
+
+internal sealed class CleanupTarget
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string? Path { get; init; }
+
+    [JsonPropertyName("basePath")]
+    public string? BasePath { get; init; }
+
+    [JsonPropertyName("pattern")]
+    public string? Pattern { get; init; }
+
+    [JsonPropertyName("recursive")]
+    public bool? Recursive { get; init; }
+
+    [JsonPropertyName("excludeRelativePaths")]
+    public List<string> ExcludeRelativePaths { get; init; } = new List<string>();
+
+    [JsonPropertyName("hive")]
+    public string? Hive { get; init; }
+
+    [JsonPropertyName("keyPath")]
+    public string? KeyPath { get; init; }
+
+    [JsonPropertyName("valueName")]
+    public string? ValueName { get; init; }
+}
+
+internal sealed class CleanupProfile
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("keepUserData")]
+    public bool KeepUserData { get; init; }
+
+    [JsonPropertyName("includes")]
+    public List<string> Includes { get; init; } = new List<string>();
+}

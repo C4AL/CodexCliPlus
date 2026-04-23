@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "cpad-cleanup-v1",
+  "product": {
+    "appName": "Cli Proxy API Desktop",
+    "productKey": "CPAD",
+    "appUserModelId": "BlackblockInc.CPAD"
+  },
+  "options": {
+    "keepUserDataOptionName": "KeepMyData",
+    "keepUserDataDefault": false,
+    "keepUserDataArgument": "--keep-my-data",
+    "keepUserDataEnvironmentVariable": "CPAD_KEEP_MY_DATA",
+    "installDirectoryHint": "%LocalAppData%\\Programs\\CPAD"
+  },
+  "groups": [
+    {
+      "id": "install-dir",
+      "description": "Installed binaries and bundled runtime files.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "__INSTALL_DIRECTORY__",
+          "recursive": true
+        }
+      ]
+    },
+    {
+      "id": "installer-metadata",
+      "description": "Installer sidecar files that should never outlive the install.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "file",
+          "path": "__INSTALL_DIRECTORY__\\cleanup-manifest.json"
+        },
+        {
+          "kind": "file",
+          "path": "__INSTALL_DIRECTORY__\\install-state.json"
+        },
+        {
+          "kind": "file",
+          "path": "__INSTALL_DIRECTORY__\\Uninst.exe"
+        }
+      ]
+    },
+    {
+      "id": "shortcuts",
+      "description": "Current-user shell shortcuts created by setup.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "file",
+          "path": "__DESKTOP_SHORTCUT__"
+        },
+        {
+          "kind": "directory",
+          "path": "__START_MENU_DIRECTORY__",
+          "recursive": true
+        },
+        {
+          "kind": "file",
+          "path": "__QUICK_LAUNCH_SHORTCUT__"
+        }
+      ]
+    },
+    {
+      "id": "startup-run-key",
+      "description": "Current-user startup registration.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "registry-value",
+          "hive": "HKCU",
+          "keyPath": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+          "valueName": "CPAD"
+        }
+      ]
+    },
+    {
+      "id": "runtime",
+      "description": "Runtime scratch data and extracted helper content.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\runtime",
+          "recursive": true
+        },
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\backend",
+          "recursive": true
+        }
+      ]
+    },
+    {
+      "id": "update-cache",
+      "description": "Downloaded updater payloads and transient package cache.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\cache\\updates",
+          "recursive": true
+        }
+      ]
+    },
+    {
+      "id": "general-cache",
+      "description": "Regenerable local cache outside retained user settings.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\cache",
+          "recursive": true,
+          "excludeRelativePaths": [
+            "updates"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "description": "User settings and backend config files.",
+      "removeWhenKeepUserData": false,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\config",
+          "recursive": true,
+          "excludeRelativePaths": [
+            "secrets"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "credential-refs",
+      "description": "DPAPI-protected secret reference blobs, not Windows Credential Manager entries.",
+      "removeWhenKeepUserData": false,
+      "targets": [
+        {
+          "kind": "glob",
+          "basePath": "%LocalAppData%\\CPAD\\config\\secrets",
+          "pattern": "*.bin",
+          "recursive": false
+        },
+        {
+          "kind": "prune-directory-if-empty",
+          "path": "%LocalAppData%\\CPAD\\config\\secrets"
+        }
+      ]
+    },
+    {
+      "id": "logs",
+      "description": "Application logs retained only when user data is kept.",
+      "removeWhenKeepUserData": false,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\logs",
+          "recursive": true
+        }
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "description": "Diagnostics bundles, dumps, and support capture output.",
+      "removeWhenKeepUserData": false,
+      "targets": [
+        {
+          "kind": "directory",
+          "path": "%LocalAppData%\\CPAD\\diagnostics",
+          "recursive": true
+        }
+      ]
+    },
+    {
+      "id": "local-data-root-prune",
+      "description": "Prune the LocalAppData root after targeted cleanup if it is empty.",
+      "removeWhenKeepUserData": true,
+      "targets": [
+        {
+          "kind": "prune-directory-if-empty",
+          "path": "%LocalAppData%\\CPAD"
+        }
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "keep-user-data",
+      "keepUserData": true,
+      "includes": [
+        "install-dir",
+        "installer-metadata",
+        "shortcuts",
+        "startup-run-key",
+        "runtime",
+        "update-cache",
+        "general-cache",
+        "local-data-root-prune"
+      ]
+    },
+    {
+      "id": "full-remove",
+      "keepUserData": false,
+      "includes": [
+        "install-dir",
+        "installer-metadata",
+        "shortcuts",
+        "startup-run-key",
+        "runtime",
+        "update-cache",
+        "general-cache",
+        "config",
+        "credential-refs",
+        "logs",
+        "diagnostics",
+        "local-data-root-prune"
+      ]
+    }
+  ]
+}

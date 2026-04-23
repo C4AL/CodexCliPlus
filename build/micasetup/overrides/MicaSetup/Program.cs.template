@@ -1,0 +1,90 @@
+using System;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+using MicaSetup.Attributes;
+using MicaSetup.Design.Controls;
+using MicaSetup.Extension.DependencyInjection;
+using MicaSetup.Services;
+using MicaSetup.Views;
+
+[assembly: Guid("__PRODUCT_GUID__")]
+[assembly: AssemblyTitle("Cli Proxy API Desktop Setup")]
+[assembly: AssemblyProduct("Cli Proxy API Desktop")]
+[assembly: AssemblyDescription("Cli Proxy API Desktop Setup")]
+[assembly: AssemblyCompany("__PUBLISHER__")]
+[assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
+[assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
+[assembly: RequestExecutionLevel("user")]
+
+namespace MicaSetup;
+
+internal static class Program
+{
+    [STAThread]
+    internal static void Main()
+    {
+        Hosting.CreateBuilder()
+            .UseLogger(false)
+            .UseSingleInstance("BlackblockInc.CPAD.Setup")
+            .UseTempPathFork()
+            .UseDpiAware()
+            .UseOptions(option =>
+            {
+                option.IsCreateDesktopShortcut = true;
+                option.IsCreateUninst = true;
+                option.IsUninstLower = false;
+                option.IsCreateStartMenu = true;
+                option.IsPinToStartMenu = false;
+                option.IsCreateQuickLaunch = false;
+                option.IsCreateRegistryKeys = true;
+                option.IsCreateAsAutoRun = false;
+                option.IsCustomizeVisiableAutoRun = false;
+                option.AutoRunLaunchCommand = "__AUTO_RUN_LAUNCH_COMMAND__";
+                option.IsUseFolderPickerPreferClassic = false;
+                option.IsUseInstallPathPreferX86 = false;
+                option.IsUseInstallPathPreferAppDataLocalPrograms = true;
+                option.IsUseInstallPathPreferAppDataRoaming = false;
+                option.IsUseRegistryPreferX86 = null;
+                option.IsAllowFullFolderSecurity = true;
+                option.IsAllowFirewall = false;
+                option.IsRefreshExplorer = true;
+                option.IsInstallCertificate = false;
+                option.IsEnableUninstallDelayUntilReboot = true;
+                option.IsUseLicenseFile = __IS_USE_LICENSE_FILE__;
+                option.OverlayInstallRemoveExt = "exe,dll,pdb,xml,json,yaml,config,7z";
+                option.UnpackingPassword = null;
+                option.IsEnvironmentVariable = false;
+                option.AppName = "Cli Proxy API Desktop";
+                option.KeyName = "CPAD";
+                option.ExeName = "CPAD.exe";
+                option.DisplayName = option.AppName;
+                option.DisplayIcon = option.ExeName;
+                option.DisplayVersion = "__DISPLAY_VERSION__";
+                option.Publisher = "__PUBLISHER__";
+                option.SetupName = option.AppName + " Setup";
+                option.MessageOfPage1 = "Cli Proxy API Desktop";
+                option.MessageOfPage2 = "Installing Cli Proxy API Desktop";
+                option.MessageOfPage3 = "Cli Proxy API Desktop has been installed.";
+            })
+            .UseServices(service =>
+            {
+                // Optional future hook:
+                // Register cleanup-manifest aware services here when the source-build route
+                // needs custom install or post-install behavior beyond micasetup.json.
+            })
+            .CreateApp()
+            .UseLocale()
+            .UseTheme(WindowsTheme.Auto)
+            .UsePages(page =>
+            {
+                page.Add(nameof(MainPage), typeof(MainPage));
+                page.Add(nameof(InstallPage), typeof(InstallPage));
+                page.Add(nameof(FinishPage), typeof(FinishPage));
+            })
+            .UseDispatcherUnhandledExceptionCatched()
+            .UseDomainUnhandledExceptionCatched()
+            .UseUnobservedTaskExceptionCatched()
+            .RunApp();
+    }
+}

@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 
+using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
 
@@ -26,6 +28,8 @@ public partial class MainWindow
     private string? _updatesBackendBuildDate;
     private string? _updatesBackendLatestVersion;
     private string? _updatesBackendLatestVersionError;
+    private bool _updatesInstallerPreparing;
+    private string? _updatesLastInstallerPath;
 
     private UIElement BuildUpdatesContent()
     {
@@ -51,6 +55,9 @@ public partial class MainWindow
 
         root.Children.Add(CreateSectionHeader("Channel Summary"));
         root.Children.Add(CreateUpdatesChannelCard());
+
+        root.Children.Add(CreateSectionHeader("Installed / Portable Policy"));
+        root.Children.Add(CreateUpdatesInstallPolicyCard());
 
         root.Children.Add(CreateSectionHeader("Desktop Stable Release"));
         root.Children.Add(CreateUpdatesStableReleaseCard());
@@ -168,13 +175,13 @@ public partial class MainWindow
             "SecondaryTextBrush",
             new Thickness(0, 8, 0, 0)));
         panel.Children.Add(CreateText(
-            $"Preferred channel: {FormatUpdateChannel(selected)} | Last check: {FormatDateTime(_updatesLastCheckedAt)}",
+            $"Preferred channel: {FormatUpdateChannel(selected)} | Data mode: {FormatAppDataMode(_pathService.Directories.DataMode)} | Last check: {FormatDateTime(_updatesLastCheckedAt)}",
             13,
             FontWeights.Normal,
             "SecondaryTextBrush",
             new Thickness(0, 4, 0, 0)));
         panel.Children.Add(CreateText(
-            "Stable queries the Blackblock desktop repository's latest GitHub Release. Beta is kept as an explicit reserved entry so future package channels can be enabled without changing the desktop settings model.",
+            "Stable queries the Blackblock desktop repository's latest GitHub Release. Installed mode can launch the stable installer asset; Portable and Development modes stay manual-only. Beta is reserved.",
             13,
             FontWeights.Normal,
             "SecondaryTextBrush",
@@ -206,7 +213,7 @@ public partial class MainWindow
         var root = new StackPanel { Orientation = WpfOrientation.Vertical };
         root.Children.Add(CreateMetricGrid(
             CreateMetricCard("Preferred Channel", FormatUpdateChannel(_settings.UseBetaChannel ? UpdateChannel.Beta : UpdateChannel.Stable), "Persisted in desktop.json"),
-            CreateMetricCard("Check on Startup", _settings.CheckForUpdatesOnStartup ? "Enabled" : "Disabled", "Startup check runs without starting or stopping unrelated processes."),
+            CreateMetricCard("Check on Startup", BuildStartupUpdateCheckState(), "Portable and Development modes do not run automatic startup update checks."),
             CreateMetricCard("Stable Source", "GitHub Releases", _updatesStableResult?.ApiUrl ?? "https://api.github.com/repos/Blackblock-inc/Cli-Proxy-API-Desktop/releases/latest"),
             CreateMetricCard("Beta Source", "Reserved", betaDetail),
             CreateMetricCard("Current Desktop", _buildInfo.ApplicationVersion, _buildInfo.InformationalVersion),
@@ -230,6 +237,63 @@ public partial class MainWindow
         return CreateCard(root, new Thickness(0, 0, 0, 18));
     }
 
+    private UIElement CreateUpdatesInstallPolicyCard()
+    {
+        var dataMode = _pathService.Directories.DataMode;
+        var installerAsset = FindStableInstallerAsset();
+        var canInstall = CanExecuteStableInstallerUpdate(installerAsset);
+        var policy = BuildUpdatePolicyText(dataMode);
+
+        var root = new StackPanel { Orientation = WpfOrientation.Vertical };
+        root.Children.Add(CreateMetricGrid(
+            CreateMetricCard("Package Mode", FormatAppDataMode(dataMode), _pathService.Directories.RootDirectory),
+            CreateMetricCard("Stable Installer", installerAsset?.Name ?? "Not available", installerAsset is null ? "No directly installable CPAD stable installer asset has been published." : FormatUpdateAssetBytes(installerAsset.Size)),
+            CreateMetricCard("Execution Policy", BuildUpdateExecutionState(installerAsset), policy),
+            CreateMetricCard("Beta Policy", "Reserved", "Beta preference is persisted but never used for installer execution in this phase."),
+            CreateMetricCard("Update Cache", Directory.Exists(BuildUpdateCacheRoot()) ? "Ready" : "On demand", BuildUpdateCacheRoot()),
+            CreateMetricCard("Last Installer", string.IsNullOrWhiteSpace(_updatesLastInstallerPath) ? "Not launched" : "Prepared", _updatesLastInstallerPath ?? "No installer has been downloaded from this session.")));
+
+        root.Children.Add(CreateHintCard("Mode policy", policy));
+
+        var actions = new WrapPanel();
+        var installButton = CreateActionButton(_updatesInstallerPreparing ? "Preparing Installer..." : "Install Stable Update", InstallStableUpdateAsync);
+        installButton.IsEnabled = canInstall && !_updatesInstallerPreparing;
+        actions.Children.Add(installButton);
+
+        var downloadButton = CreateActionButton("Open Installer Download", () =>
+        {
+            var asset = FindStableInstallerAsset();
+            if (asset is null)
+            {
+                OpenUpdatesReleasePage();
+            }
+            else
+            {
+                ProcessStartUrl(asset.DownloadUrl);
+            }
+
+            return Task.CompletedTask;
+        });
+        downloadButton.IsEnabled = installerAsset is not null;
+        actions.Children.Add(downloadButton);
+
+        actions.Children.Add(CreateActionButton("Open Release Page", () =>
+        {
+            OpenUpdatesReleasePage();
+            return Task.CompletedTask;
+        }));
+        root.Children.Add(actions);
+
+        if (dataMode != AppDataMode.Installed)
+        {
+            root.Children.Add(CreateHintCard(
+                "Manual-only update",
+                "Portable and Development modes intentionally do not download, launch, or apply installer updates automatically. Use the release page or asset download link manually."));
+        }
+
+        return CreateCard(root, new Thickness(0, 0, 0, 18));
+    }
+
     private UIElement CreateUpdatesStableReleaseCard()
     {
         if (_updatesStableResult is null)
@@ -247,7 +311,8 @@ public partial class MainWindow
             CreateMetricCard("Status", result.Status, result.Detail),
             CreateMetricCard("Published", FormatDateTime(result.PublishedAt), "GitHub release published_at"),
             CreateMetricCard("Assets", result.Assets.Count.ToString(CultureInfo.InvariantCulture), "Release asset count"),
-            CreateMetricCard("Checked", FormatDateTime(result.CheckedAt), result.IsCheckSuccessful ? "Release endpoint responded." : result.ErrorMessage ?? "Check failed.")));
+            CreateMetricCard("Checked", FormatDateTime(result.CheckedAt), result.IsCheckSuccessful ? "Release endpoint responded." : result.ErrorMessage ?? "Check failed."),
+            CreateMetricCard("Installer Asset", result.InstallableAsset?.Name ?? "Unavailable", result.HasInstallableAsset ? "Direct installer execution is available in Installed mode." : "No direct stable installer asset is available.")));
 
         var details = new UniformGrid
         {
@@ -319,7 +384,7 @@ public partial class MainWindow
 
         var root = new StackPanel { Orientation = WpfOrientation.Vertical };
         root.Children.Add(CreateText(
-            "Assets are listed directly from the latest stable GitHub Release document. Download and installer execution are intentionally left for the packaging/update chain phases.",
+            "Assets are listed directly from the latest stable GitHub Release document. Installed mode may download and launch the CPAD stable installer asset. Portable and Development modes remain manual-only and only expose download/release links.",
             13,
             FontWeights.Normal,
             "SecondaryTextBrush",
@@ -345,6 +410,23 @@ public partial class MainWindow
                     new Thickness(0, 4, 0, 0)));
             }
 
+            var actions = new WrapPanel { Margin = new Thickness(0, 10, 0, 0) };
+            actions.Children.Add(CreateActionButton("Open Download", () =>
+            {
+                ProcessStartUrl(asset.DownloadUrl);
+                return Task.CompletedTask;
+            }));
+
+            if (IsStableInstallerAsset(asset))
+            {
+                var installButton = CreateActionButton(
+                    _updatesInstallerPreparing ? "Preparing Installer..." : "Install This Stable Asset",
+                    () => InstallStableUpdateAsync(asset));
+                installButton.IsEnabled = CanExecuteStableInstallerUpdate(asset) && !_updatesInstallerPreparing;
+                actions.Children.Add(installButton);
+            }
+
+            panel.Children.Add(actions);
             root.Children.Add(CreateCard(panel, new Thickness(0, 0, 0, 10)));
         }
 
@@ -357,10 +439,17 @@ public partial class MainWindow
         var channelNote = selected == UpdateChannel.Beta
             ? "Beta is selected but reserved; stable release state is still shown for safety."
             : "Stable channel is active.";
+        var modeNote = _pathService.Directories.DataMode switch
+        {
+            AppDataMode.Installed => "Installed policy allows launching the stable installer asset when an update is available.",
+            AppDataMode.Portable => "Portable policy is manual-only and does not auto-install.",
+            AppDataMode.Development => "Development policy is manual-only and does not auto-install.",
+            _ => "Package policy is manual review."
+        };
         var backendNote = backendErrors.Count == 0
             ? "Backend version diagnostics loaded."
             : "Backend version diagnostics are partially unavailable.";
-        return $"Update check completed at {DateTimeOffset.Now.ToLocalTime():HH:mm:ss}. {channelNote} {backendNote}";
+        return $"Update check completed at {DateTimeOffset.Now.ToLocalTime():HH:mm:ss}. {channelNote} {modeNote} {backendNote}";
     }
 
     private string BuildBackendUpdateComparison()
@@ -406,6 +495,60 @@ public partial class MainWindow
         }
     }
 
+    private async Task RunUpdatesPrimaryActionAsync()
+    {
+        var installerAsset = FindStableInstallerAsset();
+        if (CanExecuteStableInstallerUpdate(installerAsset))
+        {
+            await InstallStableUpdateAsync(installerAsset);
+            return;
+        }
+
+        await RefreshUpdatesAsync(force: true);
+    }
+
+    private Task RunUpdatesSecondaryActionAsync()
+    {
+        var installerAsset = FindStableInstallerAsset();
+        if (_pathService.Directories.DataMode != AppDataMode.Installed &&
+            installerAsset is not null &&
+            !string.IsNullOrWhiteSpace(installerAsset.DownloadUrl))
+        {
+            ProcessStartUrl(installerAsset.DownloadUrl);
+            return Task.CompletedTask;
+        }
+
+        OpenUpdatesReleasePage();
+        return Task.CompletedTask;
+    }
+
+    private string GetUpdatesPrimaryActionLabel()
+    {
+        if (_updatesInstallerPreparing)
+        {
+            return "Preparing Installer...";
+        }
+
+        if (_updatesLoading)
+        {
+            return "Checking...";
+        }
+
+        return CanExecuteStableInstallerUpdate(FindStableInstallerAsset())
+            ? "Install Stable Update"
+            : "Check Updates";
+    }
+
+    private string GetUpdatesSecondaryActionLabel()
+    {
+        var installerAsset = FindStableInstallerAsset();
+        return _pathService.Directories.DataMode != AppDataMode.Installed &&
+            installerAsset is not null &&
+            !string.IsNullOrWhiteSpace(installerAsset.DownloadUrl)
+                ? "Open Installer Download"
+                : "Open Release Page";
+    }
+
     private void OpenUpdatesReleasePage()
     {
         var url = _updatesStableResult?.ReleasePageUrl;
@@ -415,6 +558,159 @@ public partial class MainWindow
         }
 
         ProcessStartUrl(url);
+    }
+
+    private async Task InstallStableUpdateAsync()
+    {
+        await InstallStableUpdateAsync(FindStableInstallerAsset());
+    }
+
+    private async Task InstallStableUpdateAsync(UpdateReleaseAsset? installerAsset)
+    {
+        if (_updatesInstallerPreparing)
+        {
+            return;
+        }
+
+        if (_pathService.Directories.DataMode != AppDataMode.Installed)
+        {
+            _updatesStatusMessage = "Installer execution is disabled outside Installed mode. Portable and Development builds must use manual release downloads.";
+            RefreshUpdatesSection();
+            return;
+        }
+
+        if (installerAsset is null)
+        {
+            _updatesStatusMessage = "No stable CPAD installer asset is available. Open the release page to inspect available downloads.";
+            RefreshUpdatesSection();
+            return;
+        }
+
+        if (_updatesStableResult is null || !_updatesStableResult.IsUpdateAvailable)
+        {
+            _updatesStatusMessage = "Stable installer execution is only enabled when the latest release is newer than the running desktop version.";
+            RefreshUpdatesSection();
+            return;
+        }
+
+        _updatesInstallerPreparing = true;
+        _updatesError = null;
+        _updatesStatusMessage = $"Preparing stable installer asset {installerAsset.Name} through the update installer service...";
+        RefreshUpdatesSection();
+
+        try
+        {
+            var preparedInstaller = await _updateInstallerService.DownloadInstallerAsync(_updatesStableResult);
+            _updatesLastInstallerPath = preparedInstaller.InstallerPath;
+            _updatesStatusMessage =
+                $"Installer prepared at {preparedInstaller.InstallerPath}. " +
+                $"{(preparedInstaller.DigestValidated ? "Digest verified." : "Digest metadata unavailable; size/path contract accepted.")} " +
+                "Stopping the managed backend before launching the stable update...";
+            RefreshUpdatesSection();
+
+            await _backendProcessManager.StopAsync();
+
+            await _updateInstallerService.LaunchInstallerAsync(preparedInstaller);
+
+            _allowClose = true;
+            if (_notifyIcon is not null)
+            {
+                _notifyIcon.Visible = false;
+            }
+
+            Close();
+        }
+        catch (Exception exception)
+        {
+            _updatesError = exception.Message;
+            _updatesStatusMessage = "Stable installer update could not be launched.";
+        }
+        finally
+        {
+            _updatesInstallerPreparing = false;
+            RefreshUpdatesSection();
+        }
+    }
+
+    private UpdateReleaseAsset? FindStableInstallerAsset()
+    {
+        return _updatesStableResult?.InstallableAsset ??
+            _updatesStableResult?.Assets
+            .Where(IsStableInstallerAsset)
+            .OrderByDescending(asset => asset.Size)
+            .FirstOrDefault();
+    }
+
+    private bool CanExecuteStableInstallerUpdate(UpdateReleaseAsset? installerAsset)
+    {
+        return _pathService.Directories.DataMode == AppDataMode.Installed &&
+            !_updatesInstallerPreparing &&
+            _updatesStableResult?.IsUpdateAvailable == true &&
+            installerAsset is not null &&
+            !string.IsNullOrWhiteSpace(installerAsset.DownloadUrl);
+    }
+
+    private static bool IsStableInstallerAsset(UpdateReleaseAsset asset)
+    {
+        var name = asset.Name.Trim();
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+            (name.StartsWith($"{AppConstants.InstallerNamePrefix}.", StringComparison.OrdinalIgnoreCase) ||
+             name.StartsWith("CPAD-Setup-", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string BuildUpdateExecutionState(UpdateReleaseAsset? installerAsset)
+    {
+        if (_updatesInstallerPreparing)
+        {
+            return "Preparing";
+        }
+
+        return _pathService.Directories.DataMode switch
+        {
+            AppDataMode.Installed when installerAsset is null => "Installer missing",
+            AppDataMode.Installed when _updatesStableResult?.IsUpdateAvailable == true => "Enabled",
+            AppDataMode.Installed => "No update",
+            AppDataMode.Portable => "Manual only",
+            AppDataMode.Development => "Manual only",
+            _ => "Manual review"
+        };
+    }
+
+    private string BuildUpdatePolicyText(AppDataMode dataMode)
+    {
+        return dataMode switch
+        {
+            AppDataMode.Installed =>
+                "Installed policy: stable channel checks GitHub Releases and can download, verify, and launch the CPAD installer asset when a newer stable release is available.",
+            AppDataMode.Portable =>
+                "Portable policy: no automatic startup check and no installer execution. The page only shows downloadable stable assets and manual release links.",
+            AppDataMode.Development =>
+                "Development policy: no automatic startup check and no installer execution. Use release links manually while developing from the repository.",
+            _ =>
+                "Unknown package policy: update execution is disabled and release assets are shown for manual review."
+        };
+    }
+
+    private string BuildStartupUpdateCheckState()
+    {
+        if (!_settings.CheckForUpdatesOnStartup)
+        {
+            return "Disabled";
+        }
+
+        return CanRunAutomaticUpdateCheckOnStartup()
+            ? "Enabled"
+            : "Manual only";
+    }
+
+    private bool CanRunAutomaticUpdateCheckOnStartup()
+    {
+        return _pathService.Directories.DataMode == AppDataMode.Installed;
+    }
+
+    private string BuildUpdateCacheRoot()
+    {
+        return Path.Combine(_pathService.Directories.CacheDirectory, "updates");
     }
 
     private static void ProcessStartUrl(string url)

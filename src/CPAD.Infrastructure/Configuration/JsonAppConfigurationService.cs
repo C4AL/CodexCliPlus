@@ -43,7 +43,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         if (!File.Exists(_pathService.Directories.SettingsFilePath))
         {
-            return new AppSettings();
+            return CreateDefaultSettingsForDataMode();
         }
 
         var json = await File.ReadAllTextAsync(_pathService.Directories.SettingsFilePath, cancellationToken);
@@ -93,6 +93,17 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             json,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             cancellationToken);
+    }
+
+    private AppSettings CreateDefaultSettingsForDataMode()
+    {
+        var settings = new AppSettings();
+        if (_pathService.Directories.DataMode != Core.Enums.AppDataMode.Installed)
+        {
+            settings.CheckForUpdatesOnStartup = false;
+        }
+
+        return settings;
     }
 
     private sealed class PersistedAppSettings

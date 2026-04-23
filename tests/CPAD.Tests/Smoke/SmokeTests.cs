@@ -1,0 +1,304 @@
+using System.Diagnostics;
+using System.Net;
+using System.Text;
+
+using CPAD.BuildTool;
+using CPAD.Core.Constants;
+using CPAD.Core.Enums;
+using CPAD.Core.Models;
+using CPAD.Infrastructure.Backend;
+using CPAD.Infrastructure.Configuration;
+using CPAD.Infrastructure.Dependencies;
+using CPAD.Infrastructure.Logging;
+using CPAD.Infrastructure.Paths;
+using CPAD.Infrastructure.Platform;
+using CPAD.Infrastructure.Security;
+using CPAD.Infrastructure.Updates;
+
+namespace CPAD.Tests.Smoke;
+
+[Collection("Smoke")]
+[Trait("Category", "Smoke")]
+public sealed class SmokeTests
+{
+    [Fact]
+    public async Task DesktopLaunchSmokeStartsWithIsolatedRootAndLeavesOnlyOwnedProcessesForCleanup()
+    {
+        using var scope = new SmokeEnvironmentScope();
+
+        Assert.True(File.Exists(scope.ApplicationPath), $"Expected desktop executable at '{scope.ApplicationPath}'.");
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = scope.ApplicationPath,
+                WorkingDirectory = Path.GetDirectoryName(scope.ApplicationPath)!,
+                UseShellExecute = false
+            }
+        };
+
+        process.StartInfo.Environment["CPAD_APP_ROOT"] = scope.RootDirectory;
+        process.StartInfo.Environment["CPAD_APP_MODE"] = "development";
+        process.StartInfo.Environment["USERPROFILE"] = scope.UserProfileDirectory;
+        process.StartInfo.Environment["HOME"] = scope.HomeDirectory;
+        process.StartInfo.Environment["CODEX_HOME"] = scope.CodexHomeDirectory;
+        process.StartInfo.Environment["TEMP"] = scope.TempDirectory;
+        process.StartInfo.Environment["TMP"] = scope.TempDirectory;
+
+        Assert.True(process.Start(), "CPAD.exe did not start.");
+
+        try
+        {
+            await scope.WaitForAsync(
+                () =>
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "config")) &&
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "logs")) &&
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "backend")) &&
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "cache")) &&
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "diagnostics")) &&
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "runtime")),
+                TimeSpan.FromSeconds(12),
+                "CPAD.exe did not initialize the isolated app root in time.");
+
+            if (process.HasExited)
+            {
+                Assert.Fail($"CPAD.exe exited early with code {process.ExitCode}.");
+            }
+
+            var ownedBackendPids = scope.GetOwnedBackendProcessIds();
+            Assert.All(
+                ownedBackendPids,
+                pid => Assert.True(pid > 0, "Owned backend PID should be a positive integer."));
+        }
+        finally
+        {
+            scope.StopOwnedBackendProcesses();
+            SmokeEnvironmentScope.StopExactProcess(process);
+        }
+    }
+
+    [Fact]
+    public async Task PathAndCredentialSmokeUsesIsolatedDirectoriesAndDpapiSecretFiles()
+    {
+        using var scope = new SmokeEnvironmentScope();
+        var pathService = scope.CreatePathService();
+
+        await pathService.EnsureCreatedAsync();
+
+        Assert.Equal(AppDataMode.Development, pathService.Directories.DataMode);
+        Assert.Equal(scope.RootDirectory, pathService.Directories.RootDirectory);
+        Assert.StartsWith(scope.RootDirectory, pathService.Directories.ConfigDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(scope.RootDirectory, pathService.Directories.CacheDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(scope.RootDirectory, pathService.Directories.DiagnosticsDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(scope.RootDirectory, pathService.Directories.RuntimeDirectory, StringComparison.OrdinalIgnoreCase);
+
+        var configurationService = new JsonAppConfigurationService(pathService);
+        var settings = await configurationService.LoadAsync();
+        Assert.False(settings.CheckForUpdatesOnStartup);
+
+        var store = new DpapiCredentialStore(pathService);
+        await store.SaveSecretAsync("smoke-management", "super-secret");
+
+        var secretPath = Path.Combine(
+            pathService.Directories.ConfigDirectory,
+            AppConstants.SecretsDirectoryName,
+            "smoke-management.bin");
+        var loaded = await store.LoadSecretAsync("smoke-management");
+        var rawBytes = await File.ReadAllBytesAsync(secretPath);
+
+        Assert.Equal("super-secret", loaded);
+        Assert.StartsWith(scope.RootDirectory, secretPath, StringComparison.OrdinalIgnoreCase);
+        Assert.False(rawBytes.AsSpan().SequenceEqual("super-secret"u8));
+
+        await store.DeleteSecretAsync("smoke-management");
+        Assert.False(File.Exists(secretPath));
+    }
+
+    [Fact]
+    public async Task BackendHostingSmokeRunsHealthEndpointFromIsolatedManagedBackendPath()
+    {
+        using var scope = new SmokeEnvironmentScope();
+        var pathService = scope.CreatePathService();
+        var logger = new FileAppLogger(pathService);
+        var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
+        var layout = await assetService.EnsureAssetsAsync();
+        var port = scope.FindAvailablePort();
+        var configPath = scope.WriteBackendConfig(port);
+
+        Assert.Equal(scope.GetBackendExecutablePath(), layout.ExecutablePath);
+        Assert.StartsWith(scope.RootDirectory, layout.WorkingDirectory, StringComparison.OrdinalIgnoreCase);
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = layout.ExecutablePath,
+                WorkingDirectory = layout.WorkingDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+        process.StartInfo.ArgumentList.Add("-config");
+        process.StartInfo.ArgumentList.Add(configPath);
+        process.StartInfo.Environment["CPAD_APP_ROOT"] = scope.RootDirectory;
+        process.StartInfo.Environment["CPAD_APP_MODE"] = "development";
+        process.StartInfo.Environment["USERPROFILE"] = scope.UserProfileDirectory;
+        process.StartInfo.Environment["HOME"] = scope.HomeDirectory;
+        process.StartInfo.Environment["CODEX_HOME"] = scope.CodexHomeDirectory;
+        process.StartInfo.Environment["TEMP"] = scope.TempDirectory;
+        process.StartInfo.Environment["TMP"] = scope.TempDirectory;
+
+        Assert.True(process.Start(), "cli-proxy-api.exe did not start.");
+
+        try
+        {
+            await scope.WaitForHttpOkAsync($"http://127.0.0.1:{port}/healthz", TimeSpan.FromSeconds(20));
+            if (process.HasExited)
+            {
+                Assert.Fail($"cli-proxy-api.exe exited early with code {process.ExitCode}.");
+            }
+            Assert.Contains(process.Id, scope.GetOwnedBackendProcessIds());
+        }
+        finally
+        {
+            SmokeEnvironmentScope.StopExactProcess(process);
+            scope.StopOwnedBackendProcesses();
+        }
+    }
+
+    [Fact]
+    public async Task DependencyRepairSmokeTransitionsFromHealthyStateToRepairModeAfterBackendDamage()
+    {
+        using var scope = new SmokeEnvironmentScope();
+        var pathService = scope.CreatePathService();
+        var logger = new FileAppLogger(pathService);
+        var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
+        var configurationService = new JsonAppConfigurationService(pathService);
+        var credentialStore = new DpapiCredentialStore(pathService);
+        var dependencyService = new DependencyHealthService(
+            pathService,
+            new DirectoryAccessService(pathService),
+            credentialStore,
+            new GitHubReleaseUpdateService(new ThrowingHttpClientFactory()),
+            () => ".NET 10.0.0");
+
+        await assetService.EnsureAssetsAsync();
+
+        var settings = await configurationService.LoadAsync();
+        settings.ManagementKey = "smoke-management";
+        await configurationService.SaveAsync(settings);
+        await File.WriteAllTextAsync(
+            pathService.Directories.BackendConfigFilePath,
+            "port: 8317",
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        var healthy = await dependencyService.EvaluateAsync(new BackendStatusSnapshot());
+        Assert.True(healthy.IsAvailable);
+        Assert.False(healthy.RequiresRepairMode);
+        Assert.Empty(healthy.Issues);
+
+        await File.WriteAllTextAsync(
+            Path.Combine(pathService.Directories.BackendDirectory, "cli-proxy-api.exe"),
+            "tampered",
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        var repair = await dependencyService.EvaluateAsync(new BackendStatusSnapshot());
+
+        Assert.False(repair.IsAvailable);
+        Assert.True(repair.RequiresRepairMode);
+        Assert.Contains(repair.Issues, issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task UpdateCheckSmokeParsesStableInstallerMetadataWithoutNetworkSideEffects()
+    {
+        using var scope = new SmokeEnvironmentScope();
+        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "tag_name": "v1.2.3",
+                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "published_at": "2026-04-23T00:00:00Z",
+                  "assets": [
+                    {
+                      "name": "CPAD.Setup.1.2.3.exe",
+                      "browser_download_url": "https://example.test/CPAD.Setup.1.2.3.exe",
+                      "size": 4096,
+                      "digest": "sha256:abc123"
+                    },
+                    {
+                      "name": "CPAD.Portable.1.2.3.win-x64.zip",
+                      "browser_download_url": "https://example.test/CPAD.Portable.1.2.3.win-x64.zip",
+                      "size": 2048
+                    }
+                  ]
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        }));
+
+        var service = new GitHubReleaseUpdateService(factory);
+
+        var result = await service.CheckAsync("1.0.0");
+
+        Assert.True(result.IsCheckSuccessful);
+        Assert.True(result.IsUpdateAvailable);
+        Assert.Equal("1.2.3", result.LatestVersion);
+        Assert.Equal("Update available", result.Status);
+        Assert.True(result.HasInstallableAsset);
+        Assert.NotNull(result.InstallableAsset);
+        Assert.Equal("CPAD.Setup.1.2.3.exe", result.InstallableAsset!.Name);
+        Assert.Equal(2, result.Assets.Count);
+    }
+
+    [Fact]
+    public async Task InstallerArtifactSmokeValidatesPortableDevAndInstallerOutputs()
+    {
+        using var scope = new SmokeEnvironmentScope();
+        var outputRoot = Path.Combine(scope.OutputDirectory, "buildtool");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        const string version = "9.9.9";
+
+        Directory.CreateDirectory(packageRoot);
+
+        SmokeEnvironmentScope.CreateZipWithEntries(
+            Path.Combine(packageRoot, $"CPAD.Portable.{version}.win-x64.zip"),
+            "CPAD.exe",
+            "portable-mode.json");
+        SmokeEnvironmentScope.CreateZipWithEntries(
+            Path.Combine(packageRoot, $"CPAD.Dev.{version}.win-x64.zip"),
+            "app/CPAD.exe",
+            "app/dev-mode.json",
+            "app/artifacts/dev-data/.gitkeep");
+        SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, $"CPAD.Setup.{version}.exe"));
+        SmokeEnvironmentScope.CreateZipWithByteEntries(
+            Path.Combine(packageRoot, $"CPAD.Setup.{version}.win-x64.zip"),
+            new Dictionary<string, byte[]>
+            {
+                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
+                [$"output/CPAD.Setup.{version}.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
+                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
+            });
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            ["verify-package", "--repo-root", scope.RepositoryRoot, "--output", outputRoot, "--version", version],
+            output,
+            error,
+            new ThrowingProcessRunner());
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("package verification passed", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+}

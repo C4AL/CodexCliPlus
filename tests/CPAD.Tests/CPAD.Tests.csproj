@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\\..\\src\\CPAD.App\\CPAD.App.csproj" />
+    <ProjectReference Include="..\\..\\src\\CPAD.BuildTool\\CPAD.BuildTool.csproj" />
     <ProjectReference Include="..\\..\\src\\CPAD.Core\\CPAD.Core.csproj" />
     <ProjectReference Include="..\\..\\src\\CPAD.Infrastructure\\CPAD.Infrastructure.csproj" />
   </ItemGroup>

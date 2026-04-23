@@ -38,7 +38,7 @@
 ### 0.4 最终交付定义（100%）
 - [x] 原生 WPF 多页面桌面前端完成。
 - [x] WebView2 路线、Onboarding、PowerShell、Inno Setup 全部移除。
-- [ ] C# BuildTool 完成资源拉取、校验、发布、安装器生成、验包。
+- [x] C# BuildTool 完成资源拉取、校验、发布、安装器生成、验包。
 - [ ] 安装版 + 便携版 + 开发版产物可用。
 - [ ] Stable 更新链可用，Beta 预留。
 - [x] 主功能页全部可用。
@@ -359,41 +359,41 @@
 ## 9. BuildTool 重写发布链（72% -> 84%）
 
 ### 9.1 BuildTool 基础能力
-- [ ] 创建 `CPAD.BuildTool`。
-- [ ] 提供统一命令入口，例如：
-  - [ ] `fetch-assets`
-  - [ ] `verify-assets`
-  - [ ] `publish`
-  - [ ] `package-portable`
-  - [ ] `package-dev`
-  - [ ] `package-installer`
-  - [ ] `verify-package`
-- [ ] BuildTool 输出清晰日志与退出码。
+- [x] 创建 `CPAD.BuildTool`。
+- [x] 提供统一命令入口，例如：
+  - [x] `fetch-assets`
+  - [x] `verify-assets`
+  - [x] `publish`
+  - [x] `package-portable`
+  - [x] `package-dev`
+  - [x] `package-installer`
+  - [x] `verify-package`
+- [x] BuildTool 输出清晰日志与退出码。
 
 ### 9.2 资源拉取与校验
-- [ ] 替代旧 PowerShell 资源脚本。
-- [ ] 支持资源下载、校验、版本记录。
-- [ ] 失败时有清晰错误与重试策略。
+- [x] 替代旧 PowerShell 资源脚本。
+- [x] 支持资源下载、校验、版本记录。
+- [x] 失败时有清晰错误与重试策略。
 
 ### 9.3 发布与产物
-- [ ] 生成安装版产物。
-- [ ] 生成便携版产物。
-- [ ] 生成开发版产物。
-- [ ] 输出统一产物目录结构。
+- [x] 生成安装版产物。
+- [x] 生成便携版产物。
+- [x] 生成开发版产物。
+- [x] 输出统一产物目录结构。
 
 ### 9.4 签名接口预留
-- [ ] BuildTool 预留签名接口。
-- [ ] 首版允许无证书运行，但结构必须可扩展接入真实签名。
+- [x] BuildTool 预留签名接口。
+- [x] 首版允许无证书运行，但结构必须可扩展接入真实签名。
 
 ### 9.5 最低验收
-- [ ] PowerShell 正式链路不再是必需。
-- [ ] 通过 BuildTool 可完成完整发布链。
-- [ ] 产物可被验证。
+- [x] PowerShell 正式链路不再是必需。
+- [x] 通过 BuildTool 可完成完整发布链。
+- [x] 产物可被验证。
 
 ### 9.6 阶段结果记录
-> - BuildTool 命令：
-> - 产物类型：
-> - 验证结果：
+> - BuildTool 命令：`fetch-assets` 复制本地 `resources/backend/windows-x64` 并在缺失时回退下载 CLIProxyAPI release zip；`verify-assets` 校验 `asset-manifest.json` 的 SHA-256/大小/必需文件；`publish` 执行 `dotnet publish` 并注入 `assets/backend/windows-x64`；`package-portable`、`package-dev`、`package-installer` 统一从发布目录生成产物；`verify-package` 检查三类 zip 可读且包含 `CPAD.exe` 与安装器 staging 配置。
+> - 产物类型：`artifacts/buildtool/packages/CPAD.Portable.1.0.0.win-x64.zip`、`CPAD.Dev.1.0.0.win-x64.zip`、`CPAD.Setup.1.0.0.win-x64.zip`；安装版当前为 MicaSetup staging 包，10.x 继续生成最终 `.exe` 安装器。
+> - 验证结果：已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（62/62），并顺序执行 `dotnet run --project src/CPAD.BuildTool -- fetch-assets`、`verify-assets`、`publish`、`package-portable`、`package-dev`、`package-installer`、`verify-package`，最终 `package verification passed`。
 
 ---
 

@@ -1,0 +1,42 @@
+using CPAD.Core.Abstractions.Configuration;
+using CPAD.Core.Abstractions.Logging;
+using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Abstractions.Processes;
+using CPAD.Infrastructure.Backend;
+using CPAD.Infrastructure.Codex;
+using CPAD.Infrastructure.Configuration;
+using CPAD.Infrastructure.Diagnostics;
+using CPAD.Infrastructure.Logging;
+using CPAD.Infrastructure.Paths;
+using CPAD.Infrastructure.Platform;
+using CPAD.Infrastructure.Processes;
+
+using Microsoft.Extensions.DependencyInjection;
+
+namespace CPAD.Infrastructure.DependencyInjection;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddCpadInfrastructure(this IServiceCollection services)
+    {
+        services.AddHttpClient();
+        services.AddHttpClient<BackendAssetService>();
+        services.AddSingleton<IPathService, AppPathService>();
+        services.AddSingleton<IAppLogger, FileAppLogger>();
+        services.AddSingleton<IAppConfigurationService, JsonAppConfigurationService>();
+        services.AddSingleton<IProcessService, SystemProcessService>();
+        services.AddSingleton<DirectoryAccessService>();
+        services.AddSingleton<StartupRegistrationService>();
+        services.AddSingleton<DiagnosticsService>();
+        services.AddSingleton<BackendConfigWriter>();
+        services.AddSingleton<BackendHealthChecker>();
+        services.AddSingleton<BackendProcessManager>();
+        services.AddSingleton<CodexLocator>();
+        services.AddSingleton<CodexVersionReader>();
+        services.AddSingleton<CodexAuthStateReader>();
+        services.AddSingleton<CodexConfigService>();
+        services.AddSingleton<CodexLaunchService>();
+
+        return services;
+    }
+}

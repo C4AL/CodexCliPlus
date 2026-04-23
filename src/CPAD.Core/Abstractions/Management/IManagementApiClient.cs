@@ -1,0 +1,22 @@
+using CPAD.Core.Models.Management;
+
+namespace CPAD.Core.Abstractions.Management;
+
+public interface IManagementApiClient
+{
+    Task<ManagementApiResponse<string>> SendManagementAsync(
+        HttpMethod method,
+        string path,
+        string? body = null,
+        string contentType = "application/json",
+        string? accept = "application/json",
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ManagementApiResponse<string>> GetBackendAsync(
+        string path,
+        IReadOnlyDictionary<string, string>? headers = null,
+        string? accept = "application/json",
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default);
+}

@@ -120,7 +120,7 @@
                                Text="Cli Proxy API Desktop" />
                     <TextBlock FontSize="13"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               Text="Native desktop shell inspired by BetterGI and prepared for Management Center semantics." />
+                               Text="Native desktop shell for backend control, account state, usage, diagnostics, and desktop health." />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2"
@@ -227,34 +227,16 @@
 
                 <Grid Grid.Row="2" Margin="0,24,0,0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <Border Padding="18"
-                            Background="{DynamicResource SurfaceAltBrush}"
-                            CornerRadius="16">
-                        <TextBlock x:Name="PageBodyText"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   TextWrapping="Wrap" />
-                    </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ContentControl x:Name="PageContentHost" />
+                    </ScrollViewer>
 
-                    <Border Grid.Row="1"
-                            Margin="0,16,0,0"
-                            Padding="16"
-                            Background="#F4FAF9"
-                            BorderBrush="#C7E7E1"
-                            BorderThickness="1"
-                            CornerRadius="14">
-                        <TextBlock x:Name="PageReferenceText"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   TextWrapping="Wrap" />
-                    </Border>
-
-                    <StackPanel Grid.Row="2"
+                    <StackPanel Grid.Row="1"
                                 Margin="0,20,0,0"
                                 Orientation="Horizontal">
                         <Button x:Name="PrimaryPageActionButton"

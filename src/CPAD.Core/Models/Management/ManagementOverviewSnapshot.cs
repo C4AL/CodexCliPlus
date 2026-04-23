@@ -4,6 +4,12 @@ public sealed class ManagementOverviewSnapshot
 {
     public string ManagementApiBaseUrl { get; init; } = string.Empty;
 
+    public string? ServerVersion { get; init; }
+
+    public string? LatestVersion { get; init; }
+
+    public string? LatestVersionError { get; init; }
+
     public int ApiKeyCount { get; init; }
 
     public int AuthFileCount { get; init; }
@@ -23,4 +29,6 @@ public sealed class ManagementOverviewSnapshot
     public string? AvailableModelsError { get; init; }
 
     public ManagementConfigSnapshot Config { get; init; } = new();
+
+    public ManagementUsageSnapshot Usage { get; init; } = new();
 }

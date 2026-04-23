@@ -39,7 +39,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var usageService = new ManagementUsageService(apiClient);
             var logsService = new ManagementLogsService(apiClient);
             var systemService = new ManagementSystemService(apiClient);
-            var overviewService = new ManagementOverviewService(connectionProvider, configService, authService, systemService);
+            var overviewService = new ManagementOverviewService(connectionProvider, configService, authService, usageService, systemService);
 
             var config = await configService.GetConfigAsync();
             Assert.Contains("sk-dummy", config.Value.ApiKeys);
@@ -69,6 +69,11 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var overview = await overviewService.GetOverviewAsync();
             Assert.Equal(running.Runtime.ManagementApiBaseUrl, overview.Value.ManagementApiBaseUrl);
             Assert.True(overview.Value.ApiKeyCount >= 1);
+            Assert.False(string.IsNullOrWhiteSpace(overview.Value.ServerVersion));
+            Assert.True(
+                !string.IsNullOrWhiteSpace(overview.Value.LatestVersion) ||
+                !string.IsNullOrWhiteSpace(overview.Value.LatestVersionError));
+            Assert.True(overview.Value.Usage.TotalRequests >= 0);
         }
         finally
         {

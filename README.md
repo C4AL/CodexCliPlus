@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/main/resources/icons/ico-transparent.png" alt="CPAD" width="160" />
+  <img src="https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/blob/main/resources/icons/ico-transparent.png" alt="CPAD" width="160" />
 </p>
 
 <h1 align="center">CPAD</h1>

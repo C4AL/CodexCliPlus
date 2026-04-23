@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CPAD.Core.Models.Management;
 
 public sealed class ManagementConfigSnapshot
@@ -59,27 +61,36 @@ public sealed class ManagementQuotaExceededSettings
 
 public sealed class ManagementAmpCodeConfiguration
 {
+    [JsonPropertyName("upstream-url")]
     public string? UpstreamUrl { get; init; }
 
+    [JsonPropertyName("upstream-api-key")]
     public string? UpstreamApiKey { get; init; }
 
+    [JsonPropertyName("force-model-mappings")]
     public bool? ForceModelMappings { get; init; }
 
+    [JsonPropertyName("model-mappings")]
     public IReadOnlyList<ManagementAmpCodeModelMapping> ModelMappings { get; init; } = [];
 
+    [JsonPropertyName("upstream-api-keys")]
     public IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping> UpstreamApiKeys { get; init; } = [];
 }
 
 public sealed class ManagementAmpCodeModelMapping
 {
+    [JsonPropertyName("from")]
     public string From { get; init; } = string.Empty;
 
+    [JsonPropertyName("to")]
     public string To { get; init; } = string.Empty;
 }
 
 public sealed class ManagementAmpCodeUpstreamApiKeyMapping
 {
+    [JsonPropertyName("upstream-api-key")]
     public string UpstreamApiKey { get; init; } = string.Empty;
 
+    [JsonPropertyName("api-keys")]
     public IReadOnlyList<string> ApiKeys { get; init; } = [];
 }

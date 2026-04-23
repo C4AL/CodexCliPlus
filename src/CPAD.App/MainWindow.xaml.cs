@@ -1,173 +1,144 @@
-using System.IO;
-using System.Globalization;
-using System.Net.Http;
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 
-using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Configuration;
-using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Abstractions.Updates;
-using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
-using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
-using CPAD.Infrastructure.Codex;
-using CPAD.Infrastructure.Dependencies;
-using CPAD.Infrastructure.Diagnostics;
-using CPAD.Infrastructure.Platform;
+using CPAD.ViewModels;
+using CPAD.Views.Pages;
 
 using Microsoft.Win32;
 
-using Forms = System.Windows.Forms;
-using Drawing = System.Drawing;
-using WpfOrientation = System.Windows.Controls.Orientation;
+using Wpf.Ui;
+using Wpf.Ui.Abstractions;
+
+using Application = System.Windows.Application;
+using Color = System.Windows.Media.Color;
+using ColorConverter = System.Windows.Media.ColorConverter;
+using MessageBox = System.Windows.MessageBox;
 
 namespace CPAD;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindow
 {
-    private const string BackendExecutableFileName = "cli-proxy-api.exe";
-
-    private readonly BackendAssetService _backendAssetService;
+    private readonly MainWindowViewModel _viewModel;
+    private readonly INavigationService _navigationService;
     private readonly BackendProcessManager _backendProcessManager;
-    private readonly IManagementAuthService _authService;
-    private readonly IManagementConfigurationService _managementConfigurationService;
-    private readonly IManagementLogsService _logsService;
-    private readonly IManagementOverviewService _overviewService;
-    private readonly IManagementSystemService _systemService;
-    private readonly IManagementUsageService _usageService;
-    private readonly IAppConfigurationService _configurationService;
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly CodexLocator _codexLocator;
-    private readonly CodexVersionReader _codexVersionReader;
-    private readonly CodexAuthStateReader _codexAuthStateReader;
-    private readonly CodexConfigService _codexConfigService;
-    private readonly CodexLaunchService _codexLaunchService;
-    private readonly IPathService _pathService;
+    private readonly IManagementSessionService _sessionService;
+    private readonly IManagementConfigurationService _configurationServiceApi;
+    private readonly IAppConfigurationService _appConfigurationService;
     private readonly IBuildInfo _buildInfo;
-    private readonly DiagnosticsService _diagnosticsService;
-    private readonly StartupRegistrationService _startupRegistrationService;
-    private readonly DirectoryAccessService _directoryAccessService;
-    private readonly DependencyHealthService _dependencyHealthService;
+    private readonly IManagementNavigationService _managementNavigationService;
+    private readonly IUnsavedChangesGuard _unsavedChangesGuard;
     private readonly IUpdateCheckService _updateCheckService;
-    private readonly IUpdateInstallerService _updateInstallerService;
-    private readonly List<ShellSection> _sections = CreateSections();
 
     private AppSettings _settings = new();
-    private ManagementOverviewSnapshot? _overviewSnapshot;
-    private bool _overviewLoading;
-    private string? _overviewError;
-    private Forms.NotifyIcon? _notifyIcon;
     private bool _allowClose;
-    private bool _shellReady;
+    private bool _suppressSelectionChange;
+    private string _lastSelectedRouteKey = "dashboard";
 
     public MainWindow(
-        BackendAssetService backendAssetService,
+        MainWindowViewModel viewModel,
+        NotifyIconViewModel notifyIconViewModel,
+        INavigationService navigationService,
+        ISnackbarService snackbarService,
+        INavigationViewPageProvider navigationViewPageProvider,
         BackendProcessManager backendProcessManager,
-        IManagementAuthService authService,
-        IManagementConfigurationService managementConfigurationService,
-        IManagementLogsService logsService,
-        IManagementOverviewService overviewService,
-        IManagementSystemService systemService,
-        IManagementUsageService usageService,
-        IAppConfigurationService configurationService,
-        IHttpClientFactory httpClientFactory,
-        CodexLocator codexLocator,
-        CodexVersionReader codexVersionReader,
-        CodexAuthStateReader codexAuthStateReader,
-        CodexConfigService codexConfigService,
-        CodexLaunchService codexLaunchService,
-        IPathService pathService,
+        IManagementSessionService sessionService,
+        IManagementConfigurationService configurationServiceApi,
+        IAppConfigurationService appConfigurationService,
         IBuildInfo buildInfo,
-        DiagnosticsService diagnosticsService,
-        StartupRegistrationService startupRegistrationService,
-        DirectoryAccessService directoryAccessService,
-        DependencyHealthService dependencyHealthService,
-        IUpdateCheckService updateCheckService,
-        IUpdateInstallerService updateInstallerService)
+        IManagementNavigationService managementNavigationService,
+        IUnsavedChangesGuard unsavedChangesGuard,
+        IUpdateCheckService updateCheckService)
     {
-        _backendAssetService = backendAssetService;
+        _viewModel = viewModel;
+        _navigationService = navigationService;
         _backendProcessManager = backendProcessManager;
-        _authService = authService;
-        _managementConfigurationService = managementConfigurationService;
-        _logsService = logsService;
-        _overviewService = overviewService;
-        _systemService = systemService;
-        _usageService = usageService;
-        _configurationService = configurationService;
-        _httpClientFactory = httpClientFactory;
-        _codexLocator = codexLocator;
-        _codexVersionReader = codexVersionReader;
-        _codexAuthStateReader = codexAuthStateReader;
-        _codexConfigService = codexConfigService;
-        _codexLaunchService = codexLaunchService;
-        _pathService = pathService;
+        _sessionService = sessionService;
+        _configurationServiceApi = configurationServiceApi;
+        _appConfigurationService = appConfigurationService;
         _buildInfo = buildInfo;
-        _diagnosticsService = diagnosticsService;
-        _startupRegistrationService = startupRegistrationService;
-        _directoryAccessService = directoryAccessService;
-        _dependencyHealthService = dependencyHealthService;
+        _managementNavigationService = managementNavigationService;
+        _unsavedChangesGuard = unsavedChangesGuard;
         _updateCheckService = updateCheckService;
-        _updateInstallerService = updateInstallerService;
 
+        DataContext = _viewModel;
         InitializeComponent();
 
-        NavigationList.ItemsSource = _sections;
-        NavigationList.SelectedIndex = 0;
+        TrayMenu.DataContext = notifyIconViewModel;
+        snackbarService.SetSnackbarPresenter(SnackbarPresenter);
+        navigationService.SetNavigationControl(RootNavigation);
+        RootNavigation.SetPageProviderService(navigationViewPageProvider);
+
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
     }
 
+    public Wpf.Ui.Controls.INavigationView GetNavigation() => RootNavigation;
+
+    public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
+
+    public void SetServiceProvider(IServiceProvider serviceProvider)
+    {
+        RootNavigation.SetServiceProvider(serviceProvider);
+    }
+
+    public void SetPageService(INavigationViewPageProvider navigationViewPageProvider)
+    {
+        RootNavigation.SetPageProviderService(navigationViewPageProvider);
+    }
+
+    public void ShowWindow() => Show();
+
+    public void CloseWindow() => Close();
+
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        _settings = await _configurationService.LoadAsync();
-        _managementKeyDraft = _settings.ManagementKey;
-        _toolsSelectedSource = _settings.PreferredCodexSource;
-        _toolsRepositoryPathDraft = _settings.LastRepositoryPath ?? string.Empty;
-        _updatesChannelDraft = _settings.UseBetaChannel ? UpdateChannel.Beta : UpdateChannel.Stable;
-        LoadSettingsDrafts(_settings);
+        _settings = await _appConfigurationService.LoadAsync();
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
-        UpdateBackendStatus(_backendProcessManager.CurrentStatus);
-        UpdateFooter();
-        await RefreshDependencyStatusAsync(force: true, navigateToRepairPage: true);
-        _shellReady = true;
-        UpdateSelectedSection();
-
-        if (_settings.CheckForUpdatesOnStartup &&
-            !IsRepairModeActive() &&
-            CanRunAutomaticUpdateCheckOnStartup())
-        {
-            _ = RefreshUpdatesAsync(force: true);
-        }
+        SelectRoute("dashboard", typeof(DashboardPage));
+        await RefreshShellAsync();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
-        StopAccountsPagePolling();
-        if (_notifyIcon is not null)
-        {
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
-            _notifyIcon = null;
-        }
+        TrayIcon.Unregister();
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_allowClose || !_settings.EnableTrayIcon || !_settings.MinimizeToTrayOnClose)
+        if (_allowClose)
         {
+            if (!_unsavedChangesGuard.ConfirmLeave("退出应用"))
+            {
+                e.Cancel = true;
+            }
+
             return;
         }
 
-        e.Cancel = true;
-        HideToTray();
+        if (_settings.EnableTrayIcon && _settings.MinimizeToTrayOnClose)
+        {
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
+
+        if (!_unsavedChangesGuard.ConfirmLeave("关闭窗口"))
+        {
+            e.Cancel = true;
+        }
+    }
+
+    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshShellAsync();
     }
 
     private async void ThemeButton_Click(object sender, RoutedEventArgs e)
@@ -180,123 +151,12 @@ public partial class MainWindow : Window
         };
 
         await ApplyThemeAsync(_settings.ThemeMode, persist: true);
-        LoadSettingsDrafts(_settings);
-        RefreshSettingsSection();
-    }
-
-    private void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (IsRepairModeActive())
-        {
-            _dependencyRepairStatusMessage = "Dependency repair mode is active. Updates & Version stays locked until blocking checks are resolved.";
-            OpenDependencyRepairPage();
-            return;
-        }
-
-        OpenUpdatesPage(startCheck: true);
+        UpdateFooter(_backendProcessManager.CurrentStatus, VersionStatusText.Text);
     }
 
     private async void BackendActionButton_Click(object sender, RoutedEventArgs e)
     {
-        if (IsRepairModeActive())
-        {
-            _dependencyRepairStatusMessage = "Backend start/restart is locked while dependency repair mode is active. Repair or re-check dependencies first.";
-            OpenDependencyRepairPage();
-            return;
-        }
-
-        if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-        {
-            await _backendProcessManager.RestartAsync();
-            return;
-        }
-
-        await _backendProcessManager.StartAsync();
-    }
-
-    private void NavigationList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-    {
-        if (!_shellReady)
-        {
-            return;
-        }
-
-        if (NavigationList.SelectedItem is ShellSection section &&
-            IsRepairModeActive() &&
-            !section.IsEnabled)
-        {
-            OpenDependencyRepairPage();
-            return;
-        }
-
-        UpdateSelectedSection();
-    }
-
-    private async void PrimaryPageActionButton_Click(object sender, RoutedEventArgs e)
-    {
-        var section = NavigationList.SelectedItem as ShellSection;
-        if (section is null)
-        {
-            return;
-        }
-
-        switch (section.Key)
-        {
-            case "overview":
-                await RefreshOverviewAsync(force: true);
-                break;
-            case "config":
-                await ApplyConfigurationAsync();
-                break;
-            case "logs":
-                await RefreshLogsAsync(force: true);
-                break;
-            case "system":
-                await RefreshSystemAsync(force: true);
-                break;
-            case "tools":
-                await ApplyToolsSourceAsync();
-                break;
-            case "updates":
-                await RunUpdatesPrimaryActionAsync();
-                break;
-            case "settings":
-                await SaveSettingsAsync();
-                break;
-            case "about":
-                await ExportAboutDiagnosticsAsync();
-                break;
-            case "dependency-repair":
-                await RepairDependencyIssuesAsync();
-                break;
-            default:
-                RestoreFromTray();
-                break;
-        }
-    }
-
-    private async void SecondaryPageActionButton_Click(object sender, RoutedEventArgs e)
-    {
-        var section = NavigationList.SelectedItem as ShellSection;
-        if (section?.Key == "about")
-        {
-            ProcessStartFolder(_pathService.Directories.DiagnosticsDirectory);
-            return;
-        }
-
-        if (section?.Key == "config")
-        {
-            await ReloadConfigurationAsync();
-            return;
-        }
-
-        if (section?.Key == "logs")
-        {
-            await ExportDiagnosticsAsync();
-            return;
-        }
-
-        if (section?.Key == "system")
+        try
         {
             if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
             {
@@ -307,45 +167,144 @@ public partial class MainWindow : Window
                 await _backendProcessManager.StartAsync();
             }
 
-            await RefreshSystemAsync(force: true);
-            return;
+            await RefreshShellAsync();
         }
-
-        if (section?.Key == "tools")
+        catch (Exception exception)
         {
-            await RefreshToolsAsync(force: true);
-            return;
+            MessageBox.Show(this, exception.Message, "后端操作失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
 
-        if (section?.Key == "updates")
+    private void RootNavigation_SelectionChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSelectionChange)
         {
-            await RunUpdatesSecondaryActionAsync();
             return;
         }
 
-        if (section?.Key == "settings")
+        if (RootNavigation.SelectedItem is not Wpf.Ui.Controls.NavigationViewItem item ||
+            item.Content is not string label ||
+            item.Tag is not string routeKey)
         {
-            await RefreshSettingsAsync(force: true);
             return;
         }
 
-        if (section?.Key == "dependency-repair")
+        if (string.Equals(routeKey, _lastSelectedRouteKey, StringComparison.OrdinalIgnoreCase))
         {
-            await RefreshDependencyStatusAsync(force: true);
+            UpdateSubtitle(label);
             return;
         }
 
-        ProcessStartFolder(_pathService.Directories.ConfigDirectory);
+        if (!_unsavedChangesGuard.ConfirmLeave(label))
+        {
+            RevertNavigationSelection();
+            return;
+        }
+
+        _managementNavigationService.TryNavigate(routeKey);
+        _lastSelectedRouteKey = routeKey;
+        UpdateSubtitle(label);
     }
 
     private async void BackendProcessManager_StatusChanged(object? sender, BackendStatusSnapshot snapshot)
     {
         await Dispatcher.InvokeAsync(() =>
         {
-            UpdateBackendStatus(snapshot);
-            UpdateFooter();
-            _ = RefreshDependencyStatusAsync(force: true, navigateToRepairPage: true);
+            UpdateHeader(snapshot, HeaderConnectionText.Text);
+            UpdateFooter(snapshot, VersionStatusText.Text);
         });
+    }
+
+    private void TrayIcon_LeftDoubleClick(object sender, RoutedEventArgs e)
+    {
+        RestoreFromTray();
+    }
+
+    private void TrayOpenMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        RestoreFromTray();
+    }
+
+    private async void TrayRestartBackendMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
+            {
+                await _backendProcessManager.RestartAsync();
+            }
+            else
+            {
+                await _backendProcessManager.StartAsync();
+            }
+
+            await RefreshShellAsync();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "后端操作失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void TrayCheckUpdatesMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
+            var title = result.IsUpdateAvailable ? "发现更新" : "检查更新";
+            var message = result.IsUpdateAvailable
+                ? $"检测到新版本：{result.LatestVersion}\n\n{result.Detail}"
+                : $"{result.Status}\n\n{result.Detail}";
+            MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, exception.Message, "检查更新失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void TrayExitMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_unsavedChangesGuard.ConfirmLeave("退出应用"))
+        {
+            return;
+        }
+
+        _allowClose = true;
+        TrayIcon.Unregister();
+        await _backendProcessManager.StopAsync();
+        Close();
+    }
+
+    private async Task RefreshShellAsync()
+    {
+        var snapshot = _backendProcessManager.CurrentStatus;
+        var connectionSummary = "未连接";
+        var versionSummary = $"桌面版本：{_buildInfo.ApplicationVersion}";
+
+        try
+        {
+            var connection = await _sessionService.GetConnectionAsync();
+            connectionSummary = connection.ManagementApiBaseUrl;
+
+            var config = await _configurationServiceApi.GetConfigAsync();
+            if (!string.IsNullOrWhiteSpace(config.Metadata.Version))
+            {
+                versionSummary = $"服务版本：{config.Metadata.Version}";
+            }
+
+            snapshot = _backendProcessManager.CurrentStatus;
+        }
+        catch (Exception exception)
+        {
+            if (snapshot.State == BackendStateKind.Error)
+            {
+                connectionSummary = exception.Message;
+            }
+        }
+
+        UpdateHeader(snapshot, connectionSummary);
+        UpdateFooter(snapshot, versionSummary);
     }
 
     private async Task ApplyThemeAsync(AppThemeMode themeMode, bool persist)
@@ -357,792 +316,63 @@ public partial class MainWindow : Window
         SetBrush("SurfaceBrush", isDark ? "#16202B" : "#FFFFFF");
         SetBrush("SurfaceAltBrush", isDark ? "#1E2A38" : "#EEF2F7");
         SetBrush("AccentBrush", isDark ? "#34D3C2" : "#0F766E");
+        SetBrush("AccentSoftBrush", isDark ? "#123A36" : "#D9F1EE");
         SetBrush("PrimaryTextBrush", isDark ? "#E5EEF7" : "#17202B");
         SetBrush("SecondaryTextBrush", isDark ? "#A8B4C5" : "#526070");
         SetBrush("BorderBrush", isDark ? "#314153" : "#D7DCE5");
 
-        ThemeButton.Content = $"Theme: {GetThemeLabel(themeMode)}";
-        ThemeStatusText.Text = $"Theme: {GetThemeLabel(themeMode)} ({GetThemeLabel(effectiveTheme)})";
+        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(
+            isDark
+                ? Wpf.Ui.Appearance.ApplicationTheme.Dark
+                : Wpf.Ui.Appearance.ApplicationTheme.Light);
+
+        ThemeButton.ToolTip = $"切换主题，当前为 {GetThemeLabel(themeMode)}";
+        ThemeStatusText.Text = $"主题：{GetThemeLabel(themeMode)}";
 
         if (persist)
         {
-            await _configurationService.SaveAsync(_settings);
+            await _appConfigurationService.SaveAsync(_settings);
         }
     }
 
     private void InitializeTrayIcon()
     {
-        _notifyIcon?.Dispose();
-        _notifyIcon = null;
-
         if (!_settings.EnableTrayIcon)
         {
+            TrayIcon.Unregister();
             return;
         }
 
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open Main Interface", null, (_, _) => RestoreFromTray());
-        menu.Items.Add("Restart Backend", null, async (_, _) => await Dispatcher.InvokeAsync(async () =>
-        {
-            if (IsRepairModeActive())
-            {
-                _dependencyRepairStatusMessage = "Tray backend restart is locked while dependency repair mode is active.";
-                OpenDependencyRepairPage();
-                return;
-            }
+        TrayIcon.Register();
+    }
 
-            if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-            {
-                await _backendProcessManager.RestartAsync();
-            }
-            else
-            {
-                await _backendProcessManager.StartAsync();
-            }
-        }));
-        menu.Items.Add("Check Updates", null, (_, _) => Dispatcher.Invoke(ShowUpdatesPlaceholder));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit and Stop Backend", null, async (_, _) => await Dispatcher.InvokeAsync(ExitAndStopBackendAsync));
-
-        _notifyIcon = new Forms.NotifyIcon
+    private void UpdateHeader(BackendStatusSnapshot snapshot, string connectionSummary)
+    {
+        HeaderConnectionText.Text = snapshot.State switch
         {
-            Text = AppConstants.TrayToolTip,
-            Icon = CreateTrayIcon(),
-            Visible = true,
-            ContextMenuStrip = menu
+            BackendStateKind.Running => "已连接",
+            BackendStateKind.Starting => "连接中",
+            BackendStateKind.Error => "连接异常",
+            _ => "未启动"
         };
 
-        _notifyIcon.DoubleClick += (_, _) => RestoreFromTray();
-    }
-
-    private void UpdateSelectedSection()
-    {
-        var section = NavigationList.SelectedItem as ShellSection ?? _sections[0];
-        if (IsRepairModeActive() && !section.IsEnabled)
+        ConnectionDot.Fill = snapshot.State switch
         {
-            OpenDependencyRepairPage();
-            return;
-        }
-
-        PageTitleText.Text = section.Title;
-        PageSubtitleText.Text = section.Subtitle;
-        PageStatusText.Text = BuildPageStatus(section);
-
-        switch (section.Key)
-        {
-            case "overview":
-                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
-                SecondaryPageActionButton.Visibility = Visibility.Collapsed;
-                PrimaryPageActionButton.Content = _overviewLoading ? "Loading..." : "Refresh Overview";
-                PrimaryPageActionButton.IsEnabled = !_overviewLoading;
-                SecondaryPageActionButton.Content = "Open Config Folder";
-                PageContentHost.Content = BuildOverviewContent();
-                if (!IsRepairModeActive() &&
-                    _backendProcessManager.CurrentStatus.State != BackendStateKind.Error &&
-                    _overviewSnapshot is null &&
-                    !_overviewLoading)
-                {
-                    _ = RefreshOverviewAsync(force: false);
-                }
-
-                break;
-            case "accounts":
-                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
-                SecondaryPageActionButton.Visibility = Visibility.Collapsed;
-                PrimaryPageActionButton.IsEnabled = true;
-                PageContentHost.Content = BuildAccountsContent();
-                if (_accountsAuthFiles is null && !_accountsLoading)
-                {
-                    _ = RefreshAccountsAsync(force: false);
-                }
-
-                break;
-            case "quota":
-                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
-                SecondaryPageActionButton.Visibility = Visibility.Collapsed;
-                PrimaryPageActionButton.IsEnabled = true;
-                PageContentHost.Content = BuildQuotaContent();
-                if (_quotaSnapshot is null && !_quotaLoading)
-                {
-                    _ = RefreshQuotaAsync(force: false);
-                }
-
-                break;
-            case "config":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.Content = _configSaving ? "Saving..." : "Apply Structured Changes";
-                PrimaryPageActionButton.IsEnabled = !_configLoading && !_configSaving;
-                SecondaryPageActionButton.Content = _configLoading ? "Reloading..." : "Reload Config";
-                SecondaryPageActionButton.IsEnabled = !_configLoading && !_configSaving;
-                PageContentHost.Content = BuildConfigurationContent();
-                if (_configSnapshot is null && !_configLoading)
-                {
-                    _ = RefreshConfigurationAsync(force: false);
-                }
-
-                break;
-            case "logs":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.Content = _logsLoading ? "Refreshing..." : "Refresh Logs";
-                PrimaryPageActionButton.IsEnabled = !_logsLoading && !_logsClearing;
-                SecondaryPageActionButton.Content = "Export Diagnostics";
-                SecondaryPageActionButton.IsEnabled = !_logsLoading && !_logsClearing;
-                PageContentHost.Content = BuildLogsContent();
-                if (!IsRepairModeActive() && _logsSnapshot is null && !_logsLoading)
-                {
-                    _ = RefreshLogsAsync(force: false);
-                }
-
-                break;
-            case "system":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.Content = _systemLoading ? "Refreshing..." : "Refresh System";
-                PrimaryPageActionButton.IsEnabled = !_systemLoading && !_systemProbeLoading;
-                SecondaryPageActionButton.Content = _backendProcessManager.CurrentStatus.State == BackendStateKind.Running
-                    ? "Restart Backend"
-                    : "Start Backend";
-                SecondaryPageActionButton.IsEnabled = !_systemLoading && !_systemProbeLoading;
-                PageContentHost.Content = BuildSystemContent();
-                if (_systemLastLoadedAt is null && !_systemLoading)
-                {
-                    _ = RefreshSystemAsync(force: false);
-                }
-
-                break;
-            case "tools":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.Content = _toolsApplying ? "Applying..." : "Apply Source Switch";
-                PrimaryPageActionButton.IsEnabled = !_toolsLoading && !_toolsApplying;
-                SecondaryPageActionButton.Content = _toolsLoading ? "Refreshing..." : "Refresh Tools";
-                SecondaryPageActionButton.IsEnabled = !_toolsLoading && !_toolsApplying;
-                PageContentHost.Content = BuildToolsContent();
-                if (_toolsLastLoadedAt is null && !_toolsLoading)
-                {
-                    _ = RefreshToolsAsync(force: false);
-                }
-
-                break;
-            case "updates":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = !_updatesLoading && !_updatesInstallerPreparing;
-                PrimaryPageActionButton.Content = GetUpdatesPrimaryActionLabel();
-                SecondaryPageActionButton.Content = GetUpdatesSecondaryActionLabel();
-                SecondaryPageActionButton.IsEnabled = !_updatesInstallerPreparing;
-                PageContentHost.Content = BuildUpdatesContent();
-                if (_updatesLastCheckedAt is null && !_updatesLoading)
-                {
-                    _ = RefreshUpdatesAsync(force: false);
-                }
-
-                break;
-            case "settings":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.Content = _settingsSaving ? "Saving..." : "Save Settings";
-                PrimaryPageActionButton.IsEnabled = !_settingsLoading && !_settingsSaving;
-                SecondaryPageActionButton.Content = _settingsLoading ? "Reloading..." : "Reload Settings";
-                SecondaryPageActionButton.IsEnabled = !_settingsLoading && !_settingsSaving;
-                PageContentHost.Content = BuildSettingsContent();
-                if (_settingsLastLoadedAt is null && !_settingsLoading)
-                {
-                    _ = RefreshSettingsAsync(force: false);
-                }
-
-                break;
-            case "about":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = !_aboutExporting;
-                PrimaryPageActionButton.Content = _aboutExporting ? "Exporting..." : "Export Diagnostics";
-                SecondaryPageActionButton.Content = "Open Diagnostics Folder";
-                SecondaryPageActionButton.IsEnabled = true;
-                PageContentHost.Content = BuildAboutContent();
-                break;
-            case "dependency-repair":
-                PrimaryPageActionButton.Visibility = Visibility.Visible;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = !_dependencyRepairLoading && !_dependencyRepairing;
-                PrimaryPageActionButton.Content = _dependencyRepairing ? "Repairing..." : "Repair Now";
-                SecondaryPageActionButton.Content = _dependencyRepairLoading ? "Checking..." : "Re-check";
-                SecondaryPageActionButton.IsEnabled = !_dependencyRepairLoading && !_dependencyRepairing;
-                PageContentHost.Content = BuildDependencyRepairContent();
-                break;
-            default:
-                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
-                SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = true;
-                SecondaryPageActionButton.Content = "Open Config Folder";
-                PageContentHost.Content = BuildPlaceholderContent(section);
-                break;
-        }
-    }
-
-    private void UpdateBackendStatus(BackendStatusSnapshot status)
-    {
-        BackendStatusText.Text = $"Backend: {status.State} | {status.Message}";
-        BackendActionButton.Content = status.State == BackendStateKind.Running ? "Restart Backend" : "Start Backend";
-    }
-
-    private void UpdateFooter()
-    {
-        SourceStatusText.Text = $"Source: {_settings.PreferredCodexSource}";
-        VersionStatusText.Text = IsRepairModeActive()
-            ? $"Version: {_buildInfo.ApplicationVersion} | Repair mode active"
-            : $"Version: {_buildInfo.ApplicationVersion}";
-    }
-
-    private async Task RefreshOverviewAsync(bool force)
-    {
-        if (_overviewLoading)
-        {
-            return;
-        }
-
-        if (!force && _overviewSnapshot is not null)
-        {
-            return;
-        }
-
-        _overviewLoading = true;
-        _overviewError = null;
-        if ((NavigationList.SelectedItem as ShellSection)?.Key == "overview")
-        {
-            UpdateSelectedSection();
-        }
-
-        try
-        {
-            var response = await _overviewService.GetOverviewAsync();
-            _overviewSnapshot = response.Value;
-        }
-        catch (Exception exception)
-        {
-            _overviewError = exception.Message;
-        }
-        finally
-        {
-            _overviewLoading = false;
-            if ((NavigationList.SelectedItem as ShellSection)?.Key == "overview")
-            {
-                UpdateSelectedSection();
-            }
-        }
-    }
-
-    private UIElement BuildOverviewContent()
-    {
-        if (_overviewLoading && _overviewSnapshot is null)
-        {
-            return CreateStatePanel(
-                "Loading live overview...",
-                "Starting or contacting the managed backend and reading live management data.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(_overviewError) && _overviewSnapshot is null)
-        {
-            return CreateStatePanel("Overview data is unavailable.", _overviewError);
-        }
-
-        var snapshot = _overviewSnapshot;
-        if (snapshot is null)
-        {
-            if (IsRepairModeActive())
-            {
-                var repairRoot = new StackPanel { Orientation = WpfOrientation.Vertical };
-                repairRoot.Children.Add(CreateStatePanel(
-                    "Overview stays available in repair mode.",
-                    "Live Management API loading is paused while dependency repair mode is active. Use the cards below for local desktop context and repair entry points."));
-                repairRoot.Children.Add(CreateSectionHeader("Dependency Status"));
-                repairRoot.Children.Add(CreateDependencySummary());
-                repairRoot.Children.Add(CreateSectionHeader("Quick Entries"));
-                repairRoot.Children.Add(CreateQuickActionsPanel());
-                return repairRoot;
-            }
-
-            return CreateStatePanel(
-                "No overview data loaded yet.",
-                "Use Refresh Overview to start the backend and load live Management API data.");
-        }
-
-        var root = new StackPanel { Orientation = WpfOrientation.Vertical };
-
-        root.Children.Add(CreateOverviewHero(snapshot));
-        root.Children.Add(CreateSectionHeader("Live Status"));
-        root.Children.Add(CreateMetricGrid(
-            CreateMetricCard("Backend", _backendProcessManager.CurrentStatus.State.ToString(), _backendProcessManager.CurrentStatus.Message),
-            CreateMetricCard("Management Keys", snapshot.ApiKeyCount.ToString(CultureInfo.InvariantCulture), "Configured API keys from /api-keys"),
-            CreateMetricCard("Auth Files", snapshot.AuthFileCount.ToString(CultureInfo.InvariantCulture), "OAuth/device credentials from /auth-files"),
-            CreateMetricCard("Providers", CountProviders(snapshot).ToString(CultureInfo.InvariantCulture), "Gemini, Codex, Claude, Vertex, OpenAI entries"),
-            CreateMetricCard("Requests", FormatCompact(snapshot.Usage.TotalRequests), $"{FormatCompact(snapshot.Usage.SuccessCount)} success / {FormatCompact(snapshot.Usage.FailureCount)} failed"),
-            CreateMetricCard("Tokens", FormatCompact(snapshot.Usage.TotalTokens), "Usage statistics from /usage")));
-
-        root.Children.Add(CreateSectionHeader("Current Configuration"));
-        root.Children.Add(CreateConfigSummary(snapshot.Config));
-
-        root.Children.Add(CreateSectionHeader("Update Reminder"));
-        root.Children.Add(CreateUpdateSummary(snapshot));
-
-        root.Children.Add(CreateSectionHeader("Desktop Context"));
-        root.Children.Add(CreateDesktopSummary(snapshot));
-
-        root.Children.Add(CreateSectionHeader("Dependency Status"));
-        root.Children.Add(CreateDependencySummary());
-
-        root.Children.Add(CreateSectionHeader("Quick Entries"));
-        root.Children.Add(CreateQuickActionsPanel());
-
-        if (!string.IsNullOrWhiteSpace(snapshot.AvailableModelsError))
-        {
-            root.Children.Add(CreateHintCard("Model discovery", snapshot.AvailableModelsError));
-        }
-
-        return root;
-    }
-
-    private UIElement CreateOverviewHero(ManagementOverviewSnapshot snapshot)
-    {
-        var panel = new StackPanel { Orientation = WpfOrientation.Vertical };
-        panel.Children.Add(CreateText(
-            "Live overview connected to the managed backend API",
-            22,
-            FontWeights.SemiBold,
-            "PrimaryTextBrush"));
-        panel.Children.Add(CreateText(
-            $"Management API: {snapshot.ManagementApiBaseUrl}",
-            13,
-            FontWeights.Normal,
-            "SecondaryTextBrush",
-            new Thickness(0, 8, 0, 0)));
-        panel.Children.Add(CreateText(
-            "The overview brings together connection state, account/auth inventory, quota summary, update signals, dependency state, and fast desktop actions.",
-            13,
-            FontWeights.Normal,
-            "SecondaryTextBrush",
-            new Thickness(0, 4, 0, 0)));
-
-        return CreateCard(panel, new Thickness(0, 0, 0, 18));
-    }
-
-    private UIElement CreateConfigSummary(ManagementConfigSnapshot config)
-    {
-        var grid = new UniformGrid
-        {
-            Columns = 2,
-            Margin = new Thickness(0, 0, 0, 8)
+            BackendStateKind.Running => CreateBrush("#16A34A"),
+            BackendStateKind.Starting => CreateBrush("#CA8A04"),
+            BackendStateKind.Error => CreateBrush("#DC2626"),
+            _ => CreateBrush("#64748B")
         };
 
-        AddKeyValue(grid, "Routing", config.RoutingStrategy ?? "round-robin");
-        AddKeyValue(grid, "Debug", FormatBoolean(config.Debug));
-        AddKeyValue(grid, "Usage stats", FormatBoolean(config.UsageStatisticsEnabled));
-        AddKeyValue(grid, "Log to file", FormatBoolean(config.LoggingToFile));
-        AddKeyValue(grid, "Request log", FormatBoolean(config.RequestLog));
-        AddKeyValue(grid, "Retry count", config.RequestRetry?.ToString(CultureInfo.InvariantCulture) ?? "0");
-        AddKeyValue(grid, "Log cap", config.LogsMaxTotalSizeMb is null ? "-" : $"{config.LogsMaxTotalSizeMb} MB");
-        AddKeyValue(grid, "Proxy", string.IsNullOrWhiteSpace(config.ProxyUrl) ? "Not set" : config.ProxyUrl);
-
-        return CreateCard(grid, new Thickness(0, 0, 0, 18));
+        ConnectionStatusText.Text = $"管理地址：{connectionSummary}";
+        BackendActionButton.Content = snapshot.State == BackendStateKind.Running ? "重启后端" : "启动后端";
     }
 
-    private UIElement CreateDesktopSummary(ManagementOverviewSnapshot snapshot)
+    private void UpdateFooter(BackendStatusSnapshot snapshot, string versionText)
     {
-        var grid = new UniformGrid
-        {
-            Columns = 2,
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-
-        AddKeyValue(grid, "Data root", _pathService.Directories.RootDirectory);
-        AddKeyValue(grid, "Config directory", _pathService.Directories.ConfigDirectory);
-        AddKeyValue(grid, "Backend directory", _pathService.Directories.BackendDirectory);
-        AddKeyValue(grid, "Backend state", _backendProcessManager.CurrentStatus.State.ToString());
-        AddKeyValue(grid, "Theme", GetThemeLabel(_settings.ThemeMode));
-        AddKeyValue(grid, "Tray", _settings.EnableTrayIcon ? "Enabled" : "Disabled");
-        AddKeyValue(grid, "Models", snapshot.AvailableModelCount?.ToString(CultureInfo.InvariantCulture) ?? "Check when providers are ready");
-
-        return CreateCard(grid, new Thickness(0, 0, 0, 18));
-    }
-
-    private UIElement CreateUpdateSummary(ManagementOverviewSnapshot snapshot)
-    {
-        var grid = new UniformGrid
-        {
-            Columns = 2,
-            Margin = new Thickness(0, 0, 0, 8)
-        };
-
-        AddKeyValue(grid, "Current version", snapshot.ServerVersion ?? "Unknown");
-        AddKeyValue(grid, "Latest version", snapshot.LatestVersion ?? "Unknown");
-        AddKeyValue(grid, "Status", BuildUpdateStatus(snapshot));
-        AddKeyValue(grid, "Channel", "Stable");
-
-        var root = new StackPanel { Orientation = WpfOrientation.Vertical };
-        root.Children.Add(grid);
-
-        if (!string.IsNullOrWhiteSpace(snapshot.LatestVersionError))
-        {
-            root.Children.Add(CreateText(
-                $"Update check detail: {snapshot.LatestVersionError}",
-                12,
-                FontWeights.Normal,
-                "SecondaryTextBrush"));
-        }
-
-        return CreateCard(root, new Thickness(0, 0, 0, 18));
-    }
-
-    private UIElement CreateDependencySummary()
-    {
-        var dependencyStatus = GetDependencyStatus();
-        var panel = new StackPanel { Orientation = WpfOrientation.Vertical };
-        panel.Children.Add(CreateText(
-            dependencyStatus.IsAvailable ? "Desktop dependencies are ready." : "Desktop dependencies need repair.",
-            16,
-            FontWeights.SemiBold,
-            "PrimaryTextBrush"));
-        panel.Children.Add(CreateText(
-            dependencyStatus.Summary,
-            13,
-            FontWeights.Normal,
-            "SecondaryTextBrush",
-            new Thickness(0, 8, 0, 0)));
-
-        if (!string.IsNullOrWhiteSpace(dependencyStatus.Detail))
-        {
-            panel.Children.Add(CreateText(
-                dependencyStatus.Detail,
-                12,
-                FontWeights.Normal,
-                "SecondaryTextBrush",
-                new Thickness(0, 6, 0, 0)));
-        }
-
-        return CreateCard(panel, new Thickness(0, 0, 0, 18));
-    }
-
-    private UIElement CreateQuickActionsPanel()
-    {
-        var panel = new WrapPanel();
-        panel.Children.Add(CreateActionButton("Refresh Overview", async () => await RefreshOverviewAsync(force: true)));
-
-        var backendAction = CreateActionButton(
-            _backendProcessManager.CurrentStatus.State == BackendStateKind.Running ? "Restart Backend" : "Start Backend",
-            async () =>
-            {
-                if (IsRepairModeActive())
-                {
-                    _dependencyRepairStatusMessage = "Backend start/restart is locked while dependency repair mode is active.";
-                    OpenDependencyRepairPage();
-                    return;
-                }
-
-                if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-                {
-                    await _backendProcessManager.RestartAsync();
-                }
-                else
-                {
-                    await _backendProcessManager.StartAsync();
-                }
-
-                await RefreshOverviewAsync(force: true);
-            });
-        if (IsRepairModeActive())
-        {
-            backendAction.Content = "Backend Locked";
-            backendAction.IsEnabled = false;
-        }
-
-        panel.Children.Add(backendAction);
-        panel.Children.Add(CreateActionButton("Open Config Folder", () =>
-        {
-            ProcessStartFolder(_pathService.Directories.ConfigDirectory);
-            return Task.CompletedTask;
-        }));
-        panel.Children.Add(CreateActionButton("Open Data Folder", () =>
-        {
-            ProcessStartFolder(_pathService.Directories.RootDirectory);
-            return Task.CompletedTask;
-        }));
-        if (IsRepairModeActive())
-        {
-            panel.Children.Add(CreateActionButton("Open Dependency Repair", () =>
-            {
-                OpenDependencyRepairPage();
-                return Task.CompletedTask;
-            }));
-        }
-
-        panel.Children.Add(CreateActionButton("Repair Backend Files", RepairBackendAssetsAsync));
-
-        return CreateCard(panel, new Thickness(0, 0, 0, 18));
-    }
-
-    private System.Windows.Controls.Button CreateActionButton(string label, Func<Task> action)
-    {
-        var button = new System.Windows.Controls.Button
-        {
-            Content = label,
-            Style = TryFindResource("CaptionButtonStyle") as Style,
-            Margin = new Thickness(0, 0, 10, 10)
-        };
-
-        button.Click += async (_, _) => await action();
-        return button;
-    }
-
-    private UIElement BuildPlaceholderContent(ShellSection section)
-    {
-        var root = new StackPanel { Orientation = WpfOrientation.Vertical };
-        root.Children.Add(CreateCard(
-            CreateText(BuildPageBody(section), 15, FontWeights.Normal, "PrimaryTextBrush"),
-            new Thickness(0, 0, 0, 16)));
-        root.Children.Add(CreateHintCard("Reference", BuildReferenceHint(section)));
-        return root;
-    }
-
-    private UIElement CreateStatePanel(string title, string detail)
-    {
-        var panel = new StackPanel { Orientation = WpfOrientation.Vertical };
-        panel.Children.Add(CreateText(title, 18, FontWeights.SemiBold, "PrimaryTextBrush"));
-        panel.Children.Add(CreateText(detail, 13, FontWeights.Normal, "SecondaryTextBrush", new Thickness(0, 8, 0, 0)));
-        return CreateCard(panel);
-    }
-
-    private UIElement CreateHintCard(string title, string detail)
-    {
-        var panel = new StackPanel { Orientation = WpfOrientation.Vertical };
-        panel.Children.Add(CreateText(title, 13, FontWeights.SemiBold, "PrimaryTextBrush"));
-        panel.Children.Add(CreateText(detail, 13, FontWeights.Normal, "SecondaryTextBrush", new Thickness(0, 6, 0, 0)));
-        return CreateCard(panel, new Thickness(0, 0, 0, 16));
-    }
-
-    private TextBlock CreateSectionHeader(string text)
-    {
-        return CreateText(text, 16, FontWeights.SemiBold, "PrimaryTextBrush", new Thickness(0, 4, 0, 10));
-    }
-
-    private UniformGrid CreateMetricGrid(params UIElement[] cards)
-    {
-        var grid = new UniformGrid
-        {
-            Columns = 3,
-            Margin = new Thickness(0, 0, 0, 18)
-        };
-
-        foreach (var card in cards)
-        {
-            grid.Children.Add(card);
-        }
-
-        return grid;
-    }
-
-    private Border CreateMetricCard(string label, string value, string detail)
-    {
-        var panel = new StackPanel { Orientation = WpfOrientation.Vertical };
-        panel.Children.Add(CreateText(value, 24, FontWeights.SemiBold, "PrimaryTextBrush"));
-        panel.Children.Add(CreateText(label, 13, FontWeights.SemiBold, "SecondaryTextBrush", new Thickness(0, 4, 0, 0)));
-        panel.Children.Add(CreateText(detail, 12, FontWeights.Normal, "SecondaryTextBrush", new Thickness(0, 8, 0, 0)));
-        return CreateCard(panel, new Thickness(0, 0, 12, 12));
-    }
-
-    private void AddKeyValue(System.Windows.Controls.Panel root, string key, string value)
-    {
-        var panel = new StackPanel
-        {
-            Orientation = WpfOrientation.Vertical,
-            Margin = new Thickness(0, 0, 14, 14)
-        };
-        panel.Children.Add(CreateText(key, 12, FontWeights.SemiBold, "SecondaryTextBrush"));
-        panel.Children.Add(CreateText(value, 14, FontWeights.SemiBold, "PrimaryTextBrush", new Thickness(0, 4, 0, 0)));
-        root.Children.Add(panel);
-    }
-
-    private Border CreateCard(UIElement content, Thickness? margin = null)
-    {
-        var card = new Border
-        {
-            Padding = new Thickness(18),
-            CornerRadius = new CornerRadius(16),
-            BorderThickness = new Thickness(1),
-            Margin = margin ?? new Thickness(0)
-        };
-        card.SetResourceReference(Border.BackgroundProperty, "SurfaceAltBrush");
-        card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
-        card.Child = content;
-        return card;
-    }
-
-    private TextBlock CreateText(
-        string text,
-        double fontSize,
-        FontWeight fontWeight,
-        string brushKey,
-        Thickness? margin = null)
-    {
-        var textBlock = new TextBlock
-        {
-            Text = text,
-            FontSize = fontSize,
-            FontWeight = fontWeight,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = margin ?? new Thickness(0)
-        };
-        textBlock.SetResourceReference(TextBlock.ForegroundProperty, brushKey);
-        return textBlock;
-    }
-
-    private static int CountProviders(ManagementOverviewSnapshot snapshot)
-    {
-        return snapshot.GeminiKeyCount +
-            snapshot.CodexKeyCount +
-            snapshot.ClaudeKeyCount +
-            snapshot.VertexKeyCount +
-            snapshot.OpenAiCompatibilityCount;
-    }
-
-    private static string FormatBoolean(bool? value)
-    {
-        return value switch
-        {
-            true => "Enabled",
-            false => "Disabled",
-            _ => "Unknown"
-        };
-    }
-
-    private static string FormatCompact(long value)
-    {
-        return value switch
-        {
-            >= 1_000_000 => $"{value / 1_000_000d:0.0}M",
-            >= 1_000 => $"{value / 1_000d:0.0}K",
-            _ => value.ToString(CultureInfo.InvariantCulture)
-        };
-    }
-
-    private async Task RepairBackendAssetsAsync()
-    {
-        if (IsRepairModeActive())
-        {
-            await RepairDependencyIssuesAsync();
-            return;
-        }
-
-        try
-        {
-            await _backendAssetService.RepairAssetsAsync();
-            await RefreshDependencyStatusAsync(force: true);
-            UpdateSelectedSection();
-        }
-        catch (Exception exception)
-        {
-            System.Windows.MessageBox.Show(
-                this,
-                exception.Message,
-                "Repair Backend Files",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
-        }
-    }
-
-    private DependencyCheckResult GetDependencyStatus()
-    {
-        return _dependencyStatus;
-    }
-
-    private static string BuildUpdateStatus(ManagementOverviewSnapshot snapshot)
-    {
-        if (!string.IsNullOrWhiteSpace(snapshot.LatestVersionError))
-        {
-            return "Check failed";
-        }
-
-        if (string.IsNullOrWhiteSpace(snapshot.LatestVersion))
-        {
-            return "Unknown";
-        }
-
-        if (string.IsNullOrWhiteSpace(snapshot.ServerVersion))
-        {
-            return "Current version unavailable";
-        }
-
-        var current = NormalizeVersion(snapshot.ServerVersion);
-        var latest = NormalizeVersion(snapshot.LatestVersion);
-
-        if (Version.TryParse(current, out var currentVersion) &&
-            Version.TryParse(latest, out var latestVersion))
-        {
-            return latestVersion > currentVersion ? "Update available" : "Up to date";
-        }
-
-        return string.Equals(current, latest, StringComparison.OrdinalIgnoreCase)
-            ? "Up to date"
-            : "Review latest version";
-    }
-
-    private static string NormalizeVersion(string version)
-    {
-        return version.Trim().TrimStart('v', 'V');
-    }
-
-    private string BuildPageBody(ShellSection section)
-    {
-        var backendStatus = _backendProcessManager.CurrentStatus;
-
-        return section.Key switch
-        {
-            "overview" =>
-                $"This native overview surfaces backend state, account and quota summary, update signals, dependency readiness, and desktop health. Current backend state: {backendStatus.State}. Data root: {_pathService.Directories.RootDirectory}.",
-            "accounts" =>
-                "This route is reserved for OAuth, device flow, cookie import, management keys, and secure credential storage.",
-            "quota" =>
-                "This route is reserved for quota, request counts, token usage, and model-level usage summaries.",
-            "config" =>
-                "This route is reserved for native configuration editing, validation, save, and round-trip display of backend settings. The managed configuration services are already in place underneath the shell.",
-            "logs" =>
-                "This route is reserved for log browsing, filtering, request diagnostics, and diagnostics export. Logs stay on their own page rather than returning to an embedded host console.",
-            "system" =>
-                $"This route is reserved for backend health, model availability, and connectivity. Current backend state is {backendStatus.State}; use the shell action to start or restart the managed process.",
-            "tools" =>
-                "This route is reserved for official/cpa source switching and desktop tool integration entry points.",
-            "updates" =>
-                $"This page checks the desktop application's GitHub Releases stable channel, preserves a reserved beta entry, and applies the {FormatAppDataMode(_pathService.Directories.DataMode)} update policy without fabricating an available release.",
-            "settings" =>
-                "This route is reserved for theme, startup, tray, directory, update, and privacy preferences. Theme switching already works at the shell level and persists to desktop settings.",
-            "about" =>
-                $"Cli Proxy API Desktop {_buildInfo.InformationalVersion}. The native desktop shell now manages the backend directly and is being expanded page by page around the audited management APIs.",
-            "dependency-repair" =>
-                "Dependency repair mode isolates the shell to safe routes, surfaces blocking environment issues, and offers repair, re-check, detail, and diagnostics actions.",
-            _ => section.Subtitle
-        };
-    }
-
-    private string BuildReferenceHint(ShellSection section)
-    {
-        return section.Key switch
-        {
-            "overview" => "The overview is now driven by live management data plus local desktop runtime state.",
-            "updates" => "Stable update checks now query the desktop repository's GitHub Releases endpoint directly. Beta remains a reserved channel entry until a beta release line exists.",
-            "dependency-repair" => "This route stays available during repair mode so blocking dependency issues can be repaired or exported without relying on Management API startup.",
-            _ => "This route is reserved in the native shell and will be connected to the audited management APIs as a first-class desktop page."
-        };
-    }
-
-    private string BuildPageStatus(ShellSection section)
-    {
-        var repairStatus = !IsRepairModeActive()
-            ? "Repair: Off"
-            : section.IsEnabled
-                ? "Repair: Active"
-                : "Repair: Locked";
-        return $"Route key: {section.Key} | Backend: {_backendProcessManager.CurrentStatus.State} | {repairStatus} | Theme: {GetThemeLabel(_settings.ThemeMode)} | Tray: {(_settings.EnableTrayIcon ? "Enabled" : "Disabled")}";
+        BackendStatusText.Text = $"后端状态：{FormatBackendState(snapshot.State)}";
+        ThemeStatusText.Text = $"主题：{GetThemeLabel(_settings.ThemeMode)}";
+        VersionStatusText.Text = versionText;
     }
 
     private void HideToTray()
@@ -1163,38 +393,50 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    private async Task ExitAndStopBackendAsync()
+    private void SelectRoute(string routeKey, Type pageType)
     {
-        _allowClose = true;
-
-        if (_notifyIcon is not null)
-        {
-            _notifyIcon.Visible = false;
-        }
-
-        await _backendProcessManager.StopAsync();
-        Close();
+        _suppressSelectionChange = true;
+        _lastSelectedRouteKey = routeKey;
+        _managementNavigationService.TryNavigate(routeKey);
+        RootNavigation.Navigate(pageType);
+        UpdateSubtitle(FindNavigationLabel(routeKey));
+        _suppressSelectionChange = false;
     }
 
-    private void ShowUpdatesPlaceholder()
+    private void RevertNavigationSelection()
     {
-        if (IsRepairModeActive())
-        {
-            OpenDependencyRepairPage();
-            return;
-        }
-
-        OpenUpdatesPage(startCheck: true);
+        _suppressSelectionChange = true;
+        RootNavigation.Navigate(GetPageType(_lastSelectedRouteKey));
+        _suppressSelectionChange = false;
     }
 
-    private void ProcessStartFolder(string path)
+    private static Type GetPageType(string routeKey)
     {
-        Directory.CreateDirectory(path);
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        return routeKey switch
         {
-            FileName = path,
-            UseShellExecute = true
-        });
+            "config" => typeof(ConfigPage),
+            "ai-providers" => typeof(AiProvidersPage),
+            "auth-files" => typeof(AuthFilesPage),
+            "oauth" => typeof(OAuthPage),
+            "quota" => typeof(QuotaPage),
+            "usage" => typeof(UsagePage),
+            "logs" => typeof(LogsPage),
+            "system" => typeof(SystemPage),
+            _ => typeof(DashboardPage)
+        };
+    }
+
+    private string FindNavigationLabel(string routeKey)
+    {
+        return RootNavigation.MenuItems
+            .OfType<Wpf.Ui.Controls.NavigationViewItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag as string, routeKey, StringComparison.OrdinalIgnoreCase))
+            ?.Content?.ToString() ?? "仪表盘";
+    }
+
+    private void UpdateSubtitle(string label)
+    {
+        _viewModel.Subtitle = $"{label} · CPAD 原生管理中心";
     }
 
     private static AppThemeMode ResolveEffectiveTheme(AppThemeMode requestedTheme)
@@ -1214,83 +456,30 @@ public partial class MainWindow : Window
     {
         return themeMode switch
         {
-            AppThemeMode.Light => "Light",
-            AppThemeMode.Dark => "Dark",
-            _ => "System"
+            AppThemeMode.Light => "浅色",
+            AppThemeMode.Dark => "深色",
+            _ => "跟随系统"
         };
     }
 
-    private static List<ShellSection> CreateSections()
+    private static string FormatBackendState(BackendStateKind state)
     {
-        return
-        [
-            new ShellSection("overview", "\uE80F", "Overview", "Home status, quick entry, and shell health."),
-            new ShellSection("accounts", "\uE13D", "Accounts & Auth", "OAuth, device flow, cookies, and management keys."),
-            new ShellSection("quota", "\uE9D2", "Quota & Usage", "Quota, request counts, token usage, and model stats."),
-            new ShellSection("config", "\uE713", "Configuration", "Backend config editing, save, and validation."),
-            new ShellSection("logs", "\uE9D5", "Logs & Diagnostics", "Logs, request diagnostics, and export."),
-            new ShellSection("system", "\uE9CE", "System & Models", "Health, models, and connectivity."),
-            new ShellSection("tools", "\uE9CA", "Sources & Tools", "Official/CPA switching and desktop integrations."),
-            new ShellSection("updates", "\uE895", "Updates & Version", "Stable update checks and release diagnostics."),
-            new ShellSection("settings", "\uE713", "Settings", "Theme, startup, tray, and privacy preferences."),
-            new ShellSection("about", "\uE946", "About", "Version, notices, and diagnostics entry."),
-            new ShellSection("dependency-repair", "\uF404", "Dependency Repair", "Repair mode, issue details, and safe diagnostics.")
-        ];
+        return state switch
+        {
+            BackendStateKind.Starting => "启动中",
+            BackendStateKind.Running => "运行中",
+            BackendStateKind.Error => "异常",
+            _ => "已停止"
+        };
     }
 
     private static void SetBrush(string resourceKey, string hex)
     {
-        System.Windows.Application.Current.Resources[resourceKey] =
-            new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+        Application.Current.Resources[resourceKey] = CreateBrush(hex);
     }
 
-    private static Drawing.Icon CreateTrayIcon()
+    private static SolidColorBrush CreateBrush(string hex)
     {
-        var resourceInfo = System.Windows.Application.GetResourceStream(
-            new Uri("pack://application:,,,/Resources/Icons/ico.png"));
-        if (resourceInfo is null)
-        {
-            return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
-        }
-
-        using var bitmap = new Drawing.Bitmap(resourceInfo.Stream);
-        var handle = bitmap.GetHicon();
-
-        try
-        {
-            using var icon = Drawing.Icon.FromHandle(handle);
-            return (Drawing.Icon)icon.Clone();
-        }
-        finally
-        {
-            DestroyIcon(handle);
-        }
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool DestroyIcon(IntPtr handle);
-
-    private sealed class ShellSection
-    {
-        public ShellSection(string key, string glyph, string title, string subtitle)
-        {
-            Key = key;
-            Glyph = glyph;
-            Title = title;
-            Subtitle = subtitle;
-        }
-
-        public string Key { get; }
-
-        public string Glyph { get; }
-
-        public string Title { get; }
-
-        public string Subtitle { get; }
-
-        public bool IsEnabled { get; set; } = true;
-
-        public string WarningBadge { get; set; } = string.Empty;
+        return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
     }
 }

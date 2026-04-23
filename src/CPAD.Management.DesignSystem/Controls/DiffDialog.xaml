@@ -1,0 +1,65 @@
+<Window x:Class="CPAD.Management.DesignSystem.Controls.DiffDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:CPAD.Management.DesignSystem.Controls"
+        Title="确认保存"
+        Width="1100"
+        Height="760"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                       Text="保存配置变更" />
+            <TextBlock Margin="0,8,0,0"
+                       Style="{StaticResource ManagementHintTextStyle}"
+                       Text="{Binding Summary}" />
+        </StackPanel>
+
+        <Grid Grid.Row="1"
+              Margin="0,20,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+                <TextBlock Style="{StaticResource ManagementSectionTitleStyle}"
+                           Text="当前配置" />
+                <controls:ManagementCodeEditor Margin="0,12,0,0"
+                                               IsReadOnly="True"
+                                               Text="{Binding BeforeText}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Style="{StaticResource ManagementSectionTitleStyle}"
+                           Text="待保存内容" />
+                <controls:ManagementCodeEditor Margin="0,12,0,0"
+                                               IsReadOnly="True"
+                                               Text="{Binding AfterText}" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+            <Button Width="96"
+                    Margin="0,0,8,0"
+                    Click="CancelButton_Click"
+                    Content="取消" />
+            <Button Width="120"
+                    Background="{StaticResource ManagementAccentBrush}"
+                    Foreground="White"
+                    Click="ConfirmButton_Click"
+                    Content="确认保存" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,27 @@
+<Window x:Class="CPAD.Management.DesignSystem.Controls.ManagementConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        Background="{DynamicResource ApplicationBackgroundBrush}">
+    <Border MinWidth="420"
+            Style="{StaticResource ManagementCardBorderStyle}">
+        <StackPanel>
+            <TextBlock FontSize="14"
+                       Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                       TextWrapping="Wrap"
+                       Text="{Binding Message}" />
+            <StackPanel Margin="0,20,0,0"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal">
+                <Button Click="CancelButton_Click"
+                        Content="{Binding CancelText}" />
+                <Button Background="{StaticResource ManagementDangerBrush}"
+                        Foreground="White"
+                        Click="ConfirmButton_Click"
+                        Content="{Binding ConfirmText}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

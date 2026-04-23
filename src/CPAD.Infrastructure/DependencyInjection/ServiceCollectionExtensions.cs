@@ -41,10 +41,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<BackendHealthChecker>();
         services.AddSingleton<BackendProcessManager>();
         services.AddSingleton<IManagementConnectionProvider, BackendManagementConnectionProvider>();
+        services.AddSingleton<IManagementSessionService, ManagementSessionService>();
         services.AddSingleton<IManagementApiClient, ManagementApiClient>();
+        services.AddSingleton<ManagementAuthService>();
         services.AddSingleton<IManagementOverviewService, ManagementOverviewService>();
         services.AddSingleton<IManagementConfigurationService, ManagementConfigurationService>();
-        services.AddSingleton<IManagementAuthService, ManagementAuthService>();
+        services.AddSingleton<IManagementProvidersService>(provider => provider.GetRequiredService<ManagementAuthService>());
+        services.AddSingleton<IManagementAuthFilesService>(provider => provider.GetRequiredService<ManagementAuthService>());
+        services.AddSingleton<IManagementOAuthService>(provider => provider.GetRequiredService<ManagementAuthService>());
+        services.AddSingleton<IManagementAuthService>(provider => provider.GetRequiredService<ManagementAuthService>());
+        services.AddSingleton<IManagementQuotaService, ManagementQuotaService>();
         services.AddSingleton<IManagementUsageService, ManagementUsageService>();
         services.AddSingleton<IManagementLogsService, ManagementLogsService>();
         services.AddSingleton<IManagementSystemService, ManagementSystemService>();

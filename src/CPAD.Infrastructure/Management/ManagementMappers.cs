@@ -20,7 +20,9 @@ internal static class ManagementMappers
             Uploaded = ManagementJson.GetInt32(root, "uploaded"),
             Deleted = ManagementJson.GetInt32(root, "deleted"),
             Removed = ManagementJson.GetInt32(root, "removed"),
-            Changed = ManagementJson.GetStringList(root, "changed")
+            Changed = ManagementJson.GetStringList(root, "changed"),
+            Files = ManagementJson.GetStringList(root, "files"),
+            Failed = MapBatchFailures(root)
         };
     }
 
@@ -640,6 +642,24 @@ internal static class ManagementMappers
         return array.EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(factory)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<ManagementBatchFailure> MapBatchFailures(JsonElement root)
+    {
+        if (ManagementJson.GetArray(root, "failed") is not { } array)
+        {
+            return [];
+        }
+
+        return array.EnumerateArray()
+            .Where(item => item.ValueKind == JsonValueKind.Object)
+            .Select(item => new ManagementBatchFailure
+            {
+                Name = ManagementJson.GetString(item, "name") ?? string.Empty,
+                Error = ManagementJson.GetString(item, "error", "message") ?? string.Empty
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name) || !string.IsNullOrWhiteSpace(item.Error))
             .ToArray();
     }
 

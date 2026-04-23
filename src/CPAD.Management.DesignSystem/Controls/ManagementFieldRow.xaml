@@ -1,0 +1,26 @@
+<UserControl x:Class="CPAD.Management.DesignSystem.Controls.ManagementFieldRow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Grid Margin="0,0,0,14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Margin="0,0,16,0">
+            <TextBlock x:Name="LabelBlock"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                       Text="{Binding Label, ElementName=Root}" />
+            <TextBlock x:Name="HintBlock"
+                       Margin="0,6,0,0"
+                       Style="{StaticResource ManagementHintTextStyle}"
+                       Text="{Binding Hint, ElementName=Root}" />
+        </StackPanel>
+
+        <ContentPresenter Grid.Column="1"
+                          Content="{Binding FieldContent, ElementName=Root}" />
+    </Grid>
+</UserControl>

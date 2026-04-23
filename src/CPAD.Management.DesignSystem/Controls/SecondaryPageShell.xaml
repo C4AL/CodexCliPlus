@@ -1,0 +1,48 @@
+<UserControl x:Class="CPAD.Management.DesignSystem.Controls.SecondaryPageShell"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Border Style="{StaticResource ManagementCardBorderStyle}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <DockPanel x:Name="TopBarPanel"
+                       Grid.Row="0"
+                       LastChildFill="True"
+                       Margin="0,0,0,16">
+                <Button x:Name="BackButton"
+                        DockPanel.Dock="Left"
+                        Margin="0,0,12,0"
+                        Click="BackButton_Click"
+                        Content="{Binding BackLabel, ElementName=Root}" />
+                <ContentPresenter x:Name="HeaderActionsPresenter"
+                                  Content="{Binding HeaderActions, ElementName=Root}" />
+            </DockPanel>
+
+            <StackPanel Grid.Row="1"
+                        Margin="0,0,0,16">
+                <TextBlock Style="{StaticResource ManagementSectionTitleStyle}"
+                           Text="{Binding Title, ElementName=Root}" />
+                <TextBlock Margin="0,6,0,0"
+                           Style="{StaticResource ManagementHintTextStyle}"
+                           Text="{Binding Subtitle, ElementName=Root}" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="2"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ContentPresenter Content="{Binding BodyContent, ElementName=Root}" />
+            </ScrollViewer>
+
+            <ContentPresenter x:Name="FooterPresenter"
+                              Grid.Row="3"
+                              Margin="0,16,0,0"
+                              Content="{Binding FooterContent, ElementName=Root}" />
+        </Grid>
+    </Border>
+</UserControl>

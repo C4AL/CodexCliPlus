@@ -6,7 +6,8 @@
 - The product must not revert to a `WebView2` host.
 - The Go backend remains `CLIProxyAPI`; the desktop app hosts and manages it.
 - Page semantics are derived from `CPA-UV` and the Management Center repositories.
-- Window structure and tray-first interaction are derived from `BetterGI`.
+- Window structure and tray-first interaction are derived from the current `WPF-UI + BetterGI` shell lineage.
+- `BetterGI` is not the only visual source. Any open-source capability may be used when it improves CPA route fidelity, but it must be wrapped behind local CPAD controls and resource keys.
 - The release path stays `CPAD.BuildTool + MicaSetup`, not `PowerShell + Inno Setup`.
 - Historical `WebView2`, PowerShell, or Inno residue in generated outputs is cleanup debt, not an allowed source of truth for architecture decisions.
 - Stable desktop release discovery is sourced from GitHub Releases for `Blackblock-inc/Cli-Proxy-API-Desktop`.
@@ -14,10 +15,31 @@
 - Portable packages are a first-class package type, but they must remain manual/no-auto-update packages.
 - Any future automated update flow belongs to the installer route, not to the portable route.
 
+## Current delivery status
+
+- As of 2026-04-24, the native desktop deliverable baseline is met:
+  - all 9 primary management pages exist as native WPF pages
+  - route-backed navigation remains aligned with the official CPA route tree
+  - the product does not rely on a `WebView2` fallback host
+- `Config` is now a field-first native page with `Advanced YAML` kept as a secondary escape hatch instead of the default workflow.
+- `Logs` is now a native inspection page with a read-only log viewer, inline request log lookup, incremental refresh, full refresh, and clear actions.
+- `AI Providers` and `Auth Files` remain native route-hosted experiences with secondary-route infrastructure, and are no longer expected to revert to inline dynamic editor shells.
+- Repository acceptance for the desktop deliverable currently means:
+  - `dotnet restore`
+  - `dotnet build --no-restore`
+  - `dotnet test --no-build`
+  all remain green in the current repo state.
+- Full-product closure is intentionally wider than desktop-deliverable closure:
+  - the release and packaging architecture is fixed
+  - the BuildTool command surface exists
+  - end-to-end release publication, installer/update UX, and final channel operations remain follow-up work outside the desktop 100% milestone
+
 ## Current layering
 
 - `CPAD.App`
-  Native window, navigation, tray integration, and theme behavior.
+  Native window, navigation, tray integration, theme behavior, route switching, and page orchestration.
+- `CPAD.Management.DesignSystem`
+  Local design tokens, wrapped controls, native editor/chart hosts, and shared management page shells.
 - `CPAD.Core`
   Shared contracts, enums, constants, and domain models.
 - `CPAD.Infrastructure`
@@ -64,7 +86,19 @@
 ## UI constraints
 
 - Main window is a native navigation shell.
-- Logs and diagnostics belong on dedicated pages, not an embedded host console.
+- Main navigation route tree must stay aligned with official CPA routes:
+  - `Dashboard`
+  - `Config`
+  - `AI Providers`
+  - `Auth Files`
+  - `OAuth`
+  - `Quota`
+  - `Usage`
+  - `Logs`
+  - `System`
+- AI Providers and Auth Files must preserve official secondary-page semantics through native route shells and back-stack handling.
+- Business pages may not directly use third-party UI namespaces; they must consume wrapped controls from `CPAD.Management.DesignSystem`.
+- Logs, editors, and charts belong on dedicated native pages, not an embedded host console or generic dynamic grid surface.
 - Closing the main window minimizes to tray by default.
 - Tray menu remains:
   - Open Main Interface

@@ -41,8 +41,29 @@ public sealed class ManagementApiClient : IManagementApiClient
             path,
             bearerToken: connection.ManagementKey,
             headers: null,
-            body,
-            contentType,
+            body is null ? null : new StringContent(body, Encoding.UTF8, contentType),
+            accept,
+            timeout,
+            cancellationToken);
+    }
+
+    public async Task<ManagementApiResponse<string>> SendManagementMultipartAsync(
+        HttpMethod method,
+        string path,
+        IReadOnlyList<ManagementMultipartFile> files,
+        IReadOnlyDictionary<string, string>? fields = null,
+        string? accept = "application/json",
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await _connectionProvider.GetConnectionAsync(cancellationToken);
+        return await SendAsync(
+            connection.ManagementApiBaseUrl,
+            method,
+            path,
+            bearerToken: connection.ManagementKey,
+            headers: null,
+            CreateMultipartContent(files, fields),
             accept,
             timeout,
             cancellationToken);
@@ -62,8 +83,7 @@ public sealed class ManagementApiClient : IManagementApiClient
             path,
             bearerToken: null,
             headers,
-            body: null,
-            contentType: "application/json",
+            content: null,
             accept,
             timeout,
             cancellationToken);
@@ -75,8 +95,7 @@ public sealed class ManagementApiClient : IManagementApiClient
         string path,
         string? bearerToken,
         IReadOnlyDictionary<string, string>? headers,
-        string? body,
-        string contentType,
+        HttpContent? content,
         string? accept,
         TimeSpan? timeout,
         CancellationToken cancellationToken)
@@ -85,7 +104,7 @@ public sealed class ManagementApiClient : IManagementApiClient
 
         for (var attempt = 1; attempt <= 2; attempt++)
         {
-            using var request = CreateRequest(baseUrl, method, path, bearerToken, headers, body, contentType, accept);
+            using var request = CreateRequest(baseUrl, method, path, bearerToken, headers, content, accept);
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeout ?? DefaultTimeout);
             var client = _httpClientFactory.CreateClient();
@@ -128,14 +147,14 @@ public sealed class ManagementApiClient : IManagementApiClient
             {
                 throw new ManagementApiException(
                     "The management API request timed out.",
-                    responseBody: body,
+                    responseBody: content is StringContent ? await content.ReadAsStringAsync(cancellationToken) : null,
                     innerException: exception);
             }
             catch (HttpRequestException exception)
             {
                 throw new ManagementApiException(
                     "The management API request failed.",
-                    responseBody: body,
+                    responseBody: content is StringContent ? await content.ReadAsStringAsync(cancellationToken) : null,
                     innerException: exception);
             }
         }
@@ -151,8 +170,7 @@ public sealed class ManagementApiClient : IManagementApiClient
         string path,
         string? bearerToken,
         IReadOnlyDictionary<string, string>? headers,
-        string? body,
-        string contentType,
+        HttpContent? content,
         string? accept)
     {
         var request = new HttpRequestMessage(method, BuildUri(baseUrl, path));
@@ -167,9 +185,9 @@ public sealed class ManagementApiClient : IManagementApiClient
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
         }
 
-        if (body is not null)
+        if (content is not null)
         {
-            request.Content = new StringContent(body, Encoding.UTF8, contentType);
+            request.Content = CloneContent(content);
         }
 
         if (headers is not null)
@@ -178,7 +196,7 @@ public sealed class ManagementApiClient : IManagementApiClient
             {
                 if (!request.Headers.TryAddWithoutValidation(pair.Key, pair.Value))
                 {
-                    request.Content ??= new StringContent(string.Empty, Encoding.UTF8, contentType);
+                    request.Content ??= new StringContent(string.Empty, Encoding.UTF8, "application/json");
                     request.Content.Headers.TryAddWithoutValidation(pair.Key, pair.Value);
                 }
             }
@@ -223,6 +241,104 @@ public sealed class ManagementApiClient : IManagementApiClient
         return response.Headers.TryGetValues(key, out var values)
             ? values.FirstOrDefault()
             : null;
+    }
+
+    private static MultipartFormDataContent CreateMultipartContent(
+        IReadOnlyList<ManagementMultipartFile> files,
+        IReadOnlyDictionary<string, string>? fields)
+    {
+        var content = new MultipartFormDataContent();
+
+        if (fields is not null)
+        {
+            foreach (var field in fields)
+            {
+                content.Add(new StringContent(field.Value, Encoding.UTF8), field.Key);
+            }
+        }
+
+        foreach (var file in files)
+        {
+            var fileContent = new ByteArrayContent(file.Content);
+            fileContent.Headers.ContentType = MediaTypeHeaderValue.Parse(file.ContentType);
+            content.Add(fileContent, file.FieldName, file.FileName);
+        }
+
+        return content;
+    }
+
+    private static HttpContent CloneContent(HttpContent content)
+    {
+        return content switch
+        {
+            StringContent stringContent => CloneStringContent(stringContent),
+            MultipartFormDataContent multipartContent => CloneMultipartContent(multipartContent),
+            ByteArrayContent byteArrayContent => CloneByteArrayContent(byteArrayContent),
+            _ => throw new NotSupportedException($"Unsupported content type: {content.GetType().Name}")
+        };
+    }
+
+    private static StringContent CloneStringContent(StringContent content)
+    {
+        var payload = content.ReadAsStringAsync().GetAwaiter().GetResult();
+        var mediaType = content.Headers.ContentType?.MediaType ?? "application/json";
+        var encodingName = content.Headers.ContentType?.CharSet;
+        var encoding = string.IsNullOrWhiteSpace(encodingName) ? Encoding.UTF8 : Encoding.GetEncoding(encodingName);
+        var clone = new StringContent(payload, encoding, mediaType);
+        CopyContentHeaders(content, clone, skipContentType: true);
+        return clone;
+    }
+
+    private static MultipartFormDataContent CloneMultipartContent(MultipartFormDataContent content)
+    {
+        var boundary = content.Headers.ContentType?.Parameters
+            .FirstOrDefault(parameter => string.Equals(parameter.Name, "boundary", StringComparison.OrdinalIgnoreCase))
+            ?.Value?.Trim('"');
+        var clone = string.IsNullOrWhiteSpace(boundary)
+            ? new MultipartFormDataContent()
+            : new MultipartFormDataContent(boundary);
+
+        foreach (var part in content)
+        {
+            var partClone = CloneContent(part);
+            var disposition = part.Headers.ContentDisposition;
+            if (disposition is not null)
+            {
+                partClone.Headers.ContentDisposition = new ContentDispositionHeaderValue(disposition.DispositionType)
+                {
+                    Name = disposition.Name,
+                    FileName = disposition.FileName,
+                    FileNameStar = disposition.FileNameStar
+                };
+            }
+
+            clone.Add(partClone);
+        }
+
+        CopyContentHeaders(content, clone, skipContentType: true);
+        return clone;
+    }
+
+    private static ByteArrayContent CloneByteArrayContent(ByteArrayContent content)
+    {
+        var payload = content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+        var clone = new ByteArrayContent(payload);
+        CopyContentHeaders(content, clone);
+        return clone;
+    }
+
+    private static void CopyContentHeaders(HttpContent source, HttpContent destination, bool skipContentType = false)
+    {
+        foreach (var header in source.Headers)
+        {
+            if (skipContentType &&
+                string.Equals(header.Key, "Content-Type", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            destination.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
     }
 
     private static ManagementApiException CreateException(HttpStatusCode statusCode, string payload)

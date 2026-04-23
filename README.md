@@ -11,7 +11,7 @@
   <br />
   C# / WPF / WebView2 / .NET 10 + 原版 CLIProxyAPI Go 后端 + 原版 Management WebUI
 </p>
-
+点击链接加入群聊【CPAD(CLI Proxy API Desktop)交流群】：https://qm.qq.com/q/HVH9TOEaYk
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6?style=flat-square" />
   <img alt=".NET" src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square" />

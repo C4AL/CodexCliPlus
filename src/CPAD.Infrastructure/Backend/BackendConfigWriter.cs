@@ -29,11 +29,9 @@ public sealed class BackendConfigWriter
 
     public async Task<BackendRuntimeInfo> WriteAsync(
         AppSettings settings,
-        BackendAssetLayout assetLayout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(assetLayout);
 
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
@@ -75,8 +73,7 @@ public sealed class BackendConfigWriter
             ConfigPath = _pathService.Directories.BackendConfigFilePath,
             BaseUrl = loopbackBaseUrl,
             HealthUrl = $"{loopbackBaseUrl}/healthz",
-            ManagementApiBaseUrl = $"{loopbackBaseUrl}/v0/management",
-            ManagementPageUrl = $"{loopbackBaseUrl}/management.html"
+            ManagementApiBaseUrl = $"{loopbackBaseUrl}/v0/management"
         };
     }
 
@@ -93,9 +90,8 @@ public sealed class BackendConfigWriter
             "remote-management:" + Environment.NewLine +
             "  allow-remote: false" + Environment.NewLine +
             $"  secret-key: \"{EscapeYaml(managementKey)}\"{Environment.NewLine}" +
-            "  disable-control-panel: false" + Environment.NewLine +
+            "  disable-control-panel: true" + Environment.NewLine +
             "  disable-auto-update-panel: true" + Environment.NewLine +
-            "  panel-github-repository: \"https://github.com/router-for-me/Cli-Proxy-API-Management-Center\"" + Environment.NewLine +
             $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}");
 
         var apiKeys = legacyConfig?.ApiKeys?.Where(key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal).ToArray()

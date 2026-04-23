@@ -285,25 +285,25 @@ public partial class MainWindow : Window
         return section.Key switch
         {
             "overview" =>
-                $"This native shell replaces the legacy WebView2 host. Current backend state: {backendStatus.State}. Data root: {_pathService.Directories.RootDirectory}. The dashboard content will be rebuilt from CPA-UV and Management Center semantics in phase 8.",
+                $"This native overview surfaces backend state, data root, and desktop health. Current backend state: {backendStatus.State}. Data root: {_pathService.Directories.RootDirectory}. Live dashboard data is being connected to the audited CPA-UV and Management Center sources.",
             "accounts" =>
-                "This route is reserved for OAuth, device flow, cookie import, management keys, and secure credential storage. The native page will be mapped to the audited Management Center authentication flows in phase 8.",
+                "This route is reserved for OAuth, device flow, cookie import, management keys, and secure credential storage. The native workflow will be mapped to the audited Management Center authentication flows.",
             "quota" =>
-                "This route is reserved for quota, request counts, token usage, and model-level usage summaries. The final content will follow the Management Center quota and usage semantics.",
+                "This route is reserved for quota, request counts, token usage, and model-level usage summaries. The native page will follow the Management Center quota and usage semantics.",
             "config" =>
-                "This route is reserved for native configuration editing, validation, save, and round-trip display of backend settings. The underlying configuration services are already in place from phase 4.",
+                "This route is reserved for native configuration editing, validation, save, and round-trip display of backend settings. The managed configuration services are already in place underneath the shell.",
             "logs" =>
-                "This route is reserved for log browsing, filtering, request diagnostics, and diagnostics export. The diagnostics service is already buildable and will be surfaced here in later phases.",
+                "This route is reserved for log browsing, filtering, request diagnostics, and diagnostics export. Logs stay on their own page rather than returning to an embedded host console.",
             "system" =>
                 $"This route is reserved for backend health, model availability, and connectivity. Current backend state is {backendStatus.State}; use the shell action to start or restart the managed process.",
             "tools" =>
-                "This route is reserved for official/cpa source switching and desktop tool integration entry points. The later page will align to the audited Management Center and CPA-UV references.",
+                "This route is reserved for official/cpa source switching and desktop tool integration entry points. The page will align to the audited Management Center and CPA-UV references.",
             "updates" =>
                 "This route is reserved for GitHub Releases based stable update checks, a reserved beta channel, and package/version diagnostics.",
             "settings" =>
                 "This route is reserved for theme, startup, tray, directory, update, and privacy preferences. Theme switching already works at the shell level and persists to desktop settings.",
             "about" =>
-                $"Cli Proxy API Desktop {_buildInfo.InformationalVersion}. This shell stage aligns the product with the CPAD structure and prepares the application for the remaining native rewrite phases.",
+                $"Cli Proxy API Desktop {_buildInfo.InformationalVersion}. The native desktop shell now manages the backend directly and is being expanded page by page around the audited management APIs.",
             _ => section.Subtitle
         };
     }
@@ -312,9 +312,9 @@ public partial class MainWindow : Window
     {
         return section.Key switch
         {
-            "overview" => "Shell structure follows the BetterGI main window pattern: prominent header, left navigation, content region, and tray-first interaction.",
+            "overview" => "Shell structure follows the BetterGI main window pattern, while overview semantics are being aligned to CPA-UV and the Management Center dashboard.",
             "updates" => "Stable updates are planned against GitHub Releases. Beta remains reserved for a later phase.",
-            _ => "Navigation routes are fixed now so later phases can replace placeholders with Management Center backed native pages without changing shell structure."
+            _ => "This route is reserved in the native shell and will be connected to the audited management APIs without reintroducing the old WebView host."
         };
     }
 
@@ -358,7 +358,7 @@ public partial class MainWindow : Window
     {
         System.Windows.MessageBox.Show(
             this,
-            "Stable updates and installer integration are planned for phase 10. This menu entry is wired now to satisfy the native shell interaction flow.",
+            "Stable update checks will be connected after the native update flow lands. The entry is wired now so tray and shell behavior remain stable.",
             "Check Updates",
             System.Windows.MessageBoxButton.OK,
             System.Windows.MessageBoxImage.Information);

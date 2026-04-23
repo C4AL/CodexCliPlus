@@ -25,15 +25,10 @@ public sealed class BackendConfigWriterTests : IDisposable
             BackendPort = 9317,
             PreferredCodexSource = CodexSourceKind.Official
         };
-        var assetLayout = new BackendAssetLayout(
-            Path.Combine(_rootDirectory, "backend"),
-            Path.Combine(_rootDirectory, "backend", "cli-proxy-api.exe"),
-            Path.Combine(_rootDirectory, "backend", "static"),
-            Path.Combine(_rootDirectory, "backend", "static", "management.html"));
 
-        var runtime = await writer.WriteAsync(settings, assetLayout);
+        var runtime = await writer.WriteAsync(settings);
         var yaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
-        var secondRuntime = await writer.WriteAsync(settings, assetLayout);
+        var secondRuntime = await writer.WriteAsync(settings);
         var secondYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
 
         Assert.Equal(9317, runtime.RequestedPort);
@@ -46,6 +41,8 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.Contains("host: \"127.0.0.1\"", yaml, StringComparison.Ordinal);
         Assert.Contains("allow-remote: false", yaml, StringComparison.Ordinal);
         Assert.Contains("secret-key:", yaml, StringComparison.Ordinal);
+        Assert.Contains("disable-control-panel: true", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("panel-github-repository", yaml, StringComparison.Ordinal);
 
         var match = Regex.Match(yaml, "secret-key: \"(?<hash>.+)\"");
         var secondMatch = Regex.Match(secondYaml, "secret-key: \"(?<hash>.+)\"");
@@ -66,12 +63,7 @@ public sealed class BackendConfigWriterTests : IDisposable
         listener.Start();
 
         var runtime = await writer.WriteAsync(
-            new AppSettings { BackendPort = 9327 },
-            new BackendAssetLayout(
-                Path.Combine(_rootDirectory, "backend"),
-                Path.Combine(_rootDirectory, "backend", "cli-proxy-api.exe"),
-                Path.Combine(_rootDirectory, "backend", "static"),
-                Path.Combine(_rootDirectory, "backend", "static", "management.html")));
+            new AppSettings { BackendPort = 9327 });
 
         Assert.Equal(9327, runtime.RequestedPort);
         Assert.NotEqual(9327, runtime.Port);

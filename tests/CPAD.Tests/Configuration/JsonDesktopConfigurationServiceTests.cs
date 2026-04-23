@@ -17,7 +17,6 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var service = new JsonAppConfigurationService(pathService);
         var expected = new AppSettings
         {
-            OnboardingCompleted = true,
             BackendPort = 9417,
             ManagementKey = "test-key",
             ManagementKeyReference = "desktop-management-key",
@@ -32,7 +31,6 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var actual = await service.LoadAsync();
         var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
 
-        Assert.True(actual.OnboardingCompleted);
         Assert.Equal(9417, actual.BackendPort);
         Assert.Equal("test-key", actual.ManagementKey);
         Assert.Equal("desktop-management-key", actual.ManagementKeyReference);

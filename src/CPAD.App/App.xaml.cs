@@ -17,7 +17,6 @@ public partial class App : System.Windows.Application
         var services = new ServiceCollection();
         services.AddCpadInfrastructure();
         services.AddSingleton<IBuildInfo, BuildInfo>();
-        services.AddSingleton<WebView2RuntimeService>();
         services.AddSingleton<MainWindow>();
 
         _serviceProvider = services.BuildServiceProvider();

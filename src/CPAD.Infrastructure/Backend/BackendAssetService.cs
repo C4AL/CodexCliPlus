@@ -16,12 +16,6 @@ public sealed class BackendAssetService
     private const string BackendArchiveSha256 =
         "34ca9b7bf53a6dd89b874ed3e204371673b7eb1abf34792498af4e65bf204815";
 
-    private const string ManagementHtmlUrl =
-        "https://github.com/router-for-me/Cli-Proxy-API-Management-Center/releases/download/v1.7.41/management.html";
-
-    private const string ManagementHtmlSha256 =
-        "5df3cf888afab7678ee94f6041fb6584796c203092f3e270c00db6a43dfcaa99";
-
     private readonly HttpClient _httpClient;
     private readonly IPathService _pathService;
     private readonly IAppLogger _logger;
@@ -39,65 +33,58 @@ public sealed class BackendAssetService
 
         var workingDirectory = _pathService.Directories.BackendDirectory;
         var executablePath = Path.Combine(workingDirectory, "cli-proxy-api.exe");
-        var staticDirectory = Path.Combine(workingDirectory, "static");
-        var managementHtmlPath = Path.Combine(staticDirectory, "management.html");
 
         Directory.CreateDirectory(workingDirectory);
-        Directory.CreateDirectory(staticDirectory);
 
-        if (File.Exists(executablePath) && File.Exists(managementHtmlPath))
+        if (File.Exists(executablePath))
         {
-            return CreateLayout(workingDirectory, executablePath, staticDirectory, managementHtmlPath);
+            return CreateLayout(workingDirectory, executablePath);
         }
 
-        if (TryCopyFromBundledAssets(executablePath, managementHtmlPath))
+        if (TryCopyFromBundledAssets(workingDirectory, executablePath))
         {
-            _logger.Info("Copied backend assets from the application bundle.");
-            return CreateLayout(workingDirectory, executablePath, staticDirectory, managementHtmlPath);
+            _logger.Info("Copied backend files from the application bundle.");
+            return CreateLayout(workingDirectory, executablePath);
         }
 
-        if (TryCopyFromRepositoryAssets(workingDirectory, executablePath, managementHtmlPath))
+        if (TryCopyFromRepositoryAssets(workingDirectory, executablePath))
         {
-            _logger.Info("Copied backend assets from repository resources.");
-            return CreateLayout(workingDirectory, executablePath, staticDirectory, managementHtmlPath);
+            _logger.Info("Copied backend files from repository resources.");
+            return CreateLayout(workingDirectory, executablePath);
         }
 
-        _logger.Info("Downloading CLIProxyAPI backend and management panel assets.");
+        _logger.Info("Downloading CLIProxyAPI backend assets.");
         await DownloadBackendArchiveAsync(workingDirectory, executablePath, cancellationToken);
-        await DownloadManagementHtmlAsync(managementHtmlPath, cancellationToken);
 
-        return CreateLayout(workingDirectory, executablePath, staticDirectory, managementHtmlPath);
+        return CreateLayout(workingDirectory, executablePath);
     }
 
     private static BackendAssetLayout CreateLayout(
         string workingDirectory,
-        string executablePath,
-        string staticDirectory,
-        string managementHtmlPath)
+        string executablePath)
     {
-        return new BackendAssetLayout(workingDirectory, executablePath, staticDirectory, managementHtmlPath);
+        return new BackendAssetLayout(workingDirectory, executablePath);
     }
 
-    private static bool TryCopyFromBundledAssets(string executablePath, string managementHtmlPath)
+    private static bool TryCopyFromBundledAssets(string workingDirectory, string executablePath)
     {
         var assetsRoot = Path.Combine(AppContext.BaseDirectory, "assets");
-        var bundledExecutable = Path.Combine(assetsRoot, "backend", "windows-x64", "cli-proxy-api.exe");
-        var bundledManagementHtml = Path.Combine(assetsRoot, "webview2", "management.html");
+        var bundledBackendDirectory = Path.Combine(assetsRoot, "backend", "windows-x64");
+        var bundledExecutable = Path.Combine(bundledBackendDirectory, "cli-proxy-api.exe");
 
-        if (!File.Exists(bundledExecutable) || !File.Exists(bundledManagementHtml))
+        if (!File.Exists(bundledExecutable))
         {
             return false;
         }
 
         CopyAssetFile(bundledExecutable, executablePath);
-        CopyAssetFile(bundledManagementHtml, managementHtmlPath);
+        CopyDocumentationFiles(bundledBackendDirectory, workingDirectory);
         return true;
     }
 
     private static bool TryCopyFromRepositoryAssets(
         string workingDirectory,
-        string executablePath,
-        string managementHtmlPath)
+        string executablePath)
     {
         var repositoryRoot = TryFindRepositoryRoot();
         if (repositoryRoot is null)
@@ -106,25 +93,16 @@ public sealed class BackendAssetService
         }
 
         var resourcesRoot = Path.Combine(repositoryRoot, AppConstants.ResourcesDirectoryName);
-        var repositoryExecutable = Path.Combine(resourcesRoot, "backend", "windows-x64", "cli-proxy-api.exe");
-        var repositoryManagementHtml = Path.Combine(resourcesRoot, "webview2", "management.html");
+        var repositoryBackendDirectory = Path.Combine(resourcesRoot, "backend", "windows-x64");
+        var repositoryExecutable = Path.Combine(repositoryBackendDirectory, "cli-proxy-api.exe");
 
-        if (!File.Exists(repositoryExecutable) || !File.Exists(repositoryManagementHtml))
+        if (!File.Exists(repositoryExecutable))
         {
             return false;
         }
 
         CopyAssetFile(repositoryExecutable, executablePath);
-        CopyAssetFile(repositoryManagementHtml, managementHtmlPath);
-
-        foreach (var fileName in new[] { "LICENSE", "README.md", "README_CN.md", "config.example.yaml" })
-        {
-            var sourcePath = Path.Combine(resourcesRoot, "backend", "windows-x64", fileName);
-            if (File.Exists(sourcePath))
-            {
-                CopyAssetFile(sourcePath, Path.Combine(workingDirectory, fileName));
-            }
-        }
+        CopyDocumentationFiles(repositoryBackendDirectory, workingDirectory);
 
         return true;
     }
@@ -155,15 +133,16 @@ public sealed class BackendAssetService
         }
     }
 
-    private async Task DownloadManagementHtmlAsync(string managementHtmlPath, CancellationToken cancellationToken)
+    private static void CopyDocumentationFiles(string sourceDirectory, string workingDirectory)
     {
-        var managementHtmlBytes = await DownloadAndValidateAsync(
-            ManagementHtmlUrl,
-            ManagementHtmlSha256,
-            cancellationToken);
-
-        Directory.CreateDirectory(Path.GetDirectoryName(managementHtmlPath)!);
-        await File.WriteAllBytesAsync(managementHtmlPath, managementHtmlBytes, cancellationToken);
+        foreach (var fileName in new[] { "LICENSE", "README.md", "README_CN.md", "config.example.yaml" })
+        {
+            var sourcePath = Path.Combine(sourceDirectory, fileName);
+            if (File.Exists(sourcePath))
+            {
+                CopyAssetFile(sourcePath, Path.Combine(workingDirectory, fileName));
+            }
+        }
     }
 
     private async Task<byte[]> DownloadAndValidateAsync(

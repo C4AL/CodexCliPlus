@@ -5,8 +5,6 @@ namespace CPAD.Core.Models;
 
 public sealed class AppSettings
 {
-    public bool OnboardingCompleted { get; set; }
-
     public int BackendPort { get; set; } = AppConstants.DefaultBackendPort;
 
     public string ManagementKey { get; set; } = string.Empty;

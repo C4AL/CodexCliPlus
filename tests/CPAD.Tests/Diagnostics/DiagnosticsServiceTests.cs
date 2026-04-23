@@ -31,7 +31,7 @@ public sealed class DiagnosticsServiceTests : IDisposable
             },
             new DependencyCheckResult
             {
-                Summary = "WebView2 Runtime is available."
+                Summary = "Desktop dependency check passed."
             });
 
         var content = File.ReadAllText(snapshotPath);

@@ -76,18 +76,14 @@ public sealed class BackendProcessManager : IDisposable
 
             var assetLayout = await _assetService.EnsureAssetsAsync(cancellationToken);
             var settings = await _configurationService.LoadAsync(cancellationToken);
-            var runtime = await _configWriter.WriteAsync(settings, assetLayout, cancellationToken);
+            var runtime = await _configWriter.WriteAsync(settings, cancellationToken);
 
             _stopRequested = false;
             _managedProcess = await _processService.StartAsync(
                 new ManagedProcessStartInfo(
                     assetLayout.ExecutablePath,
                     $"-config \"{runtime.ConfigPath}\"",
-                    assetLayout.WorkingDirectory,
-                    new Dictionary<string, string?>
-                    {
-                        ["MANAGEMENT_STATIC_PATH"] = assetLayout.ManagementHtmlPath
-                    }),
+                    assetLayout.WorkingDirectory),
                 line => AppendLogLine($"[stdout] {line}"),
                 line => AppendLogLine($"[stderr] {line}"),
                 cancellationToken);

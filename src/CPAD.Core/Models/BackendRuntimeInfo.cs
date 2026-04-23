@@ -19,6 +19,4 @@ public sealed class BackendRuntimeInfo
     public required string HealthUrl { get; init; }
 
     public required string ManagementApiBaseUrl { get; init; }
-
-    public required string ManagementPageUrl { get; init; }
 }

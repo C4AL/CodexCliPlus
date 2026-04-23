@@ -46,11 +46,6 @@ dotnet run --project apps/CPAD.Service
 dotnet run --project apps/CPAD.Desktop
 ```
 
-本地服务默认地址：
-
-```text
-http://127.0.0.1:17320
-```
 
 ## Star History
 

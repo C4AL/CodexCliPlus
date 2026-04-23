@@ -16,6 +16,7 @@ using CPAD.Core.Enums;
 using CPAD.Core.Models;
 using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
+using CPAD.Infrastructure.Codex;
 using CPAD.Infrastructure.Diagnostics;
 
 using Microsoft.Win32;
@@ -40,6 +41,11 @@ public partial class MainWindow : Window
     private readonly IManagementUsageService _usageService;
     private readonly IAppConfigurationService _configurationService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly CodexLocator _codexLocator;
+    private readonly CodexVersionReader _codexVersionReader;
+    private readonly CodexAuthStateReader _codexAuthStateReader;
+    private readonly CodexConfigService _codexConfigService;
+    private readonly CodexLaunchService _codexLaunchService;
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
     private readonly DiagnosticsService _diagnosticsService;
@@ -63,6 +69,11 @@ public partial class MainWindow : Window
         IManagementUsageService usageService,
         IAppConfigurationService configurationService,
         IHttpClientFactory httpClientFactory,
+        CodexLocator codexLocator,
+        CodexVersionReader codexVersionReader,
+        CodexAuthStateReader codexAuthStateReader,
+        CodexConfigService codexConfigService,
+        CodexLaunchService codexLaunchService,
         IPathService pathService,
         IBuildInfo buildInfo,
         DiagnosticsService diagnosticsService)
@@ -77,6 +88,11 @@ public partial class MainWindow : Window
         _usageService = usageService;
         _configurationService = configurationService;
         _httpClientFactory = httpClientFactory;
+        _codexLocator = codexLocator;
+        _codexVersionReader = codexVersionReader;
+        _codexAuthStateReader = codexAuthStateReader;
+        _codexConfigService = codexConfigService;
+        _codexLaunchService = codexLaunchService;
         _pathService = pathService;
         _buildInfo = buildInfo;
         _diagnosticsService = diagnosticsService;
@@ -92,6 +108,8 @@ public partial class MainWindow : Window
     {
         _settings = await _configurationService.LoadAsync();
         _managementKeyDraft = _settings.ManagementKey;
+        _toolsSelectedSource = _settings.PreferredCodexSource;
+        _toolsRepositoryPathDraft = _settings.LastRepositoryPath ?? string.Empty;
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
         UpdateSelectedSection();
@@ -177,6 +195,9 @@ public partial class MainWindow : Window
             case "system":
                 await RefreshSystemAsync(force: true);
                 break;
+            case "tools":
+                await ApplyToolsSourceAsync();
+                break;
             case "updates":
                 ShowUpdatesPlaceholder();
                 break;
@@ -219,6 +240,12 @@ public partial class MainWindow : Window
             }
 
             await RefreshSystemAsync(force: true);
+            return;
+        }
+
+        if (section?.Key == "tools")
+        {
+            await RefreshToolsAsync(force: true);
             return;
         }
 
@@ -381,6 +408,20 @@ public partial class MainWindow : Window
                 if (_systemLastLoadedAt is null && !_systemLoading)
                 {
                     _ = RefreshSystemAsync(force: false);
+                }
+
+                break;
+            case "tools":
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
+                SecondaryPageActionButton.Visibility = Visibility.Visible;
+                PrimaryPageActionButton.Content = _toolsApplying ? "Applying..." : "Apply Source Switch";
+                PrimaryPageActionButton.IsEnabled = !_toolsLoading && !_toolsApplying;
+                SecondaryPageActionButton.Content = _toolsLoading ? "Refreshing..." : "Refresh Tools";
+                SecondaryPageActionButton.IsEnabled = !_toolsLoading && !_toolsApplying;
+                PageContentHost.Content = BuildToolsContent();
+                if (_toolsLastLoadedAt is null && !_toolsLoading)
+                {
+                    _ = RefreshToolsAsync(force: false);
                 }
 
                 break;

@@ -27,10 +27,10 @@
 ### 0.2 代码与分支规则
 - [x] 在 `main` 上推进，但**每次提交都必须可编译**。
 - [x] 每个阶段至少 1 次本地提交，提交说明清晰描述阶段目标。
-- [ ] 如阶段内改动较大，可拆成多个小提交，但必须保证每个提交均能通过最低验收。
+- [x] 如阶段内改动较大，可拆成多个小提交，但必须保证每个提交均能通过最低验收。
 
 ### 0.3 输出与记录规则
-- [ ] 每完成一个步骤，立即在本文件对应 checkbox 打勾。
+- [x] 每完成一个步骤，立即在本文件对应 checkbox 打勾。
 - [x] 每完成一个阶段，在阶段末尾补充“阶段结果记录”。
 - [x] 如发现文档与现实冲突，应优先做**最小偏差实现**，并在阶段结果记录说明。
 - [x] 除最后一步外，**禁止删除或重命名本文件**。
@@ -46,6 +46,10 @@
 - [ ] 所有必须测试通过。
 - [ ] 本文件在完成全部工作后删除。
 - [ ] 最终提交 push 到远端 `origin/main`。
+
+### 0.5 外部参考仓库基线
+> - 本轮继续开发前已同步并读取外部参考仓库：BetterGI `8363717`、CPA-UV `788076c`、Blackblock Management Center `b45639a`、upstream CLIProxyAPI `a188159`、upstream Management Center `b45639a`。
+> - 参考依据落地方式：BetterGI 用于原生窗口/导航/托盘交互取向；CPA-UV 用于概览、配额、系统和桌面工具语义；两个 Management Center 与 CLIProxyAPI upstream 用于 Management API、OAuth、配置、日志、系统和版本能力边界。
 
 ---
 
@@ -73,7 +77,7 @@
   - [x] 重启后端
   - [x] 检查更新
   - [x] 退出并停止后端
-- [ ] 退出并停止后端时，清理运行期残留进程与临时资源。
+- [x] 退出并停止后端时，清理运行期残留进程与临时资源。
 
 ### 1.4 凭据与安全
 - [x] 优先使用 Windows Credential Manager / DPAPI。
@@ -96,7 +100,7 @@
 ### 1.6 资源与命名
 - [x] 产品名：`Cli Proxy API Desktop`
 - [x] EXE：`CPAD.exe`
-- [ ] 安装器名：`CPAD.Setup.<version>.exe`
+- [x] 安装器名：`CPAD.Setup.<version>.exe`
 - [x] AppUserModelID：`BlackblockInc.CPAD`
 - [x] 托盘提示名：`Cli Proxy API Desktop`
 - [x] 设置目录名：`CPAD`
@@ -112,7 +116,7 @@
 - [x] 配置
 - [x] 日志与请求诊断
 - [x] 系统与模型
-- [ ] 源切换与工具集成
+- [x] 源切换与工具集成
 - [ ] 更新与版本
 - [ ] 设置
 - [ ] 关于
@@ -313,9 +317,9 @@
 - [x] 验收：系统状态可实时刷新。
 
 ### 8.7 源切换与工具集成页
-- [ ] 实现 `official / cpa` 源切换。
-- [ ] 保留桌面侧工具整合入口。
-- [ ] 验收：切换真实生效，必要时可恢复默认。
+- [x] 实现 `official / cpa` 源切换。
+- [x] 保留桌面侧工具整合入口。
+- [x] 验收：切换真实生效，必要时可恢复默认。
 
 ### 8.8 更新与版本页
 - [ ] 接入 Stable 更新查询。
@@ -346,9 +350,9 @@
 - [ ] 验收：依赖异常时可正确进入修复模式。
 
 ### 8.12 阶段结果记录
-> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看；配额与用量页（8.3）已接入 `/usage`、`/usage/export`、`/usage/import` 与 `/auth-files`，展示请求数、成功率、Token、RPM/TPM、分 API/分模型统计、认证文件配额信号与最近请求事件；配置页（8.4）已接入 `/config`、`/config.yaml`、`/debug`、`/proxy-url`、`/request-retry`、`/max-retry-interval`、`/quota-exceeded/*`、`/usage-statistics-enabled`、`/request-log`、`/logging-to-file`、`/logs-max-total-size-mb`、`/error-logs-max-files`、`/ws-auth`、`/force-model-prefix` 与 `/routing/strategy`，同时提供结构化表单编辑、原始 YAML 校验保存、后端错误提示与回显快照；日志与请求诊断页（8.5）已接入 `/logs`、`/request-error-logs`、`/request-log-by-id/:id`、`DELETE /logs` 和桌面诊断包导出，支持独立日志浏览、搜索/等级筛选、请求诊断、错误日志清单与脱敏诊断包导出；系统与模型页（8.6）已接入 `/latest-version`、`/v1/models`、`/api-call` 与本地 `/healthz`，展示桌面托管状态、版本元数据、模型分组、健康检查和可编辑连通性探针。
-> - 仍待打磨页面：源切换与工具集成、更新与版本、设置、关于、依赖修复页。
-> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）；8.3 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（37/37）与 UI Automation smoke（进入 Quota & Usage 并确认 Usage Summary、Quota Signals、Requests by API、Requests by Model、Recent Request Events 区块）；8.4 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（38/38）与 UI Automation smoke（进入 Configuration 并确认 Editable Settings、Raw YAML Editor、Validation & Echo、Live Snapshot、Apply Structured Changes、Validate & Save YAML 入口）；8.5 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（39/39）与 UI Automation smoke（进入 Logs & Diagnostics 并确认 Log Browser、Request Diagnostics、Diagnostics Export、Refresh Logs、Export Diagnostic Package 入口）；8.6 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（40/40）与 UI Automation smoke（进入 System & Models 并确认 System Status、Health Check、Model Inventory、Connectivity Probe、Refresh System Status、Run Connectivity Probe 入口）。
+> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看；配额与用量页（8.3）已接入 `/usage`、`/usage/export`、`/usage/import` 与 `/auth-files`，展示请求数、成功率、Token、RPM/TPM、分 API/分模型统计、认证文件配额信号与最近请求事件；配置页（8.4）已接入 `/config`、`/config.yaml`、`/debug`、`/proxy-url`、`/request-retry`、`/max-retry-interval`、`/quota-exceeded/*`、`/usage-statistics-enabled`、`/request-log`、`/logging-to-file`、`/logs-max-total-size-mb`、`/error-logs-max-files`、`/ws-auth`、`/force-model-prefix` 与 `/routing/strategy`，同时提供结构化表单编辑、原始 YAML 校验保存、后端错误提示与回显快照；日志与请求诊断页（8.5）已接入 `/logs`、`/request-error-logs`、`/request-log-by-id/:id`、`DELETE /logs` 和桌面诊断包导出，支持独立日志浏览、搜索/等级筛选、请求诊断、错误日志清单与脱敏诊断包导出；系统与模型页（8.6）已接入 `/latest-version`、`/v1/models`、`/api-call` 与本地 `/healthz`，展示桌面托管状态、版本元数据、模型分组、健康检查和可编辑连通性探针；源切换与工具集成页（8.7）已接入 `CodexConfigService`、`CodexLocator`、`CodexVersionReader`、`CodexAuthStateReader` 与 `CodexLaunchService`，支持 `official/cpa` 真实 profile/auth 切换、官方 auth 备份恢复、CPA 本地后端 profile 写入、命令预览和桌面工具目录入口。
+> - 仍待打磨页面：更新与版本、设置、关于、依赖修复页。
+> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）；8.3 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（37/37）与 UI Automation smoke（进入 Quota & Usage 并确认 Usage Summary、Quota Signals、Requests by API、Requests by Model、Recent Request Events 区块）；8.4 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（38/38）与 UI Automation smoke（进入 Configuration 并确认 Editable Settings、Raw YAML Editor、Validation & Echo、Live Snapshot、Apply Structured Changes、Validate & Save YAML 入口）；8.5 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（39/39）与 UI Automation smoke（进入 Logs & Diagnostics 并确认 Log Browser、Request Diagnostics、Diagnostics Export、Refresh Logs、Export Diagnostic Package 入口）；8.6 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（40/40）与 UI Automation smoke（进入 System & Models 并确认 System Status、Health Check、Model Inventory、Connectivity Probe、Refresh System Status、Run Connectivity Probe 入口）；8.7 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（42/42）与隔离 UI Automation smoke（进入 Sources & Tools 并确认 Source Switching、Codex Desktop Integration、Desktop Tool Entries、Apply Source Switch、Launch Selected Source、Refresh Codex Status 入口）。
 
 ---
 

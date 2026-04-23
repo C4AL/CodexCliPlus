@@ -169,10 +169,11 @@
                          Margin="0,18,0,0"
                          Background="Transparent"
                          BorderThickness="0"
+                         VirtualizingStackPanel.IsVirtualizing="False"
                          SelectionChanged="NavigationList_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid>
+                            <Grid AutomationProperties.Name="{Binding Title}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="24" />
                                     <ColumnDefinition Width="*" />

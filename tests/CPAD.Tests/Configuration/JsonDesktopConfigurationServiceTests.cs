@@ -70,6 +70,37 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.True(File.Exists(Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "management-key.bin")));
     }
 
+    [Fact]
+    public async Task SaveAndLoadAsyncPreservesShellAndUpdatePreferences()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var service = new JsonAppConfigurationService(pathService);
+        var expected = new AppSettings
+        {
+            BackendPort = 8317,
+            StartWithWindows = true,
+            MinimizeToTrayOnClose = false,
+            EnableTrayIcon = false,
+            CheckForUpdatesOnStartup = false,
+            UseBetaChannel = true,
+            ThemeMode = AppThemeMode.Light,
+            MinimumLogLevel = AppLogLevel.Error,
+            EnableDebugTools = true
+        };
+
+        await service.SaveAsync(expected);
+        var actual = await service.LoadAsync();
+
+        Assert.True(actual.StartWithWindows);
+        Assert.False(actual.MinimizeToTrayOnClose);
+        Assert.False(actual.EnableTrayIcon);
+        Assert.False(actual.CheckForUpdatesOnStartup);
+        Assert.True(actual.UseBetaChannel);
+        Assert.Equal(AppThemeMode.Light, actual.ThemeMode);
+        Assert.Equal(AppLogLevel.Error, actual.MinimumLogLevel);
+        Assert.True(actual.EnableDebugTools);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_rootDirectory))

@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 
 using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Exceptions;
 using CPAD.Core.Models;
 using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
@@ -125,6 +127,80 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
 
             authFiles = await authService.GetAuthFilesAsync();
             Assert.DoesNotContain(authFiles.Value, item => item.Name == authFileName);
+        }
+        finally
+        {
+            await manager.StopAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ConfigurationServiceMutatesAndValidatesLiveBackendStateThroughAuditedEndpoints()
+    {
+        var manager = CreateManager();
+        var running = await manager.StartAsync();
+
+        try
+        {
+            Assert.Equal(Core.Enums.BackendStateKind.Running, running.State);
+
+            var services = new ServiceCollection()
+                .AddHttpClient()
+                .BuildServiceProvider();
+            var connectionProvider = new BackendManagementConnectionProvider(manager);
+            var apiClient = new ManagementApiClient(connectionProvider, services.GetRequiredService<IHttpClientFactory>());
+            var configService = new ManagementConfigurationService(apiClient);
+
+            await configService.UpdateBooleanSettingAsync("debug", true);
+            await configService.UpdateBooleanSettingAsync("usage-statistics-enabled", true);
+            await configService.UpdateBooleanSettingAsync("request-log", true);
+            await configService.UpdateBooleanSettingAsync("logging-to-file", true);
+            await configService.UpdateBooleanSettingAsync("ws-auth", true);
+            await configService.UpdateBooleanSettingAsync("force-model-prefix", true);
+            await configService.UpdateBooleanSettingAsync("quota-exceeded/switch-project", true);
+            await configService.UpdateBooleanSettingAsync("quota-exceeded/switch-preview-model", true);
+            await configService.UpdateIntegerSettingAsync("request-retry", 7);
+            await configService.UpdateIntegerSettingAsync("max-retry-interval", 21);
+            await configService.UpdateIntegerSettingAsync("logs-max-total-size-mb", 128);
+            await configService.UpdateIntegerSettingAsync("error-logs-max-files", 9);
+            await configService.UpdateStringSettingAsync("routing/strategy", "fill-first");
+            await configService.UpdateStringSettingAsync("proxy-url", "http://127.0.0.1:8888");
+
+            var config = await configService.GetConfigAsync();
+            Assert.True(config.Value.Debug);
+            Assert.True(config.Value.UsageStatisticsEnabled);
+            Assert.True(config.Value.RequestLog);
+            Assert.True(config.Value.LoggingToFile);
+            Assert.True(config.Value.WebSocketAuth);
+            Assert.True(config.Value.ForceModelPrefix);
+            Assert.Equal(7, config.Value.RequestRetry);
+            Assert.Equal(21, config.Value.MaxRetryInterval);
+            Assert.Equal(128, config.Value.LogsMaxTotalSizeMb);
+            Assert.Equal(9, config.Value.ErrorLogsMaxFiles);
+            Assert.Equal("fill-first", config.Value.RoutingStrategy);
+            Assert.Equal("http://127.0.0.1:8888", config.Value.ProxyUrl);
+            Assert.True(config.Value.QuotaExceeded?.SwitchProject);
+            Assert.True(config.Value.QuotaExceeded?.SwitchPreviewModel);
+
+            await configService.DeleteSettingAsync("proxy-url");
+            config = await configService.GetConfigAsync();
+            Assert.True(string.IsNullOrWhiteSpace(config.Value.ProxyUrl));
+
+            var yaml = await configService.GetConfigYamlAsync();
+            var requestRetryPattern = new Regex(@"(?m)^request-retry:\s*\d+\s*$");
+            Assert.Matches(requestRetryPattern, yaml.Value);
+
+            var updatedYaml = requestRetryPattern.Replace(yaml.Value, "request-retry: 11", 1);
+            await configService.PutConfigYamlAsync(updatedYaml);
+
+            config = await configService.GetConfigAsync();
+            Assert.Equal(11, config.Value.RequestRetry);
+
+            var echoedYaml = await configService.GetConfigYamlAsync();
+            Assert.Contains("request-retry: 11", echoedYaml.Value, StringComparison.Ordinal);
+
+            var exception = await Assert.ThrowsAsync<ManagementApiException>(() => configService.PutConfigYamlAsync("request-retry: ["));
+            Assert.True(exception.StatusCode is 400 or 422);
         }
         finally
         {

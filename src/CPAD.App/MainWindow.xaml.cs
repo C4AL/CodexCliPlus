@@ -11,6 +11,7 @@ using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Configuration;
 using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Abstractions.Updates;
 using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
     private readonly DiagnosticsService _diagnosticsService;
+    private readonly IUpdateCheckService _updateCheckService;
     private readonly List<ShellSection> _sections = CreateSections();
 
     private AppSettings _settings = new();
@@ -76,7 +78,8 @@ public partial class MainWindow : Window
         CodexLaunchService codexLaunchService,
         IPathService pathService,
         IBuildInfo buildInfo,
-        DiagnosticsService diagnosticsService)
+        DiagnosticsService diagnosticsService,
+        IUpdateCheckService updateCheckService)
     {
         _backendAssetService = backendAssetService;
         _backendProcessManager = backendProcessManager;
@@ -96,6 +99,7 @@ public partial class MainWindow : Window
         _pathService = pathService;
         _buildInfo = buildInfo;
         _diagnosticsService = diagnosticsService;
+        _updateCheckService = updateCheckService;
 
         InitializeComponent();
 
@@ -110,11 +114,17 @@ public partial class MainWindow : Window
         _managementKeyDraft = _settings.ManagementKey;
         _toolsSelectedSource = _settings.PreferredCodexSource;
         _toolsRepositoryPathDraft = _settings.LastRepositoryPath ?? string.Empty;
+        _updatesChannelDraft = _settings.UseBetaChannel ? UpdateChannel.Beta : UpdateChannel.Stable;
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
         UpdateSelectedSection();
         UpdateBackendStatus(_backendProcessManager.CurrentStatus);
         UpdateFooter();
+
+        if (_settings.CheckForUpdatesOnStartup)
+        {
+            _ = RefreshUpdatesAsync(force: true);
+        }
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -154,7 +164,7 @@ public partial class MainWindow : Window
 
     private void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        ShowUpdatesPlaceholder();
+        OpenUpdatesPage(startCheck: true);
     }
 
     private async void BackendActionButton_Click(object sender, RoutedEventArgs e)
@@ -199,7 +209,7 @@ public partial class MainWindow : Window
                 await ApplyToolsSourceAsync();
                 break;
             case "updates":
-                ShowUpdatesPlaceholder();
+                await RefreshUpdatesAsync(force: true);
                 break;
             default:
                 RestoreFromTray();
@@ -246,6 +256,12 @@ public partial class MainWindow : Window
         if (section?.Key == "tools")
         {
             await RefreshToolsAsync(force: true);
+            return;
+        }
+
+        if (section?.Key == "updates")
+        {
+            OpenUpdatesReleasePage();
             return;
         }
 
@@ -428,10 +444,16 @@ public partial class MainWindow : Window
             case "updates":
                 PrimaryPageActionButton.Visibility = Visibility.Visible;
                 SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = true;
-                PrimaryPageActionButton.Content = "Check Updates";
-                SecondaryPageActionButton.Content = "Open Data Folder";
-                PageContentHost.Content = BuildPlaceholderContent(section);
+                PrimaryPageActionButton.IsEnabled = !_updatesLoading;
+                PrimaryPageActionButton.Content = _updatesLoading ? "Checking..." : "Check Updates";
+                SecondaryPageActionButton.Content = "Open Release Page";
+                SecondaryPageActionButton.IsEnabled = true;
+                PageContentHost.Content = BuildUpdatesContent();
+                if (_updatesLastCheckedAt is null && !_updatesLoading)
+                {
+                    _ = RefreshUpdatesAsync(force: false);
+                }
+
                 break;
             case "about":
                 PrimaryPageActionButton.Visibility = Visibility.Collapsed;
@@ -951,7 +973,7 @@ public partial class MainWindow : Window
             "tools" =>
                 "This route is reserved for official/cpa source switching and desktop tool integration entry points.",
             "updates" =>
-                "This route is reserved for GitHub Releases based stable update checks, a reserved beta channel, and package/version diagnostics.",
+                "This page checks the desktop application's GitHub Releases stable channel, preserves a reserved beta entry, and shows version/package diagnostics without fabricating an available release.",
             "settings" =>
                 "This route is reserved for theme, startup, tray, directory, update, and privacy preferences. Theme switching already works at the shell level and persists to desktop settings.",
             "about" =>
@@ -965,7 +987,7 @@ public partial class MainWindow : Window
         return section.Key switch
         {
             "overview" => "The overview is now driven by live management data plus local desktop runtime state.",
-            "updates" => "Stable updates are planned against GitHub Releases. Beta remains reserved for a later phase.",
+            "updates" => "Stable update checks now query the desktop repository's GitHub Releases endpoint directly. Beta remains a reserved channel entry until a beta release line exists.",
             _ => "This route is reserved in the native shell and will be connected to the audited management APIs as a first-class desktop page."
         };
     }
@@ -1008,12 +1030,7 @@ public partial class MainWindow : Window
 
     private void ShowUpdatesPlaceholder()
     {
-        System.Windows.MessageBox.Show(
-            this,
-            "Stable update checks will be connected after the native update flow lands. The entry is wired now so tray and shell behavior remain stable.",
-            "Check Updates",
-            System.Windows.MessageBoxButton.OK,
-            System.Windows.MessageBoxImage.Information);
+        OpenUpdatesPage(startCheck: true);
     }
 
     private void ProcessStartFolder(string path)

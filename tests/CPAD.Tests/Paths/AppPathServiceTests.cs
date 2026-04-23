@@ -4,11 +4,13 @@ using CPAD.Infrastructure.Paths;
 
 namespace CPAD.Tests.Paths;
 
+[Collection("AppPathServiceEnvironment")]
 public sealed class AppPathServiceTests
 {
     [Fact]
     public void DirectoriesUseExpectedLocalApplicationDataLayout()
     {
+        using var scope = new AppPathServiceEnvironmentScope();
         var service = new AppPathService();
 
         Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
@@ -20,89 +22,195 @@ public sealed class AppPathServiceTests
     }
 
     [Fact]
-    public void DirectoriesUseOverrideRootWhenEnvironmentVariableIsSet()
+    public void DirectoriesUseOverrideRootWhenEnvironmentVariableIsSetEvenWhenPackageMarkerExists()
     {
-        var originalRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
-        var overrideRoot = Path.Combine(Path.GetTempPath(), $"cpad-path-override-{Guid.NewGuid():N}");
+        using var scope = new AppPathServiceEnvironmentScope();
+        var overrideRoot = scope.CreateTemporaryRoot("cpad-path-override");
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
+        AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
 
-        try
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", overrideRoot);
-            var service = new AppPathService();
+        var service = new AppPathService();
 
-            Assert.Equal(Path.GetFullPath(overrideRoot), service.Directories.RootDirectory);
-            Assert.Equal(Path.Combine(Path.GetFullPath(overrideRoot), "logs"), service.Directories.LogsDirectory);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", originalRoot);
-        }
+        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+        Assert.Equal(Path.GetFullPath(overrideRoot), service.Directories.RootDirectory);
+        Assert.Equal(Path.Combine(Path.GetFullPath(overrideRoot), "logs"), service.Directories.LogsDirectory);
     }
 
     [Fact]
-    public void DirectoriesUseDevelopmentModeWhenRequested()
+    public void DirectoriesUsePortableModeWhenPortablePackageMarkerExists()
     {
-        var originalMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        using var scope = new AppPathServiceEnvironmentScope();
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
 
-        try
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_MODE", "development");
-            var service = new AppPathService();
+        var service = new AppPathService();
 
-            Assert.Equal(AppDataMode.Development, service.Directories.DataMode);
-            Assert.Contains(Path.Combine("artifacts", "dev-data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_MODE", originalMode);
-        }
+        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "data"), service.Directories.RootDirectory);
     }
 
     [Fact]
-    public void DirectoriesUsePortableModeWhenRequested()
+    public void DirectoriesUseDevelopmentModeWhenDevelopmentPackageMarkerExists()
     {
-        var originalMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        using var scope = new AppPathServiceEnvironmentScope();
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
 
-        try
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_MODE", "portable");
-            var service = new AppPathService();
+        var service = new AppPathService();
 
-            Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
-            Assert.EndsWith(Path.Combine("data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_MODE", originalMode);
-        }
+        Assert.Equal(AppDataMode.Development, service.Directories.DataMode);
+        Assert.Contains(Path.Combine("artifacts", "dev-data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DirectoriesUseDevelopmentModeWhenRequestedEvenWhenPortableMarkerExists()
+    {
+        using var scope = new AppPathServiceEnvironmentScope();
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
+        AppPathServiceEnvironmentScope.SetModeOverride("development");
+
+        var service = new AppPathService();
+
+        Assert.Equal(AppDataMode.Development, service.Directories.DataMode);
+        Assert.Contains(Path.Combine("artifacts", "dev-data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DirectoriesUsePortableModeWhenRequestedEvenWhenDevelopmentMarkerExists()
+    {
+        using var scope = new AppPathServiceEnvironmentScope();
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
+        AppPathServiceEnvironmentScope.SetModeOverride("portable");
+
+        var service = new AppPathService();
+
+        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+        Assert.EndsWith(Path.Combine("data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public async Task EnsureCreatedAsyncCreatesAllManagedDirectories()
     {
-        var originalRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
-        var overrideRoot = Path.Combine(Path.GetTempPath(), $"cpad-path-create-{Guid.NewGuid():N}");
+        using var scope = new AppPathServiceEnvironmentScope();
+        var overrideRoot = scope.CreateTemporaryRoot("cpad-path-create");
+        AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
+        var service = new AppPathService();
 
-        try
+        await service.EnsureCreatedAsync();
+
+        Assert.True(Directory.Exists(service.Directories.ConfigDirectory));
+        Assert.True(Directory.Exists(service.Directories.CacheDirectory));
+        Assert.True(Directory.Exists(service.Directories.LogsDirectory));
+        Assert.True(Directory.Exists(service.Directories.DiagnosticsDirectory));
+        Assert.True(Directory.Exists(service.Directories.RuntimeDirectory));
+    }
+}
+
+[CollectionDefinition("AppPathServiceEnvironment", DisableParallelization = true)]
+public sealed class AppPathServiceEnvironmentDefinition;
+
+internal sealed class AppPathServiceEnvironmentScope : IDisposable
+{
+    public const string PortableMarkerFileName = "portable-mode.json";
+    public const string DevelopmentMarkerFileName = "dev-mode.json";
+
+    private static readonly string[] MarkerFileNames =
+    [
+        PortableMarkerFileName,
+        DevelopmentMarkerFileName
+    ];
+
+    private readonly string? _originalMode;
+    private readonly string? _originalRoot;
+    private readonly Dictionary<string, string?> _markerSnapshots;
+    private readonly List<string> _temporaryRoots = [];
+
+    public AppPathServiceEnvironmentScope()
+    {
+        _originalMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        _originalRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
+        _markerSnapshots = MarkerFileNames.ToDictionary(
+            markerFileName => markerFileName,
+            CaptureMarkerContent,
+            StringComparer.OrdinalIgnoreCase);
+
+        SetModeOverride(null);
+        SetRootOverride(null);
+        ClearMarkers();
+    }
+
+    public string CreateTemporaryRoot(string prefix)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}");
+        _temporaryRoots.Add(root);
+        return root;
+    }
+
+    public static void SetModeOverride(string? value)
+    {
+        Environment.SetEnvironmentVariable("CPAD_APP_MODE", value);
+    }
+
+    public static void SetRootOverride(string? value)
+    {
+        Environment.SetEnvironmentVariable("CPAD_APP_ROOT", value);
+    }
+
+    public static void SetMarker(string markerFileName)
+    {
+        ClearMarkers();
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, markerFileName), "{}");
+    }
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable("CPAD_APP_MODE", _originalMode);
+        Environment.SetEnvironmentVariable("CPAD_APP_ROOT", _originalRoot);
+        RestoreMarkers();
+
+        foreach (var temporaryRoot in _temporaryRoots)
         {
-            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", overrideRoot);
-            var service = new AppPathService();
-
-            await service.EnsureCreatedAsync();
-
-            Assert.True(Directory.Exists(service.Directories.ConfigDirectory));
-            Assert.True(Directory.Exists(service.Directories.CacheDirectory));
-            Assert.True(Directory.Exists(service.Directories.LogsDirectory));
-            Assert.True(Directory.Exists(service.Directories.DiagnosticsDirectory));
-            Assert.True(Directory.Exists(service.Directories.RuntimeDirectory));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("CPAD_APP_ROOT", originalRoot);
-            if (Directory.Exists(overrideRoot))
+            if (Directory.Exists(temporaryRoot))
             {
-                Directory.Delete(overrideRoot, recursive: true);
+                Directory.Delete(temporaryRoot, recursive: true);
             }
         }
+    }
+
+    private static void ClearMarkers()
+    {
+        foreach (var markerFileName in MarkerFileNames)
+        {
+            var markerPath = Path.Combine(AppContext.BaseDirectory, markerFileName);
+            if (File.Exists(markerPath))
+            {
+                File.Delete(markerPath);
+            }
+        }
+    }
+
+    private void RestoreMarkers()
+    {
+        foreach (var markerSnapshot in _markerSnapshots)
+        {
+            var markerPath = Path.Combine(AppContext.BaseDirectory, markerSnapshot.Key);
+            if (markerSnapshot.Value is null)
+            {
+                if (File.Exists(markerPath))
+                {
+                    File.Delete(markerPath);
+                }
+
+                continue;
+            }
+
+            File.WriteAllText(markerPath, markerSnapshot.Value);
+        }
+    }
+
+    private static string? CaptureMarkerContent(string markerFileName)
+    {
+        var markerPath = Path.Combine(AppContext.BaseDirectory, markerFileName);
+        return File.Exists(markerPath)
+            ? File.ReadAllText(markerPath)
+            : null;
     }
 }

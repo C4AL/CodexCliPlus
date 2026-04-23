@@ -97,8 +97,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
     private sealed class PersistedAppSettings
     {
-        public bool OnboardingCompleted { get; init; }
-
         public int BackendPort { get; init; }
 
         public string? ManagementKey { get; init; }
@@ -129,7 +127,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         {
             return new AppSettings
             {
-                OnboardingCompleted = OnboardingCompleted,
                 BackendPort = BackendPort <= 0 ? AppConstants.DefaultBackendPort : BackendPort,
                 ManagementKeyReference = string.IsNullOrWhiteSpace(ManagementKeyReference)
                     ? AppConstants.DefaultManagementKeyReference
@@ -152,7 +149,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         {
             return new PersistedAppSettings
             {
-                OnboardingCompleted = settings.OnboardingCompleted,
                 BackendPort = settings.BackendPort,
                 ManagementKeyReference = settings.ManagementKeyReference,
                 PreferredCodexSource = settings.PreferredCodexSource,

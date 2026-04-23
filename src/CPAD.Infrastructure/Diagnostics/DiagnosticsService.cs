@@ -23,7 +23,7 @@ public sealed class DiagnosticsService
     public string BuildReport(
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult webViewRuntimeStatus)
+        DependencyCheckResult dependencyStatus)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"Application version: {_buildInfo.ApplicationVersion}");
@@ -37,7 +37,7 @@ public sealed class DiagnosticsService
         builder.AppendLine($"Codex version: {codexStatus.Version ?? "N/A"}");
         builder.AppendLine($"Codex default profile: {codexStatus.DefaultProfile}");
         builder.AppendLine($"Codex authentication state: {codexStatus.AuthenticationState}");
-        builder.AppendLine($"Dependency summary: {webViewRuntimeStatus.Summary}");
+        builder.AppendLine($"Dependency summary: {dependencyStatus.Summary}");
         builder.AppendLine($"App root: {_pathService.Directories.RootDirectory}");
         builder.AppendLine($"Logs directory: {_pathService.Directories.LogsDirectory}");
         builder.AppendLine($"Config directory: {_pathService.Directories.ConfigDirectory}");
@@ -48,7 +48,7 @@ public sealed class DiagnosticsService
     public string ExportPackage(
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult webViewRuntimeStatus)
+        DependencyCheckResult dependencyStatus)
     {
         Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
 
@@ -62,7 +62,7 @@ public sealed class DiagnosticsService
         }
 
         using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
-        WriteArchiveEntry(archive, "report.txt", BuildReport(backendStatus, codexStatus, webViewRuntimeStatus));
+        WriteArchiveEntry(archive, "report.txt", BuildReport(backendStatus, codexStatus, dependencyStatus));
         AddFileIfPresent(archive, "desktop.log", Path.Combine(_pathService.Directories.LogsDirectory, AppConstants.DefaultLogFileName));
         AddFileIfPresent(archive, "desktop.json", _pathService.Directories.SettingsFilePath);
         AddFileIfPresent(archive, "cliproxyapi.yaml", _pathService.Directories.BackendConfigFilePath);
@@ -76,7 +76,7 @@ public sealed class DiagnosticsService
         Exception? exception,
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult webViewRuntimeStatus)
+        DependencyCheckResult dependencyStatus)
     {
         Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
 
@@ -104,7 +104,7 @@ public sealed class DiagnosticsService
 
         builder.AppendLine();
         builder.AppendLine("Environment report:");
-        builder.AppendLine(BuildReport(backendStatus, codexStatus, webViewRuntimeStatus));
+        builder.AppendLine(BuildReport(backendStatus, codexStatus, dependencyStatus));
 
         File.WriteAllText(snapshotPath, SensitiveDataRedactor.Redact(builder.ToString()), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return snapshotPath;

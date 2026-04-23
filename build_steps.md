@@ -37,7 +37,7 @@
 
 ### 0.4 最终交付定义（100%）
 - [ ] 原生 WPF 多页面桌面前端完成。
-- [ ] WebView2 路线、Onboarding、PowerShell、Inno Setup 全部移除。
+- [x] WebView2 路线、Onboarding、PowerShell、Inno Setup 全部移除。
 - [ ] C# BuildTool 完成资源拉取、校验、发布、安装器生成、验包。
 - [ ] 安装版 + 便携版 + 开发版产物可用。
 - [ ] Stable 更新链可用，Beta 预留。
@@ -80,7 +80,7 @@
 - [x] 不明文落盘敏感信息。
 - [x] 日志默认信息级别。
 - [x] 敏感字段脱敏。
-- [ ] 保留一键导出诊断包。
+- [x] 保留一键导出诊断包。
 
 ### 1.5 安装/更新/卸载
 - [ ] 当前用户安装优先。
@@ -129,15 +129,21 @@
 
 ## 3. 旧路线删除清单（最终必须全部移除）
 
-- [ ] WebView2 宿主
-- [ ] `management.html` 运行时承载
-- [ ] 首次运行向导 Onboarding
-- [ ] 主界面内嵌日志占位
-- [ ] 旧桌面宿主控制面板布局
-- [ ] PowerShell 构建链
-- [ ] Inno Setup 安装链
-- [ ] 旧 README / docs 中“WPF + WebView2 宿主原版 WebUI”的旧定位
-- [ ] 旧的宿主型发布说明
+- [x] WebView2 宿主
+- [x] `management.html` 运行时承载
+- [x] 首次运行向导 Onboarding
+- [x] 主界面内嵌日志占位
+- [x] 旧桌面宿主控制面板布局
+- [x] PowerShell 构建链
+- [x] Inno Setup 安装链
+- [x] 旧 README / docs 中“WPF + WebView2 宿主原版 WebUI”的旧定位
+- [x] 旧的宿主型发布说明
+
+### 3.1 阶段结果记录
+> - 旧宿主清理：删除 WebView2 运行时检测服务、WebView2 包引用、Onboarding 窗口与相关测试。
+> - `management.html` 清理：后端资产准备不再复制或下载 `management.html`，后端配置写入 `disable-control-panel: true`，运行时不再传入 `MANAGEMENT_STATIC_PATH`。
+> - 构建链清理：删除旧 PowerShell 脚本与 Inno Setup 脚本，README/docs 改写为原生 WPF + BuildTool/MicaSetup 方向。
+> - 验收：`dotnet build CliProxyApiDesktop.sln` 通过；`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj` 通过 26/26；`CPAD.exe` 启动 smoke 通过。
 
 ---
 

@@ -161,7 +161,7 @@
                     <TextBlock Margin="0,4,0,0"
                                FontSize="14"
                                Foreground="{DynamicResource SecondaryTextBrush}"
-                               Text="Phase 5 shell routes fixed before native page work." />
+                               Text="Core routes are fixed and are being connected to live management APIs." />
                 </StackPanel>
 
                 <ListBox x:Name="NavigationList"

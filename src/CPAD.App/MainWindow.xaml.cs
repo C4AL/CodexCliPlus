@@ -1,5 +1,6 @@
 using System.IO;
 using System.Globalization;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -35,8 +36,10 @@ public partial class MainWindow : Window
     private readonly IManagementConfigurationService _managementConfigurationService;
     private readonly IManagementLogsService _logsService;
     private readonly IManagementOverviewService _overviewService;
+    private readonly IManagementSystemService _systemService;
     private readonly IManagementUsageService _usageService;
     private readonly IAppConfigurationService _configurationService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
     private readonly DiagnosticsService _diagnosticsService;
@@ -56,8 +59,10 @@ public partial class MainWindow : Window
         IManagementConfigurationService managementConfigurationService,
         IManagementLogsService logsService,
         IManagementOverviewService overviewService,
+        IManagementSystemService systemService,
         IManagementUsageService usageService,
         IAppConfigurationService configurationService,
+        IHttpClientFactory httpClientFactory,
         IPathService pathService,
         IBuildInfo buildInfo,
         DiagnosticsService diagnosticsService)
@@ -68,8 +73,10 @@ public partial class MainWindow : Window
         _managementConfigurationService = managementConfigurationService;
         _logsService = logsService;
         _overviewService = overviewService;
+        _systemService = systemService;
         _usageService = usageService;
         _configurationService = configurationService;
+        _httpClientFactory = httpClientFactory;
         _pathService = pathService;
         _buildInfo = buildInfo;
         _diagnosticsService = diagnosticsService;
@@ -168,15 +175,7 @@ public partial class MainWindow : Window
                 await RefreshLogsAsync(force: true);
                 break;
             case "system":
-                if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-                {
-                    await _backendProcessManager.RestartAsync();
-                }
-                else
-                {
-                    await _backendProcessManager.StartAsync();
-                }
-
+                await RefreshSystemAsync(force: true);
                 break;
             case "updates":
                 ShowUpdatesPlaceholder();
@@ -205,6 +204,21 @@ public partial class MainWindow : Window
         if (section?.Key == "logs")
         {
             await ExportDiagnosticsAsync();
+            return;
+        }
+
+        if (section?.Key == "system")
+        {
+            if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
+            {
+                await _backendProcessManager.RestartAsync();
+            }
+            else
+            {
+                await _backendProcessManager.StartAsync();
+            }
+
+            await RefreshSystemAsync(force: true);
             return;
         }
 
@@ -357,12 +371,18 @@ public partial class MainWindow : Window
             case "system":
                 PrimaryPageActionButton.Visibility = Visibility.Visible;
                 SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = true;
-                PrimaryPageActionButton.Content = _backendProcessManager.CurrentStatus.State == BackendStateKind.Running
+                PrimaryPageActionButton.Content = _systemLoading ? "Refreshing..." : "Refresh System";
+                PrimaryPageActionButton.IsEnabled = !_systemLoading && !_systemProbeLoading;
+                SecondaryPageActionButton.Content = _backendProcessManager.CurrentStatus.State == BackendStateKind.Running
                     ? "Restart Backend"
                     : "Start Backend";
-                SecondaryPageActionButton.Content = "Open Config Folder";
-                PageContentHost.Content = BuildPlaceholderContent(section);
+                SecondaryPageActionButton.IsEnabled = !_systemLoading && !_systemProbeLoading;
+                PageContentHost.Content = BuildSystemContent();
+                if (_systemLastLoadedAt is null && !_systemLoading)
+                {
+                    _ = RefreshSystemAsync(force: false);
+                }
+
                 break;
             case "updates":
                 PrimaryPageActionButton.Visibility = Visibility.Visible;

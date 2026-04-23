@@ -30,19 +30,22 @@ public sealed class DependencyHealthService
     private readonly ISecureCredentialStore _credentialStore;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly Func<string> _frameworkDescriptionProvider;
+    private readonly Func<string?> _expectedBackendAssetRootResolver;
 
     public DependencyHealthService(
         IPathService pathService,
         DirectoryAccessService directoryAccessService,
         ISecureCredentialStore credentialStore,
         IUpdateCheckService updateCheckService,
-        Func<string>? frameworkDescriptionProvider = null)
+        Func<string>? frameworkDescriptionProvider = null,
+        Func<string?>? expectedBackendAssetRootResolver = null)
     {
         _pathService = pathService;
         _directoryAccessService = directoryAccessService;
         _credentialStore = credentialStore;
         _updateCheckService = updateCheckService;
         _frameworkDescriptionProvider = frameworkDescriptionProvider ?? (() => RuntimeInformation.FrameworkDescription);
+        _expectedBackendAssetRootResolver = expectedBackendAssetRootResolver ?? ResolveExpectedBackendAssetRoot;
     }
 
     public async Task<DependencyCheckResult> EvaluateAsync(
@@ -155,7 +158,7 @@ public sealed class DependencyHealthService
             return;
         }
 
-        var expectedRoot = ResolveExpectedBackendAssetRoot();
+        var expectedRoot = _expectedBackendAssetRootResolver();
         if (expectedRoot is null)
         {
             return;
@@ -310,7 +313,7 @@ public sealed class DependencyHealthService
 
     private void CheckResourcePack(ICollection<DependencyCheckIssue> issues)
     {
-        var expectedRoot = ResolveExpectedBackendAssetRoot();
+        var expectedRoot = _expectedBackendAssetRootResolver();
         var missingFiles = RequiredResourceFiles
             .Where(fileName => !File.Exists(Path.Combine(_pathService.Directories.BackendDirectory, fileName)))
             .ToArray();

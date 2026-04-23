@@ -1,0 +1,14 @@
+<UserControl x:Class="CPAD.Management.DesignSystem.Controls.UsageTrendChart"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Border Style="{StaticResource ManagementCardBorderStyle}">
+        <StackPanel>
+            <TextBlock Style="{StaticResource ManagementSectionTitleStyle}"
+                       Text="{Binding Title, ElementName=Root}" />
+            <ContentControl x:Name="ChartHost"
+                            Height="220"
+                            Margin="0,16,0,0" />
+        </StackPanel>
+    </Border>
+</UserControl>

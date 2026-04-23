@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace CPAD.Core.Models.Management;
 
 public sealed class ManagementAuthFileItem
@@ -47,10 +49,13 @@ public sealed class ManagementAuthFileItem
 
 public sealed class ManagementOAuthModelAliasEntry
 {
+    [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 
+    [JsonPropertyName("alias")]
     public string Alias { get; init; } = string.Empty;
 
+    [JsonPropertyName("fork")]
     public bool Fork { get; init; }
 }
 

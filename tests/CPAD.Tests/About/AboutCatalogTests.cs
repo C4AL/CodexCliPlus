@@ -12,7 +12,18 @@ public sealed class AboutCatalogTests
         Assert.Contains(sources, item => item.Name == "Cli Proxy API Desktop" && item.License == "MIT");
         Assert.Contains(sources, item => item.Name.Contains("CLIProxyAPI", StringComparison.Ordinal) && item.License == "MIT");
         Assert.Contains(sources, item => item.Name == "CLI Proxy API Management Center" && item.Notes.Contains("not embedded", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(sources, item => item.Name == "BetterGI" && item.License == "GPL-3.0");
+        Assert.Contains(sources, item => item.Name == "BetterGI" && item.License == "GPL-3.0" && item.Notes.Contains("redistributes", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(sources, item => item.Notes.Contains("without WebView2", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void LicenseDocumentsExposeMergedRedistributionNotice()
+    {
+        var documents = AboutCatalog.LicenseDocuments;
+
+        Assert.Contains(documents, item => item.OutputFileName == "CPAD.LICENSE.txt" && item.License == "MIT");
+        Assert.Contains(documents, item => item.OutputFileName == "CLIProxyAPI.LICENSE.txt" && item.License == "MIT");
+        Assert.Contains(documents, item => item.OutputFileName == "BetterGI.GPL-3.0.txt" && item.License == "GPL-3.0");
+        Assert.Contains(documents, item => item.OutputFileName == "NOTICE.txt" && item.Summary.Contains("合并", StringComparison.Ordinal));
     }
 }

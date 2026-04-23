@@ -1,0 +1,23 @@
+<UserControl x:Class="CPAD.Management.DesignSystem.Controls.ManagementFormSection"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+    <Border Margin="0,0,0,16"
+            Padding="18"
+            Background="{StaticResource ManagementSurfaceSubtleBrush}"
+            BorderBrush="{StaticResource ManagementBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="16">
+        <StackPanel>
+            <TextBlock x:Name="TitleBlock"
+                       Style="{StaticResource ManagementSectionTitleStyle}"
+                       Text="{Binding Title, ElementName=Root}" />
+            <TextBlock x:Name="DescriptionBlock"
+                       Margin="0,8,0,0"
+                       Style="{StaticResource ManagementHintTextStyle}"
+                       Text="{Binding Description, ElementName=Root}" />
+            <ContentPresenter Margin="0,16,0,0"
+                              Content="{Binding SectionContent, ElementName=Root}" />
+        </StackPanel>
+    </Border>
+</UserControl>

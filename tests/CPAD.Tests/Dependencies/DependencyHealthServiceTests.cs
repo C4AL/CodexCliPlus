@@ -11,6 +11,15 @@ namespace CPAD.Tests.Dependencies;
 
 public sealed class DependencyHealthServiceTests : IDisposable
 {
+    private static readonly string[] ManagedBackendFiles =
+    [
+        "cli-proxy-api.exe",
+        "LICENSE",
+        "README.md",
+        "README_CN.md",
+        "config.example.yaml"
+    ];
+
     private readonly List<string> _cleanupPaths = [];
 
     [Fact]
@@ -217,13 +226,14 @@ public sealed class DependencyHealthServiceTests : IDisposable
     {
         pathService.EnsureCreatedAsync().GetAwaiter().GetResult();
 
-        var repositoryAssets = FindRepositoryAssetsDirectory();
-        foreach (var fileName in new[] { "cli-proxy-api.exe", "LICENSE", "README.md", "README_CN.md", "config.example.yaml" })
+        var expectedAssetRoot = GetExpectedAssetRoot(pathService);
+        Directory.CreateDirectory(expectedAssetRoot);
+
+        foreach (var fileName in ManagedBackendFiles)
         {
-            File.Copy(
-                Path.Combine(repositoryAssets, fileName),
-                Path.Combine(pathService.Directories.BackendDirectory, fileName),
-                overwrite: true);
+            var sourcePath = Path.Combine(expectedAssetRoot, fileName);
+            WriteManagedBackendAsset(sourcePath, fileName);
+            File.Copy(sourcePath, Path.Combine(pathService.Directories.BackendDirectory, fileName), overwrite: true);
         }
 
         File.WriteAllText(pathService.Directories.SettingsFilePath, "{ }");
@@ -240,28 +250,31 @@ public sealed class DependencyHealthServiceTests : IDisposable
         IUpdateCheckService updateCheckService,
         string frameworkDescription = ".NET 10.0.0")
     {
+        var expectedAssetRoot = GetExpectedAssetRoot(pathService);
+
         return new DependencyHealthService(
             pathService,
             new DirectoryAccessService(pathService),
             credentialStore,
             updateCheckService,
-            () => frameworkDescription);
+            () => frameworkDescription,
+            () => Directory.Exists(expectedAssetRoot) ? expectedAssetRoot : null);
     }
 
-    private static string FindRepositoryAssetsDirectory()
+    private static string GetExpectedAssetRoot(TestPathService pathService)
     {
-        var currentDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (currentDirectory is not null)
-        {
-            if (File.Exists(Path.Combine(currentDirectory.FullName, "CliProxyApiDesktop.sln")))
-            {
-                return Path.Combine(currentDirectory.FullName, "resources", "backend", "windows-x64");
-            }
+        return Path.Combine(pathService.Directories.CacheDirectory, "expected-backend-assets");
+    }
 
-            currentDirectory = currentDirectory.Parent;
+    private static void WriteManagedBackendAsset(string path, string fileName)
+    {
+        if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            File.WriteAllBytes(path, [0x4d, 0x5a, 0x43, 0x50, 0x41, 0x44]);
+            return;
         }
 
-        throw new DirectoryNotFoundException("Could not locate repository backend assets.");
+        File.WriteAllText(path, $"test {fileName}");
     }
 
     private sealed class TestPathService : IPathService

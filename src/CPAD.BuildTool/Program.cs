@@ -1471,13 +1471,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 overwrite: true);
         }
 
-        var licenseSource = Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
-        if (File.Exists(licenseSource))
-        {
-            var licenseTarget = Path.Combine(distRoot, "Resources", "Licenses", "license.txt");
-            Directory.CreateDirectory(Path.GetDirectoryName(licenseTarget)!);
-            File.Copy(licenseSource, licenseTarget, overwrite: true);
-        }
+        CopyLicenseDocuments(context.Options.RepositoryRoot, Path.Combine(distRoot, "Resources", "Licenses"));
 
         var setupProgram = Path.Combine(distRoot, "Program.cs");
         var uninstProgram = Path.Combine(distRoot, "Program.un.cs");
@@ -1485,6 +1479,28 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         PatchProgramSource(uninstProgram, context.Options.Version, isUninstaller: true);
         PatchForCurrentUserInstall(distRoot);
         PatchUninstallCleanup(distRoot);
+    }
+
+    private static void CopyLicenseDocuments(string repositoryRoot, string targetDirectory)
+    {
+        var documents = new (string Source, string Target)[]
+        {
+            (Path.Combine(repositoryRoot, "LICENSE.txt"), "CPAD.LICENSE.txt"),
+            (Path.Combine(repositoryRoot, "resources", "backend", "windows-x64", "LICENSE"), "CLIProxyAPI.LICENSE.txt"),
+            (Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"), "BetterGI.GPL-3.0.txt"),
+            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt")
+        };
+
+        foreach (var (source, target) in documents)
+        {
+            if (!File.Exists(source))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(targetDirectory);
+            File.Copy(source, Path.Combine(targetDirectory, target), overwrite: true);
+        }
     }
 
     private static void PatchProgramSource(string path, string version, bool isUninstaller)
@@ -2060,8 +2076,11 @@ public sealed class MicaSetupConfig
 
     public static MicaSetupConfig Create(BuildContext context, string payloadArchivePath, string installerOutputPath)
     {
-        var iconPath = Path.Combine(context.Options.RepositoryRoot, "resources", "icons", "ico.png");
-        var licensePath = Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
+        var iconPath = Path.Combine(context.Options.RepositoryRoot, "resources", "icons", "ico-transparent.png");
+        var noticePath = Path.Combine(context.Options.RepositoryRoot, "resources", "licenses", "NOTICE.txt");
+        var licensePath = File.Exists(noticePath)
+            ? noticePath
+            : Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
         return new MicaSetupConfig
         {
             Template = "${MicaDir}/template/default.7z",
@@ -2081,8 +2100,8 @@ public sealed class MicaSetupConfig
             RequestExecutionLevel = "user",
             SingleInstanceMutex = "BlackblockInc.CPAD.Setup",
             MessageOfPage1 = "Cli Proxy API Desktop",
-            MessageOfPage2 = "Installing CPAD",
-            MessageOfPage3 = "Installation completed"
+            MessageOfPage2 = "正在安装 CPAD",
+            MessageOfPage3 = "安装完成"
         };
     }
 }

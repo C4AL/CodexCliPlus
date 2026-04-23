@@ -3,17 +3,25 @@
   <ItemGroup>
     <ProjectReference Include="..\CPAD.Core\CPAD.Core.csproj" />
     <ProjectReference Include="..\CPAD.Infrastructure\CPAD.Infrastructure.csproj" />
+    <ProjectReference Include="..\CPAD.Management.DesignSystem\CPAD.Management.DesignSystem.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="WPF-UI" Version="4.2.0" />
+    <PackageReference Include="WPF-UI.DependencyInjection" Version="4.2.0" />
+    <PackageReference Include="WPF-UI.Tray" Version="4.2.0" />
+    <PackageReference Include="WPF-UI.Violeta" Version="4.2.0.10" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="..\..\resources\icons\*.png" Link="Resources\Icons\%(Filename)%(Extension)" />
+    <Resource Include="..\..\resources\fonts\*.ttf" Link="Resources\Fonts\%(Filename)%(Extension)" />
     <None Include="..\..\LICENSE.txt" Link="Licenses\CPAD.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\resources\backend\windows-x64\LICENSE" Link="Licenses\CLIProxyAPI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\resources\licenses\BetterGI.GPL-3.0.txt" Link="Licenses\BetterGI.GPL-3.0.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\resources\licenses\NOTICE.txt" Link="Licenses\NOTICE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

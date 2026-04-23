@@ -93,6 +93,56 @@ public sealed class ManagementApiClientTests
         Assert.Contains("invalid management key", exception.ResponseBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SendManagementMultipartAsyncAddsBearerTokenAndMultipartFiles()
+    {
+        using var factory = new FixedHttpClientFactory(async request =>
+        {
+            Assert.Equal("Bearer secret", request.Headers.Authorization?.ToString());
+            Assert.Equal("http://127.0.0.1:6060/v0/management/auth-files", request.RequestUri?.ToString());
+
+            var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
+            var parts = multipart.ToArray();
+            Assert.Equal(2, parts.Length);
+
+            var filePart = Assert.Single(parts, part => part.Headers.ContentDisposition?.FileName?.Contains("alpha.json", StringComparison.Ordinal) == true);
+            var fieldPart = Assert.Single(parts, part => part.Headers.ContentDisposition?.FileName is null);
+
+            Assert.Equal("file", filePart.Headers.ContentDisposition?.Name?.Trim('"'));
+            Assert.Equal("meta", fieldPart.Headers.ContentDisposition?.Name?.Trim('"'));
+            Assert.Equal("demo", await fieldPart.ReadAsStringAsync());
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"ok\",\"uploaded\":1}", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var client = new ManagementApiClient(
+            new StaticConnectionProvider(),
+            factory);
+
+        var response = await client.SendManagementMultipartAsync(
+            HttpMethod.Post,
+            "auth-files",
+            [
+                new ManagementMultipartFile
+                {
+                    FieldName = "file",
+                    FileName = "alpha.json",
+                    Content = Encoding.UTF8.GetBytes("{\"type\":\"codex\"}"),
+                    ContentType = "application/json"
+                }
+            ],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["meta"] = "demo"
+            });
+
+        Assert.Contains("\"uploaded\":1", response.Value, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private sealed class StaticConnectionProvider : IManagementConnectionProvider
     {
         public Task<ManagementConnectionInfo> GetConnectionAsync(CancellationToken cancellationToken = default)

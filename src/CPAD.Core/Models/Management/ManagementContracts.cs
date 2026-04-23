@@ -50,6 +50,58 @@ public sealed class ManagementOperationResult
     public int? Removed { get; init; }
 
     public IReadOnlyList<string> Changed { get; init; } = [];
+
+    public IReadOnlyList<string> Files { get; init; } = [];
+
+    public IReadOnlyList<ManagementBatchFailure> Failed { get; init; } = [];
+}
+
+public sealed class ManagementBatchFailure
+{
+    public string Name { get; init; } = string.Empty;
+
+    public string Error { get; init; } = string.Empty;
+}
+
+public sealed class ManagementMultipartFile
+{
+    public required string FieldName { get; init; }
+
+    public required string FileName { get; init; }
+
+    public required byte[] Content { get; init; }
+
+    public string ContentType { get; init; } = "application/octet-stream";
+}
+
+public sealed class ManagementAuthFileUpload
+{
+    public required string FileName { get; init; }
+
+    public required byte[] Content { get; init; }
+
+    public string ContentType { get; init; } = "application/json";
+}
+
+public sealed class ManagementAuthFileFieldPatch
+{
+    public required string Name { get; init; }
+
+    public string? Prefix { get; init; }
+
+    public string? ProxyUrl { get; init; }
+
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+}
+
+public enum ManagementProviderKind
+{
+    Gemini,
+    Codex,
+    Claude,
+    Vertex,
+    OpenAiCompatibility
 }
 
 public sealed class ManagementLatestVersionInfo

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text;
 
 using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Models.Management;
@@ -92,6 +93,29 @@ public sealed class ManagementAuthServiceTests
         Assert.Equal(DateTimeOffset.Parse("2026-04-23T01:02:03Z", CultureInfo.InvariantCulture), authFile.UpdatedAt);
     }
 
+    [Fact]
+    public async Task UploadAuthFilesAsyncUsesMultipartEndpointAndNormalizesFileNames()
+    {
+        var client = new RecordingManagementApiClient(
+            CreateResponse("""{"status":"ok","uploaded":1}"""));
+        var service = new ManagementAuthService(client);
+
+        var response = await service.UploadAuthFilesAsync(
+        [
+            new ManagementAuthFileUpload
+            {
+                FileName = @"nested\alpha-auth",
+                Content = Encoding.UTF8.GetBytes("""{"type":"codex"}""")
+            }
+        ]);
+
+        Assert.Equal(HttpMethod.Post, client.LastMethod);
+        Assert.Equal("auth-files", client.LastPath);
+        Assert.Equal("multipart/form-data", client.LastContentType);
+        Assert.Equal("alpha-auth.json", client.LastBody);
+        Assert.Equal(1, response.Value.Uploaded);
+    }
+
     private static ManagementApiResponse<string> CreateResponse(string body)
     {
         return new ManagementApiResponse<string>
@@ -134,6 +158,23 @@ public sealed class ManagementAuthServiceTests
             LastPath = path;
             LastBody = body;
             LastContentType = contentType;
+            LastAccept = accept;
+            return Task.FromResult(_response);
+        }
+
+        public Task<ManagementApiResponse<string>> SendManagementMultipartAsync(
+            HttpMethod method,
+            string path,
+            IReadOnlyList<ManagementMultipartFile> files,
+            IReadOnlyDictionary<string, string>? fields = null,
+            string? accept = "application/json",
+            TimeSpan? timeout = null,
+            CancellationToken cancellationToken = default)
+        {
+            LastMethod = method;
+            LastPath = path;
+            LastBody = string.Join(",", files.Select(file => file.FileName));
+            LastContentType = "multipart/form-data";
             LastAccept = accept;
             return Task.FromResult(_response);
         }

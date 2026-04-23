@@ -21,6 +21,15 @@ namespace CPAD.Tests.Smoke;
 [Trait("Category", "Smoke")]
 public sealed class SmokeTests
 {
+    private static readonly string[] BackendAssetFiles =
+    [
+        "cli-proxy-api.exe",
+        "LICENSE",
+        "README.md",
+        "README_CN.md",
+        "config.example.yaml"
+    ];
+
     [Fact]
     public async Task DesktopLaunchSmokeStartsWithIsolatedRootAndLeavesOnlyOwnedProcessesForCleanup()
     {
@@ -176,14 +185,15 @@ public sealed class SmokeTests
         var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
         var configurationService = new JsonAppConfigurationService(pathService);
         var credentialStore = new DpapiCredentialStore(pathService);
+        var layout = await assetService.EnsureAssetsAsync();
+        var expectedAssetRoot = CreateExpectedBackendAssetRoot(pathService, layout.WorkingDirectory);
         var dependencyService = new DependencyHealthService(
             pathService,
             new DirectoryAccessService(pathService),
             credentialStore,
             new GitHubReleaseUpdateService(new ThrowingHttpClientFactory()),
-            () => ".NET 10.0.0");
-
-        await assetService.EnsureAssetsAsync();
+            () => ".NET 10.0.0",
+            () => expectedAssetRoot);
 
         var settings = await configurationService.LoadAsync();
         settings.ManagementKey = "smoke-management";
@@ -208,6 +218,22 @@ public sealed class SmokeTests
         Assert.False(repair.IsAvailable);
         Assert.True(repair.RequiresRepairMode);
         Assert.Contains(repair.Issues, issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal));
+    }
+
+    private static string CreateExpectedBackendAssetRoot(AppPathService pathService, string sourceDirectory)
+    {
+        var expectedAssetRoot = Path.Combine(pathService.Directories.CacheDirectory, "expected-backend-assets");
+        Directory.CreateDirectory(expectedAssetRoot);
+
+        foreach (var fileName in BackendAssetFiles)
+        {
+            File.Copy(
+                Path.Combine(sourceDirectory, fileName),
+                Path.Combine(expectedAssetRoot, fileName),
+                overwrite: true);
+        }
+
+        return expectedAssetRoot;
     }
 
     [Fact]

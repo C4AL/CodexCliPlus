@@ -89,26 +89,6 @@ pwsh ./build/scripts/verify-installer.ps1
 
 安装器输出位于 `artifacts/installer/CPAD-Setup-<version>.exe`。
 
-## 安装与使用
-
-### 安装
-
-1. 运行 `artifacts/installer/CPAD-Setup-<version>.exe`
-2. 安装器会复制桌面宿主、CLIProxyAPI、`management.html`
-3. 如本机缺少 WebView2 Runtime，安装器会自动调用 `MicrosoftEdgeWebView2Setup.exe`
-4. 安装完成后可从桌面快捷方式或开始菜单启动 `CPAD`
-
-### `official` / `cpa` 切换
-
-主窗口右侧 `Codex CLI` 卡片内提供完整切换入口：
-
-- `设为 official`：把默认源切到 `official`
-- `设为 cpa`：把默认源切到 `cpa`
-- `恢复官方默认`：把默认源和认证恢复到 `official`
-- `复制命令`：复制当前仓库对应的 `codex --profile ...` 启动命令
-- `用当前源启动 / 以 official 启动 / 以 cpa 启动`：直接拉起终端并注入对应 profile
-
-切换过程中 CPAD 会维护 `~/.codex/config.toml` 里的托管块，并在 `official` / `cpa` 间切换 `auth.json`。
 
 ## 文档
 
@@ -118,4 +98,4 @@ pwsh ./build/scripts/verify-installer.ps1
 
 ## 许可证
 
-当前仓库自身文件按仓库声明发布；上游 CLIProxyAPI 与 Management WebUI 继续遵循各自项目许可证。
+

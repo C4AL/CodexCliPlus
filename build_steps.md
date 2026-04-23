@@ -253,29 +253,29 @@
 ## 7. API 适配与数据层（34% -> 44%）
 
 ### 7.1 现有 API 盘点
-- [ ] 盘点当前 Management API 能力。
-- [ ] 将 API 能力映射到首发页面需求。
-- [ ] 标出缺失字段与缺失接口。
+- [x] 盘点当前 Management API 能力。
+- [x] 将 API 能力映射到首发页面需求。
+- [x] 标出缺失字段与缺失接口。
 
 ### 7.2 扩展策略
-- [ ] 在不破坏兼容的前提下新增必要字段。
-- [ ] 如确有必要，新增桌面专属接口。
-- [ ] 补充版本协商或容错策略。
+- [x] 在不破坏兼容的前提下新增必要字段（已核验：本阶段无需新增后端字段）。
+- [x] 如确有必要，新增桌面专属接口（已核验：本阶段无需新增桌面专属接口）。
+- [x] 补充版本协商或容错策略。
 
 ### 7.3 客户端层
-- [ ] 建立统一 API Client。
-- [ ] 建立请求错误处理、重试、取消、超时策略。
-- [ ] 建立 ViewModel / Service / DTO 映射。
+- [x] 建立统一 API Client。
+- [x] 建立请求错误处理、重试、取消、超时策略。
+- [x] 建立 ViewModel / Service / DTO 映射。
 
 ### 7.4 最低验收
-- [ ] 核心页面所需 API 均可获取真实数据。
-- [ ] 不再依赖 Web 前端代码来完成功能。
-- [ ] 缺失接口补齐方案明确并已落地。
+- [x] 核心页面所需 API 均可获取真实数据。
+- [x] 不再依赖 Web 前端代码来完成功能。
+- [x] 缺失接口补齐方案明确并已落地。
 
 ### 7.5 阶段结果记录
-> - 已映射 API：
-> - 新增 API：
-> - 兼容性说明：
+> - 已映射 API：已按 `docs/management-api-mapping.md` 将概览、账户与授权、配额与用量、配置、日志与请求诊断、系统与模型页所需接口映射到 `/v0/management/*` 与后端 `/v1/models`，执行依据来自 CLIProxyAPI upstream、Management Center blackblock/upstream 与 CPA-UV。
+> - 新增 API：阶段 7 未新增后端字段或桌面专属接口；桌面端通过统一 C# 管理层直接适配现有 Management API，并保留 `/v0/management/api-call` 作为上游透传能力。
+> - 兼容性说明：新增 `IManagementApiClient`、`IManagement*Service` 与 DTO 映射，统一处理 Bearer 鉴权、版本头读取、错误模型、重试、取消、超时与 snake_case/camelCase 容错；验收通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）以及 `CPAD.exe` 启动 smoke。
 
 ---
 

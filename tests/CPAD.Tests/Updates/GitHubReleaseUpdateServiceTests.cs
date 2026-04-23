@@ -42,8 +42,11 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.False(result.IsNoReleasePublished);
         Assert.Equal("1.2.3", result.LatestVersion);
         Assert.Equal("Update available", result.Status);
+        Assert.True(result.HasInstallableAsset);
+        Assert.NotNull(result.InstallableAsset);
         Assert.Single(result.Assets);
         Assert.Equal("CPAD.Setup.1.2.3.exe", result.Assets[0].Name);
+        Assert.Equal("CPAD.Setup.1.2.3.exe", result.InstallableAsset!.Name);
     }
 
     [Fact]
@@ -63,6 +66,8 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.False(result.IsUpdateAvailable);
         Assert.Equal("No stable release", result.Status);
         Assert.Null(result.LatestVersion);
+        Assert.False(result.HasInstallableAsset);
+        Assert.Null(result.InstallableAsset);
     }
 
     [Fact]
@@ -83,7 +88,77 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.True(result.IsChannelReserved);
         Assert.False(result.IsUpdateAvailable);
         Assert.Equal("Beta reserved", result.Status);
+        Assert.False(result.HasInstallableAsset);
+        Assert.Null(result.InstallableAsset);
         Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task CheckAsyncDoesNotMarkPortableAssetAsDirectInstaller()
+    {
+        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "tag_name": "v1.2.3",
+                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "published_at": "2026-04-23T00:00:00Z",
+                  "assets": [
+                    {
+                      "name": "CPAD.Portable.1.2.3.zip",
+                      "browser_download_url": "https://example.test/CPAD.Portable.1.2.3.zip",
+                      "size": 2048
+                    }
+                  ]
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        }));
+
+        var service = new GitHubReleaseUpdateService(factory);
+
+        var result = await service.CheckAsync("1.0.0");
+
+        Assert.True(result.IsCheckSuccessful);
+        Assert.False(result.HasInstallableAsset);
+        Assert.Null(result.InstallableAsset);
+        Assert.Single(result.Assets);
+    }
+
+    [Fact]
+    public async Task CheckAsyncDoesNotMarkInstallerWithoutDownloadUrlAsDirectInstaller()
+    {
+        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """
+                {
+                  "tag_name": "v1.2.3",
+                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "published_at": "2026-04-23T00:00:00Z",
+                  "assets": [
+                    {
+                      "name": "CPAD.Setup.1.2.3.exe",
+                      "size": 2048
+                    }
+                  ]
+                }
+                """,
+                Encoding.UTF8,
+                "application/json")
+        }));
+
+        var service = new GitHubReleaseUpdateService(factory);
+
+        var result = await service.CheckAsync("1.0.0");
+
+        Assert.True(result.IsCheckSuccessful);
+        Assert.False(result.HasInstallableAsset);
+        Assert.Null(result.InstallableAsset);
+        Assert.Single(result.Assets);
+        Assert.Equal("CPAD.Setup.1.2.3.exe", result.Assets[0].Name);
     }
 
     private sealed class FixedHttpClientFactory : IHttpClientFactory, IDisposable

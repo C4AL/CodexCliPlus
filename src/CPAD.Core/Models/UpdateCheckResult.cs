@@ -34,6 +34,10 @@ public sealed class UpdateCheckResult
 
     public DateTimeOffset? PublishedAt { get; init; }
 
+    public bool HasInstallableAsset { get; init; }
+
+    public UpdateReleaseAsset? InstallableAsset { get; init; }
+
     public IReadOnlyList<UpdateReleaseAsset> Assets { get; init; } = [];
 }
 

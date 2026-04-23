@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 
 using CPAD.Core.Abstractions.Updates;
+using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
 
@@ -115,6 +116,9 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             _ => "Review latest version"
         };
 
+        var assets = ParseAssets(root);
+        var installableAsset = FindInstallableStableInstallerAsset(assets);
+
         return new UpdateCheckResult
         {
             Channel = UpdateChannel.Stable,
@@ -128,7 +132,9 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             Detail = BuildDetail(comparison, latestVersion, normalizedCurrent),
             ReleasePageUrl = GetString(root, "html_url") ?? ReleasePageUrl,
             PublishedAt = GetDateTimeOffset(root, "published_at"),
-            Assets = ParseAssets(root)
+            HasInstallableAsset = installableAsset is not null,
+            InstallableAsset = installableAsset,
+            Assets = assets
         };
     }
 
@@ -165,6 +171,19 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             .Where(asset => !string.IsNullOrWhiteSpace(asset.Name))
             .OrderBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static UpdateReleaseAsset? FindInstallableStableInstallerAsset(
+        IReadOnlyList<UpdateReleaseAsset> assets)
+    {
+        return assets
+            .Where(asset =>
+                asset.Name.StartsWith($"{AppConstants.InstallerNamePrefix}.", StringComparison.OrdinalIgnoreCase) &&
+                asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(asset.DownloadUrl))
+            .OrderByDescending(asset => asset.Size)
+            .ThenBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
     }
 
     private static int? CompareVersions(string latestVersion, string currentVersion)

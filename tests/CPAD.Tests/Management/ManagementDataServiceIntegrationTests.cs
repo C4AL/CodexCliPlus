@@ -209,6 +209,47 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task LogsServiceReadsAndClearsLiveBackendLogState()
+    {
+        var manager = CreateManager();
+        var running = await manager.StartAsync();
+
+        try
+        {
+            Assert.Equal(Core.Enums.BackendStateKind.Running, running.State);
+
+            var services = new ServiceCollection()
+                .AddHttpClient()
+                .BuildServiceProvider();
+            var connectionProvider = new BackendManagementConnectionProvider(manager);
+            var apiClient = new ManagementApiClient(connectionProvider, services.GetRequiredService<IHttpClientFactory>());
+            var logsService = new ManagementLogsService(apiClient);
+
+            var logs = await logsService.GetLogsAsync(limit: 50);
+            Assert.NotNull(logs.Value.Lines);
+            Assert.True(logs.Value.LineCount >= 0);
+            Assert.True(logs.Value.LatestTimestamp >= 0);
+
+            var errorLogs = await logsService.GetRequestErrorLogsAsync();
+            Assert.NotNull(errorLogs.Value);
+
+            var missingRequestLog = await Assert.ThrowsAsync<ManagementApiException>(() => logsService.GetRequestLogByIdAsync("phase85-missing-request"));
+            Assert.Equal(404, missingRequestLog.StatusCode);
+
+            var clear = await logsService.ClearLogsAsync();
+            Assert.True(clear.Value.Success ?? false);
+
+            var logsAfterClear = await logsService.GetLogsAsync(limit: 50);
+            Assert.NotNull(logsAfterClear.Value.Lines);
+            Assert.True(logsAfterClear.Value.LineCount >= 0);
+        }
+        finally
+        {
+            await manager.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task UsageServiceImportsAndReadsBackLiveStatistics()
     {
         var manager = CreateManager();

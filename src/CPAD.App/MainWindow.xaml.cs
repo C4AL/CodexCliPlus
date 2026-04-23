@@ -15,6 +15,7 @@ using CPAD.Core.Enums;
 using CPAD.Core.Models;
 using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
+using CPAD.Infrastructure.Diagnostics;
 
 using Microsoft.Win32;
 
@@ -32,11 +33,13 @@ public partial class MainWindow : Window
     private readonly BackendProcessManager _backendProcessManager;
     private readonly IManagementAuthService _authService;
     private readonly IManagementConfigurationService _managementConfigurationService;
+    private readonly IManagementLogsService _logsService;
     private readonly IManagementOverviewService _overviewService;
     private readonly IManagementUsageService _usageService;
     private readonly IAppConfigurationService _configurationService;
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
+    private readonly DiagnosticsService _diagnosticsService;
     private readonly List<ShellSection> _sections = CreateSections();
 
     private AppSettings _settings = new();
@@ -51,21 +54,25 @@ public partial class MainWindow : Window
         BackendProcessManager backendProcessManager,
         IManagementAuthService authService,
         IManagementConfigurationService managementConfigurationService,
+        IManagementLogsService logsService,
         IManagementOverviewService overviewService,
         IManagementUsageService usageService,
         IAppConfigurationService configurationService,
         IPathService pathService,
-        IBuildInfo buildInfo)
+        IBuildInfo buildInfo,
+        DiagnosticsService diagnosticsService)
     {
         _backendAssetService = backendAssetService;
         _backendProcessManager = backendProcessManager;
         _authService = authService;
         _managementConfigurationService = managementConfigurationService;
+        _logsService = logsService;
         _overviewService = overviewService;
         _usageService = usageService;
         _configurationService = configurationService;
         _pathService = pathService;
         _buildInfo = buildInfo;
+        _diagnosticsService = diagnosticsService;
 
         InitializeComponent();
 
@@ -157,6 +164,9 @@ public partial class MainWindow : Window
             case "config":
                 await ApplyConfigurationAsync();
                 break;
+            case "logs":
+                await RefreshLogsAsync(force: true);
+                break;
             case "system":
                 if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
                 {
@@ -189,6 +199,12 @@ public partial class MainWindow : Window
         if (section?.Key == "config")
         {
             await ReloadConfigurationAsync();
+            return;
+        }
+
+        if (section?.Key == "logs")
+        {
+            await ExportDiagnosticsAsync();
             return;
         }
 
@@ -321,6 +337,20 @@ public partial class MainWindow : Window
                 if (_configSnapshot is null && !_configLoading)
                 {
                     _ = RefreshConfigurationAsync(force: false);
+                }
+
+                break;
+            case "logs":
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
+                SecondaryPageActionButton.Visibility = Visibility.Visible;
+                PrimaryPageActionButton.Content = _logsLoading ? "Refreshing..." : "Refresh Logs";
+                PrimaryPageActionButton.IsEnabled = !_logsLoading && !_logsClearing;
+                SecondaryPageActionButton.Content = "Export Diagnostics";
+                SecondaryPageActionButton.IsEnabled = !_logsLoading && !_logsClearing;
+                PageContentHost.Content = BuildLogsContent();
+                if (_logsSnapshot is null && !_logsLoading)
+                {
+                    _ = RefreshLogsAsync(force: false);
                 }
 
                 break;

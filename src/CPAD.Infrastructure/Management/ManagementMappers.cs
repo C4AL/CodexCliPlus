@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 using CPAD.Core.Models.Management;
@@ -682,7 +683,7 @@ internal static class ManagementMappers
             ["total_tokens"] = snapshot.TotalTokens,
             ["details"] = snapshot.Details.Select(detail => new Dictionary<string, object?>
             {
-                ["timestamp"] = detail.Timestamp?.ToString("O"),
+                ["timestamp"] = detail.Timestamp?.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
                 ["source"] = detail.Source,
                 ["auth_index"] = detail.AuthIndex,
                 ["latency_ms"] = detail.LatencyMs,

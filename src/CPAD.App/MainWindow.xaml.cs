@@ -19,6 +19,7 @@ using CPAD.Core.Models.Management;
 using CPAD.Infrastructure.Backend;
 using CPAD.Infrastructure.Codex;
 using CPAD.Infrastructure.Diagnostics;
+using CPAD.Infrastructure.Platform;
 
 using Microsoft.Win32;
 
@@ -50,6 +51,8 @@ public partial class MainWindow : Window
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
     private readonly DiagnosticsService _diagnosticsService;
+    private readonly StartupRegistrationService _startupRegistrationService;
+    private readonly DirectoryAccessService _directoryAccessService;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly List<ShellSection> _sections = CreateSections();
 
@@ -79,6 +82,8 @@ public partial class MainWindow : Window
         IPathService pathService,
         IBuildInfo buildInfo,
         DiagnosticsService diagnosticsService,
+        StartupRegistrationService startupRegistrationService,
+        DirectoryAccessService directoryAccessService,
         IUpdateCheckService updateCheckService)
     {
         _backendAssetService = backendAssetService;
@@ -99,6 +104,8 @@ public partial class MainWindow : Window
         _pathService = pathService;
         _buildInfo = buildInfo;
         _diagnosticsService = diagnosticsService;
+        _startupRegistrationService = startupRegistrationService;
+        _directoryAccessService = directoryAccessService;
         _updateCheckService = updateCheckService;
 
         InitializeComponent();
@@ -115,6 +122,7 @@ public partial class MainWindow : Window
         _toolsSelectedSource = _settings.PreferredCodexSource;
         _toolsRepositoryPathDraft = _settings.LastRepositoryPath ?? string.Empty;
         _updatesChannelDraft = _settings.UseBetaChannel ? UpdateChannel.Beta : UpdateChannel.Stable;
+        LoadSettingsDrafts(_settings);
         await ApplyThemeAsync(_settings.ThemeMode, persist: false);
         InitializeTrayIcon();
         UpdateSelectedSection();
@@ -160,6 +168,8 @@ public partial class MainWindow : Window
         };
 
         await ApplyThemeAsync(_settings.ThemeMode, persist: true);
+        LoadSettingsDrafts(_settings);
+        RefreshSettingsSection();
     }
 
     private void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
@@ -210,6 +220,9 @@ public partial class MainWindow : Window
                 break;
             case "updates":
                 await RefreshUpdatesAsync(force: true);
+                break;
+            case "settings":
+                await SaveSettingsAsync();
                 break;
             default:
                 RestoreFromTray();
@@ -262,6 +275,12 @@ public partial class MainWindow : Window
         if (section?.Key == "updates")
         {
             OpenUpdatesReleasePage();
+            return;
+        }
+
+        if (section?.Key == "settings")
+        {
+            await RefreshSettingsAsync(force: true);
             return;
         }
 
@@ -452,6 +471,20 @@ public partial class MainWindow : Window
                 if (_updatesLastCheckedAt is null && !_updatesLoading)
                 {
                     _ = RefreshUpdatesAsync(force: false);
+                }
+
+                break;
+            case "settings":
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
+                SecondaryPageActionButton.Visibility = Visibility.Visible;
+                PrimaryPageActionButton.Content = _settingsSaving ? "Saving..." : "Save Settings";
+                PrimaryPageActionButton.IsEnabled = !_settingsLoading && !_settingsSaving;
+                SecondaryPageActionButton.Content = _settingsLoading ? "Reloading..." : "Reload Settings";
+                SecondaryPageActionButton.IsEnabled = !_settingsLoading && !_settingsSaving;
+                PageContentHost.Content = BuildSettingsContent();
+                if (_settingsLastLoadedAt is null && !_settingsLoading)
+                {
+                    _ = RefreshSettingsAsync(force: false);
                 }
 
                 break;

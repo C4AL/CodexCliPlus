@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly BackendProcessManager _backendProcessManager;
     private readonly IManagementAuthService _authService;
     private readonly IManagementOverviewService _overviewService;
+    private readonly IManagementUsageService _usageService;
     private readonly IAppConfigurationService _configurationService;
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
@@ -49,6 +50,7 @@ public partial class MainWindow : Window
         BackendProcessManager backendProcessManager,
         IManagementAuthService authService,
         IManagementOverviewService overviewService,
+        IManagementUsageService usageService,
         IAppConfigurationService configurationService,
         IPathService pathService,
         IBuildInfo buildInfo)
@@ -57,6 +59,7 @@ public partial class MainWindow : Window
         _backendProcessManager = backendProcessManager;
         _authService = authService;
         _overviewService = overviewService;
+        _usageService = usageService;
         _configurationService = configurationService;
         _pathService = pathService;
         _buildInfo = buildInfo;
@@ -281,6 +284,17 @@ public partial class MainWindow : Window
                 if (_accountsAuthFiles is null && !_accountsLoading)
                 {
                     _ = RefreshAccountsAsync(force: false);
+                }
+
+                break;
+            case "quota":
+                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
+                SecondaryPageActionButton.Visibility = Visibility.Collapsed;
+                PrimaryPageActionButton.IsEnabled = true;
+                PageContentHost.Content = BuildQuotaContent();
+                if (_quotaSnapshot is null && !_quotaLoading)
+                {
+                    _ = RefreshQuotaAsync(force: false);
                 }
 
                 break;

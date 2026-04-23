@@ -108,7 +108,7 @@
 
 - [x] 概览
 - [x] 账户与授权
-- [ ] 配额与用量
+- [x] 配额与用量
 - [ ] 配置
 - [ ] 日志与请求诊断
 - [ ] 系统与模型
@@ -295,8 +295,8 @@
 - [x] 验收：账户相关操作真实可用。
 
 ### 8.3 配额与用量页
-- [ ] 实现额度、请求数、Token、分模型/分 API 统计。
-- [ ] 验收：真实统计信息可展示。
+- [x] 实现额度、请求数、Token、分模型/分 API 统计。
+- [x] 验收：真实统计信息可展示。
 
 ### 8.4 配置页
 - [ ] 原生化配置编辑能力。
@@ -346,9 +346,9 @@
 - [ ] 验收：依赖异常时可正确进入修复模式。
 
 ### 8.12 阶段结果记录
-> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看。
-> - 仍待打磨页面：配额与用量、配置、日志与请求诊断、系统与模型、源切换与工具集成、更新与版本、设置、关于、依赖修复页。
-> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）。参考仓已重新 fetch 并确认本地 HEAD 等于 `origin/main`。
+> - 已完成页面：概览页（8.1）已接入 Management API 概览聚合、账户/授权数量、用量摘要、版本检查、桌面运行目录、后端状态、依赖检测与修复入口；账户与授权页（8.2）已接入 `/api-keys`、`/auth-files`、`/auth-files/models`、`/auth-files/status`、`/{provider}-auth-url`、`/get-auth-status`、`/oauth-callback`，支持管理密钥 DPAPI 存储、OAuth/设备流入口、Auth JSON/Cookie 导入、API key 替换、auth file 禁用/启用/删除与模型查看；配额与用量页（8.3）已接入 `/usage`、`/usage/export`、`/usage/import` 与 `/auth-files`，展示请求数、成功率、Token、RPM/TPM、分 API/分模型统计、认证文件配额信号与最近请求事件。
+> - 仍待打磨页面：配置、日志与请求诊断、系统与模型、源切换与工具集成、更新与版本、设置、关于、依赖修复页。
+> - 页面测试结果：8.1 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（30/30）与 `CPAD.exe` 启动 smoke；8.2 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（36/36）与 UI Automation smoke（进入 Accounts & Auth 并确认 Management Key、OAuth、Backend API Keys、Auth JSON / Cookie Import、Stored Auth Files 区块）；8.3 已通过 `dotnet build CliProxyApiDesktop.sln`、`dotnet test tests/CPAD.Tests/CPAD.Tests.csproj`（37/37）与 UI Automation smoke（进入 Quota & Usage 并确认 Usage Summary、Quota Signals、Requests by API、Requests by Model、Recent Request Events 区块）。参考仓已重新 fetch 并确认本地 HEAD 等于 `origin/main`。
 
 ---
 

@@ -224,6 +224,9 @@ public partial class MainWindow : Window
             case "settings":
                 await SaveSettingsAsync();
                 break;
+            case "about":
+                await ExportAboutDiagnosticsAsync();
+                break;
             default:
                 RestoreFromTray();
                 break;
@@ -235,7 +238,7 @@ public partial class MainWindow : Window
         var section = NavigationList.SelectedItem as ShellSection;
         if (section?.Key == "about")
         {
-            ProcessStartFolder(_pathService.Directories.RootDirectory);
+            ProcessStartFolder(_pathService.Directories.DiagnosticsDirectory);
             return;
         }
 
@@ -489,11 +492,13 @@ public partial class MainWindow : Window
 
                 break;
             case "about":
-                PrimaryPageActionButton.Visibility = Visibility.Collapsed;
+                PrimaryPageActionButton.Visibility = Visibility.Visible;
                 SecondaryPageActionButton.Visibility = Visibility.Visible;
-                PrimaryPageActionButton.IsEnabled = true;
-                SecondaryPageActionButton.Content = "Open Data Folder";
-                PageContentHost.Content = BuildPlaceholderContent(section);
+                PrimaryPageActionButton.IsEnabled = !_aboutExporting;
+                PrimaryPageActionButton.Content = _aboutExporting ? "Exporting..." : "Export Diagnostics";
+                SecondaryPageActionButton.Content = "Open Diagnostics Folder";
+                SecondaryPageActionButton.IsEnabled = true;
+                PageContentHost.Content = BuildAboutContent();
                 break;
             default:
                 PrimaryPageActionButton.Visibility = Visibility.Collapsed;

@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <Resource Include="..\..\resources\icons\*.png" Link="Resources\Icons\%(Filename)%(Extension)" />
+    <None Include="..\..\LICENSE.txt" Link="Licenses\CPAD.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\resources\backend\windows-x64\LICENSE" Link="Licenses\CLIProxyAPI.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

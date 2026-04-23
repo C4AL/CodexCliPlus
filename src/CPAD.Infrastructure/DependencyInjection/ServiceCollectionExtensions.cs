@@ -4,6 +4,7 @@ using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Abstractions.Processes;
 using CPAD.Core.Abstractions.Security;
+using CPAD.Core.Abstractions.Updates;
 using CPAD.Infrastructure.Backend;
 using CPAD.Infrastructure.Codex;
 using CPAD.Infrastructure.Configuration;
@@ -14,6 +15,7 @@ using CPAD.Infrastructure.Paths;
 using CPAD.Infrastructure.Platform;
 using CPAD.Infrastructure.Processes;
 using CPAD.Infrastructure.Security;
+using CPAD.Infrastructure.Updates;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,6 +46,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IManagementUsageService, ManagementUsageService>();
         services.AddSingleton<IManagementLogsService, ManagementLogsService>();
         services.AddSingleton<IManagementSystemService, ManagementSystemService>();
+        services.AddSingleton<IUpdateCheckService, GitHubReleaseUpdateService>();
         services.AddSingleton<CodexLocator>();
         services.AddSingleton<CodexVersionReader>();
         services.AddSingleton<CodexAuthStateReader>();

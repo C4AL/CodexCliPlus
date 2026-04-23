@@ -250,6 +250,59 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task SystemServiceReadsVersionModelsAndConnectivityThroughAuditedEndpoints()
+    {
+        var manager = CreateManager();
+        var running = await manager.StartAsync();
+
+        try
+        {
+            Assert.Equal(Core.Enums.BackendStateKind.Running, running.State);
+            Assert.NotNull(running.Runtime);
+
+            var services = new ServiceCollection()
+                .AddHttpClient()
+                .BuildServiceProvider();
+            var connectionProvider = new BackendManagementConnectionProvider(manager);
+            var apiClient = new ManagementApiClient(connectionProvider, services.GetRequiredService<IHttpClientFactory>());
+            var authService = new ManagementAuthService(apiClient);
+            var systemService = new ManagementSystemService(apiClient);
+
+            try
+            {
+                var latestVersion = await systemService.GetLatestVersionAsync();
+                Assert.False(string.IsNullOrWhiteSpace(latestVersion.Value.LatestVersion));
+            }
+            catch (ManagementApiException exception)
+            {
+                Assert.True(exception.StatusCode is 502 or 503 or 504);
+            }
+
+            var apiKeys = await authService.GetApiKeysAsync();
+            var primaryApiKey = Assert.Single(apiKeys.Value);
+            var models = await systemService.GetAvailableModelsAsync(primaryApiKey);
+            Assert.NotEmpty(models.Value);
+
+            var probe = await systemService.ExecuteApiCallAsync(new ManagementApiCallRequest
+            {
+                Method = "GET",
+                Url = running.Runtime!.HealthUrl,
+                Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Accept"] = "application/json"
+                }
+            });
+
+            Assert.Equal(200, probe.Value.StatusCode);
+            Assert.Contains("\"status\":\"ok\"", probe.Value.BodyText, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            await manager.StopAsync();
+        }
+    }
+
+    [Fact]
     public async Task UsageServiceImportsAndReadsBackLiveStatistics()
     {
         var manager = CreateManager();

@@ -17,6 +17,23 @@ public sealed class ManagementDesignSystemTests
     }
 
     [Fact]
+    public void WebUiBuildAndDebugHostUseVendoredRepositoryDist()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var viteConfig = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "vite.config.ts"),
+            Encoding.UTF8);
+        var buildTool = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.BuildTool", "Program.cs"), Encoding.UTF8);
+        var locator = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.App", "Services", "WebUiAssetLocator.cs"), Encoding.UTF8);
+
+        Assert.Contains("outDir: path.resolve(__dirname, '../dist')", viteConfig, StringComparison.Ordinal);
+        Assert.Contains("WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, \"dist\")", buildTool, StringComparison.Ordinal);
+        Assert.True(
+            locator.IndexOf("TryResolveFromRepository", StringComparison.Ordinal) <
+            locator.IndexOf("TryResolveFromBaseDirectory", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AppResourcesStillMergeDesignSystemForLegacyCompileCompatibility()
     {
         var repositoryRoot = FindRepositoryRoot();

@@ -21,11 +21,136 @@
                  Closed="Window_Closed"
                  Loaded="Window_Loaded"
                  mc:Ignorable="d">
+    <ui:FluentWindow.Resources>
+        <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource BorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ui:FluentWindow.Resources>
+
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0"
+              Background="{DynamicResource ApplicationBackgroundBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="46" />
+                <ColumnDefinition Width="46" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="DragRegion"
+                    Grid.Column="0"
+                    Background="{DynamicResource ApplicationBackgroundBrush}"
+                    MouseLeftButtonDown="DragRegion_MouseLeftButtonDown" />
+
+            <Button x:Name="MinimizeWindowButton"
+                    Grid.Column="1"
+                    Width="46"
+                    Height="32"
+                    Padding="0"
+                    Style="{StaticResource TitleBarButtonStyle}"
+                    Click="MinimizeWindowButton_Click"
+                    Content="−"
+                    ToolTip="最小化" />
+            <Button x:Name="CloseWindowButton"
+                    Grid.Column="2"
+                    Width="46"
+                    Height="32"
+                    Padding="0"
+                    Style="{StaticResource TitleBarButtonStyle}"
+                    Click="CloseWindowButton_Click"
+                    Content="×"
+                    ToolTip="关闭" />
+        </Grid>
+
         <wv2:WebView2 x:Name="ManagementWebView"
+                      Grid.Row="1"
                       Visibility="Collapsed" />
 
+        <Grid x:Name="LoginPanel"
+              Grid.Row="1"
+              Background="{DynamicResource ApplicationBackgroundBrush}">
+            <Border Width="420"
+                    Padding="28"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="18"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="登录 CPAD"
+                               FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Margin="0,10,0,18"
+                               Text="请输入后端管理密钥以进入桌面管理界面。"
+                               FontSize="13"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="管理密钥"
+                               FontSize="13"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <PasswordBox x:Name="ManagementKeyPasswordBox"
+                                 Height="36"
+                                 Margin="0,8,0,0"
+                                 KeyDown="ManagementKeyPasswordBox_KeyDown" />
+                    <CheckBox x:Name="RememberManagementKeyCheckBox"
+                              Margin="0,16,0,0"
+                              Content="记住密码" />
+                    <TextBlock x:Name="LoginErrorText"
+                               Margin="0,12,0,0"
+                               FontSize="13"
+                               Foreground="#B42318"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed" />
+                    <Button x:Name="LoginButton"
+                            Height="38"
+                            Margin="0,22,0,0"
+                            Click="LoginButton_Click"
+                            Content="登录" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <Grid x:Name="LoadingPanel"
+              Grid.Row="1"
+              Visibility="Collapsed"
               Background="{DynamicResource ApplicationBackgroundBrush}">
             <Border Width="420"
                     Padding="28"
@@ -42,7 +167,7 @@
                                Foreground="{DynamicResource PrimaryTextBrush}" />
                     <TextBlock x:Name="LoadingDescriptionText"
                                Margin="0,10,0,18"
-                               Text="正在准备官方 WebUI、本地后端和桌面桥接。"
+                               Text="正在准备本地后端和桌面桥接。"
                                FontSize="13"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                TextWrapping="Wrap" />
@@ -53,6 +178,7 @@
         </Grid>
 
         <Grid x:Name="BlockerPanel"
+              Grid.Row="1"
               Visibility="Collapsed"
               Background="{DynamicResource ApplicationBackgroundBrush}">
             <Border Width="560"
@@ -75,7 +201,7 @@
                                FontSize="14"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                TextWrapping="Wrap"
-                               Text="请先修复宿主级故障，再继续使用官方管理界面。" />
+                               Text="请先修复宿主级故障，再继续使用管理界面。" />
                     <TextBlock x:Name="BlockerDetailText"
                                Margin="0,18,0,0"
                                FontSize="13"
@@ -98,6 +224,7 @@
         </Grid>
 
         <tray:NotifyIcon x:Name="TrayIcon"
+                         Grid.RowSpan="2"
                          FocusOnLeftClick="False"
                          Icon="pack://application:,,,/Resources/Icons/ico-transparent.png"
                          LeftDoubleClick="TrayIcon_LeftDoubleClick"

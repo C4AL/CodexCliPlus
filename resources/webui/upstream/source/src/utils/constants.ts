@@ -33,20 +33,14 @@ export const MAX_AUTH_FILES_PAGE_SIZE = 100;
 export const MAX_AUTH_FILE_SIZE = 10 * 1024 * 1024;
 
 // 本地存储键名
-export const STORAGE_KEY_AUTH = 'cli-proxy-auth';
-export const STORAGE_KEY_THEME = 'cli-proxy-theme';
-export const STORAGE_KEY_LANGUAGE = 'cli-proxy-language';
-export const STORAGE_KEY_SIDEBAR = 'cli-proxy-sidebar-collapsed';
-export const STORAGE_KEY_AUTH_FILES_PAGE_SIZE = 'cli-proxy-auth-files-page-size';
+export const STORAGE_KEY_AUTH = 'cpad-auth';
+export const STORAGE_KEY_THEME = 'cpad-theme';
+export const STORAGE_KEY_LANGUAGE = 'cpad-language';
+export const STORAGE_KEY_SIDEBAR = 'cpad-sidebar-collapsed';
+export const STORAGE_KEY_AUTH_FILES_PAGE_SIZE = 'cpad-auth-files-page-size';
 
 // 语言配置
-export const LANGUAGE_ORDER = defineLanguageOrder(['zh-CN', 'zh-TW', 'en', 'ru'] as const);
-export const LANGUAGE_LABEL_KEYS: Record<Language, string> = {
-  'zh-CN': 'language.chinese',
-  'zh-TW': 'language.chinese_tw',
-  en: 'language.english',
-  ru: 'language.russian'
-};
+export const LANGUAGE_ORDER = defineLanguageOrder(['zh-CN'] as const);
 export const SUPPORTED_LANGUAGES = LANGUAGE_ORDER;
 
 // 通知持续时间
@@ -54,18 +48,10 @@ export const NOTIFICATION_DURATION_MS = 3000;
 
 // OAuth 卡片 ID 列表
 export const OAUTH_CARD_IDS = [
-  'codex-oauth-card',
-  'anthropic-oauth-card',
-  'antigravity-oauth-card',
-  'gemini-cli-oauth-card',
-  'kimi-oauth-card'
+  'codex-oauth-card'
 ];
 export const OAUTH_PROVIDERS = {
-  CODEX: 'codex',
-  ANTHROPIC: 'anthropic',
-  ANTIGRAVITY: 'antigravity',
-  GEMINI_CLI: 'gemini-cli',
-  KIMI: 'kimi'
+  CODEX: 'codex'
 } as const;
 
 // API 端点

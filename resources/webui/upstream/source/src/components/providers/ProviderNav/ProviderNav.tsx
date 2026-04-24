@@ -3,16 +3,10 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useThemeStore } from '@/stores';
-import iconGemini from '@/assets/icons/gemini.svg';
-import iconOpenaiLight from '@/assets/icons/openai-light.svg';
-import iconOpenaiDark from '@/assets/icons/openai-dark.svg';
 import iconCodex from '@/assets/icons/codex.svg';
-import iconClaude from '@/assets/icons/claude.svg';
-import iconVertex from '@/assets/icons/vertex.svg';
-import iconAmp from '@/assets/icons/amp.svg';
 import styles from './ProviderNav.module.scss';
 
-export type ProviderId = 'gemini' | 'codex' | 'claude' | 'vertex' | 'ampcode' | 'openai';
+export type ProviderId = 'codex';
 
 interface ProviderNavItem {
   id: ProviderId;
@@ -21,12 +15,7 @@ interface ProviderNavItem {
 }
 
 const PROVIDERS: ProviderNavItem[] = [
-  { id: 'gemini', label: 'Gemini', getIcon: () => iconGemini },
   { id: 'codex', label: 'Codex', getIcon: () => iconCodex },
-  { id: 'claude', label: 'Claude', getIcon: () => iconClaude },
-  { id: 'vertex', label: 'Vertex', getIcon: () => iconVertex },
-  { id: 'ampcode', label: 'Ampcode', getIcon: () => iconAmp },
-  { id: 'openai', label: 'OpenAI', getIcon: (theme) => (theme === 'dark' ? iconOpenaiDark : iconOpenaiLight) },
 ];
 
 const HEADER_OFFSET = 24;
@@ -42,12 +31,7 @@ export function ProviderNav() {
   const navListRef = useRef<HTMLDivElement | null>(null);
   const navContainerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<ProviderId, HTMLButtonElement | null>>({
-    gemini: null,
     codex: null,
-    claude: null,
-    vertex: null,
-    ampcode: null,
-    openai: null,
   });
   const [indicatorRect, setIndicatorRect] = useState<{
     x: number;

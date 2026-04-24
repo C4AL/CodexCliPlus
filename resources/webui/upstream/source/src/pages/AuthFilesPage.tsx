@@ -67,6 +67,7 @@ const BATCH_BAR_BASE_TRANSFORM = 'translateX(-50%)';
 const BATCH_BAR_HIDDEN_TRANSFORM = 'translateX(-50%) translateY(56px)';
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
 const DEFAULT_COMPACT_PAGE_SIZE = 12;
+const CODEX_PROVIDER_FILTER = 'codex';
 
 const escapeWildcardSearchSegment = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -86,7 +87,7 @@ export function AuthFilesPage() {
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
   const navigate = useNavigate();
 
-  const [filter, setFilter] = useState<'all' | string>('all');
+  const [filter, setFilter] = useState<string>(CODEX_PROVIDER_FILTER);
   const [problemOnly, setProblemOnly] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
   const [search, setSearch] = useState('');
@@ -196,8 +197,11 @@ export function AuthFilesPage() {
 
       const persisted = readAuthFilesUiState();
       if (persisted) {
-        if (typeof persisted.filter === 'string' && persisted.filter.trim()) {
-          setFilter(persisted.filter);
+        if (
+          typeof persisted.filter === 'string' &&
+          normalizeProviderKey(persisted.filter) === CODEX_PROVIDER_FILTER
+        ) {
+          setFilter(CODEX_PROVIDER_FILTER);
         }
         if (typeof persisted.problemOnly === 'boolean') {
           setProblemOnly(persisted.problemOnly);
@@ -352,19 +356,21 @@ export function AuthFilesPage() {
     isCurrentLayer ? 240_000 : null
   );
 
-  const existingTypes = useMemo(() => {
-    const types = new Set<string>(['all']);
-    files.forEach((file) => {
-      if (file.type) {
-        types.add(file.type);
-      }
-    });
-    return Array.from(types);
-  }, [files]);
+  const existingTypes = useMemo(() => [CODEX_PROVIDER_FILTER], []);
+
+  const codexFiles = useMemo(
+    () =>
+      files.filter(
+        (file) =>
+          normalizeProviderKey(String(file.type ?? '')) === CODEX_PROVIDER_FILTER ||
+          normalizeProviderKey(String(file.provider ?? '')) === CODEX_PROVIDER_FILTER
+      ),
+    [files]
+  );
 
   const filesMatchingProblemFilter = useMemo(
-    () => (problemOnly ? files.filter(hasAuthFileStatusMessage) : files),
-    [files, problemOnly]
+    () => (problemOnly ? codexFiles.filter(hasAuthFileStatusMessage) : codexFiles),
+    [codexFiles, problemOnly]
   );
 
   const sortOptions = useMemo(
@@ -377,11 +383,9 @@ export function AuthFilesPage() {
   );
 
   const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: filesMatchingProblemFilter.length };
-    filesMatchingProblemFilter.forEach((file) => {
-      if (!file.type) return;
-      counts[file.type] = (counts[file.type] || 0) + 1;
-    });
+    const counts: Record<string, number> = {
+      [CODEX_PROVIDER_FILTER]: filesMatchingProblemFilter.length,
+    };
     return counts;
   }, [filesMatchingProblemFilter]);
 
@@ -392,7 +396,9 @@ export function AuthFilesPage() {
     const normalizedTerm = normalizedSearch.toLowerCase();
 
     return filesMatchingProblemFilter.filter((item) => {
-      const matchType = filter === 'all' || item.type === filter;
+      const matchType =
+        normalizeProviderKey(String(item.type ?? '')) === CODEX_PROVIDER_FILTER ||
+        normalizeProviderKey(String(item.provider ?? '')) === CODEX_PROVIDER_FILTER;
       const matchSearch =
         !normalizedSearch ||
         [item.name, item.type, item.provider].some((value) => {
@@ -403,7 +409,7 @@ export function AuthFilesPage() {
         });
       return matchType && matchSearch;
     });
-  }, [filesMatchingProblemFilter, filter, normalizedSearch, wildcardSearch]);
+  }, [filesMatchingProblemFilter, normalizedSearch, wildcardSearch]);
 
   const sorted = useMemo(() => {
     const copy = [...filtered];
@@ -464,8 +470,8 @@ export function AuthFilesPage() {
   );
 
   const openExcludedEditor = useCallback(
-    (provider?: string) => {
-      const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
+    (_provider?: string) => {
+      const providerValue = CODEX_PROVIDER_FILTER;
       const params = new URLSearchParams();
       if (providerValue) {
         params.set('provider', providerValue);
@@ -475,12 +481,12 @@ export function AuthFilesPage() {
         state: { fromAuthFiles: true },
       });
     },
-    [filter, navigate]
+    [navigate]
   );
 
   const openModelAliasEditor = useCallback(
-    (provider?: string) => {
-      const providerValue = (provider || (filter !== 'all' ? String(filter) : '')).trim();
+    (_provider?: string) => {
+      const providerValue = CODEX_PROVIDER_FILTER;
       const params = new URLSearchParams();
       if (providerValue) {
         params.set('provider', providerValue);
@@ -490,7 +496,7 @@ export function AuthFilesPage() {
         state: { fromAuthFiles: true },
       });
     },
-    [filter, navigate]
+    [navigate]
   );
 
   useLayoutEffect(() => {
@@ -646,13 +652,37 @@ export function AuthFilesPage() {
     </div>
   );
 
+  const codexExcluded = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(excluded).filter(
+          ([provider]) => normalizeProviderKey(provider) === CODEX_PROVIDER_FILTER
+        )
+      ),
+    [excluded]
+  );
+  const codexModelAlias = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(modelAlias).filter(
+          ([provider]) => normalizeProviderKey(provider) === CODEX_PROVIDER_FILTER
+        )
+      ),
+    [modelAlias]
+  );
+  const codexProviderModels = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(allProviderModels).filter(
+          ([provider]) => normalizeProviderKey(provider) === CODEX_PROVIDER_FILTER
+        )
+      ),
+    [allProviderModels]
+  );
+
   const deleteAllButtonLabel = problemOnly
-    ? filter === 'all'
-      ? t('auth_files.delete_problem_button')
-      : t('auth_files.delete_problem_button_with_type', { type: getTypeLabel(t, filter) })
-    : filter === 'all'
-      ? t('auth_files.delete_all_button')
-      : `${t('common.delete')} ${getTypeLabel(t, filter)}`;
+    ? t('auth_files.delete_problem_button_with_type', { type: getTypeLabel(t, filter) })
+    : `${t('common.delete')} ${getTypeLabel(t, filter)}`;
 
   return (
     <div className={styles.container}>
@@ -683,7 +713,7 @@ export function AuthFilesPage() {
                 handleDeleteAll({
                   filter,
                   problemOnly,
-                  onResetFilterToAll: () => setFilter('all'),
+                  onResetFilterToAll: () => setFilter(CODEX_PROVIDER_FILTER),
                   onResetProblemOnly: () => setProblemOnly(false),
                 })
               }
@@ -855,7 +885,7 @@ export function AuthFilesPage() {
       <OAuthExcludedCard
         disableControls={disableControls}
         excludedError={excludedError}
-        excluded={excluded}
+        excluded={codexExcluded}
         onAdd={() => openExcludedEditor()}
         onEdit={openExcludedEditor}
         onDelete={deleteExcluded}
@@ -869,8 +899,8 @@ export function AuthFilesPage() {
         onEditProvider={openModelAliasEditor}
         onDeleteProvider={deleteModelAlias}
         modelAliasError={modelAliasError}
-        modelAlias={modelAlias}
-        allProviderModels={allProviderModels}
+        modelAlias={codexModelAlias}
+        allProviderModels={codexProviderModels}
         onUpdate={handleMappingUpdate}
         onDeleteLink={handleDeleteLink}
         onToggleFork={handleToggleFork}

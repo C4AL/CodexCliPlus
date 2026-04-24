@@ -51,10 +51,10 @@
 
 // 品牌大字
 .brandWord {
-  font-size: 14vw;
+  font-size: 112px;
   font-weight: 900;
   color: rgba(255, 255, 255, 0.9);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
   line-height: 0.85;
   text-transform: uppercase;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
@@ -165,12 +165,6 @@
 .subtitle {
   color: var(--text-secondary);
   font-size: 14px;
-}
-
-// 语言下拉选择
-.languageSelect {
-  min-width: 108px;
-  flex: 0 0 auto;
 }
 
 // 连接信息框

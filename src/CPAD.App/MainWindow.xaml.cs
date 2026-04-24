@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Input;
 
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Configuration;
@@ -22,7 +23,7 @@ namespace CPAD;
 public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     private const string AppHostName = "cpad-webui.local";
-    private static readonly Uri AppEntryUri = new($"https://{AppHostName}/index.html");
+    private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
 
     private readonly MainWindowViewModel _viewModel;
     private readonly BackendProcessManager _backendProcessManager;
@@ -67,7 +68,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             _settings = await _appConfigurationService.LoadAsync();
             InitializeTrayIcon();
-            await InitializeHostAsync(restartBackend: false);
+            RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
+
+            if (_settings.RememberManagementKey && !string.IsNullOrWhiteSpace(_settings.ManagementKey))
+            {
+                await InitializeHostAsync(restartBackend: false);
+                return;
+            }
+
+            ShowLogin();
         }
         catch (Exception exception)
         {
@@ -101,6 +110,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
     {
         await InitializeHostAsync(restartBackend: _backendProcessManager.CurrentStatus.State != BackendStateKind.Running);
+    }
+
+    private async void LoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SignInAsync();
+    }
+
+    private async void ManagementKeyPasswordBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await SignInAsync();
+    }
+
+    private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void CloseWindowButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private void HideToTrayButton_Click(object sender, RoutedEventArgs e)
@@ -148,6 +183,67 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         Close();
     }
 
+    private void DragRegion_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (e.ClickCount == 2)
+        {
+            WindowState = WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+            return;
+        }
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task SignInAsync()
+    {
+        var managementKey = ManagementKeyPasswordBox.Password.Trim();
+        if (string.IsNullOrWhiteSpace(managementKey))
+        {
+            LoginErrorText.Text = "请输入管理密钥。";
+            LoginErrorText.Visibility = Visibility.Visible;
+            ManagementKeyPasswordBox.Focus();
+            return;
+        }
+
+        LoginButton.IsEnabled = false;
+        LoginErrorText.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            _settings.ManagementKey = managementKey;
+            _settings.RememberManagementKey = RememberManagementKeyCheckBox.IsChecked == true;
+            await _appConfigurationService.SaveAsync(_settings);
+            await InitializeHostAsync(restartBackend: false);
+        }
+        catch (Exception exception)
+        {
+            LoginErrorText.Text = exception.Message;
+            LoginErrorText.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            if (LoginPanel.Visibility == Visibility.Visible)
+            {
+                LoginButton.IsEnabled = true;
+            }
+        }
+    }
+
     private async void BackendProcessManager_StatusChanged(object? sender, BackendStatusSnapshot snapshot)
     {
         if (_isInitializing || snapshot.State != BackendStateKind.Error)
@@ -159,7 +255,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ShowBlocker(
                 "后端不可用",
-                "CLIProxyAPI 后端未能保持运行，桌面宿主已阻止 WebUI 继续工作。",
+                "本地后端未能保持运行，桌面宿主已暂停管理界面。",
                 snapshot.LastError ?? snapshot.Message);
         });
     }
@@ -172,7 +268,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         _isInitializing = true;
-        ShowLoading("正在准备官方 WebUI、本地后端和桌面桥接。");
+        ShowLoading("正在准备本地后端和桌面桥接。");
 
         try
         {
@@ -198,21 +294,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ShowBlocker(
                 "缺少 WebView2 运行时",
-                "当前系统未安装 Microsoft Edge WebView2 Runtime，桌面宿主无法承载官方 WebUI。",
+                "当前系统未安装 Microsoft Edge WebView2 Runtime，桌面宿主无法承载管理界面。",
                 exception.Message);
         }
         catch (FileNotFoundException exception)
         {
             ShowBlocker(
-                "缺少官方 WebUI 资源",
-                "Vendored 官方前端静态资源未找到，桌面宿主无法继续启动。",
+                "缺少管理界面资源",
+                "前端静态资源未找到，桌面宿主无法继续启动。",
                 exception.Message);
         }
         catch (Exception exception)
         {
             ShowBlocker(
                 "桌面宿主启动失败",
-                "官方 WebUI 宿主未能完成初始化，请先修复阻断错误。",
+                "管理界面宿主未能完成初始化，请先修复阻断错误。",
                 exception.Message);
         }
         finally
@@ -301,16 +397,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             using var document = JsonDocument.Parse(e.WebMessageAsJson);
             var root = document.RootElement;
-            if (!root.TryGetProperty("type", out var typeElement) ||
-                !string.Equals(typeElement.GetString(), "openExternal", StringComparison.Ordinal))
+            if (!root.TryGetProperty("type", out var typeElement))
             {
                 return;
             }
 
-            var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
-            if (!string.IsNullOrWhiteSpace(url))
+            switch (typeElement.GetString())
             {
-                OpenExternal(url);
+                case "openExternal":
+                    var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
+                    if (!string.IsNullOrWhiteSpace(url))
+                    {
+                        OpenExternal(url);
+                    }
+
+                    break;
+
+                case "requestNativeLogin":
+                    var message = root.TryGetProperty("message", out var messageElement)
+                        ? messageElement.GetString()
+                        : null;
+                    ShowLogin(string.IsNullOrWhiteSpace(message)
+                        ? "登录状态已失效，请重新输入管理密钥。"
+                        : message);
+                    break;
             }
         }
         catch
@@ -324,7 +434,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ShowBlocker(
                 "WebView2 进程异常退出",
-                "官方 WebUI 渲染进程发生故障，桌面宿主已停止继续渲染空白页面。",
+                "管理界面渲染进程发生故障，桌面宿主已停止继续渲染空白页面。",
                 e.ProcessFailedKind.ToString());
         });
     }
@@ -332,9 +442,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void ShowLoading(string description)
     {
         LoadingDescriptionText.Text = description;
+        LoginPanel.Visibility = Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowLogin(string? errorMessage = null)
+    {
+        LoginPanel.Visibility = Visibility.Visible;
+        LoadingPanel.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+        LoginButton.IsEnabled = true;
+        if (string.IsNullOrWhiteSpace(errorMessage))
+        {
+            LoginErrorText.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            LoginErrorText.Text = errorMessage;
+            LoginErrorText.Visibility = Visibility.Visible;
+        }
+
+        ManagementKeyPasswordBox.Focus();
     }
 
     private void ShowBlocker(string title, string description, string detail)
@@ -342,6 +473,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         BlockerTitleText.Text = title;
         BlockerDescriptionText.Text = description;
         BlockerDetailText.Text = detail;
+        LoginPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Visible;
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
@@ -349,6 +481,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ShowWebView()
     {
+        LoginPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Visible;

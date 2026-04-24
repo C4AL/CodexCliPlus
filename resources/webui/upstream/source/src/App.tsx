@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
+import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { NotificationContainer } from '@/components/common/NotificationContainer';
 import { ConfirmationModal } from '@/components/common/ConfirmationModal';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { useLanguageStore, useThemeStore } from '@/stores';
+import { isDesktopMode } from '@/desktop/bridge';
 
 function RootShell() {
   return (
@@ -17,11 +18,15 @@ function RootShell() {
   );
 }
 
+const desktopMode = isDesktopMode();
+
 const router = createHashRouter([
   {
     element: <RootShell />,
     children: [
-      { path: '/login', element: <LoginPage /> },
+      desktopMode
+        ? { path: '/login', element: <Navigate to="/" replace /> }
+        : { path: '/login', element: <LoginPage /> },
       {
         path: '/*',
         element: (

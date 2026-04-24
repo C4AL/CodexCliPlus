@@ -27,7 +27,9 @@ public sealed class ConfigAndLogsPageTests
 
         Assert.Contains("const desktopBootstrap = consumeDesktopBootstrap();", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("rememberPassword: false", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains("!isDesktopMode() && state.rememberPassword ? { managementKey: state.managementKey } : {}", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("isDesktopMode()", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("state.rememberPassword ? { managementKey: state.managementKey } : {}", authStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("!isDesktopMode() && state.rememberPassword", authStoreSource, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

@@ -8,6 +8,7 @@ interface DesktopBridge {
   isDesktopMode?: () => boolean;
   consumeBootstrap?: () => DesktopBootstrapPayload | null;
   openExternal?: (url: string) => void;
+  requestNativeLogin?: (message?: string) => void;
 }
 
 declare global {
@@ -15,6 +16,8 @@ declare global {
     __CPAD_DESKTOP_BRIDGE__?: DesktopBridge;
   }
 }
+
+let desktopBootstrapCache: DesktopBootstrapPayload | null | undefined;
 
 function getBridge(): DesktopBridge | null {
   if (typeof window === 'undefined') {
@@ -42,23 +45,34 @@ function normalizePayload(payload: DesktopBootstrapPayload | null | undefined): 
   };
 }
 
+export function getDesktopBootstrap(): DesktopBootstrapPayload | null {
+  if (desktopBootstrapCache !== undefined) {
+    return desktopBootstrapCache;
+  }
+
+  const bridge = getBridge();
+  if (typeof bridge?.consumeBootstrap !== 'function') {
+    desktopBootstrapCache = null;
+    return desktopBootstrapCache;
+  }
+
+  try {
+    desktopBootstrapCache = normalizePayload(bridge.consumeBootstrap());
+    return desktopBootstrapCache;
+  } catch (error) {
+    console.warn('Failed to read desktop bootstrap payload.', error);
+    desktopBootstrapCache = null;
+    return desktopBootstrapCache;
+  }
+}
+
 export function isDesktopMode(): boolean {
   const bridge = getBridge();
   return typeof bridge?.isDesktopMode === 'function' ? bridge.isDesktopMode() === true : false;
 }
 
 export function consumeDesktopBootstrap(): DesktopBootstrapPayload | null {
-  const bridge = getBridge();
-  if (typeof bridge?.consumeBootstrap !== 'function') {
-    return null;
-  }
-
-  try {
-    return normalizePayload(bridge.consumeBootstrap());
-  } catch (error) {
-    console.warn('Failed to consume desktop bootstrap payload.', error);
-    return null;
-  }
+  return getDesktopBootstrap();
 }
 
 export function openExternalInDesktopShell(url: string): boolean {
@@ -72,6 +86,21 @@ export function openExternalInDesktopShell(url: string): boolean {
     return true;
   } catch (error) {
     console.warn('Failed to open external url through desktop shell.', error);
+    return false;
+  }
+}
+
+export function requestNativeLogin(message?: string): boolean {
+  const bridge = getBridge();
+  if (typeof bridge?.requestNativeLogin !== 'function') {
+    return false;
+  }
+
+  try {
+    bridge.requestNativeLogin(message);
+    return true;
+  } catch (error) {
+    console.warn('Failed to request native desktop login.', error);
     return false;
   }
 }

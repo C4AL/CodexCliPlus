@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '@/types';
-import { LANGUAGE_ORDER, STORAGE_KEY_LANGUAGE } from '@/utils/constants';
+import { STORAGE_KEY_LANGUAGE } from '@/utils/constants';
 import i18n from '@/i18n';
 import { getInitialLanguage, isSupportedLanguage } from '@/utils/language';
 
@@ -31,10 +31,7 @@ export const useLanguageStore = create<LanguageState>()(
       },
 
       toggleLanguage: () => {
-        const { language, setLanguage } = get();
-        const currentIndex = LANGUAGE_ORDER.indexOf(language);
-        const nextLanguage = LANGUAGE_ORDER[(currentIndex + 1) % LANGUAGE_ORDER.length];
-        setLanguage(nextLanguage);
+        get().setLanguage('zh-CN');
       }
     }),
     {

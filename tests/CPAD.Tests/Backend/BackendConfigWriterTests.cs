@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text.RegularExpressions;
 
 using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
 using CPAD.Infrastructure.Backend;
@@ -10,6 +11,7 @@ using CPAD.Infrastructure.Configuration;
 
 namespace CPAD.Tests.Backend;
 
+[Collection("BackendProcessManager")]
 public sealed class BackendConfigWriterTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"cpad-backend-config-{Guid.NewGuid():N}");
@@ -28,20 +30,26 @@ public sealed class BackendConfigWriterTests : IDisposable
 
         var runtime = await writer.WriteAsync(settings);
         var yaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
+        var desktopJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
         var secondRuntime = await writer.WriteAsync(settings);
         var secondYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
 
-        Assert.Equal(9317, runtime.RequestedPort);
-        Assert.Equal(9317, runtime.Port);
+        Assert.Equal(AppConstants.DefaultBackendPort, runtime.RequestedPort);
+        Assert.Equal(AppConstants.DefaultBackendPort, runtime.Port);
         Assert.False(runtime.PortWasAdjusted);
-        Assert.Equal("http://127.0.0.1:9317", runtime.BaseUrl);
-        Assert.Equal("http://127.0.0.1:9317/healthz", runtime.HealthUrl);
+        Assert.Equal($"http://127.0.0.1:{AppConstants.DefaultBackendPort}", runtime.BaseUrl);
+        Assert.Equal($"http://127.0.0.1:{AppConstants.DefaultBackendPort}/healthz", runtime.HealthUrl);
         Assert.False(string.IsNullOrWhiteSpace(runtime.ManagementKey));
         Assert.DoesNotContain(runtime.ManagementKey, yaml, StringComparison.Ordinal);
         Assert.Contains("host: \"127.0.0.1\"", yaml, StringComparison.Ordinal);
+        Assert.Contains($"port: {AppConstants.DefaultBackendPort}", yaml, StringComparison.Ordinal);
         Assert.Contains("allow-remote: false", yaml, StringComparison.Ordinal);
         Assert.Contains("secret-key:", yaml, StringComparison.Ordinal);
         Assert.Contains("disable-control-panel: true", yaml, StringComparison.Ordinal);
+        Assert.Contains($"auth-dir: \"{EscapeYaml(Path.Combine(_rootDirectory, "backend", "auth"))}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains("\"backendPort\": 1327", desktopJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("9317", desktopJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(".cli-proxy-api", yaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("panel-github-repository", yaml, StringComparison.Ordinal);
 
         var match = Regex.Match(yaml, "secret-key: \"(?<hash>.+)\"");
@@ -54,21 +62,39 @@ public sealed class BackendConfigWriterTests : IDisposable
     }
 
     [Fact]
-    public async Task WriteAsyncUsesFallbackPortWhenPreferredPortIsOccupied()
+    public async Task WriteAsyncBlocksWhenFixedPortIsOccupied()
     {
         var pathService = new TestPathService(_rootDirectory);
         var configurationService = new JsonAppConfigurationService(pathService);
         var writer = new BackendConfigWriter(configurationService, pathService);
-        using var listener = new TcpListener(IPAddress.Loopback, 9327);
-        listener.Start();
+        using var listener = TryListenOnDefaultPort();
 
-        var runtime = await writer.WriteAsync(
-            new AppSettings { BackendPort = 9327 });
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => writer.WriteAsync(new AppSettings { BackendPort = 9327 }));
+        var yaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
 
-        Assert.Equal(9327, runtime.RequestedPort);
-        Assert.NotEqual(9327, runtime.Port);
-        Assert.True(runtime.PortWasAdjusted);
-        Assert.Contains("Preferred port 9327 was unavailable.", runtime.PortMessage, StringComparison.Ordinal);
+        Assert.Contains("CPAD backend port 1327 is already in use", exception.Message, StringComparison.Ordinal);
+        Assert.Contains($"port: {AppConstants.DefaultBackendPort}", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("9327", yaml, StringComparison.Ordinal);
+    }
+
+    private static TcpListener? TryListenOnDefaultPort()
+    {
+        try
+        {
+            var listener = new TcpListener(IPAddress.Loopback, AppConstants.DefaultBackendPort);
+            listener.Start();
+            return listener;
+        }
+        catch (SocketException)
+        {
+            return null;
+        }
+    }
+
+    private static string EscapeYaml(string value)
+    {
+        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     public void Dispose()

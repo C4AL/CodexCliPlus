@@ -43,35 +43,41 @@ export const useAuthStore = create<AuthStoreState>()(
         restoreSessionPromise = (async () => {
           const desktopMode = isDesktopMode();
           const desktopBootstrap = consumeDesktopBootstrap();
-          const currentState = get();
 
           if (desktopMode) {
-            const resolvedBase = normalizeApiBase(
-              desktopBootstrap?.apiBase || currentState.apiBase || detectApiBaseFromLocation()
-            );
+            if (!desktopBootstrap) {
+              set({
+                isAuthenticated: false,
+                apiBase: '',
+                managementKey: '',
+                rememberPassword: false,
+                connectionStatus: 'disconnected'
+              });
+              return false;
+            }
+
+            const resolvedBase = normalizeApiBase(desktopBootstrap.apiBase);
+            const resolvedKey = desktopBootstrap.managementKey;
 
             set({
               apiBase: resolvedBase,
-              managementKey: '',
+              managementKey: resolvedKey,
               rememberPassword: false
             });
-            apiClient.setConfig({ apiBase: resolvedBase, managementKey: '' });
+            apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-            if (desktopBootstrap) {
-              try {
-                await get().login({
-                  apiBase: desktopBootstrap.apiBase,
-                  managementKey: desktopBootstrap.managementKey,
-                  rememberPassword: false
-                });
-                return true;
-              } catch (error) {
-                console.warn('Desktop bootstrap auto login failed:', error);
-                return false;
-              }
+            try {
+              await get().login({
+                apiBase: resolvedBase,
+                managementKey: resolvedKey,
+                rememberPassword: false
+              });
+              return true;
+            } catch (error) {
+              console.warn('Desktop bootstrap auto login failed:', error);
+              restoreSessionPromise = null;
+              return false;
             }
-
-            return false;
           }
 
           obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
@@ -152,10 +158,10 @@ export const useAuthStore = create<AuthStoreState>()(
               ? error.message
               : typeof error === 'string'
                 ? error
-                : 'Connection failed';
+                : '连接失败';
           set({
             connectionStatus: 'error',
-            connectionError: message || 'Connection failed'
+            connectionError: message || '连接失败'
           });
           throw error;
         }
@@ -195,10 +201,17 @@ export const useAuthStore = create<AuthStoreState>()(
           });
 
           return true;
-        } catch {
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : typeof error === 'string'
+                ? error
+                : '连接失败';
           set({
             isAuthenticated: false,
-            connectionStatus: 'error'
+            connectionStatus: 'error',
+            connectionError: message || '连接失败'
           });
           return false;
         }
@@ -229,13 +242,20 @@ export const useAuthStore = create<AuthStoreState>()(
           obfuscatedStorage.removeItem(name);
         }
       })),
-      partialize: (state) => ({
-        apiBase: state.apiBase,
-        ...(!isDesktopMode() && state.rememberPassword ? { managementKey: state.managementKey } : {}),
-        rememberPassword: isDesktopMode() ? false : state.rememberPassword,
-        serverVersion: state.serverVersion,
-        serverBuildDate: state.serverBuildDate
-      })
+      partialize: (state) =>
+        isDesktopMode()
+          ? {
+              rememberPassword: false,
+              serverVersion: state.serverVersion,
+              serverBuildDate: state.serverBuildDate
+            }
+          : {
+              apiBase: state.apiBase,
+              ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),
+              rememberPassword: state.rememberPassword,
+              serverVersion: state.serverVersion,
+              serverBuildDate: state.serverBuildDate
+            }
     }
   )
 );

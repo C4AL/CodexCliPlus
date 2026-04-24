@@ -1,21 +1,17 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 using CPAD.Core.Abstractions.Logging;
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Constants;
 using CPAD.Core.Models;
+using CPAD.Infrastructure.Utilities;
 
 namespace CPAD.Infrastructure.Backend;
 
 public sealed class BackendAssetService
 {
-    private const string BackendArchiveUrl =
-        "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.34/CLIProxyAPI_6.9.34_windows_amd64.zip";
-
-    private const string BackendArchiveSha256 =
-        "34ca9b7bf53a6dd89b874ed3e204371673b7eb1abf34792498af4e65bf204815";
-
     private readonly HttpClient _httpClient;
     private readonly IPathService _pathService;
     private readonly IAppLogger _logger;
@@ -36,7 +32,8 @@ public sealed class BackendAssetService
 
         Directory.CreateDirectory(workingDirectory);
 
-        if (File.Exists(executablePath))
+        if (File.Exists(executablePath) &&
+            await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
         {
             return CreateLayout(workingDirectory, executablePath);
         }
@@ -54,20 +51,123 @@ public sealed class BackendAssetService
 
         if (TryCopyFromBundledAssets(workingDirectory, executablePath))
         {
-            _logger.Info("Copied backend files from the application bundle.");
-            return CreateLayout(workingDirectory, executablePath);
+            if (await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
+            {
+                _logger.Info("Copied backend files from the application bundle.");
+                return CreateLayout(workingDirectory, executablePath);
+            }
+
+            _logger.Warn("Bundled backend assets are not the pinned CLIProxyAPI version; continuing repair.");
         }
 
         if (TryCopyFromRepositoryAssets(workingDirectory, executablePath))
         {
-            _logger.Info("Copied backend files from repository resources.");
-            return CreateLayout(workingDirectory, executablePath);
+            if (await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
+            {
+                _logger.Info("Copied backend files from repository resources.");
+                return CreateLayout(workingDirectory, executablePath);
+            }
+
+            _logger.Warn("Repository backend assets are not the pinned CLIProxyAPI version; continuing repair.");
         }
 
         _logger.Info("Downloading CLIProxyAPI backend assets.");
         await DownloadBackendArchiveAsync(workingDirectory, executablePath, cancellationToken);
 
         return CreateLayout(workingDirectory, executablePath);
+    }
+
+    private async Task<bool> IsExecutableVersionCurrentAsync(
+        string executablePath,
+        CancellationToken cancellationToken)
+    {
+        var version = await TryReadExecutableVersionAsync(executablePath, cancellationToken);
+        if (IsExpectedBackendVersion(version))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            _logger.Warn($"Could not determine CLIProxyAPI backend version at '{executablePath}'.");
+        }
+        else
+        {
+            _logger.Warn(
+                $"CLIProxyAPI backend at '{executablePath}' is version {version}; expected {BackendReleaseMetadata.Version}.");
+        }
+
+        return false;
+    }
+
+    private async Task<string?> TryReadExecutableVersionAsync(
+        string executablePath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var result = await ProcessCapture.RunAsync(
+                executablePath,
+                "--version",
+                Path.GetDirectoryName(executablePath),
+                timeout.Token);
+
+            if (result.ExitCode != 0)
+            {
+                _logger.Warn(
+                    $"CLIProxyAPI version probe exited with code {result.ExitCode}: {result.StandardError}");
+            }
+
+            var output = string.Join(
+                Environment.NewLine,
+                new[] { result.StandardOutput, result.StandardError }
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+            return TryParseCliProxyApiVersion(output);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.Warn($"CLIProxyAPI version probe timed out for '{executablePath}'.");
+            return null;
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"CLIProxyAPI version probe failed for '{executablePath}': {exception.Message}");
+            return null;
+        }
+    }
+
+    internal static string? TryParseCliProxyApiVersion(string? output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return null;
+        }
+
+        var labeledMatch = Regex.Match(
+            output,
+            @"(?im)\b(?:CLIProxyAPI\s+Version|Version)\s*:\s*v?(?<version>\d+(?:\.\d+){1,3})(?:\b|$)",
+            RegexOptions.CultureInvariant);
+        if (labeledMatch.Success)
+        {
+            return labeledMatch.Groups["version"].Value;
+        }
+
+        var fallbackMatch = Regex.Match(
+            output,
+            @"(?im)\bv?(?<version>\d+\.\d+\.\d+(?:\.\d+)?)\b",
+            RegexOptions.CultureInvariant);
+        return fallbackMatch.Success ? fallbackMatch.Groups["version"].Value : null;
+    }
+
+    internal static bool IsExpectedBackendVersion(string? version)
+    {
+        return string.Equals(
+            version?.Trim().TrimStart('v', 'V'),
+            BackendReleaseMetadata.Version,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static BackendAssetLayout CreateLayout(
@@ -123,7 +223,10 @@ public sealed class BackendAssetService
         string executablePath,
         CancellationToken cancellationToken)
     {
-        var archiveBytes = await DownloadAndValidateAsync(BackendArchiveUrl, BackendArchiveSha256, cancellationToken);
+        var archiveBytes = await DownloadAndValidateAsync(
+            BackendReleaseMetadata.ArchiveUrl,
+            BackendReleaseMetadata.ArchiveSha256,
+            cancellationToken);
 
         using var archiveStream = new MemoryStream(archiveBytes);
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);

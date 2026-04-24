@@ -23,6 +23,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
     private readonly IPathService _pathService;
     private readonly ISecureCredentialStore _credentialStore;
+    private string _sessionManagementKey = string.Empty;
 
     public JsonAppConfigurationService(IPathService pathService)
         : this(pathService, new DpapiCredentialStore(pathService))
@@ -51,9 +52,11 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             ?? new PersistedAppSettings();
 
         var settings = persisted.ToModel();
+        settings.BackendPort = AppConstants.DefaultBackendPort;
         if (!string.IsNullOrWhiteSpace(persisted.ManagementKey))
         {
             settings.ManagementKey = persisted.ManagementKey.Trim();
+            settings.RememberManagementKey = true;
             if (string.IsNullOrWhiteSpace(settings.ManagementKeyReference))
             {
                 settings.ManagementKeyReference = AppConstants.DefaultManagementKeyReference;
@@ -64,9 +67,28 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             return settings;
         }
 
-        settings.ManagementKey = string.IsNullOrWhiteSpace(settings.ManagementKeyReference)
-            ? string.Empty
-            : await _credentialStore.LoadSecretAsync(settings.ManagementKeyReference, cancellationToken) ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(settings.ManagementKeyReference))
+        {
+            var storedManagementKey = await _credentialStore.LoadSecretAsync(
+                settings.ManagementKeyReference,
+                cancellationToken) ?? string.Empty;
+
+            if (persisted.RememberManagementKey is null && !string.IsNullOrWhiteSpace(storedManagementKey))
+            {
+                settings.RememberManagementKey = true;
+                settings.ManagementKey = storedManagementKey;
+                await SaveAsync(settings, cancellationToken);
+                return settings;
+            }
+
+            if (settings.RememberManagementKey)
+            {
+                settings.ManagementKey = storedManagementKey;
+                return settings;
+            }
+        }
+
+        settings.ManagementKey = _sessionManagementKey;
 
         return settings;
     }
@@ -76,14 +98,27 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         ArgumentNullException.ThrowIfNull(settings);
 
         await _pathService.EnsureCreatedAsync(cancellationToken);
+        settings.BackendPort = AppConstants.DefaultBackendPort;
 
-        if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
+        settings.ManagementKeyReference = string.IsNullOrWhiteSpace(settings.ManagementKeyReference)
+            ? AppConstants.DefaultManagementKeyReference
+            : settings.ManagementKeyReference.Trim();
+
+        if (settings.RememberManagementKey)
         {
-            settings.ManagementKeyReference = string.IsNullOrWhiteSpace(settings.ManagementKeyReference)
-                ? AppConstants.DefaultManagementKeyReference
-                : settings.ManagementKeyReference.Trim();
-
-            await _credentialStore.SaveSecretAsync(settings.ManagementKeyReference, settings.ManagementKey, cancellationToken);
+            _sessionManagementKey = string.Empty;
+            if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
+            {
+                await _credentialStore.SaveSecretAsync(
+                    settings.ManagementKeyReference,
+                    settings.ManagementKey,
+                    cancellationToken);
+            }
+        }
+        else
+        {
+            _sessionManagementKey = settings.ManagementKey;
+            await _credentialStore.DeleteSecretAsync(settings.ManagementKeyReference, cancellationToken);
         }
 
         var persisted = PersistedAppSettings.FromModel(settings);
@@ -114,6 +149,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public string? ManagementKeyReference { get; init; }
 
+        public bool? RememberManagementKey { get; init; }
+
         public Core.Enums.CodexSourceKind PreferredCodexSource { get; init; } = Core.Enums.CodexSourceKind.Official;
 
         public bool StartWithWindows { get; init; }
@@ -138,10 +175,11 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         {
             return new AppSettings
             {
-                BackendPort = BackendPort <= 0 ? AppConstants.DefaultBackendPort : BackendPort,
+                BackendPort = AppConstants.DefaultBackendPort,
                 ManagementKeyReference = string.IsNullOrWhiteSpace(ManagementKeyReference)
                     ? AppConstants.DefaultManagementKeyReference
                     : ManagementKeyReference.Trim(),
+                RememberManagementKey = RememberManagementKey ?? false,
                 PreferredCodexSource = PreferredCodexSource,
                 StartWithWindows = StartWithWindows,
                 MinimizeToTrayOnClose = MinimizeToTrayOnClose,
@@ -160,8 +198,9 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         {
             return new PersistedAppSettings
             {
-                BackendPort = settings.BackendPort,
+                BackendPort = AppConstants.DefaultBackendPort,
                 ManagementKeyReference = settings.ManagementKeyReference,
+                RememberManagementKey = settings.RememberManagementKey,
                 PreferredCodexSource = settings.PreferredCodexSource,
                 StartWithWindows = settings.StartWithWindows,
                 MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose,

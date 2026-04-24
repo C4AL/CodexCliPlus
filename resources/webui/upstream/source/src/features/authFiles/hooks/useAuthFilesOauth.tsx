@@ -8,6 +8,13 @@ import { normalizeProviderKey } from '@/features/authFiles/constants';
 
 type UnsupportedError = 'unsupported' | null;
 type ViewMode = 'diagram' | 'list';
+const CODEX_PROVIDER = 'codex';
+
+function filterCodexRecord<T>(record: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([provider]) => normalizeProviderKey(provider) === CODEX_PROVIDER)
+  );
+}
 
 export type UseAuthFilesOauthResult = {
   excluded: Record<string, string[]>;
@@ -38,7 +45,7 @@ export type UseAuthFilesOauthOptions = {
 };
 
 export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFilesOauthResult {
-  const { viewMode, files } = options;
+  const { viewMode } = options;
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
 
@@ -53,26 +60,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
   const excludedUnsupportedRef = useRef(false);
   const mappingsUnsupportedRef = useRef(false);
 
-  const providerList = useMemo(() => {
-    const providers = new Set<string>();
-
-    Object.keys(modelAlias).forEach((provider) => {
-      const key = provider.trim().toLowerCase();
-      if (key) providers.add(key);
-    });
-
-    files.forEach((file) => {
-      if (typeof file.type === 'string') {
-        const key = file.type.trim().toLowerCase();
-        if (key) providers.add(key);
-      }
-      if (typeof file.provider === 'string') {
-        const key = file.provider.trim().toLowerCase();
-        if (key) providers.add(key);
-      }
-    });
-    return Array.from(providers);
-  }, [files, modelAlias]);
+  const providerList = useMemo(() => [CODEX_PROVIDER], []);
 
   useEffect(() => {
     if (viewMode !== 'diagram') return;
@@ -119,7 +107,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     try {
       const res = await authFilesApi.getOauthExcludedModels();
       excludedUnsupportedRef.current = false;
-      setExcluded(res || {});
+      setExcluded(filterCodexRecord(res || {}));
       setExcludedError(null);
     } catch (err: unknown) {
       const status =
@@ -144,7 +132,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     try {
       const res = await authFilesApi.getOauthModelAlias();
       mappingsUnsupportedRef.current = false;
-      setModelAlias(res || {});
+      setModelAlias(filterCodexRecord(res || {}));
       setModelAliasError(null);
     } catch (err: unknown) {
       const status =

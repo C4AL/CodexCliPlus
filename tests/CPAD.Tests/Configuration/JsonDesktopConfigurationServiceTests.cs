@@ -31,7 +31,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var actual = await service.LoadAsync();
         var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
 
-        Assert.Equal(9417, actual.BackendPort);
+        Assert.Equal(AppConstants.DefaultBackendPort, actual.BackendPort);
         Assert.Equal("test-key", actual.ManagementKey);
         Assert.Equal("desktop-management-key", actual.ManagementKeyReference);
         Assert.Equal(CodexSourceKind.Cpa, actual.PreferredCodexSource);
@@ -40,6 +40,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.True(actual.EnableDebugTools);
         Assert.Equal(@"C:\repo", actual.LastRepositoryPath);
         Assert.DoesNotContain("test-key", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("9417", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
     }
 
@@ -63,9 +65,12 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var settings = await service.LoadAsync();
         var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
 
+        Assert.Equal(AppConstants.DefaultBackendPort, settings.BackendPort);
         Assert.Equal("legacy-secret", settings.ManagementKey);
         Assert.Equal(AppConstants.DefaultManagementKeyReference, settings.ManagementKeyReference);
         Assert.DoesNotContain("legacy-secret", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("9527", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "management-key.bin")));
     }
@@ -111,6 +116,30 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
 
         Assert.Equal(1327, AppConstants.DefaultBackendPort);
         Assert.Equal(AppConstants.DefaultBackendPort, actual.BackendPort);
+    }
+
+    [Fact]
+    public async Task LoadAndSaveAsyncNormalizePersistedFallbackBackendPort()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        await pathService.EnsureCreatedAsync();
+        await File.WriteAllTextAsync(
+            pathService.Directories.SettingsFilePath,
+            """
+            {
+              "backendPort": 1328,
+              "themeMode": "Light"
+            }
+            """);
+
+        var service = new JsonAppConfigurationService(pathService);
+        var settings = await service.LoadAsync();
+        await service.SaveAsync(settings);
+        var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
+
+        Assert.Equal(AppConstants.DefaultBackendPort, settings.BackendPort);
+        Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("1328", persistedJson, StringComparison.Ordinal);
     }
 
     public void Dispose()

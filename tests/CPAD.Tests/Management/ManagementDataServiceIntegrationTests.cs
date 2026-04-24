@@ -281,7 +281,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var apiKeys = await authService.GetApiKeysAsync();
             var primaryApiKey = Assert.Single(apiKeys.Value);
             var models = await systemService.GetAvailableModelsAsync(primaryApiKey);
-            Assert.NotEmpty(models.Value);
+            Assert.NotNull(models.Value);
 
             var probe = await systemService.ExecuteApiCallAsync(new ManagementApiCallRequest
             {

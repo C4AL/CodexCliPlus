@@ -12,28 +12,21 @@ import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
 import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi } from '@/services/api';
-import type { AuthFileItem, OAuthModelAliasEntry } from '@/types';
 import styles from './AuthFilesOAuthExcludedEditPage.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
 
 type LocationState = { fromAuthFiles?: boolean } | null;
 
-const OAUTH_PROVIDER_PRESETS = [
-  'gemini-cli',
-  'vertex',
-  'aistudio',
-  'antigravity',
-  'claude',
-  'codex',
-  'qwen',
-  'kimi',
-  'iflow',
-];
-
-const OAUTH_PROVIDER_EXCLUDES = new Set(['all', 'unknown', 'empty']);
+const OAUTH_PROVIDER_PRESETS = ['codex'];
 
 const normalizeProviderKey = (value: string) => value.trim().toLowerCase();
+
+function filterCodexRecord<T>(record: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(record).filter(([provider]) => normalizeProviderKey(provider) === 'codex')
+  );
+}
 
 export function AuthFilesOAuthExcludedEditPage() {
   const { t } = useTranslation();
@@ -43,13 +36,11 @@ export function AuthFilesOAuthExcludedEditPage() {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const providerFromParams = searchParams.get('provider') ?? '';
+  const [, setSearchParams] = useSearchParams();
+  const providerFromParams = 'codex';
 
   const [provider, setProvider] = useState(providerFromParams);
-  const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [excluded, setExcluded] = useState<Record<string, string[]>>({});
-  const [modelAlias, setModelAlias] = useState<Record<string, OAuthModelAliasEntry[]>>({});
   const [initialLoading, setInitialLoading] = useState(true);
   const [excludedUnsupported, setExcludedUnsupported] = useState(false);
 
@@ -67,30 +58,7 @@ export function AuthFilesOAuthExcludedEditPage() {
     return () => window.clearTimeout(timer);
   }, [providerFromParams]);
 
-  const providerOptions = useMemo(() => {
-    const extraProviders = new Set<string>();
-    Object.keys(excluded).forEach((value) => extraProviders.add(value));
-    Object.keys(modelAlias).forEach((value) => extraProviders.add(value));
-    files.forEach((file) => {
-      if (typeof file.type === 'string') {
-        extraProviders.add(file.type);
-      }
-      if (typeof file.provider === 'string') {
-        extraProviders.add(file.provider);
-      }
-    });
-
-    const normalizedExtras = Array.from(extraProviders)
-      .map((value) => value.trim())
-      .filter((value) => value && !OAUTH_PROVIDER_EXCLUDES.has(value.toLowerCase()));
-
-    const baseSet = new Set(OAUTH_PROVIDER_PRESETS.map((value) => value.toLowerCase()));
-    const extraList = normalizedExtras
-      .filter((value) => !baseSet.has(value.toLowerCase()))
-      .sort((a, b) => a.localeCompare(b));
-
-    return [...OAUTH_PROVIDER_PRESETS, ...extraList];
-  }, [excluded, files, modelAlias]);
+  const providerOptions = useMemo(() => OAUTH_PROVIDER_PRESETS, []);
 
   const getTypeLabel = useCallback(
     (type: string): string => {
@@ -144,28 +112,12 @@ export function AuthFilesOAuthExcludedEditPage() {
       setInitialLoading(true);
       setExcludedUnsupported(false);
       try {
-        const [filesResult, excludedResult, aliasResult] = await Promise.allSettled([
-          authFilesApi.list(),
-          authFilesApi.getOauthExcludedModels(),
-          authFilesApi.getOauthModelAlias(),
-        ]);
+        const excludedResult = await authFilesApi.getOauthExcludedModels();
 
         if (cancelled) return;
 
-        if (filesResult.status === 'fulfilled') {
-          setFiles(filesResult.value?.files ?? []);
-        }
-
-        if (aliasResult.status === 'fulfilled') {
-          setModelAlias(aliasResult.value ?? {});
-        }
-
-        if (excludedResult.status === 'fulfilled') {
-          setExcluded(excludedResult.value ?? {});
-          return;
-        }
-
-        const err = excludedResult.status === 'rejected' ? excludedResult.reason : null;
+        setExcluded(filterCodexRecord(excludedResult ?? {}));
+      } catch (err: unknown) {
         const status =
           typeof err === 'object' && err !== null && 'status' in err
             ? (err as { status?: unknown }).status
@@ -173,7 +125,6 @@ export function AuthFilesOAuthExcludedEditPage() {
 
         if (status === 404) {
           setExcludedUnsupported(true);
-          return;
         }
       } finally {
         if (!cancelled) {
@@ -258,18 +209,13 @@ export function AuthFilesOAuthExcludedEditPage() {
   }, [excludedUnsupported, resolvedProviderKey, showNotification, t]);
 
   const updateProvider = useCallback(
-    (value: string) => {
-      setProvider(value);
-      const next = new URLSearchParams(searchParams);
-      const trimmed = value.trim();
-      if (trimmed) {
-        next.set('provider', trimmed);
-      } else {
-        next.delete('provider');
-      }
+    (_value: string) => {
+      setProvider('codex');
+      const next = new URLSearchParams();
+      next.set('provider', 'codex');
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [setSearchParams]
   );
 
   const toggleModel = useCallback((modelId: string, checked: boolean) => {

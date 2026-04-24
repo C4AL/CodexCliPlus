@@ -124,7 +124,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
         {
             State = BackendStateKind.Error,
             Message = "Backend failed to start.",
-            LastError = FormattableString.Invariant($"No available loopback port was found starting from {AppConstants.DefaultBackendPort}.")
+            LastError = FormattableString.Invariant($"CPAD backend port {AppConstants.DefaultBackendPort} is already in use. Stop the process using 127.0.0.1:{AppConstants.DefaultBackendPort} and start CPAD again.")
         });
 
         Assert.True(result.RequiresRepairMode);
@@ -137,7 +137,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var rootDirectory = CreateRootDirectory();
         var pathService = new TestPathService(rootDirectory);
         SeedHealthyManagedState(pathService);
-        Directory.Delete(Path.Combine(pathService.Directories.ConfigDirectory, "secrets"), recursive: true);
+        File.Delete(pathService.Directories.SettingsFilePath);
 
         var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
 

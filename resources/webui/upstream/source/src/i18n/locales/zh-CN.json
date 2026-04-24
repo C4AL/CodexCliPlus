@@ -38,7 +38,7 @@
     "alias": "别名",
     "failure": "失败",
     "unknown_error": "未知错误",
-    "quota_update_required": "请更新 CPA 版本或检查更新",
+    "quota_update_required": "请更新后端版本或检查更新",
     "quota_check_credential": "请检查凭证状态",
     "copy": "复制",
     "expand": "展开",
@@ -57,13 +57,13 @@
     "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？"
   },
   "title": {
-    "main": "CLI Proxy API Management Center",
-    "login": "CLI Proxy API Management Center",
-    "abbr": "CPAMC"
+    "main": "CPAD",
+    "login": "CPAD",
+    "abbr": "CPAD"
   },
   "splash": {
-    "title": "CLI Proxy API",
-    "subtitle": "管理中心"
+    "title": "CPAD",
+    "subtitle": "Cli Proxy API Desktop"
   },
   "auto_login": {
     "title": "正在自动登录...",
@@ -71,6 +71,8 @@
   },
   "login": {
     "subtitle": "请输入连接信息以访问管理界面",
+    "desktop_subtitle": "正在使用本地管理服务登录 CPAD",
+    "desktop_retry_button": "重试连接",
     "connection_title": "连接地址",
     "connection_current": "当前地址",
     "connection_auto_hint": "系统将自动使用当前访问地址进行连接",
@@ -122,7 +124,7 @@
   },
   "dashboard": {
     "title": "仪表盘",
-    "subtitle": "欢迎使用 CLI Proxy API 管理中心",
+    "subtitle": "欢迎使用 CPAD",
     "openai_providers": "OpenAI 提供商",
     "quick_actions": "快捷操作",
     "current_config": "当前配置",
@@ -745,7 +747,7 @@
     "provider_hint": "默认选中当前筛选的提供商，也可直接输入或选择其他名称。",
     "models_label": "禁用的模型",
     "models_loading": "正在加载模型列表...",
-    "models_unsupported": "当前 CPA 版本不支持获取模型列表。",
+    "models_unsupported": "当前后端版本不支持获取模型列表。",
     "models_loaded": "已加载 {{count}} 个模型，勾选要禁用的模型。",
     "no_models_available": "该提供商暂无可用模型列表。",
     "save": "保存/更新",
@@ -766,9 +768,9 @@
     "provider_required": "请先填写提供商名称",
     "scope_all": "当前范围：全局（显示所有提供商）",
     "scope_provider": "当前范围：{{provider}}",
-    "upgrade_required": "当前 CPA 版本不支持 OAuth 模型禁用，请升级 CPA 版本",
-    "upgrade_required_title": "需要升级 CPA 版本",
-    "upgrade_required_desc": "当前服务器版本不支持获取 OAuth 模型禁用功能，请升级到最新版本的 CPA（CLI Proxy API）后重试。"
+    "upgrade_required": "当前后端版本不支持 OAuth 模型禁用，请升级后端版本",
+    "upgrade_required_title": "需要升级后端版本",
+    "upgrade_required_desc": "当前服务器版本不支持获取 OAuth 模型禁用功能，请升级到最新后端版本后重试。"
   },
   "oauth_model_alias": {
     "title": "OAuth 模型别名",
@@ -778,7 +780,7 @@
     "provider_placeholder": "例如 gemini-cli / vertex",
     "provider_hint": "默认选中当前筛选的提供商，也可直接输入或选择其他名称。",
     "model_source_loading": "正在加载模型列表...",
-    "model_source_unsupported": "当前 CPA 版本不支持获取模型列表（仍可手动输入）。",
+    "model_source_unsupported": "当前后端版本不支持获取模型列表（仍可手动输入）。",
     "model_source_loaded": "已加载 {{count}} 个模型，可在“原模型名称”中下拉选择；也可手动输入。留空保存将删除该提供商记录；开启“保留原名”会在保留原模型名的同时新增别名。",
     "alias_label": "模型别名",
     "alias_name_placeholder": "原模型名称",
@@ -828,9 +830,9 @@
     "view_mode_diagram": "概览",
     "view_mode_list": "管理",
     "provider_required": "请先填写提供商名称",
-    "upgrade_required": "当前 CPA 版本不支持模型别名功能，请升级 CPA 版本",
-    "upgrade_required_title": "需要升级 CPA 版本",
-    "upgrade_required_desc": "当前服务器版本不支持 OAuth 模型别名功能，请升级到最新版本的 CPA（CLI Proxy API）后重试。"
+    "upgrade_required": "当前后端版本不支持模型别名功能，请升级后端版本",
+    "upgrade_required_title": "需要升级后端版本",
+    "upgrade_required_desc": "当前服务器版本不支持 OAuth 模型别名功能，请升级到最新后端版本后重试。"
   },
   "auth_login": {
     "codex_oauth_title": "Codex OAuth",
@@ -1350,8 +1352,8 @@
     "card_idle_hint": "请使用顶部“刷新全部凭证”按钮获取最新额度。"
   },
   "system_info": {
-    "title": "管理中心信息",
-    "about_title": "CLI Proxy API Management Center",
+    "title": "CPAD 信息",
+    "about_title": "CPAD",
     "connection_status_title": "连接状态",
     "api_status_label": "API 状态:",
     "config_status_label": "配置状态:",
@@ -1381,9 +1383,9 @@
     "quick_links_title": "快捷链接",
     "quick_links_desc": "访问项目仓库和文档，获取帮助和更新。",
     "link_main_repo": "主程序仓库",
-    "link_main_repo_desc": "CLI Proxy API 核心程序源代码",
-    "link_webui_repo": "WebUI 仓库",
-    "link_webui_repo_desc": "管理中心前端界面源代码",
+    "link_main_repo_desc": "后端核心程序源代码",
+    "link_webui_repo": "前端仓库",
+    "link_webui_repo_desc": "管理界面源代码",
     "link_docs": "使用教程",
     "link_docs_desc": "配置指南和使用说明",
     "clear_login_title": "本地登录信息",
@@ -1480,9 +1482,9 @@
     "toggle_collapse": "收起侧边栏"
   },
   "footer": {
-    "api_version": "CLI Proxy API 版本",
+    "api_version": "后端版本",
     "build_date": "构建时间",
-    "version": "管理中心版本",
+    "version": "CPAD 版本",
     "author": "作者"
   }
 }

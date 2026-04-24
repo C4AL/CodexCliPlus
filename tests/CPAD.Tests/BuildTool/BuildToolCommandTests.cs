@@ -465,7 +465,7 @@ public sealed class BuildToolCommandTests : IDisposable
             if (arguments.SequenceEqual(["run", "build"], StringComparer.Ordinal))
             {
                 var mergedMarkerPath = Path.Combine(workingDirectory, "src", "message.txt");
-                var distRoot = Path.Combine(workingDirectory, "dist");
+                var distRoot = Path.Combine(Directory.GetParent(workingDirectory)!.FullName, "dist");
                 Directory.CreateDirectory(distRoot);
                 File.WriteAllText(
                     Path.Combine(distRoot, "index.html"),

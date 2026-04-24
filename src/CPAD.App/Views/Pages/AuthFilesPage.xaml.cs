@@ -4,15 +4,12 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-
+using CommunityToolkit.Mvvm.ComponentModel;
 using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Models.Management;
 using CPAD.Management.DesignSystem.Controls;
 using CPAD.Services.SecondaryRoutes;
 using CPAD.ViewModels.Pages;
-
-using CommunityToolkit.Mvvm.ComponentModel;
-
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace CPAD.Views.Pages;

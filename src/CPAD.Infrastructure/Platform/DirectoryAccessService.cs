@@ -1,5 +1,5 @@
 using System.Diagnostics;
-
+using System.Diagnostics.CodeAnalysis;
 using CPAD.Core.Abstractions.Paths;
 
 namespace CPAD.Infrastructure.Platform;
@@ -19,6 +19,7 @@ public sealed class DirectoryAccessService
 
     public string GetBackendDirectory() => _pathService.Directories.BackendDirectory;
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
     public void OpenDirectory(string path)
     {
         Directory.CreateDirectory(path);
@@ -29,6 +30,7 @@ public sealed class DirectoryAccessService
         });
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
     public string? GetWriteAccessError(string path)
     {
         try

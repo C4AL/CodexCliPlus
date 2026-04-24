@@ -5,3 +5,5 @@ artifacts/
 
 resources/backend/windows-x64/*
 !resources/backend/windows-x64/.gitkeep
+
+resources/webui/upstream/source/node_modules/

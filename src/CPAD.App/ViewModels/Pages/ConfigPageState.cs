@@ -1,11 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-
+using CommunityToolkit.Mvvm.ComponentModel;
 using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Models.Management;
 using CPAD.Views.Pages;
-
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CPAD.ViewModels.Pages;
 

@@ -600,7 +600,7 @@ internal static class ManagementMappers
         };
     }
 
-    private static IReadOnlyList<ManagementModelAlias> MapModelAliases(JsonElement item)
+    private static ManagementModelAlias[] MapModelAliases(JsonElement item)
     {
         if (ManagementJson.GetArray(item, "models") is not { } modelArray)
         {
@@ -629,7 +629,7 @@ internal static class ManagementMappers
             .ToArray();
     }
 
-    private static IReadOnlyList<T> MapProviderList<T>(
+    private static T[] MapProviderList<T>(
         JsonElement root,
         string propertyName,
         Func<JsonElement, T> factory)
@@ -645,7 +645,7 @@ internal static class ManagementMappers
             .ToArray();
     }
 
-    private static IReadOnlyList<ManagementBatchFailure> MapBatchFailures(JsonElement root)
+    private static ManagementBatchFailure[] MapBatchFailures(JsonElement root)
     {
         if (ManagementJson.GetArray(root, "failed") is not { } array)
         {
@@ -663,7 +663,7 @@ internal static class ManagementMappers
             .ToArray();
     }
 
-    private static object ToUsageSnapshotPayload(ManagementUsageSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageSnapshotPayload(ManagementUsageSnapshot snapshot)
     {
         return new Dictionary<string, object?>
         {
@@ -682,7 +682,7 @@ internal static class ManagementMappers
         };
     }
 
-    private static object ToUsageApiSnapshotPayload(ManagementUsageApiSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageApiSnapshotPayload(ManagementUsageApiSnapshot snapshot)
     {
         return new Dictionary<string, object?>
         {
@@ -695,7 +695,7 @@ internal static class ManagementMappers
         };
     }
 
-    private static object ToUsageModelSnapshotPayload(ManagementUsageModelSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageModelSnapshotPayload(ManagementUsageModelSnapshot snapshot)
     {
         return new Dictionary<string, object?>
         {

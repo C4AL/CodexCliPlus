@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -46,10 +47,10 @@ public partial class UsagePage : Page
 
         MetricItems.ItemsSource = new[]
         {
-            new ManagementMetricItem(snapshot.TotalRequests.ToString(), "总请求数", "全部请求累计"),
-            new ManagementMetricItem(snapshot.SuccessCount.ToString(), "成功数", "成功返回的请求"),
-            new ManagementMetricItem(snapshot.FailureCount.ToString(), "失败数", "失败请求累计"),
-            new ManagementMetricItem(snapshot.TotalTokens.ToString(), "总 Token", "输入、输出、缓存与思考总量")
+            new ManagementMetricItem(snapshot.TotalRequests.ToString(CultureInfo.CurrentCulture), "总请求数", "全部请求累计"),
+            new ManagementMetricItem(snapshot.SuccessCount.ToString(CultureInfo.CurrentCulture), "成功数", "成功返回的请求"),
+            new ManagementMetricItem(snapshot.FailureCount.ToString(CultureInfo.CurrentCulture), "失败数", "失败请求累计"),
+            new ManagementMetricItem(snapshot.TotalTokens.ToString(CultureInfo.CurrentCulture), "总 Token", "输入、输出、缓存与思考总量")
         };
 
         RequestsTrendChart.Points = snapshot.RequestsByDay;

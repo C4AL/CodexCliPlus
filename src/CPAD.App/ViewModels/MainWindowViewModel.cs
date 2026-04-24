@@ -1,17 +1,16 @@
-using CPAD.Core.Abstractions.Build;
-
 using CommunityToolkit.Mvvm.ComponentModel;
+using CPAD.Core.Abstractions.Build;
 
 namespace CPAD.ViewModels;
 
 public sealed class MainWindowViewModel : ObservableObject
 {
     private string _title;
-    private string _subtitle = "CPAD 原生管理中心";
+    private string _subtitle = "官方 Web 管理界面";
 
     public MainWindowViewModel(IBuildInfo buildInfo)
     {
-        _title = $"Cli Proxy API Desktop / CPAD {buildInfo.ApplicationVersion}";
+        _title = $"CPAD 桌面版 {buildInfo.ApplicationVersion}";
     }
 
     public string Title

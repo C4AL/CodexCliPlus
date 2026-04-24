@@ -15,8 +15,9 @@ This document also defines how to validate BuildTool packaging, update behavior,
 For normal repository work, use this order:
 
 ```powershell
-dotnet build CliProxyApiDesktop.sln
-dotnet test tests\CPAD.Tests\CPAD.Tests.csproj
+dotnet restore
+dotnet build CliProxyApiDesktop.sln --no-restore
+dotnet test tests\CPAD.Tests\CPAD.Tests.csproj --no-build
 powershell -ExecutionPolicy Bypass -File tests\CPAD.Tests\Smoke\SafeSmoke.ps1
 powershell -ExecutionPolicy Bypass -File tests\CPAD.Tests\Smoke\SafeSmoke.ps1 `
   -Launch `
@@ -39,6 +40,7 @@ dotnet run --project src\CPAD.BuildTool -- verify-package
 ## Automated coverage map
 
 - `tests/CPAD.Tests/BuildTool/BuildToolCommandTests.cs` covers BuildTool help/command parsing, asset fetch/verify, and package verification expectations for portable, development, and installer outputs.
+- `tests/CPAD.Tests/UI/NavigationShellTests.cs` covers the minimal WebView2 host shell, tray contract, and the removal of the runtime native navigation shell.
 - `tests/CPAD.Tests/Paths/AppPathServiceTests.cs` covers installed, portable, and development data-mode resolution and managed directory creation.
 - `tests/CPAD.Tests/Updates/GitHubReleaseUpdateServiceTests.cs` covers stable release discovery, the `No stable release` state, beta reservation, and installer-asset versus portable-asset detection.
 - `tests/CPAD.Tests/Dependencies/DependencyHealthServiceTests.cs` covers dependency repair triggers and repair-mode entry signals.
@@ -73,11 +75,11 @@ These actions are only safe when the smoke session is isolated and you explicitl
   Treat `verify-package` plus metadata inspection as the default automated gate.
   Do manual install/uninstall checks only in an isolated test user, VM, or disposable environment.
 - Portable package:
-  Verify the zip contains `CPAD.exe` and `portable-mode.json`.
+  Verify the zip contains `CPAD.exe`, `portable-mode.json`, `assets/webui/upstream/dist/index.html`, and `assets/webui/upstream/sync.json`.
   Treat it as a manual/no-auto-update distribution.
   Launch it only with isolated writable state when doing smoke.
 - Development package:
-  Verify the zip contains `app/CPAD.exe`, `app/dev-mode.json`, and `app/artifacts/dev-data/.gitkeep`.
+  Verify the zip contains `app/CPAD.exe`, `app/dev-mode.json`, `app/artifacts/dev-data/.gitkeep`, `app/assets/webui/upstream/dist/index.html`, and `app/assets/webui/upstream/sync.json`.
   Treat it as a developer validation artifact, not a production distribution.
 
 ## Update verification
@@ -96,7 +98,8 @@ These actions are only safe when the smoke session is isolated and you explicitl
 
 ## Current Acceptance Risks
 
-- Active source is clean of live `WebView2` namespace/package usage, and `resources/webview2/` has been removed from the active tree.
+- Desktop runtime now depends on `Microsoft.Web.WebView2`; acceptance should fail if the host package reference or blocker handling disappears.
+- Vendored WebUI source and built assets must stay aligned; if `resources/webui/upstream/dist/index.html` or `resources/webui/upstream/sync.json` disappears, packaging is invalid.
 - Historical `artifacts/publish` and `artifacts/installer` trees were removed during cleanup. If an old local publish tree reappears later, do not treat it as proof of the current architecture.
 - Generated residue also exists under `src/**/bin`, `src/**/obj`, `tests/**/bin`, and `tests/**/obj`. Acceptance scans must separate generated files from active source.
 - A generated `CPAD.Setup.*.exe` or staging zip is necessary packaging evidence, but it does not by itself prove full installer/update/uninstall acceptance is complete.
@@ -125,8 +128,9 @@ If you are verifying a direct `dotnet publish` output instead of BuildTool outpu
 Recommended full validation sequence when packaging and smoke both matter:
 
 ```powershell
-dotnet build CliProxyApiDesktop.sln
-dotnet test tests\CPAD.Tests\CPAD.Tests.csproj
+dotnet restore
+dotnet build CliProxyApiDesktop.sln --no-restore
+dotnet test tests\CPAD.Tests\CPAD.Tests.csproj --no-build
 powershell -ExecutionPolicy Bypass -File tests\CPAD.Tests\Smoke\SafeSmoke.ps1
 powershell -ExecutionPolicy Bypass -File tests\CPAD.Tests\Smoke\SafeSmoke.ps1 `
   -Launch `
@@ -138,5 +142,5 @@ dotnet run --project src\CPAD.BuildTool -- verify-package
 ## Notes
 
 - `SafeSmoke.ps1` defaults to reporting warnings for generated residue and upstream bundled docs, because those are useful acceptance signals but not all of them are active-source regressions.
-- The script returns a non-zero exit code only when it finds active legacy source/build references that should not still be present.
+- The script returns a non-zero exit code when the WebView2 host baseline disappears or when old runtime-shell assumptions re-enter the active source tree.
 - This document does not change `build_steps.md`; it only defines a safe way to execute the existing smoke and verification work.

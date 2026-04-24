@@ -615,12 +615,21 @@ public sealed class ManagementAuthService : IManagementAuthService
         return ManagementResponseFactory.Map(response, mapper(document.RootElement));
     }
 
+    private Task<ManagementApiResponse<ManagementOperationResult>> SendOperationAsync(
+        HttpMethod method,
+        string path,
+        object? payload,
+        CancellationToken cancellationToken)
+    {
+        return SendOperationAsync(method, path, payload, rawBody: null, cancellationToken);
+    }
+
     private async Task<ManagementApiResponse<ManagementOperationResult>> SendOperationAsync(
         HttpMethod method,
         string path,
         object? payload = null,
-        CancellationToken cancellationToken = default,
-        string? rawBody = null)
+        string? rawBody = null,
+        CancellationToken cancellationToken = default)
     {
         var body = rawBody ?? (payload is null ? null : ManagementJson.Serialize(payload));
         var response = await _apiClient.SendManagementAsync(

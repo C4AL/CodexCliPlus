@@ -1,10 +1,8 @@
 using System.Globalization;
-
+using CommunityToolkit.Mvvm.ComponentModel;
 using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Exceptions;
 using CPAD.Core.Models.Management;
-
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CPAD.ViewModels.Pages;
 
@@ -190,7 +188,7 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
         OnPropertyChanged(nameof(ServerYaml));
     }
 
-    private async Task SaveBooleanSettingAsync(IReadOnlySet<string> changedFields, string path, bool value)
+    private async Task SaveBooleanSettingAsync(HashSet<string> changedFields, string path, bool value)
     {
         if (!changedFields.Contains(path))
         {
@@ -200,7 +198,7 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
         await _configurationService.UpdateBooleanSettingAsync(path, value);
     }
 
-    private async Task SaveIntegerSettingAsync(IReadOnlySet<string> changedFields, string path, int? value)
+    private async Task SaveIntegerSettingAsync(HashSet<string> changedFields, string path, int? value)
     {
         if (!changedFields.Contains(path))
         {
@@ -217,7 +215,7 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
     }
 
     private async Task SaveStringSettingAsync(
-        IReadOnlySet<string> changedFields,
+        HashSet<string> changedFields,
         string path,
         string value,
         bool deleteWhenEmpty = true)
@@ -596,7 +594,7 @@ public sealed class SystemPageViewModel : ManagementPageViewModel
         try
         {
             var keys = (await _authService.GetApiKeysAsync()).Value;
-            return (await _systemService.GetAvailableModelsAsync(keys.FirstOrDefault())).Value;
+            return (await _systemService.GetAvailableModelsAsync(keys.Count > 0 ? keys[0] : null)).Value;
         }
         catch
         {

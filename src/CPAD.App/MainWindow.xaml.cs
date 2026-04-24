@@ -1,5 +1,7 @@
+using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using System.Windows;
-using System.Windows.Media;
 
 using CPAD.Core.Abstractions.Build;
 using CPAD.Core.Abstractions.Configuration;
@@ -8,101 +10,72 @@ using CPAD.Core.Abstractions.Updates;
 using CPAD.Core.Enums;
 using CPAD.Core.Models;
 using CPAD.Infrastructure.Backend;
+using CPAD.Services;
 using CPAD.ViewModels;
-using CPAD.Views.Pages;
 
-using Microsoft.Win32;
+using Microsoft.Web.WebView2.Core;
 
-using Wpf.Ui;
-using Wpf.Ui.Abstractions;
-
-using Application = System.Windows.Application;
-using Color = System.Windows.Media.Color;
-using ColorConverter = System.Windows.Media.ColorConverter;
 using MessageBox = System.Windows.MessageBox;
 
 namespace CPAD;
 
-public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindow
+public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
+    private const string AppHostName = "cpad-webui.local";
+    private static readonly Uri AppEntryUri = new($"https://{AppHostName}/index.html");
+
     private readonly MainWindowViewModel _viewModel;
-    private readonly INavigationService _navigationService;
     private readonly BackendProcessManager _backendProcessManager;
     private readonly IManagementSessionService _sessionService;
-    private readonly IManagementConfigurationService _configurationServiceApi;
     private readonly IAppConfigurationService _appConfigurationService;
     private readonly IBuildInfo _buildInfo;
-    private readonly IManagementNavigationService _managementNavigationService;
-    private readonly IUnsavedChangesGuard _unsavedChangesGuard;
     private readonly IUpdateCheckService _updateCheckService;
+    private readonly WebUiAssetLocator _webUiAssetLocator;
 
     private AppSettings _settings = new();
+    private string? _bootstrapScriptId;
     private bool _allowClose;
-    private bool _suppressSelectionChange;
-    private string _lastSelectedRouteKey = "dashboard";
+    private bool _isInitializing;
+    private bool _webViewConfigured;
 
     public MainWindow(
         MainWindowViewModel viewModel,
-        NotifyIconViewModel notifyIconViewModel,
-        INavigationService navigationService,
-        ISnackbarService snackbarService,
-        INavigationViewPageProvider navigationViewPageProvider,
         BackendProcessManager backendProcessManager,
         IManagementSessionService sessionService,
-        IManagementConfigurationService configurationServiceApi,
         IAppConfigurationService appConfigurationService,
         IBuildInfo buildInfo,
-        IManagementNavigationService managementNavigationService,
-        IUnsavedChangesGuard unsavedChangesGuard,
-        IUpdateCheckService updateCheckService)
+        IUpdateCheckService updateCheckService,
+        WebUiAssetLocator webUiAssetLocator)
     {
         _viewModel = viewModel;
-        _navigationService = navigationService;
         _backendProcessManager = backendProcessManager;
         _sessionService = sessionService;
-        _configurationServiceApi = configurationServiceApi;
         _appConfigurationService = appConfigurationService;
         _buildInfo = buildInfo;
-        _managementNavigationService = managementNavigationService;
-        _unsavedChangesGuard = unsavedChangesGuard;
         _updateCheckService = updateCheckService;
+        _webUiAssetLocator = webUiAssetLocator;
 
         DataContext = _viewModel;
         InitializeComponent();
 
-        TrayMenu.DataContext = notifyIconViewModel;
-        snackbarService.SetSnackbarPresenter(SnackbarPresenter);
-        navigationService.SetNavigationControl(RootNavigation);
-        RootNavigation.SetPageProviderService(navigationViewPageProvider);
-
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
     }
 
-    public Wpf.Ui.Controls.INavigationView GetNavigation() => RootNavigation;
-
-    public bool Navigate(Type pageType) => RootNavigation.Navigate(pageType);
-
-    public void SetServiceProvider(IServiceProvider serviceProvider)
-    {
-        RootNavigation.SetServiceProvider(serviceProvider);
-    }
-
-    public void SetPageService(INavigationViewPageProvider navigationViewPageProvider)
-    {
-        RootNavigation.SetPageProviderService(navigationViewPageProvider);
-    }
-
-    public void ShowWindow() => Show();
-
-    public void CloseWindow() => Close();
-
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        _settings = await _appConfigurationService.LoadAsync();
-        await ApplyThemeAsync(_settings.ThemeMode, persist: false);
-        InitializeTrayIcon();
-        SelectRoute("dashboard", typeof(DashboardPage));
-        await RefreshShellAsync();
+        try
+        {
+            _settings = await _appConfigurationService.LoadAsync();
+            InitializeTrayIcon();
+            await InitializeHostAsync(restartBackend: false);
+        }
+        catch (Exception exception)
+        {
+            ShowBlocker(
+                "桌面宿主启动失败",
+                "无法加载桌面配置或初始化宿主环境。",
+                exception.Message);
+        }
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -115,11 +88,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
     {
         if (_allowClose)
         {
-            if (!_unsavedChangesGuard.ConfirmLeave("退出应用"))
-            {
-                e.Cancel = true;
-            }
-
             return;
         }
 
@@ -127,92 +95,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
         {
             e.Cancel = true;
             HideToTray();
-            return;
-        }
-
-        if (!_unsavedChangesGuard.ConfirmLeave("关闭窗口"))
-        {
-            e.Cancel = true;
         }
     }
 
-    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    private async void RetryButton_Click(object sender, RoutedEventArgs e)
     {
-        await RefreshShellAsync();
+        await InitializeHostAsync(restartBackend: _backendProcessManager.CurrentStatus.State != BackendStateKind.Running);
     }
 
-    private async void ThemeButton_Click(object sender, RoutedEventArgs e)
+    private void HideToTrayButton_Click(object sender, RoutedEventArgs e)
     {
-        _settings.ThemeMode = _settings.ThemeMode switch
-        {
-            AppThemeMode.System => AppThemeMode.Light,
-            AppThemeMode.Light => AppThemeMode.Dark,
-            _ => AppThemeMode.System
-        };
-
-        await ApplyThemeAsync(_settings.ThemeMode, persist: true);
-        UpdateFooter(_backendProcessManager.CurrentStatus, VersionStatusText.Text);
-    }
-
-    private async void BackendActionButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-            {
-                await _backendProcessManager.RestartAsync();
-            }
-            else
-            {
-                await _backendProcessManager.StartAsync();
-            }
-
-            await RefreshShellAsync();
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this, exception.Message, "后端操作失败", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    private void RootNavigation_SelectionChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressSelectionChange)
-        {
-            return;
-        }
-
-        if (RootNavigation.SelectedItem is not Wpf.Ui.Controls.NavigationViewItem item ||
-            item.Content is not string label ||
-            item.Tag is not string routeKey)
-        {
-            return;
-        }
-
-        if (string.Equals(routeKey, _lastSelectedRouteKey, StringComparison.OrdinalIgnoreCase))
-        {
-            UpdateSubtitle(label);
-            return;
-        }
-
-        if (!_unsavedChangesGuard.ConfirmLeave(label))
-        {
-            RevertNavigationSelection();
-            return;
-        }
-
-        _managementNavigationService.TryNavigate(routeKey);
-        _lastSelectedRouteKey = routeKey;
-        UpdateSubtitle(label);
-    }
-
-    private async void BackendProcessManager_StatusChanged(object? sender, BackendStatusSnapshot snapshot)
-    {
-        await Dispatcher.InvokeAsync(() =>
-        {
-            UpdateHeader(snapshot, HeaderConnectionText.Text);
-            UpdateFooter(snapshot, VersionStatusText.Text);
-        });
+        HideToTray();
     }
 
     private void TrayIcon_LeftDoubleClick(object sender, RoutedEventArgs e)
@@ -227,23 +120,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
 
     private async void TrayRestartBackendMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            if (_backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
-            {
-                await _backendProcessManager.RestartAsync();
-            }
-            else
-            {
-                await _backendProcessManager.StartAsync();
-            }
-
-            await RefreshShellAsync();
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this, exception.Message, "后端操作失败", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        await InitializeHostAsync(restartBackend: true);
     }
 
     private async void TrayCheckUpdatesMenuItem_Click(object sender, RoutedEventArgs e)
@@ -253,8 +130,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
             var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
             var title = result.IsUpdateAvailable ? "发现更新" : "检查更新";
             var message = result.IsUpdateAvailable
-                ? $"检测到新版本：{result.LatestVersion}\n\n{result.Detail}"
-                : $"{result.Status}\n\n{result.Detail}";
+                ? $"检测到新版本：{result.LatestVersion}{Environment.NewLine}{Environment.NewLine}{result.Detail}"
+                : $"{result.Status}{Environment.NewLine}{Environment.NewLine}{result.Detail}";
             MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception exception)
@@ -265,74 +142,216 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
 
     private async void TrayExitMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (!_unsavedChangesGuard.ConfirmLeave("退出应用"))
-        {
-            return;
-        }
-
         _allowClose = true;
         TrayIcon.Unregister();
         await _backendProcessManager.StopAsync();
         Close();
     }
 
-    private async Task RefreshShellAsync()
+    private async void BackendProcessManager_StatusChanged(object? sender, BackendStatusSnapshot snapshot)
     {
-        var snapshot = _backendProcessManager.CurrentStatus;
-        var connectionSummary = "未连接";
-        var versionSummary = $"桌面版本：{_buildInfo.ApplicationVersion}";
+        if (_isInitializing || snapshot.State != BackendStateKind.Error)
+        {
+            return;
+        }
+
+        await Dispatcher.InvokeAsync(() =>
+        {
+            ShowBlocker(
+                "后端不可用",
+                "CLIProxyAPI 后端未能保持运行，桌面宿主已阻止 WebUI 继续工作。",
+                snapshot.LastError ?? snapshot.Message);
+        });
+    }
+
+    private async Task InitializeHostAsync(bool restartBackend)
+    {
+        if (_isInitializing)
+        {
+            return;
+        }
+
+        _isInitializing = true;
+        ShowLoading("正在准备官方 WebUI、本地后端和桌面桥接。");
 
         try
         {
-            var connection = await _sessionService.GetConnectionAsync();
-            connectionSummary = connection.ManagementApiBaseUrl;
-
-            var config = await _configurationServiceApi.GetConfigAsync();
-            if (!string.IsNullOrWhiteSpace(config.Metadata.Version))
+            if (restartBackend && _backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
             {
-                versionSummary = $"服务版本：{config.Metadata.Version}";
+                await _backendProcessManager.RestartAsync();
             }
 
-            snapshot = _backendProcessManager.CurrentStatus;
+            EnsureWebView2Runtime();
+            var bundle = _webUiAssetLocator.GetRequiredBundle();
+            var connection = await _sessionService.GetConnectionAsync();
+            var payload = new DesktopBootstrapPayload
+            {
+                DesktopMode = true,
+                ApiBase = connection.BaseUrl,
+                ManagementKey = connection.ManagementKey
+            };
+
+            await EnsureWebViewAsync(bundle, payload);
+            ShowWebView();
+        }
+        catch (WebView2RuntimeNotFoundException exception)
+        {
+            ShowBlocker(
+                "缺少 WebView2 运行时",
+                "当前系统未安装 Microsoft Edge WebView2 Runtime，桌面宿主无法承载官方 WebUI。",
+                exception.Message);
+        }
+        catch (FileNotFoundException exception)
+        {
+            ShowBlocker(
+                "缺少官方 WebUI 资源",
+                "Vendored 官方前端静态资源未找到，桌面宿主无法继续启动。",
+                exception.Message);
         }
         catch (Exception exception)
         {
-            if (snapshot.State == BackendStateKind.Error)
-            {
-                connectionSummary = exception.Message;
-            }
+            ShowBlocker(
+                "桌面宿主启动失败",
+                "官方 WebUI 宿主未能完成初始化，请先修复阻断错误。",
+                exception.Message);
         }
-
-        UpdateHeader(snapshot, connectionSummary);
-        UpdateFooter(snapshot, versionSummary);
+        finally
+        {
+            _isInitializing = false;
+        }
     }
 
-    private async Task ApplyThemeAsync(AppThemeMode themeMode, bool persist)
+    private async Task EnsureWebViewAsync(WebUiBundleInfo bundle, DesktopBootstrapPayload payload)
     {
-        var effectiveTheme = ResolveEffectiveTheme(themeMode);
-        var isDark = effectiveTheme == AppThemeMode.Dark;
-
-        SetBrush("ApplicationBackgroundBrush", isDark ? "#111827" : "#F4F6FA");
-        SetBrush("SurfaceBrush", isDark ? "#16202B" : "#FFFFFF");
-        SetBrush("SurfaceAltBrush", isDark ? "#1E2A38" : "#EEF2F7");
-        SetBrush("AccentBrush", isDark ? "#34D3C2" : "#0F766E");
-        SetBrush("AccentSoftBrush", isDark ? "#123A36" : "#D9F1EE");
-        SetBrush("PrimaryTextBrush", isDark ? "#E5EEF7" : "#17202B");
-        SetBrush("SecondaryTextBrush", isDark ? "#A8B4C5" : "#526070");
-        SetBrush("BorderBrush", isDark ? "#314153" : "#D7DCE5");
-
-        Wpf.Ui.Appearance.ApplicationThemeManager.Apply(
-            isDark
-                ? Wpf.Ui.Appearance.ApplicationTheme.Dark
-                : Wpf.Ui.Appearance.ApplicationTheme.Light);
-
-        ThemeButton.ToolTip = $"切换主题，当前为 {GetThemeLabel(themeMode)}";
-        ThemeStatusText.Text = $"主题：{GetThemeLabel(themeMode)}";
-
-        if (persist)
+        if (!_webViewConfigured)
         {
-            await _appConfigurationService.SaveAsync(_settings);
+            await ManagementWebView.EnsureCoreWebView2Async();
+            ConfigureWebView(bundle);
+            _webViewConfigured = true;
         }
+
+        await UpdateBootstrapScriptAsync(payload);
+        ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+    }
+
+    private void ConfigureWebView(WebUiBundleInfo bundle)
+    {
+        var core = ManagementWebView.CoreWebView2;
+        core.Settings.AreDevToolsEnabled = _settings.EnableDebugTools;
+        core.Settings.AreDefaultContextMenusEnabled = _settings.EnableDebugTools;
+        core.Settings.IsStatusBarEnabled = false;
+        core.Settings.IsZoomControlEnabled = true;
+        core.Settings.AreBrowserAcceleratorKeysEnabled = true;
+        core.SetVirtualHostNameToFolderMapping(
+            AppHostName,
+            bundle.DistDirectory,
+            CoreWebView2HostResourceAccessKind.Allow);
+
+        core.NavigationStarting += CoreWebView2_NavigationStarting;
+        core.NewWindowRequested += CoreWebView2_NewWindowRequested;
+        core.WebMessageReceived += CoreWebView2_WebMessageReceived;
+        core.ProcessFailed += CoreWebView2_ProcessFailed;
+    }
+
+    private async Task UpdateBootstrapScriptAsync(DesktopBootstrapPayload payload)
+    {
+        if (_bootstrapScriptId is not null)
+        {
+            ManagementWebView.CoreWebView2.RemoveScriptToExecuteOnDocumentCreated(_bootstrapScriptId);
+        }
+
+        _bootstrapScriptId = await ManagementWebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+            DesktopBridgeScriptFactory.CreateInitializationScript(payload));
+    }
+
+    private void CoreWebView2_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Uri) || !Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri))
+        {
+            return;
+        }
+
+        if (uri.Host.Equals(AppHostName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        OpenExternal(uri.ToString());
+    }
+
+    private void CoreWebView2_NewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if (!string.IsNullOrWhiteSpace(e.Uri))
+        {
+            OpenExternal(e.Uri);
+        }
+    }
+
+    private void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(e.WebMessageAsJson);
+            var root = document.RootElement;
+            if (!root.TryGetProperty("type", out var typeElement) ||
+                !string.Equals(typeElement.GetString(), "openExternal", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                OpenExternal(url);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void CoreWebView2_ProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ShowBlocker(
+                "WebView2 进程异常退出",
+                "官方 WebUI 渲染进程发生故障，桌面宿主已停止继续渲染空白页面。",
+                e.ProcessFailedKind.ToString());
+        });
+    }
+
+    private void ShowLoading(string description)
+    {
+        LoadingDescriptionText.Text = description;
+        LoadingPanel.Visibility = Visibility.Visible;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowBlocker(string title, string description, string detail)
+    {
+        BlockerTitleText.Text = title;
+        BlockerDescriptionText.Text = description;
+        BlockerDetailText.Text = detail;
+        BlockerPanel.Visibility = Visibility.Visible;
+        LoadingPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowWebView()
+    {
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        LoadingPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Visible;
     }
 
     private void InitializeTrayIcon()
@@ -344,35 +363,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
         }
 
         TrayIcon.Register();
-    }
-
-    private void UpdateHeader(BackendStatusSnapshot snapshot, string connectionSummary)
-    {
-        HeaderConnectionText.Text = snapshot.State switch
-        {
-            BackendStateKind.Running => "已连接",
-            BackendStateKind.Starting => "连接中",
-            BackendStateKind.Error => "连接异常",
-            _ => "未启动"
-        };
-
-        ConnectionDot.Fill = snapshot.State switch
-        {
-            BackendStateKind.Running => CreateBrush("#16A34A"),
-            BackendStateKind.Starting => CreateBrush("#CA8A04"),
-            BackendStateKind.Error => CreateBrush("#DC2626"),
-            _ => CreateBrush("#64748B")
-        };
-
-        ConnectionStatusText.Text = $"管理地址：{connectionSummary}";
-        BackendActionButton.Content = snapshot.State == BackendStateKind.Running ? "重启后端" : "启动后端";
-    }
-
-    private void UpdateFooter(BackendStatusSnapshot snapshot, string versionText)
-    {
-        BackendStatusText.Text = $"后端状态：{FormatBackendState(snapshot.State)}";
-        ThemeStatusText.Text = $"主题：{GetThemeLabel(_settings.ThemeMode)}";
-        VersionStatusText.Text = versionText;
     }
 
     private void HideToTray()
@@ -393,93 +383,31 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, INavigationWindo
         Activate();
     }
 
-    private void SelectRoute(string routeKey, Type pageType)
+    private static void EnsureWebView2Runtime()
     {
-        _suppressSelectionChange = true;
-        _lastSelectedRouteKey = routeKey;
-        _managementNavigationService.TryNavigate(routeKey);
-        RootNavigation.Navigate(pageType);
-        UpdateSubtitle(FindNavigationLabel(routeKey));
-        _suppressSelectionChange = false;
-    }
-
-    private void RevertNavigationSelection()
-    {
-        _suppressSelectionChange = true;
-        RootNavigation.Navigate(GetPageType(_lastSelectedRouteKey));
-        _suppressSelectionChange = false;
-    }
-
-    private static Type GetPageType(string routeKey)
-    {
-        return routeKey switch
+        var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
+        if (string.IsNullOrWhiteSpace(version))
         {
-            "config" => typeof(ConfigPage),
-            "ai-providers" => typeof(AiProvidersPage),
-            "auth-files" => typeof(AuthFilesPage),
-            "oauth" => typeof(OAuthPage),
-            "quota" => typeof(QuotaPage),
-            "usage" => typeof(UsagePage),
-            "logs" => typeof(LogsPage),
-            "system" => typeof(SystemPage),
-            _ => typeof(DashboardPage)
-        };
+            throw new WebView2RuntimeNotFoundException();
+        }
     }
 
-    private string FindNavigationLabel(string routeKey)
+    private static void OpenExternal(string url)
     {
-        return RootNavigation.MenuItems
-            .OfType<Wpf.Ui.Controls.NavigationViewItem>()
-            .FirstOrDefault(item => string.Equals(item.Tag as string, routeKey, StringComparison.OrdinalIgnoreCase))
-            ?.Content?.ToString() ?? "仪表盘";
-    }
-
-    private void UpdateSubtitle(string label)
-    {
-        _viewModel.Subtitle = $"{label} · CPAD 原生管理中心";
-    }
-
-    private static AppThemeMode ResolveEffectiveTheme(AppThemeMode requestedTheme)
-    {
-        if (requestedTheme != AppThemeMode.System)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
-            return requestedTheme;
+            return;
         }
 
-        const string personalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-        using var key = Registry.CurrentUser.OpenSubKey(personalizeKey);
-        var value = key?.GetValue("AppsUseLightTheme");
-        return value is int intValue && intValue == 0 ? AppThemeMode.Dark : AppThemeMode.Light;
-    }
-
-    private static string GetThemeLabel(AppThemeMode themeMode)
-    {
-        return themeMode switch
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
         {
-            AppThemeMode.Light => "浅色",
-            AppThemeMode.Dark => "深色",
-            _ => "跟随系统"
-        };
-    }
+            return;
+        }
 
-    private static string FormatBackendState(BackendStateKind state)
-    {
-        return state switch
+        Process.Start(new ProcessStartInfo(uri.ToString())
         {
-            BackendStateKind.Starting => "启动中",
-            BackendStateKind.Running => "运行中",
-            BackendStateKind.Error => "异常",
-            _ => "已停止"
-        };
-    }
-
-    private static void SetBrush(string resourceKey, string hex)
-    {
-        Application.Current.Resources[resourceKey] = CreateBrush(hex);
-    }
-
-    private static SolidColorBrush CreateBrush(string hex)
-    {
-        return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+            UseShellExecute = true
+        });
     }
 }

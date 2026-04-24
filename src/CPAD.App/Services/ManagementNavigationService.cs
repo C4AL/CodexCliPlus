@@ -14,7 +14,7 @@ public sealed class ManagementNavigationService : IManagementNavigationService
         Routes = ManagementRouteCatalog.All;
         PrimaryRoutes = ManagementRouteCatalog.Primary;
         _routes = Routes.ToDictionary(route => route.Key, StringComparer.OrdinalIgnoreCase);
-        _selectedPrimaryRoute = PrimaryRoutes.FirstOrDefault();
+        _selectedPrimaryRoute = PrimaryRoutes.Count > 0 ? PrimaryRoutes[0] : null;
     }
 
     public IReadOnlyList<ManagementRouteDefinition> Routes { get; }

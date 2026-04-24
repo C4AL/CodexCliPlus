@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -60,7 +61,7 @@ public sealed class BackendConfigWriter
 
         await _configurationService.SaveAsync(settings, cancellationToken);
 
-        var loopbackBaseUrl = $"http://127.0.0.1:{settings.BackendPort}";
+        var loopbackBaseUrl = string.Create(CultureInfo.InvariantCulture, $"http://127.0.0.1:{settings.BackendPort}");
         return new BackendRuntimeInfo
         {
             RequestedPort = requestedPort,
@@ -68,7 +69,9 @@ public sealed class BackendConfigWriter
             PortWasAdjusted = settings.BackendPort != requestedPort,
             PortMessage = settings.BackendPort == requestedPort
                 ? null
-                : $"Preferred port {requestedPort} was unavailable. Switched to {settings.BackendPort}.",
+                : string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Preferred port {requestedPort} was unavailable. Switched to {settings.BackendPort}."),
             ManagementKey = settings.ManagementKey,
             ConfigPath = _pathService.Directories.BackendConfigFilePath,
             BaseUrl = loopbackBaseUrl,
@@ -84,15 +87,14 @@ public sealed class BackendConfigWriter
         LegacyCliProxyApiConfig? legacyConfig)
     {
         var builder = new StringBuilder();
-        builder.Append(
-            $"host: \"127.0.0.1\"{Environment.NewLine}" +
-            $"port: {port}{Environment.NewLine}" +
-            "remote-management:" + Environment.NewLine +
-            "  allow-remote: false" + Environment.NewLine +
-            $"  secret-key: \"{EscapeYaml(managementKey)}\"{Environment.NewLine}" +
-            "  disable-control-panel: true" + Environment.NewLine +
-            "  disable-auto-update-panel: true" + Environment.NewLine +
-            $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}");
+        AppendInvariant(builder, $"host: \"127.0.0.1\"{Environment.NewLine}");
+        AppendInvariant(builder, $"port: {port}{Environment.NewLine}");
+        builder.Append("remote-management:" + Environment.NewLine);
+        builder.Append("  allow-remote: false" + Environment.NewLine);
+        AppendInvariant(builder, $"  secret-key: \"{EscapeYaml(managementKey)}\"{Environment.NewLine}");
+        builder.Append("  disable-control-panel: true" + Environment.NewLine);
+        builder.Append("  disable-auto-update-panel: true" + Environment.NewLine);
+        AppendInvariant(builder, $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}");
 
         var apiKeys = legacyConfig?.ApiKeys?.Where(key => !string.IsNullOrWhiteSpace(key)).Distinct(StringComparer.Ordinal).ToArray()
             ?? ["sk-dummy"];
@@ -105,12 +107,14 @@ public sealed class BackendConfigWriter
         builder.Append("api-keys:" + Environment.NewLine);
         foreach (var apiKey in apiKeys)
         {
-            builder.Append($"  - \"{EscapeYaml(apiKey)}\"{Environment.NewLine}");
+            AppendInvariant(builder, $"  - \"{EscapeYaml(apiKey)}\"{Environment.NewLine}");
         }
 
         if (legacyConfig?.CommercialMode is not null)
         {
-            builder.Append($"commercial-mode: {legacyConfig.CommercialMode.Value.ToString().ToLowerInvariant()}{Environment.NewLine}");
+            AppendInvariant(
+                builder,
+                $"commercial-mode: {legacyConfig.CommercialMode.Value.ToString().ToLowerInvariant()}{Environment.NewLine}");
         }
 
         builder.Append("logging-to-file: true" + Environment.NewLine);
@@ -119,12 +123,12 @@ public sealed class BackendConfigWriter
 
         if (!string.IsNullOrWhiteSpace(legacyConfig?.ProxyUrl))
         {
-            builder.Append($"proxy-url: \"{EscapeYaml(legacyConfig.ProxyUrl)}\"{Environment.NewLine}");
+            AppendInvariant(builder, $"proxy-url: \"{EscapeYaml(legacyConfig.ProxyUrl)}\"{Environment.NewLine}");
         }
 
         if (legacyConfig?.AuthAutoRefreshWorkers is not null)
         {
-            builder.Append($"auth-auto-refresh-workers: {legacyConfig.AuthAutoRefreshWorkers.Value}{Environment.NewLine}");
+            AppendInvariant(builder, $"auth-auto-refresh-workers: {legacyConfig.AuthAutoRefreshWorkers.Value}{Environment.NewLine}");
         }
 
         if (legacyConfig?.Routing is not null)
@@ -133,18 +137,19 @@ public sealed class BackendConfigWriter
 
             if (!string.IsNullOrWhiteSpace(legacyConfig.Routing.Strategy))
             {
-                builder.Append($"  strategy: \"{EscapeYaml(legacyConfig.Routing.Strategy)}\"{Environment.NewLine}");
+                AppendInvariant(builder, $"  strategy: \"{EscapeYaml(legacyConfig.Routing.Strategy)}\"{Environment.NewLine}");
             }
 
             if (legacyConfig.Routing.SessionAffinity is not null)
             {
-                builder.Append(
+                AppendInvariant(
+                    builder,
                     $"  session-affinity: {legacyConfig.Routing.SessionAffinity.Value.ToString().ToLowerInvariant()}{Environment.NewLine}");
             }
 
             if (!string.IsNullOrWhiteSpace(legacyConfig.Routing.SessionAffinityTtl))
             {
-                builder.Append($"  session-affinity-ttl: \"{EscapeYaml(legacyConfig.Routing.SessionAffinityTtl)}\"{Environment.NewLine}");
+                AppendInvariant(builder, $"  session-affinity-ttl: \"{EscapeYaml(legacyConfig.Routing.SessionAffinityTtl)}\"{Environment.NewLine}");
             }
         }
 
@@ -173,7 +178,7 @@ public sealed class BackendConfigWriter
         return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
     }
 
-    private LegacyCliProxyApiConfig? TryLoadLegacyConfig()
+    private static LegacyCliProxyApiConfig? TryLoadLegacyConfig()
     {
         var legacyConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -249,14 +254,19 @@ public sealed class BackendConfigWriter
 
         foreach (var pair in aliases)
         {
-            builder.Append($"  {pair.Key}:{Environment.NewLine}");
+            AppendInvariant(builder, $"  {pair.Key}:{Environment.NewLine}");
             foreach (var alias in pair.Value)
             {
-                builder.Append($"    - name: \"{EscapeYaml(alias.Name)}\"{Environment.NewLine}");
-                builder.Append($"      alias: \"{EscapeYaml(alias.Alias)}\"{Environment.NewLine}");
-                builder.Append($"      fork: {alias.Fork.ToString().ToLowerInvariant()}{Environment.NewLine}");
+                AppendInvariant(builder, $"    - name: \"{EscapeYaml(alias.Name)}\"{Environment.NewLine}");
+                AppendInvariant(builder, $"      alias: \"{EscapeYaml(alias.Alias)}\"{Environment.NewLine}");
+                AppendInvariant(builder, $"      fork: {alias.Fork.ToString().ToLowerInvariant()}{Environment.NewLine}");
             }
         }
+    }
+
+    private static void AppendInvariant(StringBuilder builder, FormattableString value)
+    {
+        builder.Append(value.ToString(CultureInfo.InvariantCulture));
     }
 
     private static int FindAvailablePort(int preferredPort)
@@ -270,7 +280,7 @@ public sealed class BackendConfigWriter
         }
 
         throw new InvalidOperationException(
-            $"No available loopback port was found starting from {preferredPort}.");
+            string.Create(CultureInfo.InvariantCulture, $"No available loopback port was found starting from {preferredPort}."));
     }
 
     private static bool IsPortAvailable(int port)

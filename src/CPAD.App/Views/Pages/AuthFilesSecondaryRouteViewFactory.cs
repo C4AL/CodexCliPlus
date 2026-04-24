@@ -4,20 +4,18 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-
 using CPAD.Core.Abstractions.Management;
 using CPAD.Core.Models.Management;
 using CPAD.Management.DesignSystem.Controls;
 using CPAD.Services.SecondaryRoutes;
 using CPAD.ViewModels.Pages;
-
-using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using Application = System.Windows.Application;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
 using Button = System.Windows.Controls.Button;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
 using Orientation = System.Windows.Controls.Orientation;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using TextBox = System.Windows.Controls.TextBox;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -99,7 +97,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             BuildDetailsFooter(file, view));
     }
 
-    private UIElement BuildDetailsHeader(ManagementAuthFileItem file)
+    private StackPanel BuildDetailsHeader(ManagementAuthFileItem file)
     {
         var panel = new StackPanel
         {
@@ -170,7 +168,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         return panel;
     }
 
-    private UIElement BuildDetailsFooter(ManagementAuthFileItem file, AuthFileDetailsRouteView view)
+    private StackPanel BuildDetailsFooter(ManagementAuthFileItem file, AuthFileDetailsRouteView view)
     {
         var panel = new StackPanel
         {
@@ -297,7 +295,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             try
             {
                 var models = view.BuildValues();
-                if (models.Count == 0)
+                if (models.Length == 0)
                 {
                     await _authService.DeleteOAuthExcludedModelsAsync(providerKey);
                 }
@@ -392,7 +390,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             try
             {
                 var aliasesToSave = view.BuildAliases();
-                if (aliasesToSave.Count == 0)
+                if (aliasesToSave.Length == 0)
                 {
                     await _authService.DeleteOAuthModelAliasAsync(providerKey);
                 }
@@ -419,7 +417,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             footer);
     }
 
-    private ManagementSecondaryRouteDescriptor CreateSelectionRequiredDescriptor(string title)
+    private static ManagementSecondaryRouteDescriptor CreateSelectionRequiredDescriptor(string title)
     {
         return new ManagementSecondaryRouteDescriptor(
             title,
@@ -498,7 +496,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             };
         }
 
-        private UIElement BuildLayout(ManagementAuthFileItem file, IReadOnlyList<ManagementModelDescriptor> models)
+        private StackPanel BuildLayout(ManagementAuthFileItem file, IReadOnlyList<ManagementModelDescriptor> models)
         {
             var root = new StackPanel();
 
@@ -573,7 +571,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             return root;
         }
 
-        private static UIElement CreateInfoRow(string label, string value)
+        private static ManagementFieldRow CreateInfoRow(string label, string value)
         {
             return new ManagementFieldRow
             {
@@ -613,7 +611,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             };
         }
 
-        public IReadOnlyList<string> BuildValues()
+        public string[] BuildValues()
         {
             return _items
                 .Select(item => item.Value.Trim())
@@ -655,7 +653,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             };
         }
 
-        public IReadOnlyList<ManagementOAuthModelAliasEntry> BuildAliases()
+        public ManagementOAuthModelAliasEntry[] BuildAliases()
         {
             return _aliases
                 .Where(item => !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.Alias))
@@ -712,7 +710,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         };
     }
 
-    private static IReadOnlyDictionary<string, string> BuildHeaders(IEnumerable<EditableKeyValueItem> items)
+    private static Dictionary<string, string> BuildHeaders(IEnumerable<EditableKeyValueItem> items)
     {
         return items
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))

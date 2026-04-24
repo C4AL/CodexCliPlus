@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 
@@ -26,34 +27,35 @@ public sealed class DiagnosticsService
         DependencyCheckResult dependencyStatus)
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"Application version: {_buildInfo.ApplicationVersion}");
-        builder.AppendLine($"Informational version: {_buildInfo.InformationalVersion}");
-        builder.AppendLine($"Backend state: {backendStatus.State}");
-        builder.AppendLine($"Backend message: {backendStatus.Message}");
-        builder.AppendLine($"Backend process ID: {backendStatus.ProcessId?.ToString() ?? "N/A"}");
-        builder.AppendLine($"Backend port: {backendStatus.Runtime?.Port.ToString() ?? "N/A"}");
-        builder.AppendLine($"Backend port note: {backendStatus.Runtime?.PortMessage ?? "N/A"}");
-        builder.AppendLine($"Codex installed: {codexStatus.IsInstalled}");
-        builder.AppendLine($"Codex version: {codexStatus.Version ?? "N/A"}");
-        builder.AppendLine($"Codex default profile: {codexStatus.DefaultProfile}");
-        builder.AppendLine($"Codex authentication state: {codexStatus.AuthenticationState}");
-        builder.AppendLine($"Dependency summary: {dependencyStatus.Summary}");
-        builder.AppendLine($"Dependency repair mode: {dependencyStatus.RequiresRepairMode}");
+        AppendInvariantLine(builder, $"Application version: {_buildInfo.ApplicationVersion}");
+        AppendInvariantLine(builder, $"Informational version: {_buildInfo.InformationalVersion}");
+        AppendInvariantLine(builder, $"Backend state: {backendStatus.State}");
+        AppendInvariantLine(builder, $"Backend message: {backendStatus.Message}");
+        AppendInvariantLine(builder, $"Backend process ID: {backendStatus.ProcessId?.ToString(CultureInfo.InvariantCulture) ?? "N/A"}");
+        AppendInvariantLine(builder, $"Backend port: {backendStatus.Runtime?.Port.ToString(CultureInfo.InvariantCulture) ?? "N/A"}");
+        AppendInvariantLine(builder, $"Backend port note: {backendStatus.Runtime?.PortMessage ?? "N/A"}");
+        AppendInvariantLine(builder, $"Codex installed: {codexStatus.IsInstalled}");
+        AppendInvariantLine(builder, $"Codex version: {codexStatus.Version ?? "N/A"}");
+        AppendInvariantLine(builder, $"Codex default profile: {codexStatus.DefaultProfile}");
+        AppendInvariantLine(builder, $"Codex authentication state: {codexStatus.AuthenticationState}");
+        AppendInvariantLine(builder, $"Dependency summary: {dependencyStatus.Summary}");
+        AppendInvariantLine(builder, $"Dependency repair mode: {dependencyStatus.RequiresRepairMode}");
 
         if (dependencyStatus.Issues.Count > 0)
         {
             builder.AppendLine("Dependency issues:");
             foreach (var issue in dependencyStatus.Issues)
             {
-                builder.AppendLine(
+                AppendInvariantLine(
+                    builder,
                     $"- [{issue.Code}] {issue.Title} | Repair now: {issue.CanRepairNow} | {issue.Detail}");
             }
         }
 
-        builder.AppendLine($"App root: {_pathService.Directories.RootDirectory}");
-        builder.AppendLine($"Logs directory: {_pathService.Directories.LogsDirectory}");
-        builder.AppendLine($"Config directory: {_pathService.Directories.ConfigDirectory}");
-        builder.AppendLine($"Diagnostics directory: {_pathService.Directories.DiagnosticsDirectory}");
+        AppendInvariantLine(builder, $"App root: {_pathService.Directories.RootDirectory}");
+        AppendInvariantLine(builder, $"Logs directory: {_pathService.Directories.LogsDirectory}");
+        AppendInvariantLine(builder, $"Config directory: {_pathService.Directories.ConfigDirectory}");
+        AppendInvariantLine(builder, $"Diagnostics directory: {_pathService.Directories.DiagnosticsDirectory}");
         return SensitiveDataRedactor.Redact(builder.ToString());
     }
 
@@ -66,7 +68,7 @@ public sealed class DiagnosticsService
 
         var packagePath = Path.Combine(
             _pathService.Directories.DiagnosticsDirectory,
-            $"diagnostics-{DateTimeOffset.Now:yyyyMMddHHmmss}.zip");
+            $"diagnostics-{DateTimeOffset.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.zip");
 
         if (File.Exists(packagePath))
         {
@@ -94,11 +96,11 @@ public sealed class DiagnosticsService
 
         var snapshotPath = Path.Combine(
             _pathService.Directories.DiagnosticsDirectory,
-            $"error-snapshot-{DateTimeOffset.Now:yyyyMMddHHmmss}.txt");
+            $"error-snapshot-{DateTimeOffset.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.txt");
 
         var builder = new StringBuilder();
         builder.AppendLine(title);
-        builder.AppendLine($"Timestamp: {DateTimeOffset.Now:O}");
+        AppendInvariantLine(builder, $"Timestamp: {DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture)}");
 
         if (!string.IsNullOrWhiteSpace(detail))
         {
@@ -120,6 +122,11 @@ public sealed class DiagnosticsService
 
         File.WriteAllText(snapshotPath, SensitiveDataRedactor.Redact(builder.ToString()), new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return snapshotPath;
+    }
+
+    private static void AppendInvariantLine(StringBuilder builder, FormattableString value)
+    {
+        builder.AppendLine(value.ToString(CultureInfo.InvariantCulture));
     }
 
     private static void WriteArchiveEntry(ZipArchive archive, string entryName, string content)

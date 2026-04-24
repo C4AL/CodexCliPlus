@@ -7,23 +7,23 @@ public static class AboutCatalog
     public static IReadOnlyList<AboutComponentSource> ComponentSources { get; } =
     [
         new(
-            "Cli Proxy API Desktop",
+            "CPAD",
             "Minimal Windows desktop shell",
             "Blackblock-inc/Cli-Proxy-API-Desktop",
             "MIT",
             "WPF shell for windowing, tray behavior, backend lifecycle, secure storage, updates, and the local WebView2 host."),
         new(
-            "CLIProxyAPI / CPA-UV",
+            "CLIProxyAPI 后端",
             "Managed backend and Management API contract",
-            "router-for-me/CLIProxyAPI plus the audited CPA-UV community release line",
+            "router-for-me/CLIProxyAPI",
             "MIT",
             "Backend binaries and API semantics are used through local process hosting and HTTP management calls."),
         new(
-            "CLI Proxy API Management Center",
-            "Vendored official upstream WebUI",
+            "CPAD 管理界面",
+            "Vendored upstream frontend",
             "router-for-me/Cli-Proxy-API-Management-Center",
             "MIT",
-            "The official upstream WebUI is vendored into the repository, built locally, and embedded as packaged static assets for the desktop WebView2 host."),
+            "The upstream frontend is vendored into the repository, built locally, and embedded as packaged static assets for the desktop WebView2 host."),
         new(
             "BetterGI",
             "Desktop shell UI and resource derivative",
@@ -51,13 +51,13 @@ public static class AboutCatalog
             "MIT",
             "CLIProxyAPI.LICENSE.txt",
             Path.Combine("resources", "backend", "windows-x64", "LICENSE"),
-            "CLIProxyAPI / CPA-UV 后端二进制与契约遵循 MIT 许可。"),
+            "CLIProxyAPI 后端二进制与契约遵循 MIT 许可。"),
         new(
-            "官方 WebUI 许可",
+            "前端界面许可",
             "MIT",
             "CliProxyApiManagementCenter.LICENSE.txt",
             Path.Combine("resources", "webui", "upstream", "source", "LICENSE"),
-            "Vendored 官方 WebUI 源码与静态资源遵循 MIT 许可。"),
+            "Vendored 前端源码与静态资源遵循 MIT 许可。"),
         new(
             "BetterGI 派生 UI 许可",
             "GPL-3.0",

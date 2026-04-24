@@ -9,4 +9,8 @@
     <RootNamespace>CPAD.BuildTool</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CPAD.Core\CPAD.Core.csproj" />
+  </ItemGroup>
+
 </Project>

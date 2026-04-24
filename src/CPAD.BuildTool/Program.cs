@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using CPAD.Core.Constants;
+
 namespace CPAD.BuildTool;
 
 public static class Program
@@ -260,7 +262,7 @@ public sealed class BuildContext(
 
     public string WebUiBuildSourceRoot => Path.Combine(WebUiBuildRoot, "source");
 
-    public string WebUiBuildDistRoot => Path.Combine(WebUiBuildSourceRoot, "dist");
+    public string WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, "dist");
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)
@@ -388,12 +390,6 @@ public sealed class NoOpSigningService : ISigningService
 
 public static class AssetCommands
 {
-    private const string BackendArchiveUrl =
-        "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.34/CLIProxyAPI_6.9.34_windows_amd64.zip";
-
-    private const string BackendArchiveSha256 =
-        "34ca9b7bf53a6dd89b874ed3e204371673b7eb1abf34792498af4e65bf204815";
-
     private static readonly string[] RequiredBackendFiles =
     [
         "cli-proxy-api.exe",
@@ -425,9 +421,9 @@ public static class AssetCommands
         }
         else
         {
-            context.Logger.Info($"local backend resources are incomplete; downloading {BackendArchiveUrl}");
+            context.Logger.Info($"local backend resources are incomplete; downloading {BackendReleaseMetadata.ArchiveUrl}");
             await DownloadBackendArchiveAsync(backendTarget, context.Logger);
-            sourceDirectory = BackendArchiveUrl;
+            sourceDirectory = BackendReleaseMetadata.ArchiveUrl;
         }
 
         var manifest = await BuildAssetManifest.CreateAsync(
@@ -482,7 +478,7 @@ public static class AssetCommands
             try
             {
                 logger.Info($"backend archive download attempt {attempt}/3");
-                archiveBytes = await httpClient.GetByteArrayAsync(BackendArchiveUrl);
+                archiveBytes = await httpClient.GetByteArrayAsync(BackendReleaseMetadata.ArchiveUrl);
                 break;
             }
             catch (Exception exception)
@@ -504,10 +500,10 @@ public static class AssetCommands
         }
 
         var actualSha256 = Convert.ToHexStringLower(SHA256.HashData(archiveBytes));
-        if (!string.Equals(actualSha256, BackendArchiveSha256, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(actualSha256, BackendReleaseMetadata.ArchiveSha256, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"Downloaded backend archive hash mismatch. Expected {BackendArchiveSha256}, got {actualSha256}.");
+                $"Downloaded backend archive hash mismatch. Expected {BackendReleaseMetadata.ArchiveSha256}, got {actualSha256}.");
         }
 
         using var archiveStream = new MemoryStream(archiveBytes);

@@ -41,6 +41,13 @@ public static class DesktopBridgeScriptFactory
               if (typeof url === 'string' && url.trim()) {
                 postHostMessage({ type: 'openExternal', url });
               }
+            },
+            requestNativeLogin: (message) => {
+              const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+              postHostMessage({
+                type: 'requestNativeLogin',
+                message: normalizedMessage || undefined
+              });
             }
           };
 

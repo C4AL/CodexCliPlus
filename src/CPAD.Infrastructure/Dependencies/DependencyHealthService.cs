@@ -190,7 +190,7 @@ public sealed class DependencyHealthService
             return;
         }
 
-        if (settingsExists && backendConfigExists && secretFilesExist)
+        if (settingsExists && backendConfigExists)
         {
             return;
         }
@@ -297,7 +297,8 @@ public sealed class DependencyHealthService
         }
 
         var detail = backendStatus.LastError ?? backendStatus.Message;
-        if (!detail.Contains("No available loopback port was found", StringComparison.OrdinalIgnoreCase))
+        if (!detail.Contains("No available loopback port was found", StringComparison.OrdinalIgnoreCase) &&
+            !detail.Contains("CPAD backend port", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

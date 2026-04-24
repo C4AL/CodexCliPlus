@@ -14,14 +14,14 @@ public sealed class WebUiAssetLocator
     [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
     public WebUiBundleInfo GetRequiredBundle()
     {
-        if (TryResolveFromBaseDirectory(out var bundled))
-        {
-            return bundled;
-        }
-
         if (TryResolveFromRepository(out var repositoryBundle))
         {
             return repositoryBundle;
+        }
+
+        if (TryResolveFromBaseDirectory(out var bundled))
+        {
+            return bundled;
         }
 
         throw new FileNotFoundException("The vendored WebUI bundle is missing.");

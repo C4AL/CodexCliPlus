@@ -212,7 +212,7 @@ public sealed class ManagementApiClient : IManagementApiClient
             return absoluteUri;
         }
 
-        var normalizedBase = baseUrl.EndsWith("/", StringComparison.Ordinal) ? baseUrl : $"{baseUrl}/";
+        var normalizedBase = baseUrl.EndsWith('/') ? baseUrl : $"{baseUrl}/";
         return new Uri(new Uri(normalizedBase, UriKind.Absolute), path.TrimStart('/'));
     }
 

@@ -77,7 +77,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var service = new JsonAppConfigurationService(pathService);
         var expected = new AppSettings
         {
-            BackendPort = 8317,
+            BackendPort = AppConstants.DefaultBackendPort,
             StartWithWindows = true,
             MinimizeToTrayOnClose = false,
             EnableTrayIcon = false,
@@ -99,6 +99,18 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppThemeMode.Light, actual.ThemeMode);
         Assert.Equal(AppLogLevel.Error, actual.MinimumLogLevel);
         Assert.True(actual.EnableDebugTools);
+    }
+
+    [Fact]
+    public async Task LoadAsyncUsesFixedDefaultBackendPortWhenSettingsFileIsMissing()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var service = new JsonAppConfigurationService(pathService);
+
+        var actual = await service.LoadAsync();
+
+        Assert.Equal(1327, AppConstants.DefaultBackendPort);
+        Assert.Equal(AppConstants.DefaultBackendPort, actual.BackendPort);
     }
 
     public void Dispose()

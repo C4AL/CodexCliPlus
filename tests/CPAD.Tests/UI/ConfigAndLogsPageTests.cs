@@ -5,31 +5,29 @@ namespace CPAD.Tests.UI;
 public sealed class ConfigAndLogsPageTests
 {
     [Fact]
-    public void ConfigPageUsesNativeFormSectionsBeforeAdvancedYamlEditor()
+    public void DesktopModeBlocksManagementKeyPersistence()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.App", "Views", "Pages", "ConfigPage.xaml"), Encoding.UTF8);
+        var storageSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "services", "storage", "secureStorage.ts"),
+            Encoding.UTF8);
 
-        var firstSectionIndex = xaml.IndexOf("ManagementFormSection", StringComparison.Ordinal);
-        var editorIndex = xaml.IndexOf("ManagementCodeEditor", StringComparison.Ordinal);
-
-        Assert.True(firstSectionIndex >= 0);
-        Assert.True(editorIndex > firstSectionIndex);
-        Assert.Contains("AdvancedYamlExpander", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("SummaryItems", xaml, StringComparison.Ordinal);
+        Assert.Contains("isDesktopMode() && key === 'managementKey'", storageSource, StringComparison.Ordinal);
+        Assert.Contains("localStorage.removeItem(key);", storageSource, StringComparison.Ordinal);
+        Assert.Contains("return null;", storageSource, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void LogsPageUsesReadOnlyLogViewerAndDoesNotOpenRequestLogsInNewWindow()
+    public void DesktopModeRestoresSessionFromBootstrapWithoutRememberPassword()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.App", "Views", "Pages", "LogsPage.xaml"), Encoding.UTF8);
-        var codeBehind = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.App", "Views", "Pages", "LogsPage.xaml.cs"), Encoding.UTF8);
+        var authStoreSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useAuthStore.ts"),
+            Encoding.UTF8);
 
-        Assert.Contains("ManagementLogViewer", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("ManagementCodeEditor", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Window", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("ApplyRequestLogResult", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("const desktopBootstrap = consumeDesktopBootstrap();", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("rememberPassword: false", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("!isDesktopMode() && state.rememberPassword ? { managementKey: state.managementKey } : {}", authStoreSource, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

@@ -37,6 +37,8 @@ public sealed class InstallerPackagingTests : IDisposable
         using var archive = ZipFile.OpenRead(stagingPackagePath);
         Assert.Contains(archive.Entries, entry => entry.FullName == "output/CPAD.Setup.9.9.9.exe");
         Assert.Contains(archive.Entries, entry => entry.FullName == "micasetup.json");
+        Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/assets/webui/upstream/dist/index.html");
+        Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/assets/webui/upstream/sync.json");
         Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/packaging/dependency-precheck.json");
         Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/packaging/uninstall-cleanup.json");
 
@@ -48,6 +50,8 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Contains("%LocalAppData%\\Programs\\CPAD", cleanupManifest.AlwaysDelete);
 
         var dependencyPrecheck = ReadArchiveJson<JsonElement>(archive, "app-package/packaging/dependency-precheck.json");
+        Assert.True(dependencyPrecheck.GetProperty("webView2").GetProperty("required").GetBoolean());
+        Assert.True(dependencyPrecheck.GetProperty("webUi").GetProperty("bundledFirst").GetBoolean());
         Assert.True(dependencyPrecheck.GetProperty("runtime").GetProperty("bundledFirst").GetBoolean());
         Assert.True(dependencyPrecheck.GetProperty("backend").GetProperty("bundledFirst").GetBoolean());
 
@@ -97,7 +101,7 @@ public sealed class InstallerPackagingTests : IDisposable
         }
     }
 
-    private BuildContext CreateBuildContext(
+    private static BuildContext CreateBuildContext(
         string repositoryRoot,
         string outputRoot,
         StringWriter output,
@@ -127,6 +131,9 @@ public sealed class InstallerPackagingTests : IDisposable
         Directory.CreateDirectory(publishRoot);
         File.WriteAllBytes(Path.Combine(publishRoot, "CPAD.exe"), CreateExecutableBytes());
         File.WriteAllText(Path.Combine(publishRoot, "desktop.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist"));
+        File.WriteAllText(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "index.html"), "<html></html>");
+        File.WriteAllText(Path.Combine(publishRoot, "assets", "webui", "upstream", "sync.json"), "{}");
     }
 
     private static void CreateRepoOwnedToolchain(string repositoryRoot)

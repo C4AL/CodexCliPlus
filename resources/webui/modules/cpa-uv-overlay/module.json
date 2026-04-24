@@ -1,0 +1,54 @@
+{
+  "id": "cpa-uv-overlay",
+  "name": "CPA-UV Overlay",
+  "brandingMode": "neutral-local",
+  "sourceRoot": "source",
+  "liveAssets": [
+    {
+      "path": "live-assets/cpa-uv-management-reference.html",
+      "source": "artifacts/reference-repos/CPA-UV/assets/management.html",
+      "sha256": "a855c350add2598b08b5c2a5c3541af80436d39c6a50a0db5673a347abefc707"
+    }
+  ],
+  "retainedFeatures": [
+    "dashboard-overview-route",
+    "dashboard-overview-account-summary",
+    "dashboard-overview-quota-bridge",
+    "dashboard-overview-recent-events",
+    "system-version-check",
+    "system-install-update",
+    "system-management-version-awareness"
+  ],
+  "excludedFeatures": [
+    "cpa-uv-branding",
+    "external-repository-links",
+    "codex-app-server-proxy",
+    "dashboard-route-replacement"
+  ],
+  "backendCapabilities": [
+    {
+      "id": "latest-version",
+      "method": "GET",
+      "path": "/v0/management/latest-version",
+      "required": true,
+      "mode": "feature-gated",
+      "notes": "Supports both legacy latest-version payloads and enriched CPA-UV style payloads."
+    },
+    {
+      "id": "install-update",
+      "method": "POST",
+      "path": "/v0/management/install-update",
+      "required": false,
+      "mode": "feature-gated",
+      "notes": "Missing or unsupported endpoints must degrade the System page to read-only update checks."
+    },
+    {
+      "id": "wham-usage-bridge",
+      "method": "GET",
+      "path": "/backend-api/wham/usage or /wham/usage",
+      "required": false,
+      "mode": "feature-gated",
+      "notes": "Used only through the retained Codex quota bridge. Missing support must not break Overview rendering."
+    }
+  ]
+}

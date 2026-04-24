@@ -62,6 +62,27 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task VerifyAssetsFetchesManifestWhenCleanOutputHasNone()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var verifyCode = await BuildToolApp.ExecuteAsync(
+            ["verify-assets", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            output,
+            error,
+            new RecordingProcessRunner());
+
+        Assert.Equal(0, verifyCode);
+        Assert.True(File.Exists(Path.Combine(outputRoot, "assets", "asset-manifest.json")));
+        Assert.Contains("asset manifest not found; fetching assets", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task VerifyPackageFailsWhenExpectedArtifactsAreMissing()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
@@ -89,12 +110,16 @@ public sealed class BuildToolCommandTests : IDisposable
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
             "CPAD.exe",
-            "portable-mode.json");
+            "portable-mode.json",
+            "assets/webui/upstream/dist/index.html",
+            "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
             "app/CPAD.exe",
             "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep");
+            "app/artifacts/dev-data/.gitkeep",
+            "app/assets/webui/upstream/dist/index.html",
+            "app/assets/webui/upstream/sync.json");
         CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
         CreateInstallerStagingZip(
             Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
@@ -123,12 +148,16 @@ public sealed class BuildToolCommandTests : IDisposable
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
             "CPAD.exe",
-            "portable-mode.json");
+            "portable-mode.json",
+            "assets/webui/upstream/dist/index.html",
+            "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
             "app/CPAD.exe",
             "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep");
+            "app/artifacts/dev-data/.gitkeep",
+            "app/assets/webui/upstream/dist/index.html",
+            "app/assets/webui/upstream/sync.json");
         File.WriteAllBytes(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"), new byte[80]);
         CreateInstallerStagingZip(
             Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
@@ -156,18 +185,24 @@ public sealed class BuildToolCommandTests : IDisposable
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
             "CPAD.exe",
-            "portable-mode.json");
+            "portable-mode.json",
+            "assets/webui/upstream/dist/index.html",
+            "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
             Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
             "app/CPAD.exe",
             "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep");
+            "app/artifacts/dev-data/.gitkeep",
+            "app/assets/webui/upstream/dist/index.html",
+            "app/assets/webui/upstream/sync.json");
         CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
         CreateZipWithExecutableEntries(
             Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
                 ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["output/CPAD.Setup.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
@@ -188,6 +223,91 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("output/CPAD.Setup.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task BuildVendoredUsesOverlayMergedWorktree()
+    {
+        var repositoryRoot = CreateRepositoryWithVendoredWebUiOverlay();
+        var outputRoot = Path.Combine(_rootDirectory, "out");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var logger = new BuildLogger(output, error);
+        var runner = new OverlayRecordingProcessRunner();
+        var context = new BuildContext(
+            new BuildOptions("publish", repositoryRoot, outputRoot, "Release", "win-x64", "9.9.9"),
+            logger,
+            runner,
+            new NoOpSigningService());
+
+        var exitCode = await WebUiCommands.BuildVendoredAsync(context);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(2, runner.Calls.Count);
+        Assert.All(runner.Calls, call => Assert.Equal(context.WebUiBuildSourceRoot, call.WorkingDirectory));
+        Assert.DoesNotContain(runner.Calls, call => string.Equals(call.WorkingDirectory, context.WebUiSourceRoot, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("overlay", File.ReadAllText(Path.Combine(context.WebUiBuildSourceRoot, "src", "message.txt")));
+        Assert.Equal("overlay", File.ReadAllText(Path.Combine(context.WebUiVendoredDistRoot, "index.html")));
+        Assert.Equal("upstream", File.ReadAllText(Path.Combine(context.WebUiSourceRoot, "src", "message.txt")));
+        Assert.True(File.Exists(Path.Combine(context.WebUiBuildSourceRoot, "node_modules", ".installed")));
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessRunnerClassifiesSuccessfulStandardErrorAsWarning()
+    {
+        Directory.CreateDirectory(_rootDirectory);
+        var scriptPath = Path.Combine(_rootDirectory, "successful-stderr.ps1");
+        File.WriteAllText(
+            scriptPath,
+            """
+            Write-Output 'stdout-line'
+            [Console]::Error.WriteLine('stderr-line')
+            exit 0
+            """,
+            Encoding.UTF8);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var logger = new BuildLogger(output, error);
+
+        var exitCode = await new ProcessRunner().RunAsync(
+            "powershell",
+            ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+            _rootDirectory,
+            logger);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("[info] stdout-line", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[warn] stderr-line", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("[error]", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessRunnerClassifiesFailedStandardErrorAsError()
+    {
+        Directory.CreateDirectory(_rootDirectory);
+        var scriptPath = Path.Combine(_rootDirectory, "failed-stderr.ps1");
+        File.WriteAllText(
+            scriptPath,
+            """
+            [Console]::Error.WriteLine('fatal-line')
+            exit 7
+            """,
+            Encoding.UTF8);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var logger = new BuildLogger(output, error);
+
+        var exitCode = await new ProcessRunner().RunAsync(
+            "powershell",
+            ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+            _rootDirectory,
+            logger);
+
+        Assert.Equal(7, exitCode);
+        Assert.DoesNotContain("[warn] fatal-line", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("[error] fatal-line", error.ToString(), StringComparison.Ordinal);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_rootDirectory))
@@ -196,15 +316,51 @@ public sealed class BuildToolCommandTests : IDisposable
         }
     }
 
+    [Fact]
+    public void RequirePublishRootRejectsMissingVendoredWebUiAssets()
+    {
+        var publishRoot = Path.Combine(_rootDirectory, "publish");
+        Directory.CreateDirectory(publishRoot);
+        File.WriteAllText(Path.Combine(publishRoot, "CPAD.exe"), "cpad");
+
+        var exception = Assert.Throws<FileNotFoundException>(() => SafeFileSystem.RequirePublishRoot(publishRoot));
+
+        Assert.Contains(Path.Combine("assets", "webui", "upstream"), exception.FileName ?? exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private string CreateRepositoryWithBackendAssets()
     {
         var repositoryRoot = Path.Combine(_rootDirectory, "repo");
+        Directory.CreateDirectory(repositoryRoot);
+        File.WriteAllText(Path.Combine(repositoryRoot, "CliProxyApiDesktop.sln"), string.Empty);
         var assetRoot = Path.Combine(repositoryRoot, "resources", "backend", "windows-x64");
         Directory.CreateDirectory(assetRoot);
         foreach (var fileName in AssetCommands.RequiredFiles)
         {
             File.WriteAllText(Path.Combine(assetRoot, fileName), $"{fileName} content");
         }
+
+        return repositoryRoot;
+    }
+
+    private string CreateRepositoryWithVendoredWebUiOverlay()
+    {
+        var repositoryRoot = Path.Combine(_rootDirectory, "webui-repo");
+        Directory.CreateDirectory(repositoryRoot);
+        File.WriteAllText(Path.Combine(repositoryRoot, "CliProxyApiDesktop.sln"), string.Empty);
+
+        var upstreamRoot = Path.Combine(repositoryRoot, "resources", "webui", "upstream");
+        var sourceRoot = Path.Combine(upstreamRoot, "source");
+        Directory.CreateDirectory(Path.Combine(sourceRoot, "src"));
+        File.WriteAllText(Path.Combine(sourceRoot, "package.json"), "{\"name\":\"test-webui\",\"private\":true}");
+        File.WriteAllText(Path.Combine(sourceRoot, "package-lock.json"), "{\"name\":\"test-webui\",\"lockfileVersion\":3}");
+        File.WriteAllText(Path.Combine(sourceRoot, "src", "message.txt"), "upstream");
+        File.WriteAllText(Path.Combine(upstreamRoot, "sync.json"), "{}");
+
+        var overlayRoot = Path.Combine(repositoryRoot, "resources", "webui", "modules", "cpa-uv-overlay");
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "source", "src"));
+        File.WriteAllText(Path.Combine(overlayRoot, "module.json"), "{\"id\":\"cpa-uv-overlay\"}");
+        File.WriteAllText(Path.Combine(overlayRoot, "source", "src", "message.txt"), "overlay");
 
         return repositoryRoot;
     }
@@ -244,6 +400,8 @@ public sealed class BuildToolCommandTests : IDisposable
             new Dictionary<string, byte[]>
             {
                 ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["output/CPAD.Setup.9.9.9.exe"] = installerBytes,
@@ -276,6 +434,45 @@ public sealed class BuildToolCommandTests : IDisposable
             CancellationToken cancellationToken = default)
         {
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
+            return Task.FromResult(0);
+        }
+    }
+
+    private sealed record ProcessCall(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory);
+
+    private sealed class OverlayRecordingProcessRunner : IProcessRunner
+    {
+        public List<ProcessCall> Calls { get; } = [];
+
+        public Task<int> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            BuildLogger logger,
+            CancellationToken cancellationToken = default)
+        {
+            Calls.Add(new ProcessCall(fileName, arguments.ToArray(), workingDirectory));
+            logger.Info($"{fileName} {string.Join(" ", arguments)}");
+
+            if (arguments.SequenceEqual(["ci"], StringComparer.Ordinal))
+            {
+                var nodeModulesRoot = Path.Combine(workingDirectory, "node_modules");
+                Directory.CreateDirectory(nodeModulesRoot);
+                File.WriteAllText(Path.Combine(nodeModulesRoot, ".installed"), "ok");
+                return Task.FromResult(0);
+            }
+
+            if (arguments.SequenceEqual(["run", "build"], StringComparer.Ordinal))
+            {
+                var mergedMarkerPath = Path.Combine(workingDirectory, "src", "message.txt");
+                var distRoot = Path.Combine(workingDirectory, "dist");
+                Directory.CreateDirectory(distRoot);
+                File.WriteAllText(
+                    Path.Combine(distRoot, "index.html"),
+                    File.ReadAllText(mergedMarkerPath));
+                return Task.FromResult(0);
+            }
+
             return Task.FromResult(0);
         }
     }

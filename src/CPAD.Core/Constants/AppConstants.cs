@@ -16,5 +16,5 @@ public static class AppConstants
     public const string DefaultLogFileName = "desktop.log";
     public const string DefaultCodexSource = "official";
     public const string DefaultManagementKeyReference = "management-key";
-    public const int DefaultBackendPort = 8317;
+    public const int DefaultBackendPort = 1327;
 }

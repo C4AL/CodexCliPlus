@@ -231,6 +231,36 @@ public sealed class BuildContext(
     public string InstallerRoot => Path.Combine(Options.OutputRoot, "installer", Options.Runtime);
 
     public string ToolsRoot => Path.Combine(Options.OutputRoot, "tools");
+
+    public string WebUiRoot => Path.Combine(Options.RepositoryRoot, "resources", "webui", "upstream");
+
+    public string WebUiModulesRoot => Path.Combine(Options.RepositoryRoot, "resources", "webui", "modules");
+
+    public string WebUiOverlayModuleRoot => Path.Combine(WebUiModulesRoot, "cpa-uv-overlay");
+
+    public string WebUiOverlayManifestPath => Path.Combine(WebUiOverlayModuleRoot, "module.json");
+
+    public string WebUiOverlaySourceRoot => Path.Combine(WebUiOverlayModuleRoot, "source");
+
+    public string WebUiSourceRoot => Path.Combine(WebUiRoot, "source");
+
+    public string WebUiSourcePackageJsonPath => Path.Combine(WebUiSourceRoot, "package.json");
+
+    public string WebUiSourcePackageLockPath => Path.Combine(WebUiSourceRoot, "package-lock.json");
+
+    public string WebUiSourceNodeModulesRoot => Path.Combine(WebUiSourceRoot, "node_modules");
+
+    public string WebUiSourceDistRoot => Path.Combine(WebUiSourceRoot, "dist");
+
+    public string WebUiVendoredDistRoot => Path.Combine(WebUiRoot, "dist");
+
+    public string WebUiSyncMetadataPath => Path.Combine(WebUiRoot, "sync.json");
+
+    public string WebUiBuildRoot => Path.Combine(Options.OutputRoot, "temp", "webui");
+
+    public string WebUiBuildSourceRoot => Path.Combine(WebUiBuildRoot, "source");
+
+    public string WebUiBuildDistRoot => Path.Combine(WebUiBuildSourceRoot, "dist");
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)
@@ -238,6 +268,11 @@ public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardEr
     public void Info(string message)
     {
         standardOutput.WriteLine($"[info] {message}");
+    }
+
+    public void Warning(string message)
+    {
+        standardOutput.WriteLine($"[warn] {message}");
     }
 
     public void Error(string message)
@@ -279,6 +314,9 @@ public sealed class ProcessRunner : IProcessRunner
             startInfo.ArgumentList.Add(argument);
         }
 
+        var standardErrorLines = new List<string>();
+        var standardErrorLock = new object();
+
         using var process = new Process { StartInfo = startInfo };
         process.OutputDataReceived += (_, eventArgs) =>
         {
@@ -291,7 +329,10 @@ public sealed class ProcessRunner : IProcessRunner
         {
             if (!string.IsNullOrWhiteSpace(eventArgs.Data))
             {
-                logger.Error(eventArgs.Data);
+                lock (standardErrorLock)
+                {
+                    standardErrorLines.Add(eventArgs.Data);
+                }
             }
         };
 
@@ -303,6 +344,20 @@ public sealed class ProcessRunner : IProcessRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
         await process.WaitForExitAsync(cancellationToken);
+        process.WaitForExit();
+
+        foreach (var line in standardErrorLines)
+        {
+            if (process.ExitCode == 0)
+            {
+                logger.Warning(line);
+            }
+            else
+            {
+                logger.Error(line);
+            }
+        }
+
         return process.ExitCode;
     }
 }
@@ -391,9 +446,12 @@ public static class AssetCommands
     {
         if (!File.Exists(context.AssetManifestPath))
         {
-            throw new FileNotFoundException(
-                $"Asset manifest not found. Run fetch-assets first: {context.AssetManifestPath}",
-                context.AssetManifestPath);
+            context.Logger.Info($"asset manifest not found; fetching assets: {context.AssetManifestPath}");
+            var fetchCode = await FetchAssetsAsync(context);
+            if (fetchCode != 0)
+            {
+                return fetchCode;
+            }
         }
 
         var manifest = await BuildAssetManifest.ReadAsync(context.AssetManifestPath);
@@ -414,6 +472,8 @@ public static class AssetCommands
 
     private static async Task DownloadBackendArchiveAsync(string backendTarget, BuildLogger logger)
     {
+        Directory.CreateDirectory(backendTarget);
+
         using var httpClient = new HttpClient();
         byte[]? archiveBytes = null;
         Exception? lastError = null;
@@ -469,6 +529,144 @@ public static class AssetCommands
     public static IReadOnlyList<string> RequiredFiles => RequiredBackendFiles;
 }
 
+public static class WebUiCommands
+{
+    public static async Task<int> BuildVendoredAsync(BuildContext context)
+    {
+        EnsureVendoredLayout(context);
+
+        context.Logger.Info("preparing vendored WebUI temporary build worktree");
+        SafeFileSystem.CleanDirectory(context.WebUiBuildRoot, context.Options.OutputRoot);
+        SafeFileSystem.CopyDirectory(
+            context.WebUiSourceRoot,
+            context.WebUiBuildSourceRoot,
+            excludedRootDirectoryNames: ["node_modules", "dist"]);
+        SafeFileSystem.CopyDirectory(context.WebUiOverlaySourceRoot, context.WebUiBuildSourceRoot);
+
+        context.Logger.Info("installing vendored WebUI dependencies in temporary worktree");
+        var installExitCode = await context.ProcessRunner.RunAsync(
+            ResolveNpmExecutable(),
+            ["ci"],
+            context.WebUiBuildSourceRoot,
+            context.Logger);
+        if (installExitCode != 0)
+        {
+            context.Logger.Error($"npm ci failed with exit code {installExitCode}.");
+            return installExitCode;
+        }
+
+        context.Logger.Info("building vendored WebUI");
+        var buildExitCode = await context.ProcessRunner.RunAsync(
+            ResolveNpmExecutable(),
+            ["run", "build"],
+            context.WebUiBuildSourceRoot,
+            context.Logger);
+        if (buildExitCode != 0)
+        {
+            context.Logger.Error($"npm run build failed with exit code {buildExitCode}.");
+            return buildExitCode;
+        }
+
+        var builtEntryPath = Path.Combine(context.WebUiBuildDistRoot, "index.html");
+        if (!Directory.Exists(context.WebUiBuildDistRoot) || !File.Exists(builtEntryPath))
+        {
+            context.Logger.Error($"vendored WebUI build output is missing: {builtEntryPath}");
+            return 1;
+        }
+
+        SafeFileSystem.CleanDirectory(context.WebUiVendoredDistRoot, context.Options.RepositoryRoot);
+        SafeFileSystem.CopyDirectory(context.WebUiBuildDistRoot, context.WebUiVendoredDistRoot);
+        context.Logger.Info($"vendored WebUI dist refreshed: {context.WebUiVendoredDistRoot}");
+        return 0;
+    }
+
+    private static void EnsureVendoredLayout(BuildContext context)
+    {
+        if (!Directory.Exists(context.WebUiSourceRoot))
+        {
+            throw new DirectoryNotFoundException($"Vendored WebUI source directory not found: {context.WebUiSourceRoot}");
+        }
+
+        if (!File.Exists(context.WebUiSourcePackageJsonPath))
+        {
+            throw new FileNotFoundException(
+                $"Vendored WebUI package.json not found: {context.WebUiSourcePackageJsonPath}",
+                context.WebUiSourcePackageJsonPath);
+        }
+
+        if (!File.Exists(context.WebUiSourcePackageLockPath))
+        {
+            throw new FileNotFoundException(
+                $"Vendored WebUI package-lock.json not found: {context.WebUiSourcePackageLockPath}",
+                context.WebUiSourcePackageLockPath);
+        }
+
+        if (!File.Exists(context.WebUiSyncMetadataPath))
+        {
+            throw new FileNotFoundException(
+                $"Vendored WebUI sync metadata not found: {context.WebUiSyncMetadataPath}",
+                context.WebUiSyncMetadataPath);
+        }
+
+        if (!Directory.Exists(context.WebUiOverlayModuleRoot))
+        {
+            throw new DirectoryNotFoundException(
+                $"Vendored WebUI overlay directory not found: {context.WebUiOverlayModuleRoot}");
+        }
+
+        if (!File.Exists(context.WebUiOverlayManifestPath))
+        {
+            throw new FileNotFoundException(
+                $"Vendored WebUI overlay manifest not found: {context.WebUiOverlayManifestPath}",
+                context.WebUiOverlayManifestPath);
+        }
+
+        if (!Directory.Exists(context.WebUiOverlaySourceRoot))
+        {
+            throw new DirectoryNotFoundException(
+                $"Vendored WebUI overlay source directory not found: {context.WebUiOverlaySourceRoot}");
+        }
+    }
+
+    private static string ResolveNpmExecutable()
+    {
+        var candidateNames = OperatingSystem.IsWindows()
+            ? new[] { "npm.cmd", "npm.exe", "npm" }
+            : new[] { "npm" };
+
+        foreach (var candidateName in candidateNames)
+        {
+            var resolvedPath = TryResolveFromPath(candidateName);
+            if (resolvedPath is not null)
+            {
+                return resolvedPath;
+            }
+        }
+
+        return candidateNames[0];
+    }
+
+    private static string? TryResolveFromPath(string fileName)
+    {
+        var pathValue = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(pathValue))
+        {
+            return null;
+        }
+
+        foreach (var segment in pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var candidatePath = Path.Combine(segment.Trim('"'), fileName);
+            if (File.Exists(candidatePath))
+            {
+                return candidatePath;
+            }
+        }
+
+        return null;
+    }
+}
+
 public static class PublishCommands
 {
     public static async Task<int> PublishAsync(BuildContext context)
@@ -477,6 +675,12 @@ public static class PublishCommands
         if (verifyCode != 0)
         {
             return verifyCode;
+        }
+
+        var webUiBuildCode = await WebUiCommands.BuildVendoredAsync(context);
+        if (webUiBuildCode != 0)
+        {
+            return webUiBuildCode;
         }
 
         SafeFileSystem.CleanDirectory(context.PublishRoot, context.Options.OutputRoot);
@@ -510,9 +714,23 @@ public static class PublishCommands
         SafeFileSystem.CopyDirectory(
             Path.Combine(context.AssetsRoot, "backend"),
             Path.Combine(context.PublishRoot, "assets", "backend"));
+        CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
         context.Logger.Info($"publish output: {context.PublishRoot}");
         return 0;
+    }
+
+    private static void CopyBackendLicenseDocument(BuildContext context)
+    {
+        var source = Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE");
+        if (!File.Exists(source))
+        {
+            throw new FileNotFoundException("Backend license missing from verified assets.", source);
+        }
+
+        var targetDirectory = Path.Combine(context.PublishRoot, "Licenses");
+        Directory.CreateDirectory(targetDirectory);
+        File.Copy(source, Path.Combine(targetDirectory, "CLIProxyAPI.LICENSE.txt"), overwrite: true);
     }
 
     private static async Task WritePublishManifestAsync(BuildContext context)
@@ -773,6 +991,14 @@ public sealed class PackageVerifier(BuildContext context)
             "portable-mode.json",
             failures);
         VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "assets/webui/upstream/dist/index.html",
+            failures);
+        VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "assets/webui/upstream/sync.json",
+            failures);
+        VerifyZip(
             Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/CPAD.exe",
             failures);
@@ -784,12 +1010,28 @@ public sealed class PackageVerifier(BuildContext context)
             Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/artifacts/dev-data/.gitkeep",
             failures);
+        VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "app/assets/webui/upstream/dist/index.html",
+            failures);
+        VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "app/assets/webui/upstream/sync.json",
+            failures);
         VerifyExecutable(
             Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.exe"),
             failures);
         VerifyZip(
             Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/CPAD.exe",
+            failures);
+        VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "app-package/assets/webui/upstream/dist/index.html",
+            failures);
+        VerifyZip(
+            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            "app-package/assets/webui/upstream/sync.json",
             failures);
         VerifyZip(
             Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
@@ -904,6 +1146,12 @@ public sealed class PackageVerifier(BuildContext context)
 
 public static class InstallerMetadata
 {
+    private static readonly string[] RequiredWebUiFiles =
+    [
+        "assets/webui/upstream/dist/index.html",
+        "assets/webui/upstream/sync.json"
+    ];
+
     public static async Task WriteAsync(BuildContext context, string appPackageRoot, string installerStageRoot)
     {
         var packagingRoot = Path.Combine(appPackageRoot, "packaging");
@@ -913,6 +1161,15 @@ public static class InstallerMetadata
             Path.Combine(packagingRoot, "dependency-precheck.json"),
             new
             {
+                webView2 = new
+                {
+                    required = true,
+                    runtime = "Microsoft Edge WebView2 Runtime",
+                    detection = "CoreWebView2Environment.GetAvailableBrowserVersionString",
+                    bundledFirst = false,
+                    downloadPage = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+                    note = "The desktop shell is a WebView2 host and cannot render the vendored official WebUI without the runtime."
+                },
                 runtime = new
                 {
                     selfContained = true,
@@ -930,9 +1187,17 @@ public static class InstallerMetadata
                     onlineFallback = "https://github.com/router-for-me/CLIProxyAPI/releases",
                     verifyWithManifest = "assets/backend/windows-x64 + asset-manifest.json"
                 },
+                webUi = new
+                {
+                    bundledPath = "assets/webui/upstream",
+                    requiredFiles = RequiredWebUiFiles,
+                    bundledFirst = true,
+                    verifyWithFiles = "assets/webui/upstream/dist/index.html + assets/webui/upstream/sync.json",
+                    note = "The desktop shell serves the vendored official WebUI from local packaged files instead of a remote URL."
+                },
                 installer = new
                 {
-                    precheck = "Setup payload contains dependency-precheck.json so the installer chain can prefer bundled files, validate required files, and fall back online when a bundled dependency is absent.",
+                    precheck = "Setup payload contains dependency-precheck.json so the installer chain can validate WebView2, bundled backend files, and vendored WebUI assets before launch.",
                     launchAfterInstall = true
                 }
             });
@@ -1337,6 +1602,12 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             File.Delete(installerOutputPath);
         }
 
+        if (!HasVisualStudioInstaller())
+        {
+            context.Logger.Info("Visual Studio Installer not detected; using dotnet msbuild against the official MicaSetup template.");
+            return await BuildWithDotnetMsbuildAsync(context, micaConfigPath, payloadArchivePath, installerOutputPath);
+        }
+
         var makeMicaExitCode = await context.ProcessRunner.RunAsync(
             toolchain.MakeMicaPath,
             [micaConfigPath],
@@ -1359,6 +1630,42 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             ? "makemica.exe completed without a valid installer executable; falling back to dotnet msbuild against the official MicaSetup template."
             : $"makemica.exe failed with exit code {makeMicaExitCode}; falling back to dotnet msbuild against the official MicaSetup template.");
         return await BuildWithDotnetMsbuildAsync(context, micaConfigPath, payloadArchivePath, installerOutputPath);
+    }
+
+    private static bool HasVisualStudioInstaller()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        foreach (var programFilesRoot in GetProgramFilesRoots())
+        {
+            var installerRoot = Path.Combine(programFilesRoot, "Microsoft Visual Studio", "Installer");
+            if (File.Exists(Path.Combine(installerRoot, "setup.exe"))
+                || File.Exists(Path.Combine(installerRoot, "vswhere.exe")))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> GetProgramFilesRoots()
+    {
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        if (!string.IsNullOrWhiteSpace(programFilesX86))
+        {
+            yield return programFilesX86;
+        }
+
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (!string.IsNullOrWhiteSpace(programFiles)
+            && !string.Equals(programFiles, programFilesX86, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return programFiles;
+        }
     }
 
     private async Task<int> BuildWithDotnetMsbuildAsync(
@@ -1471,7 +1778,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 overwrite: true);
         }
 
-        CopyLicenseDocuments(context.Options.RepositoryRoot, Path.Combine(distRoot, "Resources", "Licenses"));
+        CopyLicenseDocuments(context, Path.Combine(distRoot, "Resources", "Licenses"));
 
         var setupProgram = Path.Combine(distRoot, "Program.cs");
         var uninstProgram = Path.Combine(distRoot, "Program.un.cs");
@@ -1481,12 +1788,13 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         PatchUninstallCleanup(distRoot);
     }
 
-    private static void CopyLicenseDocuments(string repositoryRoot, string targetDirectory)
+    private static void CopyLicenseDocuments(BuildContext context, string targetDirectory)
     {
+        var repositoryRoot = context.Options.RepositoryRoot;
         var documents = new (string Source, string Target)[]
         {
             (Path.Combine(repositoryRoot, "LICENSE.txt"), "CPAD.LICENSE.txt"),
-            (Path.Combine(repositoryRoot, "resources", "backend", "windows-x64", "LICENSE"), "CLIProxyAPI.LICENSE.txt"),
+            (Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE"), "CLIProxyAPI.LICENSE.txt"),
             (Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"), "BetterGI.GPL-3.0.txt"),
             (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt")
         };
@@ -2002,7 +2310,7 @@ public sealed class MicaSetupConfig
 
     public string TargetFramework { get; init; } = "net472";
 
-    public string Guid { get; init; } = string.Empty;
+    public string ProductGuid { get; init; } = string.Empty;
 
     public string? Favicon { get; init; }
 
@@ -2092,7 +2400,7 @@ public sealed class MicaSetupConfig
             Publisher = "Blackblock Inc.",
             Version = context.Options.Version,
             TargetFramework = "net472",
-            Guid = "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d",
+            ProductGuid = "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d",
             Favicon = File.Exists(iconPath) ? iconPath : null,
             Icon = File.Exists(iconPath) ? iconPath : null,
             UnIcon = File.Exists(iconPath) ? iconPath : null,
@@ -2125,33 +2433,85 @@ public static class SafeFileSystem
         Directory.CreateDirectory(fullTarget);
     }
 
-    public static void CopyDirectory(string sourceDirectory, string targetDirectory)
+    public static void CopyDirectory(
+        string sourceDirectory,
+        string targetDirectory,
+        IReadOnlyCollection<string>? excludedRootDirectoryNames = null)
     {
         if (!Directory.Exists(sourceDirectory))
         {
             throw new DirectoryNotFoundException($"Source directory not found: {sourceDirectory}");
         }
 
-        foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
-        {
-            Directory.CreateDirectory(Path.Combine(targetDirectory, Path.GetRelativePath(sourceDirectory, directory)));
-        }
+        var excludedRoots = excludedRootDirectoryNames is null
+            ? null
+            : new HashSet<string>(excludedRootDirectoryNames, StringComparer.OrdinalIgnoreCase);
+        CopyDirectoryCore(sourceDirectory, targetDirectory, sourceDirectory, excludedRoots);
+    }
 
-        Directory.CreateDirectory(targetDirectory);
-        foreach (var file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+    private static void CopyDirectoryCore(
+        string currentSourceDirectory,
+        string currentTargetDirectory,
+        string sourceRootDirectory,
+        HashSet<string>? excludedRootDirectoryNames)
+    {
+        Directory.CreateDirectory(currentTargetDirectory);
+
+        foreach (var file in Directory.EnumerateFiles(currentSourceDirectory))
         {
-            var targetPath = Path.Combine(targetDirectory, Path.GetRelativePath(sourceDirectory, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            var targetPath = Path.Combine(currentTargetDirectory, Path.GetFileName(file));
             File.Copy(file, targetPath, overwrite: true);
         }
+
+        foreach (var directory in Directory.EnumerateDirectories(currentSourceDirectory))
+        {
+            var relativePath = Path.GetRelativePath(sourceRootDirectory, directory);
+            if (IsExcludedRootDirectory(relativePath, excludedRootDirectoryNames))
+            {
+                continue;
+            }
+
+            CopyDirectoryCore(
+                directory,
+                Path.Combine(currentTargetDirectory, Path.GetFileName(directory)),
+                sourceRootDirectory,
+                excludedRootDirectoryNames);
+        }
+    }
+
+    private static bool IsExcludedRootDirectory(
+        string relativePath,
+        HashSet<string>? excludedRootDirectoryNames)
+    {
+        if (excludedRootDirectoryNames is null || excludedRootDirectoryNames.Count == 0)
+        {
+            return false;
+        }
+
+        var firstSegment = relativePath.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return firstSegment is not null && excludedRootDirectoryNames.Contains(firstSegment);
     }
 
     public static void RequirePublishRoot(string publishRoot)
     {
-        var appPath = Path.Combine(publishRoot, "CPAD.exe");
-        if (!File.Exists(appPath))
+        var requiredFiles = new[]
         {
-            throw new FileNotFoundException($"Publish output is missing CPAD.exe. Run publish first: {appPath}", appPath);
+            "CPAD.exe",
+            Path.Combine("assets", "webui", "upstream", "dist", "index.html"),
+            Path.Combine("assets", "webui", "upstream", "sync.json")
+        };
+
+        foreach (var relativePath in requiredFiles)
+        {
+            var fullPath = Path.Combine(publishRoot, relativePath);
+            if (!File.Exists(fullPath))
+            {
+                throw new FileNotFoundException(
+                    $"Publish output is missing required file. Run publish first: {fullPath}",
+                    fullPath);
+            }
         }
     }
 }

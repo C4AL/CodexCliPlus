@@ -75,7 +75,11 @@ public sealed class ManagementOverviewService : IManagementOverviewService
 
         int? availableModelCount = null;
         string? availableModelsError = null;
-        var primaryApiKey = config.Value.ApiKeys.FirstOrDefault() ?? apiKeys.Value.FirstOrDefault();
+        var primaryApiKey = config.Value.ApiKeys.Count > 0
+            ? config.Value.ApiKeys[0]
+            : apiKeys.Value.Count > 0
+                ? apiKeys.Value[0]
+                : null;
 
         if (!string.IsNullOrWhiteSpace(primaryApiKey))
         {

@@ -2,8 +2,10 @@ Cli Proxy API Desktop / CPAD combined notices
 
 CPAD original desktop code is licensed under the MIT License.
 Bundled CLIProxyAPI backend files keep their upstream MIT License.
+Bundled CLI Proxy API Management Center WebUI source and static assets keep
+their upstream MIT License.
 The migrated WPF shell styling and copied UI resources derived from BetterGI
 are licensed under GPL-3.0; see BetterGI.GPL-3.0.txt in this directory.
 
 This notice is shipped with release packages so users can distinguish original
-MIT components from GPL-3.0-derived UI resources.
+MIT components from GPL-3.0-derived shell resources.

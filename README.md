@@ -9,7 +9,7 @@
   <br />
   面向 Windows x64 的 CLIProxyAPI 原生桌面宿主
   <br />
-  C# / WPF / WebView2 / .NET 10 + 原版 CLIProxyAPI Go 后端 + 原版 Management WebUI
+  C# / WPF / WebView2 / .NET 10 + 原版 CLIProxyAPI Go 后端 + vendored Management WebUI
 </p>
 点击链接加入群聊【CPAD(CLI Proxy API Desktop)交流群】：https://qm.qq.com/q/HVH9TOEaYk
 <p align="center">
@@ -36,7 +36,7 @@ CPAD 是一个只面向 **Windows 10/11 x64** 的桌面化托管项目。
 
 它不重写 CLIProxyAPI 的 Go 后端，也不重写原版 Management WebUI，而是在桌面宿主层补齐这些能力：
 
-- 原版 `/management.html` 内嵌展示
+- vendored Management WebUI 内嵌展示
 - 本地后端一键启动、停止、重启、健康检查
 - 桌面端日志、诊断、托盘、首次运行向导
 - 中文化桌面交互
@@ -60,34 +60,44 @@ CPAD 是一个只面向 **Windows 10/11 x64** 的桌面化托管项目。
 ```powershell
 git clone https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop.git
 cd Cli-Proxy-API-Desktop
-pwsh ./build/scripts/fetch-assets.ps1
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets
 dotnet build CliProxyApiDesktop.sln
-dotnet test src/DesktopHost.Tests/DesktopHost.Tests.csproj
+dotnet test tests/CPAD.Tests/CPAD.Tests.csproj
+```
+
+如需完整发布资产，请通过当前 BuildTool 链路拉取并校验资源：
+
+```powershell
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-assets
 ```
 
 ### 3. 启动桌面宿主
 
 ```powershell
-dotnet run --project ./src/DesktopHost/DesktopHost.csproj
+dotnet run --project ./src/CPAD.App/CPAD.App.csproj
 ```
 
 ### 4. 自动化验证
 
 ```powershell
-dotnet run --project ./src/DesktopHost/DesktopHost.csproj -- --smoke
-dotnet run --project ./src/DesktopHost/DesktopHost.csproj -- --verify-onboarding
-dotnet run --project ./src/DesktopHost/DesktopHost.csproj -- --verify-hosting
+powershell -ExecutionPolicy Bypass -File ./tests/CPAD.Tests/Smoke/SafeSmoke.ps1
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-package
 ```
 
 ### 5. 构建安装器
 
 ```powershell
-pwsh ./build/scripts/publish.ps1
-pwsh ./build/scripts/build-installer.ps1
-pwsh ./build/scripts/verify-installer.ps1
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-assets --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- publish --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-portable --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-dev --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-package --configuration Release --runtime win-x64 --version <version>
 ```
 
-安装器输出位于 `artifacts/installer/CPAD-Setup-<version>.exe`。
+发布产物位于 `artifacts/buildtool`，其中 `publish/win-x64/CPAD.exe` 是本地发布目录，`packages` 包含 portable、dev 与 installer 产物。
 
 
 ## 文档

@@ -2,25 +2,27 @@
 
 ## Audited Sources
 
-- `artifacts/reference-repos/CLIProxyAPI-upstream/internal/api/server.go`
-- `artifacts/reference-repos/CLIProxyAPI-upstream/internal/api/handlers/management/*.go`
-- `artifacts/reference-repos/Cli-Proxy-API-Management-Center-blackblock/src/services/api/*.ts`
-- `artifacts/reference-repos/Cli-Proxy-API-Management-Center-blackblock/src/types/*.ts`
-- `artifacts/reference-repos/Cli-Proxy-API-Management-Center-blackblock/src/pages/DashboardPage.tsx`
-- `artifacts/reference-repos/Cli-Proxy-API-Management-Center-blackblock/src/pages/SystemPage.tsx`
-- `artifacts/reference-repos/CPA-UV/internal/tui/client.go`
-- `artifacts/reference-repos/CPA-UV/internal/tui/dashboard.go`
+- `src/CPAD.Infrastructure/Management/*.cs`
+- `src/CPAD.Infrastructure/Backend/*.cs`
+- `resources/webui/upstream/source/src/services/api/*.ts`
+- `resources/webui/upstream/source/src/types/*.ts`
+- `resources/webui/modules/cpa-uv-overlay/module.json`
+- `resources/webui/modules/cpa-uv-overlay/traceability.json`
+- `resources/webui/modules/cpa-uv-overlay/source/src/pages/DashboardOverviewPage.tsx`
+- `resources/webui/modules/cpa-uv-overlay/source/src/pages/SystemPage.tsx`
+- `resources/webui/modules/cpa-uv-overlay/source/src/services/api/version.ts`
+- `resources/webui/modules/cpa-uv-overlay/live-assets/cpa-uv-management-reference.html`
 
 ## Page To Endpoint Mapping
 
 | Native page/domain | Upstream endpoint set | Desktop service |
 | --- | --- | --- |
-| Overview | `/config`, `/api-keys`, `/auth-files`, `/gemini-api-key`, `/codex-api-key`, `/claude-api-key`, `/vertex-api-key`, `/openai-compatibility`, `/v1/models` | `IManagementOverviewService` |
+| Overview | `/config`, `/api-keys`, `/auth-files`, `/gemini-api-key`, `/codex-api-key`, `/claude-api-key`, `/vertex-api-key`, `/openai-compatibility`, `/v1/models`, optional local `wham/usage` bridge via `/api-call` | `IManagementOverviewService` |
 | Accounts & Auth | `/api-keys`, `/auth-files`, `/auth-files/models`, `/auth-files/status`, `/model-definitions/:channel`, `/oauth-excluded-models`, `/oauth-model-alias`, `/{provider}-auth-url`, `/get-auth-status`, `/oauth-callback` | `IManagementAuthService` |
 | Quota & Usage | `/usage`, `/usage/export`, `/usage/import` | `IManagementUsageService` |
 | Configuration | `/config`, `/config.yaml`, `/debug`, `/proxy-url`, `/request-retry`, `/max-retry-interval`, `/quota-exceeded/*`, `/usage-statistics-enabled`, `/request-log`, `/logging-to-file`, `/logs-max-total-size-mb`, `/error-logs-max-files`, `/ws-auth`, `/force-model-prefix`, `/routing/strategy` | `IManagementConfigurationService` |
 | Logs & Diagnostics | `/logs`, `/request-error-logs`, `/request-log-by-id/:id` | `IManagementLogsService` |
-| System & Models | `/latest-version`, `/v1/models`, `/api-call` | `IManagementSystemService` |
+| System & Models | `/latest-version`, optional `/install-update`, `/v1/models`, `/api-call` | `IManagementSystemService` |
 
 ## Desktop Data Layer Outputs
 
@@ -49,3 +51,4 @@
   - header-based server metadata capture
   - tolerant field-name mapping for snake_case / camelCase variants
   - retry on transient `408/502/503/504`
+- Overlay-only WebUI extraction keeps CPA-UV behavior traceability in `resources/webui/modules/cpa-uv-overlay/*` so the reference repos can be deleted without losing provenance.

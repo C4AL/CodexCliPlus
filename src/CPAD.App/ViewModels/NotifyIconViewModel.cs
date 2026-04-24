@@ -1,5 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace CPAD.ViewModels;
 
+[SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "WPF binding requires instance properties.")]
 public sealed class NotifyIconViewModel
 {
     public string OpenLabel => "打开主界面";

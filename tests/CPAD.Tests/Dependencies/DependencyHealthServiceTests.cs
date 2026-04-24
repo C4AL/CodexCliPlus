@@ -1,6 +1,7 @@
 using CPAD.Core.Abstractions.Paths;
 using CPAD.Core.Abstractions.Security;
 using CPAD.Core.Abstractions.Updates;
+using CPAD.Core.Constants;
 using CPAD.Core.Enums;
 using CPAD.Core.Exceptions;
 using CPAD.Core.Models;
@@ -123,7 +124,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
         {
             State = BackendStateKind.Error,
             Message = "Backend failed to start.",
-            LastError = "No available loopback port was found starting from 8317."
+            LastError = FormattableString.Invariant($"No available loopback port was found starting from {AppConstants.DefaultBackendPort}.")
         });
 
         Assert.True(result.RequiresRepairMode);
@@ -237,7 +238,9 @@ public sealed class DependencyHealthServiceTests : IDisposable
         }
 
         File.WriteAllText(pathService.Directories.SettingsFilePath, "{ }");
-        File.WriteAllText(pathService.Directories.BackendConfigFilePath, "port: 8317");
+        File.WriteAllText(
+            pathService.Directories.BackendConfigFilePath,
+            FormattableString.Invariant($"port: {AppConstants.DefaultBackendPort}"));
 
         var secretsDirectory = Path.Combine(pathService.Directories.ConfigDirectory, "secrets");
         Directory.CreateDirectory(secretsDirectory);

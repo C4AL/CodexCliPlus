@@ -3,18 +3,18 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                 xmlns:pages="clr-namespace:CPAD.Views.Pages"
                  xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
                  Title="{Binding Title}"
-                 Width="1400"
-                 Height="900"
-                 MinWidth="1180"
-                 MinHeight="760"
+                 Width="1440"
+                 Height="920"
+                 MinWidth="960"
+                 MinHeight="640"
                  FontFamily="{StaticResource TextThemeFontFamily}"
                  Background="{DynamicResource ApplicationBackgroundBrush}"
-                 ExtendsContentIntoTitleBar="True"
                  Icon="pack://application:,,,/Resources/Icons/ico-transparent.png"
+                 ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Auto"
                  WindowStartupLocation="CenterScreen"
                  Closing="Window_Closing"
@@ -22,221 +22,98 @@
                  Loaded="Window_Loaded"
                  mc:Ignorable="d">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <wv2:WebView2 x:Name="ManagementWebView"
+                      Visibility="Collapsed" />
 
-        <ui:TitleBar x:Name="ShellTitleBar"
-                     Grid.Row="0"
-                     Title="{Binding Title}">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/Resources/Icons/ico-transparent.png" />
-            </ui:TitleBar.Icon>
-            <ui:TitleBar.TrailingContent>
-                <StackPanel Orientation="Horizontal">
-                    <Border Margin="0,0,10,0"
-                            Padding="10,5"
-                            VerticalAlignment="Center"
-                            Background="{DynamicResource SurfaceAltBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="12">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse x:Name="ConnectionDot"
-                                     Width="8"
-                                     Height="8"
-                                     Margin="0,0,8,0"
-                                     VerticalAlignment="Center"
-                                     Fill="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock x:Name="HeaderConnectionText"
-                                       VerticalAlignment="Center"
-                                       FontSize="12"
-                                       Style="{StaticResource ShellMutedTextStyle}" />
-                        </StackPanel>
-                    </Border>
-
-                    <ui:Button Width="42"
-                               Height="34"
-                               Margin="0,0,8,0"
-                               Appearance="Transparent"
-                               Click="RefreshButton_Click"
-                               ToolTip="刷新连接">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="ArrowClockwise24" />
-                        </ui:Button.Icon>
-                    </ui:Button>
-                    <ui:Button x:Name="ThemeButton"
-                               Width="42"
-                               Height="34"
-                               Margin="0,0,8,0"
-                               Appearance="Transparent"
-                               Click="ThemeButton_Click"
-                               ToolTip="切换主题">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="WeatherMoon24" />
-                        </ui:Button.Icon>
-                    </ui:Button>
-                    <ui:Button x:Name="BackendActionButton"
-                               Appearance="Primary"
-                               Content="启动后端"
-                               Click="BackendActionButton_Click">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon Symbol="Play24" />
-                        </ui:Button.Icon>
-                    </ui:Button>
+        <Grid x:Name="LoadingPanel"
+              Background="{DynamicResource ApplicationBackgroundBrush}">
+            <Border Width="420"
+                    Padding="28"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="18"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="正在启动桌面管理界面"
+                               FontSize="24"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock x:Name="LoadingDescriptionText"
+                               Margin="0,10,0,18"
+                               Text="正在准备官方 WebUI、本地后端和桌面桥接。"
+                               FontSize="13"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap" />
+                    <ProgressBar Height="6"
+                                 IsIndeterminate="True" />
                 </StackPanel>
-            </ui:TitleBar.TrailingContent>
-        </ui:TitleBar>
+            </Border>
+        </Grid>
 
-        <ui:NavigationView x:Name="RootNavigation"
-                           Grid.Row="1"
-                           Margin="0,0,0,8"
-                           IsBackButtonVisible="Collapsed"
-                           IsPaneToggleVisible="True"
-                           IsTopSeparatorVisible="False"
-                           IsFooterSeparatorVisible="False"
-                           OpenPaneLength="236"
-                           PaneDisplayMode="LeftFluent"
-                           SelectionChanged="RootNavigation_SelectionChanged">
-            <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem x:Name="DashboardNavigationItem"
-                                       Tag="dashboard"
-                                       Content="仪表盘"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:DashboardPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE80F;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="config"
-                                       Content="配置"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:ConfigPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE713;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="ai-providers"
-                                       Content="AI 提供商"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:AiProvidersPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE13D;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="auth-files"
-                                       Content="认证文件"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:AuthFilesPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE8B7;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="oauth"
-                                       Content="OAuth"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:OAuthPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE72E;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="quota"
-                                       Content="配额"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:QuotaPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE9D2;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="usage"
-                                       Content="用量"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:UsagePage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE9D2;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="logs"
-                                       Content="日志"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:LogsPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE9D5;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem Tag="system"
-                                       Content="系统"
-                                       NavigationCacheMode="Enabled"
-                                       TargetPageType="{x:Type pages:SystemPage}">
-                    <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE9CE;" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-            </ui:NavigationView.MenuItems>
-
-            <ui:NavigationView.ContentOverlay>
-                <Grid>
-                    <ui:SnackbarPresenter x:Name="SnackbarPresenter" />
-                </Grid>
-            </ui:NavigationView.ContentOverlay>
-        </ui:NavigationView>
-
-        <Border Grid.Row="2"
-                Margin="18,0,18,18"
-                Padding="14,10"
-                Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="14">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock x:Name="BackendStatusText"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Style="{StaticResource ShellMutedTextStyle}" />
-                <TextBlock x:Name="ConnectionStatusText"
-                           Grid.Column="1"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Style="{StaticResource ShellMutedTextStyle}" />
-                <TextBlock x:Name="ThemeStatusText"
-                           Grid.Column="2"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Style="{StaticResource ShellMutedTextStyle}" />
-                <TextBlock x:Name="VersionStatusText"
-                           Grid.Column="3"
-                           VerticalAlignment="Center"
-                           FontSize="12"
-                           Style="{StaticResource ShellMutedTextStyle}" />
-            </Grid>
-        </Border>
+        <Grid x:Name="BlockerPanel"
+              Visibility="Collapsed"
+              Background="{DynamicResource ApplicationBackgroundBrush}">
+            <Border Width="560"
+                    MaxWidth="560"
+                    Padding="30"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="20"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock x:Name="BlockerTitleText"
+                               FontSize="28"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               Text="桌面宿主无法启动" />
+                    <TextBlock x:Name="BlockerDescriptionText"
+                               Margin="0,12,0,0"
+                               FontSize="14"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextWrapping="Wrap"
+                               Text="请先修复宿主级故障，再继续使用官方管理界面。" />
+                    <TextBlock x:Name="BlockerDetailText"
+                               Margin="0,18,0,0"
+                               FontSize="13"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Margin="0,24,0,0"
+                                Orientation="Horizontal">
+                        <Button Width="120"
+                                Height="36"
+                                Click="RetryButton_Click"
+                                Content="重试" />
+                        <Button Width="120"
+                                Height="36"
+                                Margin="12,0,0,0"
+                                Click="HideToTrayButton_Click"
+                                Content="最小化到托盘" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <tray:NotifyIcon x:Name="TrayIcon"
                          FocusOnLeftClick="False"
                          Icon="pack://application:,,,/Resources/Icons/ico-transparent.png"
                          LeftDoubleClick="TrayIcon_LeftDoubleClick"
                          MenuOnRightClick="True"
-                         TooltipText="Cli Proxy API Desktop / CPAD">
+                         TooltipText="CPAD 桌面版">
             <tray:NotifyIcon.Menu>
                 <ContextMenu x:Name="TrayMenu">
-                    <ui:MenuItem Header="打开主界面"
-                                 Click="TrayOpenMenuItem_Click" />
-                    <ui:MenuItem Header="重启后端"
-                                 Click="TrayRestartBackendMenuItem_Click" />
-                    <ui:MenuItem Header="检查更新"
-                                 Click="TrayCheckUpdatesMenuItem_Click" />
+                    <MenuItem Header="打开"
+                              Click="TrayOpenMenuItem_Click" />
+                    <MenuItem Header="重启后端"
+                              Click="TrayRestartBackendMenuItem_Click" />
+                    <MenuItem Header="检查更新"
+                              Click="TrayCheckUpdatesMenuItem_Click" />
                     <Separator />
-                    <ui:MenuItem Header="退出并停止后端"
-                                 Click="TrayExitMenuItem_Click" />
+                    <MenuItem Header="退出"
+                              Click="TrayExitMenuItem_Click" />
                 </ContextMenu>
             </tray:NotifyIcon.Menu>
         </tray:NotifyIcon>

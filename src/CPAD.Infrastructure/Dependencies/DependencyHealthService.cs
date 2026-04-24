@@ -84,7 +84,7 @@ public sealed class DependencyHealthService
         };
     }
 
-    private void CheckRuntimeVersion(ICollection<DependencyCheckIssue> issues)
+    private void CheckRuntimeVersion(List<DependencyCheckIssue> issues)
     {
         var frameworkDescription = _frameworkDescriptionProvider();
         var match = Regex.Match(frameworkDescription, "(?<major>\\d+)");
@@ -107,7 +107,7 @@ public sealed class DependencyHealthService
         });
     }
 
-    private void CheckDirectoryAccess(ICollection<DependencyCheckIssue> issues)
+    private void CheckDirectoryAccess(List<DependencyCheckIssue> issues)
     {
         var failures = new List<string>();
         AddDirectoryFailure(failures, "Root", _pathService.Directories.RootDirectory);
@@ -130,7 +130,7 @@ public sealed class DependencyHealthService
         });
     }
 
-    private void CheckBackendRuntime(ICollection<DependencyCheckIssue> issues)
+    private void CheckBackendRuntime(List<DependencyCheckIssue> issues)
     {
         var executablePath = Path.Combine(_pathService.Directories.BackendDirectory, BackendExecutableFileName);
         if (!File.Exists(executablePath))
@@ -179,7 +179,7 @@ public sealed class DependencyHealthService
         });
     }
 
-    private void CheckInitializationState(ICollection<DependencyCheckIssue> issues)
+    private void CheckInitializationState(List<DependencyCheckIssue> issues)
     {
         var settingsExists = File.Exists(_pathService.Directories.SettingsFilePath);
         var backendConfigExists = File.Exists(_pathService.Directories.BackendConfigFilePath);
@@ -206,7 +206,7 @@ public sealed class DependencyHealthService
     }
 
     private async Task CheckCredentialStoreAsync(
-        ICollection<DependencyCheckIssue> issues,
+        List<DependencyCheckIssue> issues,
         CancellationToken cancellationToken)
     {
         var probeReference = $"dependency-health-{Guid.NewGuid():N}";
@@ -252,7 +252,7 @@ public sealed class DependencyHealthService
     }
 
     private async Task CheckUpdateComponentAsync(
-        ICollection<DependencyCheckIssue> issues,
+        List<DependencyCheckIssue> issues,
         CancellationToken cancellationToken)
     {
         try
@@ -288,7 +288,7 @@ public sealed class DependencyHealthService
     }
 
     private static void CheckPortAllocation(
-        ICollection<DependencyCheckIssue> issues,
+        List<DependencyCheckIssue> issues,
         BackendStatusSnapshot backendStatus)
     {
         if (backendStatus.State != BackendStateKind.Error)
@@ -311,7 +311,7 @@ public sealed class DependencyHealthService
         });
     }
 
-    private void CheckResourcePack(ICollection<DependencyCheckIssue> issues)
+    private void CheckResourcePack(List<DependencyCheckIssue> issues)
     {
         var expectedRoot = _expectedBackendAssetRootResolver();
         var missingFiles = RequiredResourceFiles
@@ -358,7 +358,7 @@ public sealed class DependencyHealthService
         });
     }
 
-    private void AddDirectoryFailure(ICollection<string> failures, string label, string path)
+    private void AddDirectoryFailure(List<string> failures, string label, string path)
     {
         var error = _directoryAccessService.GetWriteAccessError(path);
         if (!string.IsNullOrWhiteSpace(error))

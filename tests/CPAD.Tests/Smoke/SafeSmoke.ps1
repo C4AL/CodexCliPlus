@@ -322,29 +322,116 @@ function Invoke-StaticVerification {
     $failures = New-Object System.Collections.Generic.List[object]
     $warnings = New-Object System.Collections.Generic.List[object]
 
-    $activeCodeFiles = Get-ActiveTreeFiles -Root $RepositoryRoot -RelativeRoots @("src", "tests", "resources", "build") -AllowedExtensions @(
-        ".cs",
-        ".xaml",
-        ".csproj",
-        ".props",
-        ".targets",
-        ".json",
-        ".xml",
-        ".yaml",
-        ".yml"
-    )
-
-    $legacyCodePatterns = @(
-        @{ Label = "Legacy WebView2 namespace/package"; Pattern = "Microsoft\.Web\.WebView2|CoreWebView2" },
-        @{ Label = "Legacy WebView2 runtime loader"; Pattern = "WebView2Loader|MicrosoftEdgeWebView2Setup" },
-        @{ Label = "Legacy management static wiring"; Pattern = "MANAGEMENT_STATIC_PATH|SetVirtualHostNameToFolderMapping" }
-    )
-
-    foreach ($entry in $legacyCodePatterns) {
-        $matches = Get-MatchDetails -Files $activeCodeFiles -Pattern $entry.Pattern -RepoRoot $RepositoryRoot
-        foreach ($match in $matches) {
-            Add-Finding -List $failures -Kind $entry.Label -Detail $match
+    $mainWindowXamlPath = Join-Path $RepositoryRoot "src\CPAD.App\MainWindow.xaml"
+    if (-not (Test-Path -LiteralPath $mainWindowXamlPath)) {
+        Add-Finding -List $failures -Kind "Missing main window host XAML" -Detail (Get-DisplayPath -FullPath $mainWindowXamlPath -Root $RepositoryRoot)
+    }
+    else {
+        $mainWindowXaml = [System.IO.File]::ReadAllText($mainWindowXamlPath, [System.Text.Encoding]::UTF8)
+        if ($mainWindowXaml -notmatch "<wv2:WebView2") {
+            Add-Finding -List $failures -Kind "WebView2 host missing" -Detail "src\CPAD.App\MainWindow.xaml does not declare the WebView2 host control."
         }
+
+        if ($mainWindowXaml -match "<ui:NavigationView") {
+            Add-Finding -List $failures -Kind "Legacy native navigation shell still active" -Detail "src\CPAD.App\MainWindow.xaml still contains a runtime NavigationView shell."
+        }
+
+        foreach ($trayHandler in @(
+                "TrayOpenMenuItem_Click",
+                "TrayRestartBackendMenuItem_Click",
+                "TrayCheckUpdatesMenuItem_Click",
+                "TrayExitMenuItem_Click"
+            )) {
+            if ($mainWindowXaml -notmatch [Regex]::Escape($trayHandler)) {
+                Add-Finding -List $failures -Kind "Tray contract mismatch" -Detail ("MainWindow tray menu is missing handler '{0}'." -f $trayHandler)
+            }
+        }
+    }
+
+    $mainWindowCodeBehindPath = Join-Path $RepositoryRoot "src\CPAD.App\MainWindow.xaml.cs"
+    if (-not (Test-Path -LiteralPath $mainWindowCodeBehindPath)) {
+        Add-Finding -List $failures -Kind "Missing main window host code-behind" -Detail (Get-DisplayPath -FullPath $mainWindowCodeBehindPath -Root $RepositoryRoot)
+    }
+    else {
+        $mainWindowCodeBehind = [System.IO.File]::ReadAllText($mainWindowCodeBehindPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "SetVirtualHostNameToFolderMapping",
+                "AddScriptToExecuteOnDocumentCreatedAsync",
+                "WebMessageReceived",
+                "WebView2RuntimeNotFoundException"
+            )) {
+            if ($mainWindowCodeBehind -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "WebView2 host behavior missing" -Detail ("src\CPAD.App\MainWindow.xaml.cs is missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $appSourcePath = Join-Path $RepositoryRoot "src\CPAD.App\App.xaml.cs"
+    if (-not (Test-Path -LiteralPath $appSourcePath)) {
+        Add-Finding -List $failures -Kind "Missing application startup source" -Detail (Get-DisplayPath -FullPath $appSourcePath -Root $RepositoryRoot)
+    }
+    else {
+        $appSource = [System.IO.File]::ReadAllText($appSourcePath, [System.Text.Encoding]::UTF8)
+        if ($appSource -notmatch "AddSingleton<WebUiAssetLocator>\(\)") {
+            Add-Finding -List $failures -Kind "WebUI asset locator not registered" -Detail "src\CPAD.App\App.xaml.cs no longer registers WebUiAssetLocator."
+        }
+
+        foreach ($forbiddenToken in @(
+                "IManagementNavigationService",
+                "DashboardPageViewModel",
+                "ConfigPageViewModel",
+                "AiProvidersPageViewModel",
+                "DashboardPage",
+                "ConfigPage",
+                "AiProvidersPage"
+            )) {
+            if ($appSource -match [Regex]::Escape($forbiddenToken)) {
+                Add-Finding -List $failures -Kind "Legacy runtime page registration still active" -Detail ("src\CPAD.App\App.xaml.cs still contains '{0}'." -f $forbiddenToken)
+            }
+        }
+    }
+
+    $appProjectPath = Join-Path $RepositoryRoot "src\CPAD.App\CPAD.App.csproj"
+    if (-not (Test-Path -LiteralPath $appProjectPath)) {
+        Add-Finding -List $failures -Kind "Missing app project file" -Detail (Get-DisplayPath -FullPath $appProjectPath -Root $RepositoryRoot)
+    }
+    else {
+        $appProject = [System.IO.File]::ReadAllText($appProjectPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "Microsoft.Web.WebView2",
+                "resources\webui\upstream\dist\**\*",
+                "resources\webui\upstream\sync.json"
+            )) {
+            if ($appProject -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "Vendored WebUI packaging missing" -Detail ("src\CPAD.App\CPAD.App.csproj is missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $syncMetadataPath = Join-Path $RepositoryRoot "resources\webui\upstream\sync.json"
+    if (-not (Test-Path -LiteralPath $syncMetadataPath)) {
+        Add-Finding -List $failures -Kind "Vendored WebUI metadata missing" -Detail "resources\webui\upstream\sync.json was not found."
+    }
+    else {
+        $syncMetadata = [System.IO.File]::ReadAllText($syncMetadataPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "router-for-me/Cli-Proxy-API-Management-Center.git",
+                "b45639aa0169de8441bc964fb765f2405c10ccf4"
+            )) {
+            if ($syncMetadata -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "Vendored WebUI metadata mismatch" -Detail ("resources\webui\upstream\sync.json is missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $webUiDistIndexPath = Join-Path $RepositoryRoot "resources\webui\upstream\dist\index.html"
+    if (-not (Test-Path -LiteralPath $webUiDistIndexPath)) {
+        Add-Finding -List $failures -Kind "Vendored WebUI build output missing" -Detail "resources\webui\upstream\dist\index.html was not found."
+    }
+
+    $embeddedGitPath = Join-Path $RepositoryRoot "resources\webui\upstream\source\.git"
+    if (Test-Path -LiteralPath $embeddedGitPath) {
+        Add-Finding -List $failures -Kind "Embedded upstream repository metadata present" -Detail "resources\webui\upstream\source\.git should not be shipped as a nested repository."
     }
 
     $activeFiles = Get-ActiveTreeFiles -Root $RepositoryRoot -RelativeRoots @("src", "tests", "resources", "build") -AllowedExtensions @()
@@ -359,19 +446,6 @@ function Invoke-StaticVerification {
         Add-Finding -List $failures -Kind "Legacy file still present in active tree" -Detail (Get-DisplayPath -FullPath $file.FullName -Root $RepositoryRoot)
     }
 
-    $legacyScriptFiles = $activeFiles | Where-Object {
-        $_.FullName -notlike "*\tests\CPAD.Tests\Smoke\*" -and
-        @(".ps1", ".cmd", ".bat", ".iss") -contains $_.Extension.ToLowerInvariant()
-    }
-    foreach ($file in $legacyScriptFiles) {
-        Add-Finding -List $failures -Kind "Legacy build/script artifact in active tree" -Detail (Get-DisplayPath -FullPath $file.FullName -Root $RepositoryRoot)
-    }
-
-    $webView2Directory = Join-Path $RepositoryRoot "resources\webview2"
-    if (Test-Path -LiteralPath $webView2Directory) {
-        Add-Finding -List $warnings -Kind "Legacy directory still present" -Detail (Get-DisplayPath -FullPath $webView2Directory -Root $RepositoryRoot)
-    }
-
     $bundledReadmes = @(
         (Join-Path $RepositoryRoot "resources\backend\windows-x64\README.md"),
         (Join-Path $RepositoryRoot "resources\backend\windows-x64\README_CN.md")
@@ -380,7 +454,7 @@ function Invoke-StaticVerification {
         Add-Finding -List $warnings -Kind "Bundled backend doc is upstream content" -Detail (Get-DisplayPath -FullPath $path -Root $RepositoryRoot)
     }
 
-    $publishResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "artifacts\publish") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "*WebView2*", "management.html")
+    $publishResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "artifacts\publish") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "management.html")
     if ($null -ne $publishResidue) {
         Add-Finding -List $warnings -Kind "Historical publish residue" -Detail ("{0} matching files under artifacts\publish; sample: {1}" -f $publishResidue.Count, ($publishResidue.Sample -join ", "))
     }
@@ -394,21 +468,21 @@ function Invoke-StaticVerification {
         }
     }
 
-    $generatedSourceResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "src") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "*WebView2*", "management.html")
+    $generatedSourceResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "src") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "management.html")
     if ($null -ne $generatedSourceResidue) {
         Add-Finding -List $warnings -Kind "Generated source residue in bin/obj" -Detail ("{0} matching files under src; sample: {1}" -f $generatedSourceResidue.Count, ($generatedSourceResidue.Sample -join ", "))
     }
 
-    $generatedTestResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "tests") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "*WebView2*", "management.html")
+    $generatedTestResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "tests") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "management.html")
     if ($null -ne $generatedTestResidue) {
         Add-Finding -List $warnings -Kind "Generated test residue in bin/obj" -Detail ("{0} matching files under tests; sample: {1}" -f $generatedTestResidue.Count, ($generatedTestResidue.Sample -join ", "))
     }
 
     if ($failures.Count -eq 0) {
-        Write-Output "[pass] No active legacy source/build references were detected."
+        Write-Output "[pass] WebView2 host baseline and vendored WebUI packaging markers were detected."
     }
     else {
-        Write-Output ("[fail] Active legacy findings: {0}" -f $failures.Count)
+        Write-Output ("[fail] Static baseline findings: {0}" -f $failures.Count)
         foreach ($failure in $failures) {
             Write-Output ("  - {0}: {1}" -f $failure.Kind, $failure.Detail)
         }

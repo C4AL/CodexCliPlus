@@ -8,10 +8,10 @@ public static class AboutCatalog
     [
         new(
             "Cli Proxy API Desktop",
-            "Native Windows desktop shell",
+            "Minimal Windows desktop shell",
             "Blackblock-inc/Cli-Proxy-API-Desktop",
             "MIT",
-            "WPF implementation for backend hosting, source switching, settings, updates, and diagnostics."),
+            "WPF shell for windowing, tray behavior, backend lifecycle, secure storage, updates, and the local WebView2 host."),
         new(
             "CLIProxyAPI / CPA-UV",
             "Managed backend and Management API contract",
@@ -20,22 +20,22 @@ public static class AboutCatalog
             "Backend binaries and API semantics are used through local process hosting and HTTP management calls."),
         new(
             "CLI Proxy API Management Center",
-            "Management workflow reference",
-            "router-for-me/Cli-Proxy-API-Management-Center and Blackblock audited mirror",
+            "Vendored official upstream WebUI",
+            "router-for-me/Cli-Proxy-API-Management-Center",
             "MIT",
-            "Pages are reimplemented natively; the web UI and management.html are not embedded."),
+            "The official upstream WebUI is vendored into the repository, built locally, and embedded as packaged static assets for the desktop WebView2 host."),
         new(
             "BetterGI",
             "Desktop shell UI and resource derivative",
             "babalae/better-genshin-impact",
             "GPL-3.0",
-            "CPAD redistributes BetterGI-derived navigation shell structure, fonts, and WPF resource files under GPL-3.0-compliant packaging."),
+            "CPAD redistributes BetterGI-derived shell resources, fonts, and supporting WPF assets under GPL-3.0-compliant packaging."),
         new(
-            ".NET WPF and CommunityToolkit.Mvvm",
-            "Desktop framework and MVVM helpers",
+            ".NET WPF, WebView2, and CommunityToolkit.Mvvm",
+            "Desktop framework and host integration",
             "Microsoft .NET ecosystem",
             "MIT",
-            "Provides the native application framework without WebView2 runtime dependency.")
+            "Provides the native desktop framework, WebView2 host integration, and MVVM helpers used by the minimal desktop shell.")
     ];
 
     public static IReadOnlyList<AboutLicenseDocument> LicenseDocuments { get; } =
@@ -45,19 +45,25 @@ public static class AboutCatalog
             "MIT",
             "CPAD.LICENSE.txt",
             "LICENSE.txt",
-            "CPAD 原创桌面应用代码的 MIT 许可。"),
+            "CPAD 原创桌面应用代码遵循 MIT 许可。"),
         new(
             "后端许可",
             "MIT",
             "CLIProxyAPI.LICENSE.txt",
             Path.Combine("resources", "backend", "windows-x64", "LICENSE"),
-            "CLIProxyAPI / CPA-UV 后端二进制与契约的 MIT 许可。"),
+            "CLIProxyAPI / CPA-UV 后端二进制与契约遵循 MIT 许可。"),
+        new(
+            "官方 WebUI 许可",
+            "MIT",
+            "CliProxyApiManagementCenter.LICENSE.txt",
+            Path.Combine("resources", "webui", "upstream", "source", "LICENSE"),
+            "Vendored 官方 WebUI 源码与静态资源遵循 MIT 许可。"),
         new(
             "BetterGI 派生 UI 许可",
             "GPL-3.0",
             "BetterGI.GPL-3.0.txt",
             Path.Combine("resources", "licenses", "BetterGI.GPL-3.0.txt"),
-            "BetterGI 派生的 UI 外壳、字体和资源按 GPL-3.0 再分发。"),
+            "BetterGI 派生的桌面外壳、字体和资源按 GPL-3.0 再分发。"),
         new(
             "合并 NOTICE",
             "NOTICE",

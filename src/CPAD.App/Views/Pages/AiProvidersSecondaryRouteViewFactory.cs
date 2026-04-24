@@ -157,7 +157,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             BackLabel: "Back to providers");
     }
 
-    private UIElement BuildProviderHeaderActions(
+    private StackPanel BuildProviderHeaderActions(
         string providerKey,
         string displayName,
         IReadOnlyList<ManagementProviderKeyConfiguration> entries,
@@ -240,7 +240,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return panel;
     }
 
-    private UIElement BuildProviderFooter(
+    private StackPanel BuildProviderFooter(
         string providerKey,
         string displayName,
         int existingCount,
@@ -334,8 +334,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
     {
         if (isGemini)
         {
-                await _authService.UpdateGeminiKeyAsync(targetIndex, editor.BuildGeminiConfiguration());
-                return;
+            await _authService.UpdateGeminiKeyAsync(targetIndex, editor.BuildGeminiConfiguration());
+            return;
         }
 
         var configuration = editor.BuildProviderConfiguration();
@@ -397,17 +397,17 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 _navigate("ai-providers-openai-new", "Create OpenAI compatibility entry");
             };
 
-        return new ManagementSecondaryRouteDescriptor(
-                "OpenAI compatibility",
-                "No saved compatibility entry is available yet.",
-                new ManagementEmptyState
-                {
-                    Title = "No OpenAI compatibility entries",
-                    Description = "Create an entry directly from the native form instead of editing raw JSON.",
-                    ActionContent = action
-                },
-                BuildOpenAiHeader(entries, selectedIndex),
-                BackLabel: "Back to providers");
+            return new ManagementSecondaryRouteDescriptor(
+                    "OpenAI compatibility",
+                    "No saved compatibility entry is available yet.",
+                    new ManagementEmptyState
+                    {
+                        Title = "No OpenAI compatibility entries",
+                        Description = "Create an entry directly from the native form instead of editing raw JSON.",
+                        ActionContent = action
+                    },
+                    BuildOpenAiHeader(entries, selectedIndex),
+                    BackLabel: "Back to providers");
         }
 
         var editor = new OpenAiCompatibilityEditorView(currentEntry, _routeState.MarkDirty);
@@ -423,7 +423,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "Back to providers");
     }
 
-    private UIElement BuildOpenAiHeader(IReadOnlyList<ManagementOpenAiCompatibilityEntry> entries, int selectedIndex)
+    private StackPanel BuildOpenAiHeader(IReadOnlyList<ManagementOpenAiCompatibilityEntry> entries, int selectedIndex)
     {
         var panel = new StackPanel
         {
@@ -498,7 +498,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return panel;
     }
 
-    private UIElement BuildOpenAiFooter(int existingCount, int selectedIndex, bool isNew, OpenAiCompatibilityEditorView editor)
+    private StackPanel BuildOpenAiFooter(int existingCount, int selectedIndex, bool isNew, OpenAiCompatibilityEditorView editor)
     {
         var panel = new StackPanel
         {
@@ -830,7 +830,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             };
         }
 
-        private UIElement BuildLayout(bool supportsCloak)
+        private StackPanel BuildLayout(bool supportsCloak)
         {
             var root = new StackPanel();
             var connection = new StackPanel();
@@ -986,7 +986,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             var strictMode = _cloakStrictModeCheckBox?.IsChecked == true;
             var sensitiveWords = _cloakSensitiveWords is null ? [] : BuildStrings(_cloakSensitiveWords);
 
-            if (mode is null && !strictMode && sensitiveWords.Count == 0)
+            if (mode is null && !strictMode && sensitiveWords.Length == 0)
             {
                 return null;
             }
@@ -1045,7 +1045,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             };
         }
 
-        private UIElement BuildLayout()
+        private StackPanel BuildLayout()
         {
             var root = new StackPanel();
             var basic = new StackPanel();
@@ -1352,7 +1352,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             };
         }
 
-        private UIElement BuildLayout()
+        private StackPanel BuildLayout()
         {
             var root = new StackPanel();
             var basic = new StackPanel();
@@ -1507,7 +1507,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         };
     }
 
-    private static IReadOnlyDictionary<string, string> BuildHeaders(IEnumerable<EditableKeyValueItem> items)
+    private static Dictionary<string, string> BuildHeaders(IEnumerable<EditableKeyValueItem> items)
     {
         return items
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))
@@ -1518,7 +1518,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<ManagementModelAlias> BuildModelAliases(IEnumerable<EditableModelAliasItem> items)
+    private static ManagementModelAlias[] BuildModelAliases(IEnumerable<EditableModelAliasItem> items)
     {
         return items
             .Where(item => !string.IsNullOrWhiteSpace(item.Name))
@@ -1532,7 +1532,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             .ToArray();
     }
 
-    private static IReadOnlyList<string> BuildStrings(IEnumerable<EditableStringItem> items)
+    private static string[] BuildStrings(IEnumerable<EditableStringItem> items)
     {
         return items
             .Select(item => item.Value.Trim())

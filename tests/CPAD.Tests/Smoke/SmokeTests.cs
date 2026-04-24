@@ -35,14 +35,14 @@ public sealed class SmokeTests
     {
         using var scope = new SmokeEnvironmentScope();
 
-        Assert.True(File.Exists(scope.ApplicationPath), $"Expected desktop executable at '{scope.ApplicationPath}'.");
+        Assert.True(File.Exists(SmokeEnvironmentScope.ApplicationPath), $"Expected desktop executable at '{SmokeEnvironmentScope.ApplicationPath}'.");
 
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
-                FileName = scope.ApplicationPath,
-                WorkingDirectory = Path.GetDirectoryName(scope.ApplicationPath)!,
+                FileName = SmokeEnvironmentScope.ApplicationPath,
+                WorkingDirectory = Path.GetDirectoryName(SmokeEnvironmentScope.ApplicationPath)!,
                 UseShellExecute = false
             }
         };
@@ -59,7 +59,7 @@ public sealed class SmokeTests
 
         try
         {
-            await scope.WaitForAsync(
+            await SmokeEnvironmentScope.WaitForAsync(
                 () =>
                     Directory.Exists(Path.Combine(scope.RootDirectory, "config")) &&
                     Directory.Exists(Path.Combine(scope.RootDirectory, "logs")) &&
@@ -91,7 +91,7 @@ public sealed class SmokeTests
     public async Task PathAndCredentialSmokeUsesIsolatedDirectoriesAndDpapiSecretFiles()
     {
         using var scope = new SmokeEnvironmentScope();
-        var pathService = scope.CreatePathService();
+        var pathService = SmokeEnvironmentScope.CreatePathService();
 
         await pathService.EnsureCreatedAsync();
 
@@ -128,11 +128,11 @@ public sealed class SmokeTests
     public async Task BackendHostingSmokeRunsHealthEndpointFromIsolatedManagedBackendPath()
     {
         using var scope = new SmokeEnvironmentScope();
-        var pathService = scope.CreatePathService();
+        var pathService = SmokeEnvironmentScope.CreatePathService();
         var logger = new FileAppLogger(pathService);
         var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
         var layout = await assetService.EnsureAssetsAsync();
-        var port = scope.FindAvailablePort();
+        var port = SmokeEnvironmentScope.FindAvailablePort();
         var configPath = scope.WriteBackendConfig(port);
 
         Assert.Equal(scope.GetBackendExecutablePath(), layout.ExecutablePath);
@@ -162,7 +162,7 @@ public sealed class SmokeTests
 
         try
         {
-            await scope.WaitForHttpOkAsync($"http://127.0.0.1:{port}/healthz", TimeSpan.FromSeconds(20));
+            await SmokeEnvironmentScope.WaitForHttpOkAsync($"http://127.0.0.1:{port}/healthz", TimeSpan.FromSeconds(20));
             if (process.HasExited)
             {
                 Assert.Fail($"cli-proxy-api.exe exited early with code {process.ExitCode}.");
@@ -180,7 +180,7 @@ public sealed class SmokeTests
     public async Task DependencyRepairSmokeTransitionsFromHealthyStateToRepairModeAfterBackendDamage()
     {
         using var scope = new SmokeEnvironmentScope();
-        var pathService = scope.CreatePathService();
+        var pathService = SmokeEnvironmentScope.CreatePathService();
         var logger = new FileAppLogger(pathService);
         var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
         var configurationService = new JsonAppConfigurationService(pathService);
@@ -200,7 +200,7 @@ public sealed class SmokeTests
         await configurationService.SaveAsync(settings);
         await File.WriteAllTextAsync(
             pathService.Directories.BackendConfigFilePath,
-            "port: 8317",
+            FormattableString.Invariant($"port: {AppConstants.DefaultBackendPort}"),
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         var healthy = await dependencyService.EvaluateAsync(new BackendStatusSnapshot());
@@ -294,18 +294,24 @@ public sealed class SmokeTests
         SmokeEnvironmentScope.CreateZipWithEntries(
             Path.Combine(packageRoot, $"CPAD.Portable.{version}.win-x64.zip"),
             "CPAD.exe",
-            "portable-mode.json");
+            "portable-mode.json",
+            "assets/webui/upstream/dist/index.html",
+            "assets/webui/upstream/sync.json");
         SmokeEnvironmentScope.CreateZipWithEntries(
             Path.Combine(packageRoot, $"CPAD.Dev.{version}.win-x64.zip"),
             "app/CPAD.exe",
             "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep");
+            "app/artifacts/dev-data/.gitkeep",
+            "app/assets/webui/upstream/dist/index.html",
+            "app/assets/webui/upstream/sync.json");
         SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, $"CPAD.Setup.{version}.exe"));
         SmokeEnvironmentScope.CreateZipWithByteEntries(
             Path.Combine(packageRoot, $"CPAD.Setup.{version}.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
                 ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 [$"output/CPAD.Setup.{version}.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),

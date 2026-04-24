@@ -148,7 +148,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         };
     }
 
-    private static IReadOnlyList<UpdateReleaseAsset> ParseAssets(JsonElement root)
+    private static UpdateReleaseAsset[] ParseAssets(JsonElement root)
     {
         if (!root.TryGetProperty("assets", out var assetsElement) || assetsElement.ValueKind != JsonValueKind.Array)
         {
@@ -174,7 +174,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
     }
 
     private static UpdateReleaseAsset? FindInstallableStableInstallerAsset(
-        IReadOnlyList<UpdateReleaseAsset> assets)
+        UpdateReleaseAsset[] assets)
     {
         return assets
             .Where(asset =>
@@ -190,16 +190,16 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
     {
         var latestParts = ParseVersionParts(latestVersion);
         var currentParts = ParseVersionParts(currentVersion);
-        if (latestParts.Count == 0 || currentParts.Count == 0)
+        if (latestParts.Length == 0 || currentParts.Length == 0)
         {
             return null;
         }
 
-        var length = Math.Max(latestParts.Count, currentParts.Count);
+        var length = Math.Max(latestParts.Length, currentParts.Length);
         for (var index = 0; index < length; index++)
         {
-            var latest = index < latestParts.Count ? latestParts[index] : 0;
-            var current = index < currentParts.Count ? currentParts[index] : 0;
+            var latest = index < latestParts.Length ? latestParts[index] : 0;
+            var current = index < currentParts.Length ? currentParts[index] : 0;
             if (latest > current)
             {
                 return 1;
@@ -214,7 +214,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         return 0;
     }
 
-    private static IReadOnlyList<int> ParseVersionParts(string version)
+    private static int[] ParseVersionParts(string version)
     {
         return version
             .Split([".", "-", "_", "+", " ", "v", "V"], StringSplitOptions.RemoveEmptyEntries)

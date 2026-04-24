@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -6,7 +7,6 @@ using CPAD.Core.Models;
 
 using Tomlyn;
 using Tomlyn.Model;
-using Tomlyn.Syntax;
 
 namespace CPAD.Infrastructure.Codex;
 
@@ -18,6 +18,7 @@ public sealed class CodexConfigService
     private const string ManagedTablesEnd = "# END CPAD MANAGED TABLES";
     private const string CpaDummyAuthJson = "{\n  \"OPENAI_API_KEY\": \"sk-dummy\"\n}\n";
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
     public string GetUserConfigDirectory()
     {
         var codexHome = Environment.GetEnvironmentVariable("CODEX_HOME");
@@ -46,6 +47,7 @@ public sealed class CodexConfigService
         return Path.Combine(GetUserConfigDirectory(), "cpad-auth", "official-auth.json");
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
     public string? GetProjectConfigPath(string? repositoryPath)
     {
         if (string.IsNullOrWhiteSpace(repositoryPath))
@@ -121,10 +123,10 @@ public sealed class CodexConfigService
         }
 
         var mergedContent = MergeManagedBlocks(existingContent, backendPort, defaultSource);
-        if (!Toml.TryToModel<TomlTable>(mergedContent, out _, out DiagnosticsBag diagnostics))
+        if (!TryParseTomlTable(mergedContent, out _, out var validationError))
         {
             throw new InvalidOperationException(
-                $"Codex configuration validation failed before write: {string.Join("; ", diagnostics.Select(item => item.ToString()))}");
+                $"Codex configuration validation failed before write: {validationError}");
         }
 
         try
@@ -155,6 +157,7 @@ public sealed class CodexConfigService
         await ApplyAuthAsync(defaultSource, cancellationToken);
     }
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
     public string BuildLaunchCommand(CodexSourceKind source, string? repositoryPath)
     {
         var builder = new StringBuilder();
@@ -289,7 +292,7 @@ public sealed class CodexConfigService
     private static bool TryReadProfile(string content, out string profile)
     {
         profile = "official";
-        if (!Toml.TryToModel<TomlTable>(content, out var model, out _))
+        if (!TryParseTomlTable(content, out var model, out _) || model is null)
         {
             return false;
         }
@@ -301,6 +304,28 @@ public sealed class CodexConfigService
         }
 
         return false;
+    }
+
+    private static bool TryParseTomlTable(string content, out TomlTable? model, out string errorMessage)
+    {
+        try
+        {
+            model = TomlSerializer.Deserialize<TomlTable>(content);
+            if (model is null)
+            {
+                errorMessage = "TOML document did not produce a table model.";
+                return false;
+            }
+
+            errorMessage = string.Empty;
+            return true;
+        }
+        catch (TomlException exception)
+        {
+            model = null;
+            errorMessage = exception.Message;
+            return false;
+        }
     }
 
     private static async Task<string> BackupAsync(

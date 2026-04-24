@@ -54,7 +54,7 @@ public partial class OAuthPage : Page
         }
     }
 
-    private UIElement BuildProviderCard(string provider, OAuthProviderState state)
+    private Border BuildProviderCard(string provider, OAuthProviderState state)
     {
         var card = new Border
         {

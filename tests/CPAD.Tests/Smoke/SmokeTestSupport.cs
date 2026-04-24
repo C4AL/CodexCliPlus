@@ -72,9 +72,9 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public string OutputDirectory { get; }
 
-    public string ApplicationPath => Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
+    public static string ApplicationPath => Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
 
-    public AppPathService CreatePathService()
+    public static AppPathService CreatePathService()
     {
         return new AppPathService();
     }
@@ -84,7 +84,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         return Path.Combine(RootDirectory, "backend", "cli-proxy-api.exe");
     }
 
-    public int FindAvailablePort()
+    public static int FindAvailablePort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
@@ -121,7 +121,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         return configPath;
     }
 
-    public async Task WaitForAsync(Func<bool> predicate, TimeSpan timeout, string failureMessage)
+    public static async Task WaitForAsync(Func<bool> predicate, TimeSpan timeout, string failureMessage)
     {
         var deadline = DateTimeOffset.UtcNow.Add(timeout);
         while (DateTimeOffset.UtcNow < deadline)
@@ -137,7 +137,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         throw new TimeoutException(failureMessage);
     }
 
-    public async Task WaitForHttpOkAsync(string url, TimeSpan timeout)
+    public static async Task WaitForHttpOkAsync(string url, TimeSpan timeout)
     {
         using var client = new HttpClient
         {

@@ -2,15 +2,16 @@
 
 ## Current workflow
 
-Use the solution build, test project, and native app startup as the active validation path:
+Use the solution build, test project, and desktop host startup as the active validation path:
 
 ```powershell
-dotnet build CliProxyApiDesktop.sln
-dotnet test tests/CPAD.Tests/CPAD.Tests.csproj
+dotnet restore
+dotnet build CliProxyApiDesktop.sln --no-restore
+dotnet test tests/CPAD.Tests/CPAD.Tests.csproj --no-build
 dotnet run --project src/CPAD.App/CPAD.App.csproj
 ```
 
-When changes touch assets, publish output, or release packaging, run the C# BuildTool chain instead of reviving the retired PowerShell/Inno flow:
+When changes touch assets, vendored WebUI, publish output, or release packaging, run the C# BuildTool chain instead of reviving the retired PowerShell/Inno flow:
 
 ```powershell
 dotnet run --project src/CPAD.BuildTool -- fetch-assets
@@ -30,9 +31,10 @@ Default BuildTool output roots are:
 
 ## Minimum smoke checks
 
-- The app starts into the native WPF shell.
+- The app starts into the minimal WebView2 host window.
 - Tray icon and tray actions are available.
 - The desktop app can start the managed backend.
+- The published output contains packaged WebUI assets under `assets/webui/upstream/`.
 - `/healthz` responds successfully.
 - The automated test suite passes.
 
@@ -40,6 +42,7 @@ Default BuildTool output roots are:
 
 - `PowerShell + Inno Setup` is no longer a formal release chain for this repository.
 - `CPAD.BuildTool` is the active build/publish/package entry point.
+- `publish` explicitly rebuilds the vendored WebUI from `resources/webui/upstream/source` before `dotnet publish`.
 - `package-portable` emits a portable zip with `portable-mode.json` and package-local data intent.
 - `package-dev` emits a development zip with `app/dev-mode.json` plus dev-data scaffolding for validation scenarios.
 - `package-installer` emits a MicaSetup-based installer executable plus a staging zip that includes `mica-setup.json`, the app payload, and packaging metadata.
@@ -71,7 +74,9 @@ Default BuildTool output roots are:
 
 - BuildTool writes `dependency-precheck.json`, `update-policy.json`, and `uninstall-cleanup.json` into installer packaging metadata.
 - Current metadata already records:
+  WebView2 runtime requirement,
   bundled-first dependency policy,
+  vendored WebUI asset expectations,
   stable release source,
   beta reserved status,
   keep-user-data uninstall behavior,

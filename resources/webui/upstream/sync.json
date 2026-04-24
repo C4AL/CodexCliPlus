@@ -1,0 +1,6 @@
+{
+  "upstreamRepository": "https://github.com/router-for-me/Cli-Proxy-API-Management-Center.git",
+  "upstreamCommit": "b45639aa0169de8441bc964fb765f2405c10ccf4",
+  "syncMode": "vendored-source-and-dist",
+  "syncedAtUtc": "2026-04-24T00:00:00Z"
+}

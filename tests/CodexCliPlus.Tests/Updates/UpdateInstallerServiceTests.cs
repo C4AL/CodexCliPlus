@@ -132,9 +132,9 @@ public sealed class UpdateInstallerServiceTests
     }
 
     [Fact]
-    public async Task DownloadInstallerAsyncRejectsPortableModeBeforeNetworkOrDiskUse()
+    public async Task DownloadInstallerAsyncRejectsNonInstalledModeBeforeNetworkOrDiskUse()
     {
-        using var pathService = new TestPathService(AppDataMode.Portable);
+        using var pathService = new TestPathService(AppDataMode.Development);
         var calls = 0;
         using var factory = new FixedHttpClientFactory(_ =>
         {
@@ -151,7 +151,7 @@ public sealed class UpdateInstallerServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.DownloadInstallerAsync(updateResult));
 
-        Assert.Contains("Portable", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Installed mode", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(service.CanPrepareInstaller(updateResult));
         Assert.Equal(0, calls);
         Assert.False(Directory.Exists(pathService.Directories.RootDirectory));
@@ -211,9 +211,9 @@ public sealed class UpdateInstallerServiceTests
     }
 
     [Fact]
-    public async Task LaunchInstallerAsyncRejectsPortablePreparedInstallerWithoutStartingProcess()
+    public async Task LaunchInstallerAsyncRejectsNonInstalledPreparedInstallerWithoutStartingProcess()
     {
-        using var pathService = new TestPathService(AppDataMode.Portable);
+        using var pathService = new TestPathService(AppDataMode.Development);
         var processStartCalls = 0;
         var service = new UpdateInstallerService(
             pathService,
@@ -227,7 +227,7 @@ public sealed class UpdateInstallerServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.LaunchInstallerAsync(new PreparedUpdateInstaller
             {
-                DataMode = AppDataMode.Portable,
+                DataMode = AppDataMode.Development,
                 InstallerPath = Path.Combine(pathService.Directories.RootDirectory, "CodexCliPlus.Setup.1.2.3.exe"),
                 CacheDirectory = pathService.Directories.CacheDirectory,
                 Version = "1.2.3",
@@ -238,7 +238,7 @@ public sealed class UpdateInstallerServiceTests
                 }
             }));
 
-        Assert.Contains("Portable", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Installed mode", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, processStartCalls);
     }
 
@@ -334,8 +334,8 @@ public sealed class UpdateInstallerServiceTests
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "diagnostics"),
                 Path.Combine(rootDirectory, "runtime"),
-                Path.Combine(rootDirectory, "config", "desktop.json"),
-                Path.Combine(rootDirectory, "config", "cliproxyapi.yaml"));
+                Path.Combine(rootDirectory, "config", "appsettings.json"),
+                Path.Combine(rootDirectory, "config", "backend.yaml"));
         }
 
         public AppDirectories Directories { get; }

@@ -25,9 +25,8 @@ public static class BuildToolApp
         "fetch-assets",
         "verify-assets",
         "publish",
-        "package-portable",
-        "package-dev",
-        "package-installer",
+        "package-online-installer",
+        "package-offline-installer",
         "verify-package"
     ];
 
@@ -79,9 +78,8 @@ public static class BuildToolApp
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
-                "package-portable" => await PackageCommands.PackagePortableAsync(context),
-                "package-dev" => await PackageCommands.PackageDevAsync(context),
-                "package-installer" => await PackageCommands.PackageInstallerAsync(context),
+                "package-online-installer" => await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Online),
+                "package-offline-installer" => await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Offline),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
                 _ => 1
             };
@@ -766,82 +764,17 @@ public static class PublishCommands
 
 public static class PackageCommands
 {
-    public static async Task<int> PackagePortableAsync(BuildContext context)
-    {
-        var stageRoot = Path.Combine(context.PackageRoot, "staging", "portable");
-        SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
-        SafeFileSystem.CopyDirectory(context.PublishRoot, stageRoot);
-        await File.WriteAllTextAsync(
-            Path.Combine(stageRoot, "portable-mode.json"),
-            JsonSerializer.Serialize(
-                new
-                {
-                    dataMode = "portable",
-                    dataRoot = ".\\data",
-                    updatePolicy = new
-                    {
-                        channel = "stable",
-                        automaticStartupCheck = false,
-                        automaticInstall = false,
-                        reason = "Portable builds avoid system-level traces and do not auto-update by default."
-                    }
-                },
-                JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-
-        var packagePath = Path.Combine(
-            context.PackageRoot,
-            $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip");
-        await CreatePackageAsync(context, stageRoot, packagePath, "portable");
-        return 0;
-    }
-
-    public static async Task<int> PackageDevAsync(BuildContext context)
-    {
-        var stageRoot = Path.Combine(context.PackageRoot, "staging", "dev");
-        SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
-        SafeFileSystem.CopyDirectory(context.PublishRoot, Path.Combine(stageRoot, "app"));
-        await File.WriteAllTextAsync(
-            Path.Combine(stageRoot, "app", "dev-mode.json"),
-            JsonSerializer.Serialize(
-                new
-                {
-                    dataMode = "development",
-                    dataRoot = "app\\artifacts\\dev-data",
-                    updatePolicy = new
-                    {
-                        channel = "stable",
-                        automaticStartupCheck = false,
-                        automaticInstall = false,
-                        reason = "Development packages keep update checks manual so local builds are not replaced by releases."
-                    }
-                },
-                JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        Directory.CreateDirectory(Path.Combine(stageRoot, "app", "artifacts", "dev-data"));
-        await File.WriteAllTextAsync(
-            Path.Combine(stageRoot, "app", "artifacts", "dev-data", ".gitkeep"),
-            string.Empty,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-
-        var packagePath = Path.Combine(
-            context.PackageRoot,
-            $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip");
-        await CreatePackageAsync(context, stageRoot, packagePath, "development");
-        return 0;
-    }
-
-    public static async Task<int> PackageInstallerAsync(BuildContext context)
+    public static async Task<int> PackageInstallerAsync(BuildContext context, InstallerPackageKind packageKind)
     {
         SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-        var stageRoot = Path.Combine(context.InstallerRoot, "stage");
+        var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
+        var packageType = packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
         var appPackageRoot = Path.Combine(stageRoot, "app-package");
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
         var installerOutputPath = Path.Combine(
             context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe");
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe");
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
@@ -851,11 +784,11 @@ public static class PackageCommands
             ProductName = AppConstants.ProductName,
             InstallerName = Path.GetFileName(installerOutputPath),
             AppUserModelId = AppConstants.AppUserModelId,
-            CurrentUserDefault = true,
+            CurrentUserDefault = false,
             PayloadDirectory = "app-package",
             MicaSetupRoute = true,
-            RequestExecutionLevel = "user",
-            InstallDirectoryHint = $"%LocalAppData%\\Programs\\{AppConstants.ProductKey}",
+            RequestExecutionLevel = "admin",
+            InstallDirectoryHint = $"%ProgramFiles%\\{AppConstants.ProductKey}",
             LaunchAfterInstall = true,
             StableReleaseSource = "https://github.com/C4AL/CodexCliPlus/releases/latest",
             BetaChannelReserved = true
@@ -890,8 +823,8 @@ public static class PackageCommands
 
         var stagingPackagePath = Path.Combine(
             context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip");
-        await CreatePackageAsync(context, stageRoot, stagingPackagePath, "installer-staging");
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip");
+        await CreatePackageAsync(context, stageRoot, stagingPackagePath, packageType);
         context.Logger.Info($"installer executable: {installerOutputPath}");
         return 0;
     }
@@ -986,88 +919,40 @@ public static class PackageCommands
     }
 }
 
+public enum InstallerPackageKind
+{
+    Online,
+    Offline
+}
+
 public sealed class PackageVerifier(BuildContext context)
 {
     public IReadOnlyList<string> VerifyAll()
     {
         var failures = new List<string>();
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            AppConstants.ExecutableName,
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "portable-mode.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "assets/webui/upstream/dist/index.html",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "assets/webui/upstream/sync.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            $"app/{AppConstants.ExecutableName}",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app/dev-mode.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app/artifacts/dev-data/.gitkeep",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app/assets/webui/upstream/dist/index.html",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app/assets/webui/upstream/sync.json",
-            failures);
-        VerifyExecutable(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe"),
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            $"app-package/{AppConstants.ExecutableName}",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/assets/webui/upstream/dist/index.html",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/assets/webui/upstream/sync.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "mica-setup.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "micasetup.json",
-            failures);
-        VerifyZipExecutable(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            $"output/{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/packaging/uninstall-cleanup.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/packaging/dependency-precheck.json",
-            failures);
-        VerifyZip(
-            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/packaging/update-policy.json",
-            failures);
+        VerifyInstallerPackage("Online", failures);
+        VerifyInstallerPackage("Offline", failures);
 
         return failures;
+    }
+
+    private void VerifyInstallerPackage(string packageMoniker, List<string> failures)
+    {
+        var installerName = $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe";
+        var stagingPackagePath = Path.Combine(
+            context.PackageRoot,
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip");
+
+        VerifyExecutable(Path.Combine(context.PackageRoot, installerName), failures);
+        VerifyZip(stagingPackagePath, $"app-package/{AppConstants.ExecutableName}", failures);
+        VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/dist/index.html", failures);
+        VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/sync.json", failures);
+        VerifyZip(stagingPackagePath, "mica-setup.json", failures);
+        VerifyZip(stagingPackagePath, "micasetup.json", failures);
+        VerifyZipExecutable(stagingPackagePath, $"output/{installerName}", failures);
+        VerifyZip(stagingPackagePath, "app-package/packaging/uninstall-cleanup.json", failures);
+        VerifyZip(stagingPackagePath, "app-package/packaging/dependency-precheck.json", failures);
+        VerifyZip(stagingPackagePath, "app-package/packaging/update-policy.json", failures);
     }
 
     private static void VerifyZip(string path, string requiredEntry, List<string> failures)
@@ -1219,19 +1104,13 @@ public static class InstallerMetadata
                 {
                     enabled = true,
                     source = "https://github.com/C4AL/CodexCliPlus/releases/latest",
-                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe",
+                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe",
                     installedBuildCanLaunchInstaller = true
                 },
                 beta = new
                 {
                     reserved = true,
                     enabled = false
-                },
-                portable = new
-                {
-                    automaticStartupCheck = false,
-                    automaticInstall = false,
-                    reason = "Portable mode should not write system-level traces or replace itself automatically."
                 }
             });
 
@@ -1244,41 +1123,41 @@ public static class InstallerMetadata
             DefaultUninstallProfile = "full-clean",
             SafeDeleteRoots =
             [
-                "%LocalAppData%\\CodexCliPlus",
+                "%ProgramFiles%\\CodexCliPlus",
                 "%AppData%\\CodexCliPlus",
-                "%LocalAppData%\\Programs\\CodexCliPlus",
                 "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
-                "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus"
+                "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
+                "%LocalAppData%\\CodexCliPlus"
             ],
             AlwaysDelete =
             [
-                "%LocalAppData%\\Programs\\CodexCliPlus",
+                "%ProgramFiles%\\CodexCliPlus",
                 "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
                 "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus"
             ],
             DeleteByDefault =
             [
-                "%LocalAppData%\\CodexCliPlus\\config",
-                "%LocalAppData%\\CodexCliPlus\\config\\secrets\\*.bin",
-                "%LocalAppData%\\CodexCliPlus\\cache",
-                "%LocalAppData%\\CodexCliPlus\\cache\\updates",
-                "%LocalAppData%\\CodexCliPlus\\logs",
-                "%LocalAppData%\\CodexCliPlus\\backend",
-                "%LocalAppData%\\CodexCliPlus\\diagnostics",
-                "%LocalAppData%\\CodexCliPlus\\runtime",
+                "%ProgramFiles%\\CodexCliPlus\\config",
+                "%ProgramFiles%\\CodexCliPlus\\config\\secrets\\*.bin",
+                "%ProgramFiles%\\CodexCliPlus\\cache",
+                "%ProgramFiles%\\CodexCliPlus\\cache\\updates",
+                "%ProgramFiles%\\CodexCliPlus\\logs",
+                "%ProgramFiles%\\CodexCliPlus\\backend",
+                "%ProgramFiles%\\CodexCliPlus\\diagnostics",
+                "%ProgramFiles%\\CodexCliPlus\\runtime",
                 "%AppData%\\CodexCliPlus"
             ],
             PreserveWhenKeepMyData =
             [
-                "%LocalAppData%\\CodexCliPlus\\config",
-                "%LocalAppData%\\CodexCliPlus\\config\\secrets",
-                "%LocalAppData%\\CodexCliPlus\\logs",
-                "%LocalAppData%\\CodexCliPlus\\diagnostics"
+                "%ProgramFiles%\\CodexCliPlus\\config",
+                "%ProgramFiles%\\CodexCliPlus\\config\\secrets",
+                "%ProgramFiles%\\CodexCliPlus\\logs",
+                "%ProgramFiles%\\CodexCliPlus\\diagnostics"
             ],
             RegistryValues =
             [
-                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\CodexCliPlus",
-                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CodexCliPlus"
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\CodexCliPlus",
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CodexCliPlus"
             ],
             FirewallRules =
             [
@@ -1291,7 +1170,7 @@ public static class InstallerMetadata
             SafetyRules =
             [
                 "Only delete roots whose resolved final segment is CodexCliPlus.",
-                "Never follow a cleanup item outside AppData, LocalAppData, the selected install directory, Start Menu, CodexCliPlus firewall rules, or CodexCliPlus scheduled tasks.",
+                "Never follow a cleanup item outside Program Files, AppData, LocalAppData legacy data, the selected install directory, Start Menu, CodexCliPlus firewall rules, or CodexCliPlus scheduled tasks.",
                 "Default uninstall runs the full-clean profile and deletes CodexCliPlus user data.",
                 "KeepMyData preserves config, credential references, logs, and diagnostics while removing installed binaries and integration points."
             ]
@@ -1548,6 +1427,8 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                     return IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
                         || IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
                         || IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData))
+                        || IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles))
+                        || IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86))
                         || IsEqualOrUnder(fullPath, Environment.GetFolderPath(Environment.SpecialFolder.StartMenu));
                 }
 
@@ -1818,7 +1699,11 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
     private static void PatchProgramSource(string path, string version, bool isUninstaller)
     {
         var source = File.ReadAllText(path);
-        source = source.Replace(".UseElevated()", string.Empty, StringComparison.Ordinal);
+        if (!source.Contains(".UseElevated()", StringComparison.Ordinal))
+        {
+            source = source.Replace("Hosting.CreateBuilder()", "Hosting.CreateBuilder().UseElevated()", StringComparison.Ordinal);
+        }
+
         source = ReplaceBetween(source, ".UseSingleInstance(\"", "\")", isUninstaller ? "BlackblockInc.CodexCliPlus.Uninstall" : "BlackblockInc.CodexCliPlus.Setup");
         source = ReplaceBetween(source, "[assembly: Guid(\"", "\")]", "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d");
         source = ReplaceBetween(source, "[assembly: AssemblyTitle(\"", "\")]", isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup");
@@ -1827,7 +1712,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         source = ReplaceBetween(source, "[assembly: AssemblyCompany(\"", "\")]", "Blackblock Inc.");
         source = ReplaceBetween(source, "[assembly: AssemblyVersion(\"", "\")]", NormalizeAssemblyVersion(version));
         source = ReplaceBetween(source, "[assembly: AssemblyFileVersion(\"", "\")]", NormalizeAssemblyVersion(version));
-        source = ReplaceBetween(source, "[assembly: RequestExecutionLevel(\"", "\")]", "user");
+        source = ReplaceBetween(source, "[assembly: RequestExecutionLevel(\"", "\")]", "admin");
 
         source = ReplaceAssignment(source, "option.IsCreateDesktopShortcut", "true");
         source = ReplaceAssignment(source, "option.IsCreateUninst", "true");
@@ -1840,9 +1725,9 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         source = ReplaceAssignment(source, "option.IsCustomizeVisiableAutoRun", "true");
         source = ReplaceAssignment(source, "option.AutoRunLaunchCommand", "\"/autostart\"");
         source = ReplaceAssignment(source, "option.IsUseInstallPathPreferX86", "false");
-        source = ReplaceAssignment(source, "option.IsUseInstallPathPreferAppDataLocalPrograms", "true");
+        source = ReplaceAssignment(source, "option.IsUseInstallPathPreferAppDataLocalPrograms", "false");
         source = ReplaceAssignment(source, "option.IsUseInstallPathPreferAppDataRoaming", "false");
-        source = ReplaceAssignment(source, "option.IsAllowFullFolderSecurity", "false");
+        source = ReplaceAssignment(source, "option.IsAllowFullFolderSecurity", "true");
         source = ReplaceAssignment(source, "option.IsAllowFirewall", "false");
         source = ReplaceAssignment(source, "option.IsRefreshExplorer", "true");
         source = ReplaceAssignment(source, "option.IsInstallCertificate", "false");
@@ -1866,44 +1751,6 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
     private static void PatchForCurrentUserInstall(string distRoot)
     {
-        var startMenuPath = Path.Combine(distRoot, "Helper", "System", "StartMenuHelper.cs");
-        if (File.Exists(startMenuPath))
-        {
-            var source = File.ReadAllText(startMenuPath)
-                .Replace("Environment.SpecialFolder.CommonApplicationData), @\"Microsoft\\Windows\\Start Menu\\Programs\"", "Environment.SpecialFolder.StartMenu), \"Programs\"", StringComparison.Ordinal)
-                .Replace("Environment.SpecialFolder.CommonApplicationData), @\"Microsoft\\Windows\\Start Menu\\Programs\"", "Environment.SpecialFolder.StartMenu), \"Programs\"", StringComparison.Ordinal);
-            File.WriteAllText(startMenuPath, source, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        }
-
-        var registryPath = Path.Combine(distRoot, "Helper", "System", "RegistyUninstallHelper.cs");
-        if (File.Exists(registryPath))
-        {
-            var source = File.ReadAllText(registryPath)
-                .Replace("RegistryHive.LocalMachine", "RegistryHive.CurrentUser", StringComparison.Ordinal);
-            File.WriteAllText(registryPath, source, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        }
-
-        var installHelperPath = Path.Combine(distRoot, "Helper", "Setup", "InstallHelper.cs");
-        if (File.Exists(installHelperPath))
-        {
-            var source = File.ReadAllText(installHelperPath)
-                .Replace("if (Option.Current.IsCreateRegistryKeys && RuntimeHelper.IsElevated)", "if (Option.Current.IsCreateRegistryKeys)", StringComparison.Ordinal)
-                .Replace(
-                    "if (RuntimeHelper.IsElevated) { StartMenuHelper.CreateStartMenuFolder(Option.Current.DisplayName, Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName), Option.Current.IsCreateUninst); }",
-                    "StartMenuHelper.CreateStartMenuFolder(Option.Current.DisplayName, Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName), Option.Current.IsCreateUninst);",
-                    StringComparison.Ordinal)
-                .Replace(
-                    """
-                    if (RuntimeHelper.IsElevated)
-                    {
-                        StartMenuHelper.CreateStartMenuFolder(Option.Current.DisplayName, Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName), Option.Current.IsCreateUninst);
-                    }
-                    """,
-                    "StartMenuHelper.CreateStartMenuFolder(Option.Current.DisplayName, Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName), Option.Current.IsCreateUninst);",
-                    StringComparison.Ordinal);
-            File.WriteAllText(installHelperPath, source, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        }
-
         var uninstMainViewModel = Path.Combine(distRoot, "ViewModels", "Uninst", "MainViewModel.cs");
         if (File.Exists(uninstMainViewModel))
         {
@@ -2328,7 +2175,7 @@ public sealed class MicaSetupConfig
 
     public string? LicenseType { get; init; }
 
-    public string RequestExecutionLevel { get; init; } = "user";
+    public string RequestExecutionLevel { get; init; } = "admin";
 
     public string? SingleInstanceMutex { get; init; }
 
@@ -2356,7 +2203,7 @@ public sealed class MicaSetupConfig
 
     public bool IsUseInstallPathPreferX86 { get; init; }
 
-    public bool IsUseInstallPathPreferAppDataLocalPrograms { get; init; } = true;
+    public bool IsUseInstallPathPreferAppDataLocalPrograms { get; init; }
 
     public bool IsUseInstallPathPreferAppDataRoaming { get; init; }
 
@@ -2409,7 +2256,7 @@ public sealed class MicaSetupConfig
             Icon = File.Exists(iconPath) ? iconPath : null,
             UnIcon = File.Exists(iconPath) ? iconPath : null,
             LicenseFile = File.Exists(licensePath) ? licensePath : null,
-            RequestExecutionLevel = "user",
+            RequestExecutionLevel = "admin",
             SingleInstanceMutex = "BlackblockInc.CodexCliPlus.Setup",
             MessageOfPage1 = AppConstants.ProductName,
             MessageOfPage2 = "正在安装 CodexCliPlus",

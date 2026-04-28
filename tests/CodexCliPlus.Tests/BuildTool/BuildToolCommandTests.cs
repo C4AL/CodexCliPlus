@@ -154,29 +154,14 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task VerifyPackageAcceptsPortableDevAndInstallerArchives()
+    public async Task VerifyPackageAcceptsOnlineAndOfflineInstallerArchives()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
-            "CodexCliPlus.exe",
-            "portable-mode.json",
-            "assets/webui/upstream/dist/index.html",
-            "assets/webui/upstream/sync.json");
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
-            "app/CodexCliPlus.exe",
-            "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep",
-            "app/assets/webui/upstream/dist/index.html",
-            "app/assets/webui/upstream/sync.json");
-        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"));
-        CreateInstallerStagingZip(
-            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
-            CreateStubExecutableBytes());
+        CreateInstallerPackage(packageRoot, "Online", CreateStubExecutableBytes(), CreateStubExecutableBytes());
+        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -198,23 +183,8 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
-            "CodexCliPlus.exe",
-            "portable-mode.json",
-            "assets/webui/upstream/dist/index.html",
-            "assets/webui/upstream/sync.json");
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
-            "app/CodexCliPlus.exe",
-            "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep",
-            "app/assets/webui/upstream/dist/index.html",
-            "app/assets/webui/upstream/sync.json");
-        File.WriteAllBytes(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"), new byte[80]);
-        CreateInstallerStagingZip(
-            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
-            CreateStubExecutableBytes());
+        CreateInstallerPackage(packageRoot, "Online", new byte[80], CreateStubExecutableBytes());
+        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -235,22 +205,10 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
-            "CodexCliPlus.exe",
-            "portable-mode.json",
-            "assets/webui/upstream/dist/index.html",
-            "assets/webui/upstream/sync.json");
-        CreateZipWithEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
-            "app/CodexCliPlus.exe",
-            "app/dev-mode.json",
-            "app/artifacts/dev-data/.gitkeep",
-            "app/assets/webui/upstream/dist/index.html",
-            "app/assets/webui/upstream/sync.json");
-        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"));
+        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
+        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"));
         CreateZipWithExecutableEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
                 ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
@@ -258,7 +216,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["output/CodexCliPlus.Setup.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
+                ["output/CodexCliPlus.Setup.Online.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
@@ -273,7 +231,7 @@ public sealed class BuildToolCommandTests : IDisposable
             new RecordingProcessRunner());
 
         Assert.Equal(1, exitCode);
-        Assert.Contains("output/CodexCliPlus.Setup.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("output/CodexCliPlus.Setup.Online.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -463,7 +421,17 @@ public sealed class BuildToolCommandTests : IDisposable
         }
     }
 
-    private static void CreateInstallerStagingZip(string packagePath, byte[] installerBytes)
+    private static void CreateInstallerPackage(string packageRoot, string packageMoniker, byte[] installerBytes, byte[] stagingInstallerBytes)
+    {
+        var installerName = $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.exe";
+        File.WriteAllBytes(Path.Combine(packageRoot, installerName), installerBytes);
+        CreateInstallerStagingZip(
+            Path.Combine(packageRoot, $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.win-x64.zip"),
+            installerName,
+            stagingInstallerBytes);
+    }
+
+    private static void CreateInstallerStagingZip(string packagePath, string installerName, byte[] installerBytes)
     {
         CreateZipWithExecutableEntries(
             packagePath,
@@ -474,7 +442,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["output/CodexCliPlus.Setup.9.9.9.exe"] = installerBytes,
+                [$"output/{installerName}"] = installerBytes,
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")

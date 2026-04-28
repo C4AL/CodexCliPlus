@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 
 using CodexCliPlus.Core.Constants;
@@ -179,8 +179,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
                 Path.Combine(rootDirectory, "config"),
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
-                Path.Combine(rootDirectory, "config", "desktop.json"),
-                Path.Combine(rootDirectory, "config", "cliproxyapi.yaml"));
+                Path.Combine(rootDirectory, "config", "appsettings.json"),
+                Path.Combine(rootDirectory, "config", "backend.yaml"));
         }
 
         public AppDirectories Directories { get; }

@@ -30,7 +30,7 @@ public sealed class NavigationShellTests
         Assert.Contains("当前步骤：", File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8), StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
+        Assert.Equal(3, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
         Assert.DoesNotContain("<ui:NavigationView", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayOpenMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
@@ -105,24 +105,58 @@ public sealed class NavigationShellTests
         Assert.Contains("Style=\"{StaticResource ShellRaisedPanelStyle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunSaveToDesktopButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTip=\"保存到桌面\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"⇩\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"&#xE72D;\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ToolTip=\"复制密钥\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"⧉\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"&#xE8C8;\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("FontFamily\" Value=\"Segoe MDL2 Assets\"", xaml, StringComparison.Ordinal);
+        Assert.True(xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal) <
+            xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal));
+        Assert.True(xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal) <
+            xaml.IndexOf("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", StringComparison.Ordinal));
+        Assert.Contains("<ColumnDefinition Width=\"300\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("HorizontalScrollBarVisibility=\"Hidden\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalScrollBarVisibility=\"Disabled\"", xaml, StringComparison.Ordinal);
         Assert.Contains("FirstRunSecurityKeyTextBox.ScrollToHome()", source, StringComparison.Ordinal);
-        Assert.Contains("HorizontalAlignment=\"Left\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunConfirmCloseButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"FirstRunConfirmCancelButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"返回\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"确认进入\"", xaml, StringComparison.Ordinal);
         Assert.Contains("FirstRunConfirmContinueButton.Content = $\"确认 ({seconds})\"", source, StringComparison.Ordinal);
+        Assert.Contains("_settings.ManagementKey = string.Empty;", source, StringComparison.Ordinal);
+        Assert.Contains("ShowLogin(\"初始化已完成，请输入安全密钥登录。\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FirstRunActionStatusText", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShowFirstRunStatus", source, StringComparison.Ordinal);
         Assert.DoesNotContain("可以继续。", source, StringComparison.Ordinal);
         Assert.Contains("MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500)", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ShellNotificationsProvideAutoAndManualPlacementContracts()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
+        var hostSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
+        var serviceSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "Notifications", "ShellNotificationService.cs"), Encoding.UTF8);
+        var requestSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "Notifications", "ShellNotificationRequest.cs"), Encoding.UTF8);
+
+        Assert.Contains("x:Name=\"AutoNotificationStack\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Center\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManualNotificationStack\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("BottomCenterAuto", requestSource, StringComparison.Ordinal);
+        Assert.Contains("BottomRightManual", requestSource, StringComparison.Ordinal);
+        Assert.Contains("ShowAuto", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ShowManual", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment.Right", hostSource, StringComparison.Ordinal);
+        Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_notificationService.ShowAuto", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_notificationService.ShowManual", hostSource, StringComparison.Ordinal);
     }
 
     [Fact]

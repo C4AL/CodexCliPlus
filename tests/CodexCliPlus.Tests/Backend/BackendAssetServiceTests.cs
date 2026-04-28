@@ -1,4 +1,4 @@
-using CodexCliPlus.Core.Abstractions.Logging;
+﻿using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
@@ -77,8 +77,8 @@ public sealed class BackendAssetServiceTests : IDisposable
                 Path.Combine(rootDirectory, "config"),
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
-                Path.Combine(rootDirectory, "config", "desktop.json"),
-                Path.Combine(rootDirectory, "config", "cliproxyapi.yaml"));
+                Path.Combine(rootDirectory, "config", "appsettings.json"),
+                Path.Combine(rootDirectory, "config", "backend.yaml"));
         }
 
         public AppDirectories Directories { get; }

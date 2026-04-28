@@ -218,7 +218,7 @@ function Write-IsolatedConfiguration {
   "lastRepositoryPath": "__REPO_ROOT__"
 }
 '@.Replace("__REPO_ROOT__", $RepositoryRoot.Replace("\", "\\"))
-    Write-Utf8NoBom -Path (Join-Path $configDirectory "desktop.json") -Content $desktopSettings
+    Write-Utf8NoBom -Path (Join-Path $configDirectory "appsettings.json") -Content $desktopSettings
 
     $legacyConfig = @"
 host: "127.0.0.1"
@@ -570,7 +570,7 @@ function Invoke-LaunchSmoke {
         } | Select-Object -First 1
 
         if ($null -ne $backendProcess) {
-            $backendConfigPath = Join-Path $isolatedRoots.SmokeRoot "config\cliproxyapi.yaml"
+            $backendConfigPath = Join-Path $isolatedRoots.SmokeRoot "config\backend.yaml"
             $healthUrl = $null
             if (Test-Path -LiteralPath $backendConfigPath) {
                 $portMatch = Select-String -LiteralPath $backendConfigPath -Pattern "^\s*port:\s*(\d+)\s*$" -AllMatches
@@ -604,7 +604,7 @@ function Invoke-LaunchSmoke {
                 }
             }
             else {
-                Write-Output "[warn] Backend child process exists, but cliproxyapi.yaml was not available for health probing."
+                Write-Output "[warn] Backend child process exists, but backend.yaml was not available for health probing."
             }
         }
         else {

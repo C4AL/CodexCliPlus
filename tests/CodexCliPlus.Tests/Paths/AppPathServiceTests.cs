@@ -8,63 +8,57 @@ namespace CodexCliPlus.Tests.Paths;
 public sealed class AppPathServiceTests
 {
     [Fact]
-    public void DirectoriesUseExpectedLocalApplicationDataLayout()
+    public void DirectoriesUseExpectedApplicationDirectoryLayout()
     {
         using var scope = new AppPathServiceEnvironmentScope();
         var service = new AppPathService();
 
         Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
-        Assert.Contains(AppConstants.ProductKey, service.Directories.RootDirectory);
+        Assert.Equal(
+            Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(service.Directories.RootDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            ignoreCase: true);
         Assert.EndsWith(AppConstants.AppSettingsFileName, service.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(AppConstants.BackendConfigFileName, service.Directories.BackendConfigFilePath, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(Path.Combine("config", "appsettings.json"), service.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith(Path.Combine("config", "backend.yaml"), service.Directories.BackendConfigFilePath, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("logs", service.Directories.LogsDirectory, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("diagnostics", service.Directories.DiagnosticsDirectory, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void DirectoriesUseOverrideRootWhenEnvironmentVariableIsSetEvenWhenPackageMarkerExists()
+    public void DirectoriesUseOverrideRootWhenEnvironmentVariableIsSet()
     {
         using var scope = new AppPathServiceEnvironmentScope();
         var overrideRoot = scope.CreateTemporaryRoot("codexcliplus-path-override");
-        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
         AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
 
         var service = new AppPathService();
 
-        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+        Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
         Assert.Equal(Path.GetFullPath(overrideRoot), service.Directories.RootDirectory);
         Assert.Equal(Path.Combine(Path.GetFullPath(overrideRoot), "logs"), service.Directories.LogsDirectory);
     }
 
     [Fact]
-    public void DirectoriesUsePortableModeWhenPortablePackageMarkerExists()
-    {
-        using var scope = new AppPathServiceEnvironmentScope();
-        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
-
-        var service = new AppPathService();
-
-        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
-        Assert.Equal(Path.Combine(AppContext.BaseDirectory, "data"), service.Directories.RootDirectory);
-    }
-
-    [Fact]
-    public void DirectoriesUseDevelopmentModeWhenDevelopmentPackageMarkerExists()
+    public void DirectoriesUseApplicationDirectoryWhenPackageMarkersExist()
     {
         using var scope = new AppPathServiceEnvironmentScope();
         AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
 
         var service = new AppPathService();
 
-        Assert.Equal(AppDataMode.Development, service.Directories.DataMode);
-        Assert.Contains(Path.Combine("artifacts", "dev-data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
+        Assert.Equal(
+            Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(service.Directories.RootDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            ignoreCase: true);
     }
 
     [Fact]
-    public void DirectoriesUseDevelopmentModeWhenRequestedEvenWhenPortableMarkerExists()
+    public void DirectoriesUseDevelopmentModeWhenRequested()
     {
         using var scope = new AppPathServiceEnvironmentScope();
-        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.PortableMarkerFileName);
         AppPathServiceEnvironmentScope.SetModeOverride("development");
 
         var service = new AppPathService();
@@ -74,16 +68,26 @@ public sealed class AppPathServiceTests
     }
 
     [Fact]
-    public void DirectoriesUsePortableModeWhenRequestedEvenWhenDevelopmentMarkerExists()
+    public void UnknownModeOverrideIsIgnoredForInstalledOnlyBuilds()
     {
         using var scope = new AppPathServiceEnvironmentScope();
-        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
-        AppPathServiceEnvironmentScope.SetModeOverride("portable");
+        AppPathServiceEnvironmentScope.SetModeOverride("sandbox");
 
         var service = new AppPathService();
 
-        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
-        Assert.EndsWith(Path.Combine("data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
+    }
+
+    [Fact]
+    public void PathServiceContainsLegacyLocalAppDataMigrationForOldConfigNames()
+    {
+        var repositoryRoot = AppPathServiceEnvironmentScope.FindRepositoryRoot();
+        var source = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.Infrastructure", "Paths", "AppPathService.cs"));
+
+        Assert.Contains("TryMigrateLegacyLocalAppDataConfiguration", source, StringComparison.Ordinal);
+        Assert.Contains("LegacyAppSettingsFileName", source, StringComparison.Ordinal);
+        Assert.Contains("LegacyBackendConfigFileName", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -109,12 +113,10 @@ public sealed class AppPathServiceEnvironmentDefinition;
 
 internal sealed class AppPathServiceEnvironmentScope : IDisposable
 {
-    public const string PortableMarkerFileName = "portable-mode.json";
     public const string DevelopmentMarkerFileName = "dev-mode.json";
 
     private static readonly string[] MarkerFileNames =
     [
-        PortableMarkerFileName,
         DevelopmentMarkerFileName
     ];
 
@@ -212,5 +214,21 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
         return File.Exists(markerPath)
             ? File.ReadAllText(markerPath)
             : null;
+    }
+
+    public static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "CodexCliPlus.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Repository root not found.");
     }
 }

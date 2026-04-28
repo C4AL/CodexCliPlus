@@ -10,15 +10,15 @@ namespace CodexCliPlus.Tests.Configuration;
 public sealed class JsonAppConfigurationServicePathModeTests
 {
     [Theory]
-    [InlineData(AppPathServiceEnvironmentScope.PortableMarkerFileName, AppDataMode.Portable)]
-    [InlineData(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName, AppDataMode.Development)]
-    public async Task SaveAndLoadAsyncRoundTripsSettingsWhenModeIsDetectedFromPackageMarker(
-        string markerFileName,
+    [InlineData(null, AppDataMode.Installed)]
+    [InlineData("development", AppDataMode.Development)]
+    public async Task SaveAndLoadAsyncRoundTripsSettingsWhenModeIsResolved(
+        string? modeOverride,
         AppDataMode expectedMode)
     {
         using var scope = new AppPathServiceEnvironmentScope();
         var overrideRoot = scope.CreateTemporaryRoot("codexcliplus-config-path");
-        AppPathServiceEnvironmentScope.SetMarker(markerFileName);
+        AppPathServiceEnvironmentScope.SetModeOverride(modeOverride);
         AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
 
         var pathService = new AppPathService();

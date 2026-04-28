@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Paths;
@@ -86,7 +86,7 @@ public sealed class DiagnosticsServiceTests : IDisposable
         using var archive = ZipFile.OpenRead(packagePath);
         var report = ReadEntryText(archive, "report.txt");
         var log = ReadEntryText(archive, "desktop.log");
-        var backendConfig = ReadEntryText(archive, "cliproxyapi.yaml");
+        var backendConfig = ReadEntryText(archive, "backend.yaml");
 
         Assert.Contains("Dependency OK", report, StringComparison.Ordinal);
         Assert.Contains("Dependency repair mode: True", report, StringComparison.Ordinal);
@@ -124,8 +124,8 @@ public sealed class DiagnosticsServiceTests : IDisposable
                 Path.Combine(rootDirectory, "config"),
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
-                Path.Combine(rootDirectory, "config", "desktop.json"),
-                Path.Combine(rootDirectory, "config", "cliproxyapi.yaml"));
+                Path.Combine(rootDirectory, "config", "appsettings.json"),
+                Path.Combine(rootDirectory, "config", "backend.yaml"));
         }
 
         public AppDirectories Directories { get; }

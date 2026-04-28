@@ -97,7 +97,7 @@ public sealed class GitHubReleaseUpdateServiceTests
     }
 
     [Fact]
-    public async Task CheckAsyncDoesNotMarkPortableAssetAsDirectInstaller()
+    public async Task CheckAsyncDoesNotMarkZipArchiveAsDirectInstaller()
     {
         using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -109,8 +109,8 @@ public sealed class GitHubReleaseUpdateServiceTests
                   "published_at": "2026-04-23T00:00:00Z",
                   "assets": [
                     {
-                      "name": "CodexCliPlus.Portable.1.2.3.zip",
-                      "browser_download_url": "https://example.test/CodexCliPlus.Portable.1.2.3.zip",
+                      "name": "CodexCliPlus.Source.1.2.3.zip",
+                      "browser_download_url": "https://example.test/CodexCliPlus.Source.1.2.3.zip",
                       "size": 2048
                     }
                   ]

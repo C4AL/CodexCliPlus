@@ -38,6 +38,7 @@
     <RootNamespace>CodexCliPlus</RootNamespace>
     <Product>CodexCliPlus</Product>
     <ApplicationIcon>..\..\resources\icons\codexcliplus.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <NoWarn>$(NoWarn);NU1701</NoWarn>

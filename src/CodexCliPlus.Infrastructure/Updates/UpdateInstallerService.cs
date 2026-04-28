@@ -136,7 +136,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         if (installer.DataMode != AppDataMode.Installed)
         {
             throw new InvalidOperationException(
-                "Installer handoff is only supported for Installed mode. Portable and Development modes remain manual-only.");
+                "Installer handoff is only supported for Installed mode.");
         }
 
         if (string.IsNullOrWhiteSpace(installer.InstallerPath) || !File.Exists(installer.InstallerPath))
@@ -219,7 +219,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         }
 
         throw new InvalidOperationException(
-            "Installer handoff is disabled outside Installed mode. Portable and Development modes do not download, launch, or apply installer updates automatically.");
+            "Installer handoff is disabled outside Installed mode.");
     }
 
     private static void ValidateStableUpdateResult(UpdateCheckResult updateCheckResult)

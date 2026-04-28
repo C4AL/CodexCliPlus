@@ -9,19 +9,19 @@ namespace CodexCliPlus.Tests.Backend;
 public sealed class BackendReleaseMetadataTests
 {
     [Fact]
-    public void BackendReleaseMetadataPinsCliProxyApi6936WindowsAsset()
+    public void BackendReleaseMetadataPinsCliProxyApi6940WindowsAsset()
     {
-        Assert.Equal("6.9.36", BackendReleaseMetadata.Version);
-        Assert.Equal("v6.9.36", BackendReleaseMetadata.ReleaseTag);
-        Assert.Equal("CLIProxyAPI_6.9.36_windows_amd64.zip", BackendReleaseMetadata.AssetName);
+        Assert.Equal("6.9.40", BackendReleaseMetadata.Version);
+        Assert.Equal("v6.9.40", BackendReleaseMetadata.ReleaseTag);
+        Assert.Equal("CLIProxyAPI_6.9.40_windows_amd64.zip", BackendReleaseMetadata.AssetName);
         Assert.Equal(
-            "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.9.36",
+            "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.9.40",
             BackendReleaseMetadata.ReleaseUrl);
         Assert.Equal(
-            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.36/CLIProxyAPI_6.9.36_windows_amd64.zip",
+            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.40/CLIProxyAPI_6.9.40_windows_amd64.zip",
             BackendReleaseMetadata.ArchiveUrl);
         Assert.Equal(
-            "97f3ccc20e2b6fe35faa02732ca6497ccf13c57eac08ed94263682545515a2c4",
+            "b21eb12a819f49fc43affc29a3996810be85c090ba0c523b7704ce90070ae760",
             BackendReleaseMetadata.ArchiveSha256);
     }
 
@@ -49,17 +49,21 @@ public sealed class BackendReleaseMetadataTests
     public void BackendAssetServiceParsesAndRejectsCliProxyApiVersions()
     {
         Assert.Equal(
-            "6.9.36",
-            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.36"));
+            "6.9.40",
+            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.40"));
+        Assert.Equal(
+            "6.9.40",
+            InvokeParseBackendVersion("CLIProxyAPI Version: v6.9.40\r\nBuild Date: 2026-04-01"));
         Assert.Equal(
             "6.9.36",
-            InvokeParseBackendVersion("CLIProxyAPI Version: v6.9.36\r\nBuild Date: 2026-04-01"));
+            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.36"));
         Assert.Equal(
             "6.9.34",
             InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.34"));
 
-        Assert.True(InvokeIsExpectedBackendVersion("6.9.36"));
-        Assert.True(InvokeIsExpectedBackendVersion("v6.9.36"));
+        Assert.True(InvokeIsExpectedBackendVersion("6.9.40"));
+        Assert.True(InvokeIsExpectedBackendVersion("v6.9.40"));
+        Assert.False(InvokeIsExpectedBackendVersion("6.9.36"));
         Assert.False(InvokeIsExpectedBackendVersion("6.9.34"));
         Assert.False(InvokeIsExpectedBackendVersion(null));
     }

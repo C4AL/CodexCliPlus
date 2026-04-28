@@ -19,6 +19,10 @@
     overflow: visible;
     overflow-y: auto;
   }
+
+  &.desktop-shell {
+    --header-height: 0px;
+  }
 }
 
 .main-header {

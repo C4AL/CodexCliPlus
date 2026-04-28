@@ -74,6 +74,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppConstants.DefaultBackendPort, settings.BackendPort);
         Assert.Equal("legacy-secret", settings.ManagementKey);
         Assert.Equal(AppConstants.DefaultManagementKeyReference, settings.ManagementKeyReference);
+        Assert.Equal(AppThemeMode.White, settings.ThemeMode);
         Assert.True(settings.SecurityKeyOnboardingCompleted);
         Assert.DoesNotContain("legacy-secret", persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
@@ -95,7 +96,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
             EnableTrayIcon = false,
             CheckForUpdatesOnStartup = false,
             UseBetaChannel = true,
-            ThemeMode = AppThemeMode.Light,
+            ThemeMode = AppThemeMode.White,
             MinimumLogLevel = AppLogLevel.Error,
             EnableDebugTools = true
         };
@@ -108,7 +109,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.False(actual.EnableTrayIcon);
         Assert.False(actual.CheckForUpdatesOnStartup);
         Assert.True(actual.UseBetaChannel);
-        Assert.Equal(AppThemeMode.Light, actual.ThemeMode);
+        Assert.Equal(AppThemeMode.White, actual.ThemeMode);
         Assert.Equal(AppLogLevel.Error, actual.MinimumLogLevel);
         Assert.True(actual.EnableDebugTools);
     }
@@ -145,6 +146,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var settings = await service.LoadAsync();
 
         Assert.True(settings.SecurityKeyOnboardingCompleted);
+        Assert.Equal(AppThemeMode.White, settings.ThemeMode);
         Assert.Null(settings.LastSeenApplicationVersion);
     }
 
@@ -168,7 +170,9 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
 
         Assert.Equal(AppConstants.DefaultBackendPort, settings.BackendPort);
+        Assert.Equal(AppThemeMode.White, settings.ThemeMode);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"themeMode\": \"White\"", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("1328", persistedJson, StringComparison.Ordinal);
     }
 

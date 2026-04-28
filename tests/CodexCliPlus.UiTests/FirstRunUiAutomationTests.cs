@@ -75,8 +75,8 @@ public sealed class FirstRunUiAutomationTests
         run.WriteReview(
             "review.md",
             "首次初始化原生 UI 探针",
-            "查看 security-key-row-crop.png：保存按钮必须在复制按钮左侧，两个按钮都必须完整显示且不重叠。",
-            "查看 copy-button-crop.png：复制图标必须完整、居中、无裁切、无拉伸。",
+            "查看 security-key-row-crop.png：复制按钮必须悬浮在密钥框内右侧，保存按钮必须在密钥框外侧且不重叠。",
+            "查看 copy-button-crop.png：复制图标必须完整、居中、无裁切、无拉伸，默认半透明。",
             "查看 save-button-crop.png：分享/保存图标必须完整、居中、无裁切、无拉伸。",
             "查看 copy-tooltip.png 和 save-tooltip.png：中文必须正常显示，不能出现空框符号。",
             "查看 confirm-close-hover-crop.png：右上角 hover 背景必须匹配弹窗圆角，不应是方形雾玻璃块。",
@@ -228,10 +228,11 @@ public sealed class FirstRunUiAutomationTests
 
         AssertInsideRow("保存按钮", saveButton, rowLeft, rowTop, rowRight, rowBottom, tolerance);
         AssertInsideRow("复制按钮", copyButton, rowLeft, rowTop, rowRight, rowBottom, tolerance);
-        Assert.True(keyBox.Right <= saveButton.Left + tolerance, "保存按钮必须位于安全密钥框右侧。");
-        Assert.True(saveButton.Left < copyButton.Left, "保存按钮必须在复制按钮左侧。");
-        Assert.True(saveButton.Right <= copyButton.Left + tolerance, "保存按钮和复制按钮不能重叠。");
-        Assert.True(copyButton.Right <= rememberCheckBox.Left + tolerance, "复制按钮必须位于记住安全密钥选项左侧。");
+        Assert.True(copyButton.Left + tolerance >= keyBox.Left, "复制按钮必须位于安全密钥框内部。");
+        Assert.True(copyButton.Right <= keyBox.Right + tolerance, "复制按钮必须悬浮在安全密钥框右侧内部。");
+        Assert.True(keyBox.Right <= saveButton.Left + tolerance, "保存按钮必须位于安全密钥框外侧。");
+        Assert.True(copyButton.Right <= saveButton.Left + tolerance, "复制按钮和保存按钮不能重叠。");
+        Assert.True(saveButton.Right <= rememberCheckBox.Left + tolerance, "保存按钮必须位于记住安全密钥选项左侧。");
     }
 
     private static void AssertInsideRow(

@@ -30,7 +30,12 @@ public sealed class NavigationShellTests
         Assert.Contains("当前步骤：", File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8), StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
+        Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
+        Assert.Contains("x:Name=\"ShellSidebarButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellRefreshButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellThemeButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellSettingsButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SettingsOverlay\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<ui:NavigationView", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayOpenMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
@@ -66,6 +71,10 @@ public sealed class NavigationShellTests
         Assert.Contains("openExternal", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("refreshAll", hostSource, StringComparison.Ordinal);
+        Assert.Contains("setTheme", hostSource, StringComparison.Ordinal);
+        Assert.Contains("toggleSidebarCollapsed", hostSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("StartupState", hostSource, StringComparison.Ordinal);
         Assert.Contains("UpgradeNotice", hostSource, StringComparison.Ordinal);
@@ -83,12 +92,18 @@ public sealed class NavigationShellTests
         {
             DesktopMode = true,
             ApiBase = "http://127.0.0.1:15345",
-            ManagementKey = "secret-key"
+            ManagementKey = "secret-key",
+            Theme = "white",
+            ResolvedTheme = "light",
+            SidebarCollapsed = true
         });
 
         Assert.Contains("\"desktopMode\":true", script, StringComparison.Ordinal);
         Assert.Contains("\"apiBase\":\"http://127.0.0.1:15345\"", script, StringComparison.Ordinal);
         Assert.Contains("\"managementKey\":\"secret-key\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"theme\":\"white\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"resolvedTheme\":\"light\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"sidebarCollapsed\":true", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
@@ -107,6 +122,8 @@ public sealed class NavigationShellTests
         Assert.Contains("Content=\"保存到桌面\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"复制密钥\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShellInlineIconButtonStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"10,8,48,8\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"ShellIconViewboxStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Stretch\" Value=\"Uniform\"", xaml, StringComparison.Ordinal);
         Assert.Contains("M12,5 L18,11 L12,17", xaml, StringComparison.Ordinal);
@@ -114,11 +131,11 @@ public sealed class NavigationShellTests
         Assert.Contains("StrokeThickness=\"1.8\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"ShellTextToolTipStyle\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Segoe MDL2 Assets", xaml, StringComparison.Ordinal);
-        Assert.True(xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal) <
-            xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal));
         Assert.True(xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal) <
+            xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal));
+        Assert.True(xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal) <
             xaml.IndexOf("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", StringComparison.Ordinal));
-        Assert.Contains("<ColumnDefinition Width=\"300\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("<ColumnDefinition Width=\"360\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("<ColumnDefinition Width=\"Auto\" />", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<ColumnDefinition Width=\"76\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
@@ -142,6 +159,8 @@ public sealed class NavigationShellTests
         Assert.Contains("MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500)", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
+        Assert.Contains("codexcliplus-display.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Source=\"pack://application:,,,/Resources/Icons/codexcliplus.ico\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"PreparationProgressTrack\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ClipToBounds=\"True\"", xaml, StringComparison.Ordinal);
     }
@@ -221,6 +240,15 @@ public sealed class NavigationShellTests
         var constantsSource = File.ReadAllText(
             Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "utils", "constants.ts"),
             Encoding.UTF8);
+        var mainLayoutSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "components", "layout", "MainLayout.tsx"),
+            Encoding.UTF8);
+        var themeStoreSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useThemeStore.ts"),
+            Encoding.UTF8);
+        var commonTypesSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "types", "common.ts"),
+            Encoding.UTF8);
 
         Assert.Contains("desktopMode", appSource, StringComparison.Ordinal);
         Assert.Contains("element: <Navigate to=\"/\" replace />", appSource, StringComparison.Ordinal);
@@ -231,6 +259,16 @@ public sealed class NavigationShellTests
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin?:", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("shellStateChanged?:", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("subscribeDesktopShellCommand", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("sendShellStateChanged", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("!desktopMode &&", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("desktop-shell", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("toggleSidebarCollapsed", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("key: 'light'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("export type Theme = 'light'", commonTypesSource, StringComparison.Ordinal);
+        Assert.Contains("const order: Theme[] = ['auto', 'white', 'dark']", themeStoreSource, StringComparison.Ordinal);
+        Assert.Contains("if (theme === 'light')", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
@@ -250,6 +288,8 @@ public sealed class NavigationShellTests
             Encoding.UTF8);
 
         Assert.Contains("requestNativeLogin", distIndex, StringComparison.Ordinal);
+        Assert.Contains("shellStateChanged", distIndex, StringComparison.Ordinal);
+        Assert.Contains("toggleSidebarCollapsed", distIndex, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", distIndex, StringComparison.Ordinal);
     }
 

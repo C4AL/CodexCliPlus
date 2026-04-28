@@ -25,6 +25,12 @@ import {
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import {
+  getDesktopBootstrap,
+  isDesktopMode,
+  sendShellStateChanged,
+  subscribeDesktopShellCommand,
+} from '@/desktop/bridge';
+import {
   useAuthStore,
   useConfigStore,
   useNotificationStore,
@@ -169,17 +175,6 @@ const THEME_CARDS: Array<{
     },
   },
   {
-    key: 'light',
-    labelKey: 'theme.light',
-    colors: {
-      bg: '#faf9f5',
-      card: '#f0eee8',
-      border: '#e3e1db',
-      text: '#2d2a26',
-      textMuted: '#a29c95',
-    },
-  },
-  {
     key: 'dark',
     labelKey: 'theme.dark',
     colors: {
@@ -206,10 +201,15 @@ export function MainLayout() {
   const clearCache = useConfigStore((state) => state.clearCache);
 
   const theme = useThemeStore((state) => state.theme);
+  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setTheme = useThemeStore((state) => state.setTheme);
 
+  const desktopMode = isDesktopMode();
+  const desktopBootstrap = useRef(getDesktopBootstrap());
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => desktopMode && desktopBootstrap.current?.sidebarCollapsed === true
+  );
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [brandExpanded, setBrandExpanded] = useState(true);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -223,6 +223,13 @@ export function MainLayout() {
 
   // 将顶栏高度写入 CSS 变量，确保侧栏/内容区计算一致，防止滚动时抖动
   useLayoutEffect(() => {
+    if (desktopMode) {
+      document.documentElement.style.setProperty('--header-height', '0px');
+      return () => {
+        document.documentElement.style.removeProperty('--header-height');
+      };
+    }
+
     const updateHeaderHeight = () => {
       const height = headerRef.current?.offsetHeight;
       if (height) {
@@ -248,7 +255,7 @@ export function MainLayout() {
       }
       window.removeEventListener('resize', updateHeaderHeight);
     };
-  }, []);
+  }, [desktopMode]);
 
   // 将主内容区的中心点写入 CSS 变量，供底部浮层（配置面板操作栏、提供商导航）对齐到内容区
   useLayoutEffect(() => {
@@ -372,7 +379,9 @@ export function MainLayout() {
     ...(config?.loggingToFile
       ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }]
       : []),
-    { path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system },
+    ...(desktopMode
+      ? []
+      : [{ path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }]),
   ];
   const navOrder = navItems.map((item) => item.path);
   const getRouteOrder = (pathname: string) => {
@@ -425,7 +434,7 @@ export function MainLayout() {
     return 'vertical';
   }, []);
 
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = useCallback(async () => {
     clearCache();
     const results = await Promise.allSettled([
       fetchConfig(undefined, true),
@@ -443,10 +452,49 @@ export function MainLayout() {
       return;
     }
     showNotification(t('notification.data_refreshed'), 'success');
-  };
+  }, [clearCache, fetchConfig, showNotification, t]);
+
+  useEffect(() => {
+    if (!desktopMode) {
+      return;
+    }
+
+    return subscribeDesktopShellCommand((command) => {
+      if (command.type === 'refreshAll') {
+        void handleRefreshAll();
+        return;
+      }
+
+      if (command.type === 'setTheme') {
+        setTheme(command.theme);
+        return;
+      }
+
+      if (command.type === 'toggleSidebarCollapsed') {
+        setSidebarCollapsed((previous) =>
+          typeof command.collapsed === 'boolean' ? command.collapsed : !previous
+        );
+      }
+    });
+  }, [desktopMode, handleRefreshAll, setTheme]);
+
+  useEffect(() => {
+    if (!desktopMode) {
+      return;
+    }
+
+    sendShellStateChanged({
+      connectionStatus,
+      apiBase,
+      theme,
+      resolvedTheme,
+      sidebarCollapsed,
+    });
+  }, [apiBase, connectionStatus, desktopMode, resolvedTheme, sidebarCollapsed, theme]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${desktopMode ? ' desktop-shell' : ''}`}>
+      {!desktopMode && (
       <header className="main-header" ref={headerRef}>
         <div className="left">
           <button
@@ -581,6 +629,7 @@ export function MainLayout() {
           </div>
         </div>
       </header>
+      )}
 
       <div className="main-body">
         <button

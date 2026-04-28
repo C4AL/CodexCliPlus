@@ -2,7 +2,7 @@
  * 通用类型定义
  */
 
-export type Theme = 'light' | 'white' | 'dark' | 'auto';
+export type Theme = 'white' | 'dark' | 'auto';
 
 export type Language = 'zh-CN';
 

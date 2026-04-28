@@ -7,4 +7,10 @@ public sealed class DesktopBootstrapPayload
     public required string ApiBase { get; init; }
 
     public required string ManagementKey { get; init; }
+
+    public string Theme { get; init; } = "auto";
+
+    public string ResolvedTheme { get; init; } = "light";
+
+    public bool SidebarCollapsed { get; init; }
 }

@@ -21,17 +21,20 @@ using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
 
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Win32;
 
 using MessageBox = System.Windows.MessageBox;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
+using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfFontFamily = System.Windows.Media.FontFamily;
 
 namespace CodexCliPlus;
@@ -55,6 +58,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const int FirstRunConfirmationSeconds = 5;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
+    private static readonly JsonSerializerOptions WebMessageJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     private readonly MainWindowViewModel _viewModel;
     private readonly BackendProcessManager _backendProcessManager;
@@ -65,6 +72,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly ISecureCredentialStore _credentialStore;
     private readonly IBuildInfo _buildInfo;
     private readonly IUpdateCheckService _updateCheckService;
+    private readonly IManagementOverviewService _managementOverviewService;
+    private readonly IManagementConfigurationService _managementConfigurationService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
 
@@ -72,11 +81,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private StartupState _startupState = StartupState.Preparing;
     private string? _bootstrapScriptId;
     private string _firstRunManagementKey = string.Empty;
+    private string _shellConnectionStatus = "disconnected";
+    private string _shellApiBase = string.Empty;
+    private string _shellTheme = "auto";
+    private string _shellResolvedTheme = "light";
     private CancellationTokenSource? _firstRunConfirmCountdown;
     private DateTimeOffset? _preparationPanelShownAt;
+    private ManagementOverviewSnapshot? _settingsOverview;
     private bool _allowClose;
     private bool _isInitializing;
     private bool _webViewConfigured;
+    private bool _settingsOverlayOpen;
+    private bool _sidebarCollapsed;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -88,6 +104,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ISecureCredentialStore credentialStore,
         IBuildInfo buildInfo,
         IUpdateCheckService updateCheckService,
+        IManagementOverviewService managementOverviewService,
+        IManagementConfigurationService managementConfigurationService,
         WebUiAssetLocator webUiAssetLocator,
         ShellNotificationService notificationService)
     {
@@ -100,6 +118,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _credentialStore = credentialStore;
         _buildInfo = buildInfo;
         _updateCheckService = updateCheckService;
+        _managementOverviewService = managementOverviewService;
+        _managementConfigurationService = managementConfigurationService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
 
@@ -108,6 +128,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested += ShellNotificationService_NotificationRequested;
+        SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -117,6 +138,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowPreparationStep("目录", 5, "正在加载本地配置。", StartupState.Preparing);
             var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
+            ApplyShellTheme(_settings.ThemeMode);
+            UpdateShellThemePresentation();
+            UpdateShellConnectionPresentation();
             InitializeTrayIcon();
 
             if (!_settings.SecurityKeyOnboardingCompleted)
@@ -147,6 +171,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
+        SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
         TrayIcon.Unregister();
@@ -156,9 +181,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
+        SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private void SystemEvents_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (_settings.ThemeMode != AppThemeMode.System)
+        {
+            return;
+        }
+
+        Dispatcher.Invoke(() =>
+        {
+            ApplyShellTheme(_settings.ThemeMode);
+            UpdateShellThemePresentation();
+            PostWebUiCommand(new
+            {
+                type = "setTheme",
+                theme = ToWebTheme(_settings.ThemeMode),
+                resolvedTheme = ToWebResolvedTheme(_settings.ThemeMode)
+            });
+        });
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -305,6 +351,128 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void CloseWindowButton_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void ShellSidebarButton_Click(object sender, RoutedEventArgs e)
+    {
+        _sidebarCollapsed = !_sidebarCollapsed;
+        PostWebUiCommand(new { type = "toggleSidebarCollapsed", collapsed = _sidebarCollapsed });
+    }
+
+    private void ShellRefreshButton_Click(object sender, RoutedEventArgs e)
+    {
+        PostWebUiCommand(new { type = "refreshAll" });
+        _notificationService.ShowAuto("已请求刷新。");
+    }
+
+    private async void ShellThemeButton_Click(object sender, RoutedEventArgs e)
+    {
+        var next = _settings.ThemeMode switch
+        {
+            AppThemeMode.System => AppThemeMode.White,
+            AppThemeMode.White => AppThemeMode.Dark,
+            _ => AppThemeMode.System
+        };
+
+        await SetShellThemeAsync(next);
+    }
+
+    private async void ShellSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowSettingsOverlayAsync();
+    }
+
+    private async void SettingsOverlayCloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        await HideSettingsOverlayAsync();
+    }
+
+    private async void SettingsOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, SettingsOverlay))
+        {
+            await HideSettingsOverlayAsync();
+        }
+    }
+
+    private async void SettingsThemeSystemButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SetShellThemeAsync(AppThemeMode.System);
+    }
+
+    private async void SettingsThemeWhiteButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SetShellThemeAsync(AppThemeMode.White);
+    }
+
+    private async void SettingsThemeDarkButton_Click(object sender, RoutedEventArgs e)
+    {
+        await SetShellThemeAsync(AppThemeMode.Dark);
+    }
+
+    private void SettingsOpenMainRepoButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenExternal("https://github.com/router-for-me/CLIProxyAPI");
+    }
+
+    private void SettingsOpenWebUiRepoButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenExternal("https://github.com/router-for-me/Cli-Proxy-API-Management-Center");
+    }
+
+    private void SettingsOpenDocsButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenExternal("https://help.router-for.me/");
+    }
+
+    private async void SettingsClearLoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsClearLoginButton.IsEnabled = false;
+        try
+        {
+            await ResetWebUiLocalAuthStateAsync();
+            _settings.ManagementKey = string.Empty;
+            _settings.RememberManagementKey = false;
+            await _appConfigurationService.SaveAsync(_settings);
+            RememberManagementKeyCheckBox.IsChecked = false;
+            await HideSettingsOverlayAsync();
+            ShowLogin("本地登录信息已清理，请重新输入安全密钥。");
+            _notificationService.ShowAuto("本地登录信息已清理。");
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("清理登录失败", exception.Message);
+        }
+        finally
+        {
+            SettingsClearLoginButton.IsEnabled = true;
+        }
+    }
+
+    private async void SettingsRequestLogButton_Click(object sender, RoutedEventArgs e)
+    {
+        var next = !(_settingsOverview?.Config.RequestLog ?? false);
+        SettingsRequestLogButton.IsEnabled = false;
+        try
+        {
+            await _managementConfigurationService.UpdateBooleanSettingAsync("request-log", next);
+            _notificationService.ShowAuto(next ? "请求日志已开启。" : "请求日志已关闭。");
+            PostWebUiCommand(new { type = "refreshAll" });
+            await RefreshSettingsOverlayAsync();
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("请求日志更新失败", exception.Message);
+        }
+        finally
+        {
+            SettingsRequestLogButton.IsEnabled = true;
+        }
+    }
+
+    private async void SettingsRefreshInfoButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshSettingsOverlayAsync();
     }
 
     private void HideToTrayButton_Click(object sender, RoutedEventArgs e)
@@ -637,6 +805,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         _isInitializing = true;
+        _shellConnectionStatus = "connecting";
+        UpdateShellConnectionPresentation();
         ShowPreparationStep("目录", 10, "正在准备本地目录。", StartupState.Preparing);
 
         try
@@ -664,8 +834,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             {
                 DesktopMode = true,
                 ApiBase = connection.BaseUrl,
-                ManagementKey = connection.ManagementKey
+                ManagementKey = connection.ManagementKey,
+                Theme = ToWebTheme(_settings.ThemeMode),
+                ResolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
+                SidebarCollapsed = _sidebarCollapsed
             };
+
+            _shellApiBase = connection.BaseUrl;
+            _shellConnectionStatus = "connected";
+            UpdateShellConnectionPresentation();
 
             ShowPreparationStep("管理桥接", 95, "正在打开管理界面。", StartupState.LoadingManagement);
             await EnsureWebViewAsync(bundle, payload);
@@ -843,11 +1020,46 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                         ? "登录状态已失效，请重新输入安全密钥。"
                         : message);
                     break;
+
+                case "shellStateChanged":
+                    ApplyWebUiShellState(root);
+                    break;
             }
         }
         catch
         {
         }
+    }
+
+    private void ApplyWebUiShellState(JsonElement root)
+    {
+        if (root.TryGetProperty("connectionStatus", out var connectionStatusElement))
+        {
+            _shellConnectionStatus = NormalizeConnectionStatus(connectionStatusElement.GetString());
+        }
+
+        if (root.TryGetProperty("apiBase", out var apiBaseElement))
+        {
+            _shellApiBase = apiBaseElement.GetString()?.Trim() ?? string.Empty;
+        }
+
+        if (root.TryGetProperty("theme", out var themeElement))
+        {
+            _shellTheme = NormalizeWebTheme(themeElement.GetString());
+        }
+
+        if (root.TryGetProperty("resolvedTheme", out var resolvedThemeElement))
+        {
+            _shellResolvedTheme = NormalizeResolvedTheme(resolvedThemeElement.GetString());
+        }
+
+        if (root.TryGetProperty("sidebarCollapsed", out var sidebarCollapsedElement) &&
+            (sidebarCollapsedElement.ValueKind is JsonValueKind.True or JsonValueKind.False))
+        {
+            _sidebarCollapsed = sidebarCollapsedElement.GetBoolean();
+        }
+
+        UpdateShellConnectionPresentation();
     }
 
     private void CoreWebView2_ProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
@@ -924,6 +1136,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowLogin(string? errorMessage = null)
     {
         _startupState = StartupState.NativeLogin;
+        _shellConnectionStatus = "disconnected";
+        UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -955,6 +1169,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowBlocker(string title, string description, string detail)
     {
         _startupState = StartupState.Blocked;
+        _shellConnectionStatus = "error";
+        UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         BlockerTitleText.Text = title;
         BlockerDescriptionText.Text = description;
@@ -969,6 +1185,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ShowWebView()
     {
+        _shellConnectionStatus = "connected";
+        UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -977,6 +1195,227 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Visible;
     }
+
+    private void UpdateShellConnectionPresentation()
+    {
+        var statusText = _shellConnectionStatus switch
+        {
+            "connected" => "已连接",
+            "connecting" => "连接中",
+            "error" => "异常",
+            _ => "未连接"
+        };
+
+        ShellConnectionStatusText.Text = statusText;
+        ShellBackendAddressText.Text = string.IsNullOrWhiteSpace(_shellApiBase)
+            ? "-"
+            : _shellApiBase;
+
+        ShellConnectionStatusDot.Fill = _shellConnectionStatus switch
+        {
+            "connected" => (WpfBrush)FindResource("AccentBrush"),
+            "connecting" => new SolidColorBrush(WpfColor.FromRgb(217, 119, 6)),
+            "error" => new SolidColorBrush(WpfColor.FromRgb(220, 38, 38)),
+            _ => (WpfBrush)FindResource("SecondaryTextBrush")
+        };
+
+        if (_settingsOverlayOpen)
+        {
+            UpdateSettingsOverlayBaseline();
+        }
+    }
+
+    private async Task SetShellThemeAsync(AppThemeMode themeMode)
+    {
+        _settings.ThemeMode = themeMode;
+        ApplyShellTheme(themeMode);
+        UpdateShellThemePresentation();
+        await _appConfigurationService.SaveAsync(_settings);
+        PostWebUiCommand(new
+        {
+            type = "setTheme",
+            theme = ToWebTheme(themeMode),
+            resolvedTheme = ToWebResolvedTheme(themeMode)
+        });
+    }
+
+    private void ApplyShellTheme(AppThemeMode themeMode)
+    {
+        var dark = IsEffectiveDarkTheme(themeMode);
+        if (dark)
+        {
+            SetBrushResource("ApplicationBackgroundBrush", "#111317");
+            SetBrushResource("SurfaceBrush", "#181B20");
+            SetBrushResource("SurfaceAltBrush", "#23272F");
+            SetBrushResource("AccentBrush", "#2DD4BF");
+            SetBrushResource("AccentSoftBrush", "#123A36");
+            SetBrushResource("PrimaryTextBrush", "#EEF2F7");
+            SetBrushResource("SecondaryTextBrush", "#AAB4C0");
+            SetBrushResource("BorderBrush", "#343A46");
+        }
+        else
+        {
+            SetBrushResource("ApplicationBackgroundBrush", "#F4F6FA");
+            SetBrushResource("SurfaceBrush", "#FFFFFF");
+            SetBrushResource("SurfaceAltBrush", "#EEF2F7");
+            SetBrushResource("AccentBrush", "#0F766E");
+            SetBrushResource("AccentSoftBrush", "#D9F1EE");
+            SetBrushResource("PrimaryTextBrush", "#17202B");
+            SetBrushResource("SecondaryTextBrush", "#526070");
+            SetBrushResource("BorderBrush", "#D7DCE5");
+        }
+    }
+
+    private void UpdateShellThemePresentation()
+    {
+        _shellTheme = ToWebTheme(_settings.ThemeMode);
+        _shellResolvedTheme = ToWebResolvedTheme(_settings.ThemeMode);
+        var label = _settings.ThemeMode switch
+        {
+            AppThemeMode.White => "纯白",
+            AppThemeMode.Dark => "暗色",
+            _ => "跟随系统"
+        };
+
+        ShellThemeButton.ToolTip = $"主题：{label}";
+        SetThemeButtonState(SettingsThemeSystemButton, _settings.ThemeMode == AppThemeMode.System);
+        SetThemeButtonState(SettingsThemeWhiteButton, _settings.ThemeMode == AppThemeMode.White);
+        SetThemeButtonState(SettingsThemeDarkButton, _settings.ThemeMode == AppThemeMode.Dark);
+    }
+
+    private void PostWebUiCommand(object message)
+    {
+        if (!_webViewConfigured || ManagementWebView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ManagementWebView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message, WebMessageJsonOptions));
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task ShowSettingsOverlayAsync()
+    {
+        if (_settingsOverlayOpen)
+        {
+            return;
+        }
+
+        _settingsOverlayOpen = true;
+        UpdateSettingsOverlayBaseline();
+        SettingsOverlay.Visibility = Visibility.Visible;
+        SettingsOverlay.Opacity = 0;
+        if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
+        {
+            scale.ScaleX = 0.96;
+            scale.ScaleY = 0.96;
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(1, 180));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(1, 180));
+        }
+
+        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
+        await RefreshSettingsOverlayAsync();
+    }
+
+    private async Task HideSettingsOverlayAsync()
+    {
+        if (!_settingsOverlayOpen)
+        {
+            return;
+        }
+
+        _settingsOverlayOpen = false;
+        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
+        if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(0.96, 140));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(0.96, 140));
+        }
+
+        await Task.Delay(TimeSpan.FromMilliseconds(150));
+        if (!_settingsOverlayOpen)
+        {
+            SettingsOverlay.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task RefreshSettingsOverlayAsync()
+    {
+        UpdateSettingsOverlayBaseline();
+        SettingsRefreshInfoButton.IsEnabled = false;
+        SettingsRequestLogButton.IsEnabled = false;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            var overview = await _managementOverviewService.GetOverviewAsync(cts.Token);
+            _settingsOverview = overview.Value;
+            var backendVersion = string.IsNullOrWhiteSpace(overview.Value.ServerVersion)
+                ? overview.Metadata.Version
+                : overview.Value.ServerVersion;
+            SettingsBackendVersionText.Text = $"后端版本：{FormatUnknown(backendVersion)}";
+            SettingsBuildTimeText.Text = $"构建时间：{FormatUnknown(overview.Metadata.BuildDate)}";
+            SettingsModelOverviewText.Text = overview.Value.AvailableModelCount is { } count
+                ? $"可用模型：{count} 个"
+                : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
+                    ? "可用模型：未加载"
+                    : $"可用模型：{overview.Value.AvailableModelsError}";
+            SettingsProviderOverviewText.Text =
+                $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
+            UpdateRequestLogPresentation();
+        }
+        catch (Exception exception)
+        {
+            _settingsOverview = null;
+            SettingsBackendVersionText.Text = "后端版本：未知";
+            SettingsBuildTimeText.Text = "构建时间：未知";
+            SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
+            SettingsProviderOverviewText.Text = "提供商概览：未加载";
+            SettingsRequestLogText.Text = "请求日志状态：未加载";
+        }
+        finally
+        {
+            SettingsRefreshInfoButton.IsEnabled = true;
+            SettingsRequestLogButton.IsEnabled = _settingsOverview is not null;
+        }
+    }
+
+    private void UpdateSettingsOverlayBaseline()
+    {
+        SettingsAppVersionText.Text = $"应用版本：{CurrentApplicationVersion}";
+        SettingsConnectionText.Text = $"连接状态：{ShellConnectionStatusLabel}";
+        SettingsBackendAddressText.Text = $"后端地址：{(string.IsNullOrWhiteSpace(_shellApiBase) ? "-" : _shellApiBase)}";
+        UpdateShellThemePresentation();
+        UpdateRequestLogPresentation();
+    }
+
+    private void UpdateRequestLogPresentation()
+    {
+        if (_settingsOverview is null)
+        {
+            SettingsRequestLogText.Text = "请求日志状态：未加载";
+            SettingsRequestLogButton.Content = "切换请求日志";
+            return;
+        }
+
+        var enabled = _settingsOverview.Config.RequestLog == true;
+        SettingsRequestLogText.Text = enabled
+            ? "请求日志状态：已开启。仅在排查问题时建议保持开启。"
+            : "请求日志状态：已关闭。";
+        SettingsRequestLogButton.Content = enabled ? "关闭请求日志" : "开启请求日志";
+    }
+
+    private string ShellConnectionStatusLabel => _shellConnectionStatus switch
+    {
+        "connected" => "已连接",
+        "connecting" => "连接中",
+        "error" => "异常",
+        _ => "未连接"
+    };
 
     private void ShellNotificationService_NotificationRequested(object? sender, ShellNotificationRequest request)
     {
@@ -1192,6 +1631,95 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         string.IsNullOrWhiteSpace(_buildInfo.ApplicationVersion)
             ? "当前版本"
             : _buildInfo.ApplicationVersion.Trim();
+
+    private static string FormatUnknown(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "未知" : value.Trim();
+    }
+
+    private static string NormalizeConnectionStatus(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "connected" => "connected",
+            "connecting" => "connecting",
+            "error" => "error",
+            _ => "disconnected"
+        };
+    }
+
+    private static string NormalizeWebTheme(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "dark" => "dark",
+            "white" or "light" => "white",
+            _ => "auto"
+        };
+    }
+
+    private static string NormalizeResolvedTheme(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() == "dark" ? "dark" : "light";
+    }
+
+    private static string ToWebTheme(AppThemeMode themeMode)
+    {
+        return themeMode switch
+        {
+            AppThemeMode.White => "white",
+            AppThemeMode.Dark => "dark",
+            _ => "auto"
+        };
+    }
+
+    private static string ToWebResolvedTheme(AppThemeMode themeMode)
+    {
+        return IsEffectiveDarkTheme(themeMode) ? "dark" : "light";
+    }
+
+    private static bool IsEffectiveDarkTheme(AppThemeMode themeMode)
+    {
+        return themeMode == AppThemeMode.Dark ||
+            (themeMode == AppThemeMode.System && IsSystemDarkTheme());
+    }
+
+    private static bool IsSystemDarkTheme()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            var value = key?.GetValue("AppsUseLightTheme");
+            return value is int intValue && intValue == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static DoubleAnimation CreateEaseAnimation(double to, int milliseconds)
+    {
+        return new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+        };
+    }
+
+    private static void SetThemeButtonState(WpfButton button, bool active)
+    {
+        button.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
+        button.Opacity = active ? 1 : 0.72;
+    }
+
+    private void SetBrushResource(string key, string color)
+    {
+        if (WpfColorConverter.ConvertFromString(color) is WpfColor parsed)
+        {
+            Resources[key] = new SolidColorBrush(parsed);
+            System.Windows.Application.Current.Resources[key] = new SolidColorBrush(parsed);
+        }
+    }
 
     private static string GenerateSecurityKey()
     {

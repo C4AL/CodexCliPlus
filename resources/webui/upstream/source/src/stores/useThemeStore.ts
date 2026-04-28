@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getDesktopBootstrap } from '@/desktop/bridge';
 import type { Theme } from '@/types';
 import { STORAGE_KEY_THEME } from '@/utils/constants';
 
@@ -34,14 +35,25 @@ const normalizeResolvedTheme = (theme: AppliedTheme): ResolvedTheme => {
   return theme === 'dark' ? 'dark' : 'light';
 };
 
-const resolveTheme = (theme: Theme): AppliedTheme => {
-  if (theme === 'auto') {
-    return resolveAutoTheme();
+const normalizeThemeValue = (theme: unknown): Theme => {
+  if (theme === 'dark' || theme === 'white' || theme === 'auto') {
+    return theme;
   }
-  if (theme === 'white') {
+  if (theme === 'light') {
     return 'white';
   }
-  return theme;
+  return 'auto';
+};
+
+const resolveTheme = (theme: Theme): AppliedTheme => {
+  const normalized = normalizeThemeValue(theme);
+  if (normalized === 'auto') {
+    return resolveAutoTheme();
+  }
+  if (normalized === 'white') {
+    return 'white';
+  }
+  return normalized;
 };
 
 const applyTheme = (resolved: AppliedTheme) => {
@@ -65,17 +77,18 @@ export const useThemeStore = create<ThemeState>()(
       resolvedTheme: 'light',
 
       setTheme: (theme) => {
-        const resolved = resolveTheme(theme);
+        const normalizedTheme = normalizeThemeValue(theme);
+        const resolved = resolveTheme(normalizedTheme);
         applyTheme(resolved);
         set({
-          theme,
+          theme: normalizedTheme,
           resolvedTheme: normalizeResolvedTheme(resolved),
         });
       },
 
       cycleTheme: () => {
         const { theme, setTheme } = get();
-        const order: Theme[] = ['light', 'white', 'dark', 'auto'];
+        const order: Theme[] = ['auto', 'white', 'dark'];
         const currentIndex = order.indexOf(theme);
         const nextTheme = order[(currentIndex + 1) % order.length];
         setTheme(nextTheme);
@@ -83,9 +96,10 @@ export const useThemeStore = create<ThemeState>()(
 
       initializeTheme: () => {
         const { theme, setTheme } = get();
+        const desktopTheme = getDesktopBootstrap()?.theme;
 
         // 应用已保存的主题
-        setTheme(theme);
+        setTheme(desktopTheme || theme);
 
         // 监听系统主题变化（仅在 auto 模式下生效）
         if (!window.matchMedia) {
@@ -109,6 +123,14 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: STORAGE_KEY_THEME,
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<ThemeState> | undefined;
+        return {
+          ...currentState,
+          ...persisted,
+          theme: normalizeThemeValue(persisted?.theme),
+        };
+      },
     }
   )
 );

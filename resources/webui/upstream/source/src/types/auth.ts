@@ -25,4 +25,7 @@ export interface DesktopBootstrapPayload {
   desktopMode: boolean;
   apiBase: string;
   managementKey: string;
+  theme?: 'auto' | 'white' | 'dark';
+  resolvedTheme?: 'light' | 'dark';
+  sidebarCollapsed?: boolean;
 }

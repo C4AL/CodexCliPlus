@@ -24,7 +24,9 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
             ThemeMode = AppThemeMode.Dark,
             MinimumLogLevel = AppLogLevel.Warning,
             EnableDebugTools = true,
-            LastRepositoryPath = @"C:\repo"
+            LastRepositoryPath = @"C:\repo",
+            SecurityKeyOnboardingCompleted = true,
+            LastSeenApplicationVersion = "1.2.3"
         };
 
         await service.SaveAsync(expected);
@@ -39,10 +41,14 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppLogLevel.Warning, actual.MinimumLogLevel);
         Assert.True(actual.EnableDebugTools);
         Assert.Equal(@"C:\repo", actual.LastRepositoryPath);
+        Assert.True(actual.SecurityKeyOnboardingCompleted);
+        Assert.Equal("1.2.3", actual.LastSeenApplicationVersion);
         Assert.DoesNotContain("test-key", persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9417", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"securityKeyOnboardingCompleted\": true", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"lastSeenApplicationVersion\": \"1.2.3\"", persistedJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -68,6 +74,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppConstants.DefaultBackendPort, settings.BackendPort);
         Assert.Equal("legacy-secret", settings.ManagementKey);
         Assert.Equal(AppConstants.DefaultManagementKeyReference, settings.ManagementKeyReference);
+        Assert.True(settings.SecurityKeyOnboardingCompleted);
         Assert.DoesNotContain("legacy-secret", persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9527", persistedJson, StringComparison.Ordinal);
@@ -116,6 +123,29 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
 
         Assert.Equal(1327, AppConstants.DefaultBackendPort);
         Assert.Equal(AppConstants.DefaultBackendPort, actual.BackendPort);
+        Assert.False(actual.SecurityKeyOnboardingCompleted);
+        Assert.Null(actual.LastSeenApplicationVersion);
+    }
+
+    [Fact]
+    public async Task LoadAsyncTreatsLegacySettingsWithoutOnboardingFieldAsCompleted()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        await pathService.EnsureCreatedAsync();
+        await File.WriteAllTextAsync(
+            pathService.Directories.SettingsFilePath,
+            """
+            {
+              "backendPort": 1327,
+              "themeMode": "Light"
+            }
+            """);
+
+        var service = new JsonAppConfigurationService(pathService);
+        var settings = await service.LoadAsync();
+
+        Assert.True(settings.SecurityKeyOnboardingCompleted);
+        Assert.Null(settings.LastSeenApplicationVersion);
     }
 
     [Fact]

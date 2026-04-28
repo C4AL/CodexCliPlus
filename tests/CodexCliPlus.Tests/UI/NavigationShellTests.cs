@@ -13,11 +13,19 @@ public sealed class NavigationShellTests
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
         Assert.Contains("MouseLeftButtonDown=\"DragRegion_MouseLeftButtonDown\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"LoginPanel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"UpgradeNoticePanel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunKeyPanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ManagementKeyPasswordBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"RememberManagementKeyCheckBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("MinimizeWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("CloseWindowButton_Click", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Text=\"CodexCliPlus\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("复制密钥", xaml, StringComparison.Ordinal);
+        Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
+        Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
+        Assert.Contains("忘记安全密钥/重置", xaml, StringComparison.Ordinal);
+        Assert.Contains("当前步骤：", File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8), StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Equal(2, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
@@ -57,6 +65,13 @@ public sealed class NavigationShellTests
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("StartupState", hostSource, StringComparison.Ordinal);
+        Assert.Contains("UpgradeNotice", hostSource, StringComparison.Ordinal);
+        Assert.Contains("FirstRunKeyReveal", hostSource, StringComparison.Ordinal);
+        Assert.Contains("NativeLogin", hostSource, StringComparison.Ordinal);
+        Assert.Contains("VerifyManagementKey", hostSource, StringComparison.Ordinal);
+        Assert.Contains("LastSeenApplicationVersion", hostSource, StringComparison.Ordinal);
+        Assert.Contains("SecurityKeyOnboardingCompleted", hostSource, StringComparison.Ordinal);
     }
 
     [Fact]

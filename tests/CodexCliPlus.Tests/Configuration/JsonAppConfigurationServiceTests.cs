@@ -32,7 +32,9 @@ public sealed class JsonAppConfigurationServicePathModeTests
             PreferredCodexSource = CodexSourceKind.Cpa,
             ThemeMode = AppThemeMode.Dark,
             CheckForUpdatesOnStartup = false,
-            UseBetaChannel = true
+            UseBetaChannel = true,
+            SecurityKeyOnboardingCompleted = true,
+            LastSeenApplicationVersion = "2.0.0"
         };
 
         await service.SaveAsync(expected);
@@ -48,6 +50,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
         Assert.Equal(expected.ThemeMode, actual.ThemeMode);
         Assert.False(actual.CheckForUpdatesOnStartup);
         Assert.True(actual.UseBetaChannel);
+        Assert.True(actual.SecurityKeyOnboardingCompleted);
+        Assert.Equal("2.0.0", actual.LastSeenApplicationVersion);
         Assert.StartsWith(Path.GetFullPath(overrideRoot), pathService.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(expected.ManagementKey, persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
@@ -115,6 +119,7 @@ public sealed class JsonAppConfigurationServicePathModeTests
 
         Assert.True(settings.RememberManagementKey);
         Assert.Equal("legacy-secret", settings.ManagementKey);
+        Assert.True(settings.SecurityKeyOnboardingCompleted);
         Assert.Contains("\"rememberManagementKey\": true", persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("8317", persistedJson, StringComparison.Ordinal);

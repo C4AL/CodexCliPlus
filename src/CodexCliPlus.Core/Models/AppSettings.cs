@@ -32,4 +32,8 @@ public sealed class AppSettings
     public bool EnableDebugTools { get; set; }
 
     public string? LastRepositoryPath { get; set; }
+
+    public bool SecurityKeyOnboardingCompleted { get; set; }
+
+    public string? LastSeenApplicationVersion { get; set; }
 }

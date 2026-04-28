@@ -78,6 +78,58 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.DoesNotContain("9327", yaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task WriteAsyncRejectsWrongExistingManagementKeyWithoutRotatingHash()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var configurationService = new JsonAppConfigurationService(pathService);
+        var writer = new BackendConfigWriter(configurationService, pathService);
+        var initialSettings = new AppSettings
+        {
+            ManagementKey = "correct-management-key",
+            SecurityKeyOnboardingCompleted = false
+        };
+
+        await writer.WriteAsync(
+            initialSettings,
+            new BackendConfigWriteOptions { AllowManagementKeyRotation = true });
+        var originalYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
+        var originalHash = Regex.Match(originalYaml, "secret-key: \"(?<hash>.+)\"").Groups["hash"].Value;
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => writer.WriteAsync(new AppSettings
+            {
+                ManagementKey = "wrong-management-key",
+                SecurityKeyOnboardingCompleted = true
+            }));
+        var finalYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
+        var finalHash = Regex.Match(finalYaml, "secret-key: \"(?<hash>.+)\"").Groups["hash"].Value;
+
+        Assert.Contains("不会被重写", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(originalHash, finalHash);
+        Assert.True(writer.HasExistingManagementKeyHash());
+        Assert.True(writer.VerifyManagementKey("correct-management-key"));
+        Assert.False(writer.VerifyManagementKey("wrong-management-key"));
+    }
+
+    [Fact]
+    public async Task WriteAsyncRejectsCompletedSettingsWithoutExistingHash()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var configurationService = new JsonAppConfigurationService(pathService);
+        var writer = new BackendConfigWriter(configurationService, pathService);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => writer.WriteAsync(new AppSettings
+            {
+                ManagementKey = "remembered-key",
+                SecurityKeyOnboardingCompleted = true
+            }));
+
+        Assert.Contains("普通登录不会生成或重置安全密钥", exception.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(pathService.Directories.BackendConfigFilePath));
+    }
+
     private static TcpListener? TryListenOnDefaultPort()
     {
         try

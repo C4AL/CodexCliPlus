@@ -171,6 +171,10 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public string? LastRepositoryPath { get; init; }
 
+        public bool? SecurityKeyOnboardingCompleted { get; init; }
+
+        public string? LastSeenApplicationVersion { get; init; }
+
         public AppSettings ToModel()
         {
             return new AppSettings
@@ -190,6 +194,10 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 MinimumLogLevel = MinimumLogLevel,
                 EnableDebugTools = EnableDebugTools,
                 LastRepositoryPath = LastRepositoryPath,
+                SecurityKeyOnboardingCompleted = SecurityKeyOnboardingCompleted ?? true,
+                LastSeenApplicationVersion = string.IsNullOrWhiteSpace(LastSeenApplicationVersion)
+                    ? null
+                    : LastSeenApplicationVersion.Trim(),
                 ManagementKey = string.Empty
             };
         }
@@ -210,7 +218,11 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 ThemeMode = settings.ThemeMode,
                 MinimumLogLevel = settings.MinimumLogLevel,
                 EnableDebugTools = settings.EnableDebugTools,
-                LastRepositoryPath = settings.LastRepositoryPath
+                LastRepositoryPath = settings.LastRepositoryPath,
+                SecurityKeyOnboardingCompleted = settings.SecurityKeyOnboardingCompleted,
+                LastSeenApplicationVersion = string.IsNullOrWhiteSpace(settings.LastSeenApplicationVersion)
+                    ? null
+                    : settings.LastSeenApplicationVersion.Trim()
             };
         }
     }

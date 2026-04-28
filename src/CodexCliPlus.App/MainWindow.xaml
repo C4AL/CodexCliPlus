@@ -44,9 +44,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -81,6 +78,20 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="ShellIconViewboxStyle" TargetType="{x:Type Viewbox}">
+            <Setter Property="Width" Value="17" />
+            <Setter Property="Height" Value="17" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="UseLayoutRounding" Value="True" />
+        </Style>
+        <Style x:Key="ShellTextToolTipStyle" TargetType="{x:Type ToolTip}">
+            <Setter Property="FontFamily" Value="{StaticResource TextThemeFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        </Style>
         <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -93,6 +104,42 @@
                     <ControlTemplate TargetType="{x:Type Button}">
                         <Border x:Name="ButtonChrome"
                                 Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource SurfaceAltBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource BorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="DialogCloseButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="0,16,0,8">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
                                               RecognizesAccessKey="True" />
@@ -159,6 +206,7 @@
 
         <wv2:WebView2 x:Name="ManagementWebView"
                       Grid.Row="1"
+                      AutomationProperties.AutomationId="ManagementWebView"
                       Visibility="Collapsed" />
 
         <Grid x:Name="UpgradeNoticePanel"
@@ -199,7 +247,8 @@
         <Grid x:Name="FirstRunKeyPanel"
               Grid.Row="1"
               Visibility="Collapsed"
-              Background="{DynamicResource ApplicationBackgroundBrush}">
+              Background="{DynamicResource ApplicationBackgroundBrush}"
+              AutomationProperties.AutomationId="FirstRunKeyPanel">
             <Grid>
                 <Border Width="620"
                         Padding="30"
@@ -245,33 +294,67 @@
                                             Orientation="Horizontal">
                                     <Button x:Name="FirstRunSaveToDesktopButton"
                                             Style="{StaticResource ShellIconButtonStyle}"
-                                            Width="32"
-                                            Height="32"
+                                            Width="34"
+                                            Height="34"
                                             Click="FirstRunSaveToDesktopButton_Click"
-                                            Content="&#xE72D;"
-                                            ToolTip="保存到桌面"
-                                            AutomationProperties.Name="保存到桌面" />
+                                            AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
+                                            AutomationProperties.Name="保存到桌面">
+                                        <Button.ToolTip>
+                                            <ToolTip Style="{StaticResource ShellTextToolTipStyle}"
+                                                     Content="保存到桌面" />
+                                        </Button.ToolTip>
+                                        <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                                            <Canvas Width="24"
+                                                    Height="24">
+                                                <Path Data="M12,5 L18,11 L12,17 M18,11 L7,11 M7,11 C5.343,11 4,12.343 4,14 L4,17 C4,18.657 5.343,20 7,20 L17,20 C18.657,20 20,18.657 20,17 L20,15"
+                                                      Fill="Transparent"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Button>
                                     <Button x:Name="FirstRunCopyKeyButton"
                                             Style="{StaticResource ShellIconButtonStyle}"
-                                            Width="32"
-                                            Height="32"
+                                            Width="34"
+                                            Height="34"
                                             Margin="8,0,0,0"
                                             Click="FirstRunCopyKeyButton_Click"
-                                            Content="&#xE8C8;"
-                                            ToolTip="复制密钥"
-                                            AutomationProperties.Name="复制密钥" />
+                                            AutomationProperties.AutomationId="FirstRunCopyKeyButton"
+                                            AutomationProperties.Name="复制密钥">
+                                        <Button.ToolTip>
+                                            <ToolTip Style="{StaticResource ShellTextToolTipStyle}"
+                                                     Content="复制密钥" />
+                                        </Button.ToolTip>
+                                        <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                                            <Canvas Width="24"
+                                                    Height="24">
+                                                <Path Data="M8,8 L18,8 L18,18 L8,18 Z M6,15 L4,15 L4,4 L15,4 L15,6"
+                                                      Fill="Transparent"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                      StrokeThickness="1.8"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Button>
                                 </StackPanel>
                                 <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
                                         Grid.Column="2"
                                         VerticalAlignment="Center"
                                         HorizontalAlignment="Right"
                                         IsChecked="False"
+                                        AutomationProperties.AutomationId="FirstRunRememberSecurityKeyCheckBox"
                                         Content="本机记住安全密钥" />
                             </Grid>
                             <Button x:Name="FirstRunEnterManagementButton"
                                     Height="38"
                                     Margin="0,24,0,0"
                                     Click="FirstRunEnterManagementButton_Click"
+                                    AutomationProperties.AutomationId="FirstRunEnterManagementButton"
                                     Content="进入管理界面" />
                         </StackPanel>
                     </Grid>
@@ -279,7 +362,8 @@
 
                 <Grid x:Name="FirstRunConfirmPanel"
                       Visibility="Collapsed"
-                      Background="#99000000">
+                      Background="#99000000"
+                      AutomationProperties.AutomationId="FirstRunConfirmPanel">
                     <Border Width="420"
                             Padding="0"
                             CornerRadius="16"
@@ -296,12 +380,12 @@
                                     Width="46"
                                     Height="34"
                                     Padding="0"
-                                    Style="{StaticResource TitleBarButtonStyle}"
+                                    Style="{StaticResource DialogCloseButtonStyle}"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
                                     Click="FirstRunConfirmCloseButton_Click"
                                     Content="×"
-                                    ToolTip="关闭"
+                                    AutomationProperties.AutomationId="FirstRunConfirmCloseButton"
                                     AutomationProperties.Name="关闭" />
                             <StackPanel Grid.Row="1"
                                         Margin="28,8,28,28">
@@ -321,6 +405,7 @@
                                         Margin="0,24,0,0"
                                         HorizontalAlignment="Center"
                                         Click="FirstRunConfirmContinueButton_Click"
+                                        AutomationProperties.AutomationId="FirstRunConfirmContinueButton"
                                         Content="确认" />
                             </StackPanel>
                         </Grid>
@@ -331,7 +416,8 @@
 
         <Grid x:Name="LoginPanel"
               Grid.Row="1"
-              Background="{DynamicResource ApplicationBackgroundBrush}">
+              Background="{DynamicResource ApplicationBackgroundBrush}"
+              AutomationProperties.AutomationId="LoginPanel">
             <Border Width="440"
                     Padding="28"
                     Style="{StaticResource ShellRaisedPanelStyle}"
@@ -367,6 +453,7 @@
                             Height="38"
                             Margin="0,22,0,0"
                             Click="LoginButton_Click"
+                            AutomationProperties.AutomationId="LoginButton"
                             Content="登录" />
                     <Button x:Name="ForgotSecurityKeyButton"
                             Height="34"
@@ -380,7 +467,8 @@
         <Grid x:Name="LoadingPanel"
               Grid.Row="1"
               Visibility="Collapsed"
-              Background="{DynamicResource ApplicationBackgroundBrush}">
+              Background="{DynamicResource ApplicationBackgroundBrush}"
+              AutomationProperties.AutomationId="LoadingPanel">
             <Border Width="520"
                     Padding="30"
                     Style="{StaticResource ShellRaisedPanelStyle}"
@@ -447,29 +535,36 @@
                                FontSize="13"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                TextWrapping="Wrap" />
-                    <Grid Height="8">
-                        <ProgressBar x:Name="PreparationProgressBar"
-                                     Height="8"
-                                     Minimum="0"
-                                     Maximum="100"
-                                     Value="0" />
-                        <Border Width="120"
-                                HorizontalAlignment="Left"
-                                Background="#33FFFFFF">
-                            <Border.Triggers>
-                                <EventTrigger RoutedEvent="Loaded">
-                                    <BeginStoryboard>
-                                        <Storyboard RepeatBehavior="Forever">
-                                            <ThicknessAnimation Storyboard.TargetProperty="Margin"
-                                                                From="-120,0,0,0"
-                                                                To="520,0,0,0"
-                                                                Duration="0:0:1.7" />
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </EventTrigger>
-                            </Border.Triggers>
-                        </Border>
-                    </Grid>
+                    <Border x:Name="PreparationProgressTrack"
+                            Height="8"
+                            CornerRadius="4"
+                            ClipToBounds="True"
+                            AutomationProperties.AutomationId="PreparationProgressTrack">
+                        <Grid ClipToBounds="True">
+                            <ProgressBar x:Name="PreparationProgressBar"
+                                         Height="8"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         AutomationProperties.AutomationId="PreparationProgressBar"
+                                         Value="0" />
+                            <Border Width="120"
+                                    HorizontalAlignment="Left"
+                                    Background="#33FFFFFF">
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <ThicknessAnimation Storyboard.TargetProperty="Margin"
+                                                                    From="-120,0,0,0"
+                                                                    To="520,0,0,0"
+                                                                    Duration="0:0:1.7" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                            </Border>
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="PreparationStepText"
                                Margin="0,14,0,0"
                                FontSize="13"
@@ -529,7 +624,8 @@
                     Margin="0,0,0,28"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Bottom"
-                    Panel.ZIndex="20" />
+                    Panel.ZIndex="20"
+                    AutomationProperties.AutomationId="AutoNotificationStack" />
 
         <StackPanel x:Name="ManualNotificationStack"
                     Grid.Row="1"
@@ -537,7 +633,8 @@
                     Margin="0,0,24,24"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
-                    Panel.ZIndex="21" />
+                    Panel.ZIndex="21"
+                    AutomationProperties.AutomationId="ManualNotificationStack" />
 
         <tray:NotifyIcon x:Name="TrayIcon"
                          Grid.RowSpan="2"

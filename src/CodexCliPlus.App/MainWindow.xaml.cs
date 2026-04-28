@@ -49,6 +49,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     }
 
     private const string AppHostName = "codexcliplus-webui.local";
+    private const string UiTestModeEnvironmentVariable = "CODEXCLIPLUS_UI_TEST_MODE";
+    private const string UiTestWebViewUserDataFolderEnvironmentVariable = "CODEXCLIPLUS_WEBVIEW2_USER_DATA_FOLDER";
+    private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable = "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
@@ -700,13 +703,53 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         if (!_webViewConfigured)
         {
-            await ManagementWebView.EnsureCoreWebView2Async();
+            var environment = await CreateWebViewEnvironmentAsync();
+            if (environment is null)
+            {
+                await ManagementWebView.EnsureCoreWebView2Async();
+            }
+            else
+            {
+                await ManagementWebView.EnsureCoreWebView2Async(environment);
+            }
+
             ConfigureWebView(bundle);
             _webViewConfigured = true;
         }
 
         await UpdateBootstrapScriptAsync(payload);
         ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+    }
+
+    private async Task<CoreWebView2Environment?> CreateWebViewEnvironmentAsync()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable(UiTestModeEnvironmentVariable),
+                "1",
+                StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var userDataFolder = Environment.GetEnvironmentVariable(UiTestWebViewUserDataFolderEnvironmentVariable);
+        if (string.IsNullOrWhiteSpace(userDataFolder))
+        {
+            userDataFolder = Path.Combine(_pathService.Directories.RuntimeDirectory, "webview2-test-profile");
+        }
+
+        Directory.CreateDirectory(userDataFolder);
+
+        var options = new CoreWebView2EnvironmentOptions();
+        var remoteDebuggingPort = Environment.GetEnvironmentVariable(UiTestWebViewRemoteDebuggingPortEnvironmentVariable);
+        if (int.TryParse(remoteDebuggingPort, out var port) && port is > 0 and <= 65535)
+        {
+            options.AdditionalBrowserArguments = $"--remote-debugging-port={port}";
+        }
+
+        return await CoreWebView2Environment.CreateAsync(
+            browserExecutableFolder: null,
+            userDataFolder: userDataFolder,
+            options: options);
     }
 
     private void ConfigureWebView(WebUiBundleInfo bundle)
@@ -989,6 +1032,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
             Background = new SolidColorBrush(WpfColor.FromRgb(37, 99, 235))
         };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(
+            progress,
+            showCloseButton ? "ManualNotificationProgress" : "AutoNotificationProgress");
+
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1012,14 +1059,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             });
         }
 
-        textStack.Children.Add(new TextBlock
+        var messageText = new TextBlock
         {
             Text = message,
             Margin = string.IsNullOrWhiteSpace(title) ? new Thickness(0) : new Thickness(0, 6, 0, 0),
             FontSize = 13,
             TextWrapping = TextWrapping.Wrap,
             Foreground = (WpfBrush)FindResource("SecondaryTextBrush")
-        });
+        };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(
+            messageText,
+            showCloseButton ? "ManualNotificationMessage" : "AutoNotificationMessage");
+        System.Windows.Automation.AutomationProperties.SetName(messageText, message);
+        textStack.Children.Add(messageText);
         contentGrid.Children.Add(textStack);
 
         if (showCloseButton)
@@ -1060,9 +1112,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             Child = root,
             Tag = progress
         };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(
+            card,
+            showCloseButton ? "ManualNotificationCard" : "AutoNotificationCard");
+        System.Windows.Automation.AutomationProperties.SetName(
+            card,
+            string.IsNullOrWhiteSpace(title) ? message : $"{title} {message}");
 
         if (showCloseButton && contentGrid.Children.OfType<WpfButton>().FirstOrDefault() is { } button)
         {
+            System.Windows.Automation.AutomationProperties.SetAutomationId(button, "ManualNotificationCloseButton");
+            System.Windows.Automation.AutomationProperties.SetName(button, "关闭");
             button.Click += async (_, _) => await FadeOutAndRemoveAsync(ManualNotificationStack, card);
         }
 

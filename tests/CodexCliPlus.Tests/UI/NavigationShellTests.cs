@@ -30,7 +30,7 @@ public sealed class NavigationShellTests
         Assert.Contains("当前步骤：", File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8), StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
-        Assert.Equal(3, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
+        Assert.Equal(2, CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\""));
         Assert.DoesNotContain("<ui:NavigationView", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayOpenMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
@@ -104,12 +104,16 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Key=\"ShellRaisedPanelStyle\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Style=\"{StaticResource ShellRaisedPanelStyle}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunSaveToDesktopButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ToolTip=\"保存到桌面\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"&#xE72D;\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"保存到桌面\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ToolTip=\"复制密钥\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"&#xE8C8;\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("FontFamily\" Value=\"Segoe MDL2 Assets\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"复制密钥\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShellIconViewboxStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Stretch\" Value=\"Uniform\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("M12,5 L18,11 L12,17", xaml, StringComparison.Ordinal);
+        Assert.Contains("M8,8 L18,8 L18,18 L8,18 Z", xaml, StringComparison.Ordinal);
+        Assert.Contains("StrokeThickness=\"1.8\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ShellTextToolTipStyle\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Segoe MDL2 Assets", xaml, StringComparison.Ordinal);
         Assert.True(xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal) <
             xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal));
         Assert.True(xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal) <
@@ -121,6 +125,8 @@ public sealed class NavigationShellTests
         Assert.Contains("FirstRunSecurityKeyTextBox.ScrollToHome()", source, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunConfirmCloseButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource DialogCloseButtonStyle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CornerRadius=\"0,16,0,8\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"FirstRunConfirmCancelButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"返回\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"确认进入\"", xaml, StringComparison.Ordinal);
@@ -133,6 +139,8 @@ public sealed class NavigationShellTests
         Assert.Contains("MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500)", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PreparationProgressTrack\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ClipToBounds=\"True\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

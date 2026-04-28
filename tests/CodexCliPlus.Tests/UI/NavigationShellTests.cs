@@ -119,6 +119,9 @@ public sealed class NavigationShellTests
         Assert.True(xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal) <
             xaml.IndexOf("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", StringComparison.Ordinal));
         Assert.Contains("<ColumnDefinition Width=\"300\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("<ColumnDefinition Width=\"Auto\" />", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ColumnDefinition Width=\"76\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("HorizontalScrollBarVisibility=\"Hidden\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalScrollBarVisibility=\"Disabled\"", xaml, StringComparison.Ordinal);

@@ -272,7 +272,7 @@
                             <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="300" />
-                                    <ColumnDefinition Width="76" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="FirstRunSecurityKeyTextBox"
@@ -285,6 +285,7 @@
                                          FontSize="15"
                                          HorizontalScrollBarVisibility="Hidden"
                                          IsReadOnly="True"
+                                         AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
                                          TextWrapping="NoWrap"
                                          VerticalContentAlignment="Center"
                                          VerticalScrollBarVisibility="Disabled" />

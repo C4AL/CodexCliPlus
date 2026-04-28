@@ -110,7 +110,22 @@ internal sealed class UiTestRun : IDisposable
 
     public void Click(string automationId)
     {
-        WaitForAutomationId(automationId, TimeSpan.FromSeconds(12)).AsButton().Click();
+        var element = WaitForAutomationId(automationId, TimeSpan.FromSeconds(12));
+        var invokePattern = element.Patterns.Invoke.PatternOrDefault;
+        if (invokePattern is not null)
+        {
+            invokePattern.Invoke();
+            return;
+        }
+
+        var togglePattern = element.Patterns.Toggle.PatternOrDefault;
+        if (togglePattern is not null)
+        {
+            togglePattern.Toggle();
+            return;
+        }
+
+        element.AsButton().Click();
     }
 
     public void Hover(string automationId)
@@ -133,6 +148,30 @@ internal sealed class UiTestRun : IDisposable
         var element = WaitForAutomationId(automationId, TimeSpan.FromSeconds(12));
         var bounds = element.BoundingRectangle;
         CaptureScreenRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height, fileName, padding);
+    }
+
+    public void CaptureElementsUnion(string fileName, int padding, params string[] automationIds)
+    {
+        var bounds = automationIds
+            .Select(automationId => WaitForAutomationId(automationId, TimeSpan.FromSeconds(12)).BoundingRectangle)
+            .ToArray();
+
+        if (bounds.Length == 0)
+        {
+            throw new ArgumentException("At least one automation id is required.", nameof(automationIds));
+        }
+
+        var left = bounds.Min(rectangle => rectangle.Left);
+        var top = bounds.Min(rectangle => rectangle.Top);
+        var right = bounds.Max(rectangle => rectangle.Left + rectangle.Width);
+        var bottom = bounds.Max(rectangle => rectangle.Top + rectangle.Height);
+        CaptureScreenRegion(left, top, right - left, bottom - top, fileName, padding);
+    }
+
+    public UiElementBounds GetElementBounds(string automationId)
+    {
+        var bounds = WaitForAutomationId(automationId, TimeSpan.FromSeconds(12)).BoundingRectangle;
+        return new UiElementBounds(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
     }
 
     public void CaptureTooltip(string tooltipText, string fileName, int padding = 8)
@@ -179,7 +218,7 @@ internal sealed class UiTestRun : IDisposable
         builder.Append("# ");
         builder.AppendLine(title);
         builder.AppendLine();
-        builder.AppendLine("## 交给 Codex/AI 视觉判断");
+        builder.AppendLine("## 人工验收清单");
         foreach (var item in checklist)
         {
             builder.Append("- ");
@@ -247,6 +286,15 @@ internal sealed class UiTestRun : IDisposable
         throw new TimeoutException(lastError is null ? failureMessage : $"{failureMessage} Last error: {lastError.Message}");
     }
 
+    public void WaitForBackendPortAvailable(TimeSpan timeout)
+    {
+        var port = AppConstants.DefaultBackendPort;
+        WaitFor(
+            () => IsLoopbackPortAvailable(port) ? string.Empty : null,
+            timeout,
+            $"CodexCliPlus backend port {port.ToString(CultureInfo.InvariantCulture)} is still in use.");
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -260,6 +308,8 @@ internal sealed class UiTestRun : IDisposable
         {
             TryDeleteFile(path);
         }
+
+        CopyRunDiagnostics();
 
         try
         {
@@ -408,6 +458,20 @@ internal sealed class UiTestRun : IDisposable
         return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
+    private static bool IsLoopbackPortAvailable(int port)
+    {
+        try
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
     private static IEnumerable<string> EnumerateDesktopSecurityKeyFiles()
     {
         var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
@@ -423,6 +487,39 @@ internal sealed class UiTestRun : IDisposable
             if (File.Exists(path))
             {
                 File.Delete(path);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void CopyRunDiagnostics()
+    {
+        CopyDiagnosticFile(Path.Combine(RootDirectory, "config", AppConstants.BackendConfigFileName));
+        CopyDiagnosticFile(Path.Combine(RootDirectory, "config", "appsettings.json"));
+
+        var logsDirectory = Path.Combine(RootDirectory, "logs");
+        if (!Directory.Exists(logsDirectory))
+        {
+            return;
+        }
+
+        var targetDirectory = Path.Combine(ArtifactDirectory, "logs");
+        Directory.CreateDirectory(targetDirectory);
+        foreach (var path in Directory.EnumerateFiles(logsDirectory, "*", SearchOption.TopDirectoryOnly))
+        {
+            CopyDiagnosticFile(path, Path.Combine(targetDirectory, Path.GetFileName(path)));
+        }
+    }
+
+    private void CopyDiagnosticFile(string sourcePath, string? targetPath = null)
+    {
+        try
+        {
+            if (File.Exists(sourcePath))
+            {
+                File.Copy(sourcePath, targetPath ?? Path.Combine(ArtifactDirectory, Path.GetFileName(sourcePath)), overwrite: true);
             }
         }
         catch
@@ -463,6 +560,13 @@ internal sealed record UiNode(
     IReadOnlyList<UiNode> Children);
 
 internal sealed record UiBounds(double Left, double Top, double Width, double Height);
+
+internal sealed record UiElementBounds(double Left, double Top, double Width, double Height)
+{
+    public double Right => Left + Width;
+
+    public double Bottom => Top + Height;
+}
 
 internal static class UiAutomationExtensions
 {

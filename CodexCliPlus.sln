@@ -20,6 +20,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Tests", "tests\CodexCliPlus.Tests\CodexCliPlus.Tests.csproj", "{331779DB-6067-4AA7-BFD6-24F6DAF7C51E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.UiTests", "tests\CodexCliPlus.UiTests\CodexCliPlus.UiTests.csproj", "{52236323-7504-4EE6-BC3B-13F985AB153D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{331779DB-6067-4AA7-BFD6-24F6DAF7C51E} = {331779DB-6067-4AA7-BFD6-24F6DAF7C51E}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

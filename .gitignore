@@ -5,7 +5,7 @@ artifacts/
 
 resources/backend/windows-x64/*
 !resources/backend/windows-x64/.gitkeep
-!resources/backend/windows-x64/cli-proxy-api.exe
+!resources/backend/windows-x64/ccp-core.exe
 !resources/backend/windows-x64/LICENSE
 !resources/backend/windows-x64/README.md
 !resources/backend/windows-x64/README_CN.md

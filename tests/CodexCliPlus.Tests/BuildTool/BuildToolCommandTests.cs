@@ -1,7 +1,9 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 
 using CodexCliPlus.BuildTool;
+using CodexCliPlus.Core.Constants;
 
 namespace CodexCliPlus.Tests.BuildTool;
 
@@ -56,7 +58,23 @@ public sealed class BuildToolCommandTests : IDisposable
 
         Assert.Equal(0, fetchCode);
         Assert.Equal(0, verifyCode);
-        Assert.True(File.Exists(Path.Combine(outputRoot, "assets", "asset-manifest.json")));
+        var manifestPath = Path.Combine(outputRoot, "assets", "asset-manifest.json");
+        Assert.True(File.Exists(manifestPath));
+        var manifestText = await File.ReadAllTextAsync(manifestPath);
+        Assert.Contains(BackendExecutableNames.ManagedExecutableFileName, manifestText, StringComparison.Ordinal);
+        Assert.DoesNotContain(BackendExecutableNames.UpstreamExecutableFileName, manifestText, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(
+            outputRoot,
+            "assets",
+            "backend",
+            "windows-x64",
+            BackendExecutableNames.ManagedExecutableFileName)));
+        Assert.False(File.Exists(Path.Combine(
+            outputRoot,
+            "assets",
+            "backend",
+            "windows-x64",
+            BackendExecutableNames.UpstreamExecutableFileName)));
         Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -80,6 +98,41 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("asset manifest not found; fetching assets", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public void RequiredBackendFilesUseManagedExecutableName()
+    {
+        Assert.Contains(BackendExecutableNames.ManagedExecutableFileName, AssetCommands.RequiredFiles);
+        Assert.DoesNotContain(BackendExecutableNames.UpstreamExecutableFileName, AssetCommands.RequiredFiles);
+    }
+
+    [Fact]
+    public void BackendArchiveExtractionMapsUpstreamExecutableToManagedName()
+    {
+        var backendTarget = Path.Combine(_rootDirectory, "archive-assets");
+        Directory.CreateDirectory(backendTarget);
+        using var archiveStream = new MemoryStream();
+        using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteZipEntry(archive, BackendExecutableNames.UpstreamExecutableFileName, "upstream binary");
+            WriteZipEntry(archive, "LICENSE", "license");
+            WriteZipEntry(archive, "README.md", "readme");
+            WriteZipEntry(archive, "README_CN.md", "readme cn");
+            WriteZipEntry(archive, "config.example.yaml", "config");
+        }
+
+        archiveStream.Position = 0;
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        InvokeExtractBackendArchive(archiveStream, backendTarget, new BuildLogger(output, error));
+
+        Assert.True(File.Exists(Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)));
+        Assert.False(File.Exists(Path.Combine(backendTarget, BackendExecutableNames.UpstreamExecutableFileName)));
+        Assert.Equal(
+            "upstream binary",
+            File.ReadAllText(Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)));
     }
 
     [Fact]
@@ -368,6 +421,23 @@ public sealed class BuildToolCommandTests : IDisposable
     private static void CreateZipWithEntry(string packagePath, string entryName)
     {
         CreateZipWithEntries(packagePath, entryName);
+    }
+
+    private static void InvokeExtractBackendArchive(Stream archiveStream, string backendTarget, BuildLogger logger)
+    {
+        var method = typeof(AssetCommands).GetMethod(
+            "ExtractBackendArchive",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method!.Invoke(null, [archiveStream, backendTarget, logger]);
+    }
+
+    private static void WriteZipEntry(ZipArchive archive, string entryName, string content)
+    {
+        var entry = archive.CreateEntry(entryName);
+        using var stream = entry.Open();
+        using var writer = new StreamWriter(stream);
+        writer.Write(content);
     }
 
     private static void CreateZipWithEntries(string packagePath, params string[] entryNames)

@@ -23,7 +23,7 @@ public sealed class SmokeTests
 {
     private static readonly string[] BackendAssetFiles =
     [
-        "cli-proxy-api.exe",
+        BackendExecutableNames.ManagedExecutableFileName,
         "LICENSE",
         "README.md",
         "README_CN.md",
@@ -158,14 +158,15 @@ public sealed class SmokeTests
         process.StartInfo.Environment["TEMP"] = scope.TempDirectory;
         process.StartInfo.Environment["TMP"] = scope.TempDirectory;
 
-        Assert.True(process.Start(), "cli-proxy-api.exe did not start.");
+        Assert.True(process.Start(), $"{BackendExecutableNames.ManagedExecutableFileName} did not start.");
 
         try
         {
             await SmokeEnvironmentScope.WaitForHttpOkAsync($"http://127.0.0.1:{port}/healthz", TimeSpan.FromSeconds(20));
             if (process.HasExited)
             {
-                Assert.Fail($"cli-proxy-api.exe exited early with code {process.ExitCode}.");
+                Assert.Fail(
+                    $"{BackendExecutableNames.ManagedExecutableFileName} exited early with code {process.ExitCode}.");
             }
             Assert.Contains(process.Id, scope.GetOwnedBackendProcessIds());
         }
@@ -209,7 +210,9 @@ public sealed class SmokeTests
         Assert.Empty(healthy.Issues);
 
         await File.WriteAllTextAsync(
-            Path.Combine(pathService.Directories.BackendDirectory, "cli-proxy-api.exe"),
+            Path.Combine(
+                pathService.Directories.BackendDirectory,
+                BackendExecutableNames.ManagedExecutableFileName),
             "tampered",
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 

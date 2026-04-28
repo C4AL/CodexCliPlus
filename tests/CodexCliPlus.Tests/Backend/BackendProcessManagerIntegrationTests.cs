@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 
+using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Processes;
 using CodexCliPlus.Core.Models;
@@ -100,13 +101,17 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var process in Process.GetProcessesByName("cli-proxy-api"))
+        foreach (var process in Process.GetProcessesByName(
+                     Path.GetFileNameWithoutExtension(BackendExecutableNames.ManagedExecutableFileName)))
         {
             try
             {
                 if (string.Equals(
                         process.MainModule?.FileName,
-                        Path.Combine(_rootDirectory, "backend", "cli-proxy-api.exe"),
+                        Path.Combine(
+                            _rootDirectory,
+                            "backend",
+                            BackendExecutableNames.ManagedExecutableFileName),
                         StringComparison.OrdinalIgnoreCase))
                 {
                     process.Kill(entireProcessTree: true);

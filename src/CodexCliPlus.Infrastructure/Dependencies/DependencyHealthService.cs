@@ -16,7 +16,6 @@ namespace CodexCliPlus.Infrastructure.Dependencies;
 public sealed class DependencyHealthService
 {
     private const int RequiredRuntimeMajorVersion = 10;
-    private const string BackendExecutableFileName = "cli-proxy-api.exe";
     private static readonly string[] RequiredResourceFiles =
     [
         "LICENSE",
@@ -70,7 +69,9 @@ public sealed class DependencyHealthService
                 IsAvailable = true,
                 RequiresRepairMode = false,
                 Summary = "Desktop dependencies are ready for full functionality.",
-                Detail = Path.Combine(_pathService.Directories.BackendDirectory, BackendExecutableFileName)
+                Detail = Path.Combine(
+                    _pathService.Directories.BackendDirectory,
+                    BackendExecutableNames.ManagedExecutableFileName)
             };
         }
 
@@ -132,7 +133,9 @@ public sealed class DependencyHealthService
 
     private void CheckBackendRuntime(List<DependencyCheckIssue> issues)
     {
-        var executablePath = Path.Combine(_pathService.Directories.BackendDirectory, BackendExecutableFileName);
+        var executablePath = Path.Combine(
+            _pathService.Directories.BackendDirectory,
+            BackendExecutableNames.ManagedExecutableFileName);
         if (!File.Exists(executablePath))
         {
             issues.Add(new DependencyCheckIssue
@@ -164,7 +167,9 @@ public sealed class DependencyHealthService
             return;
         }
 
-        var expectedExecutable = Path.Combine(expectedRoot, BackendExecutableFileName);
+        var expectedExecutable = Path.Combine(
+            expectedRoot,
+            BackendExecutableNames.ManagedExecutableFileName);
         if (!File.Exists(expectedExecutable) || FilesMatch(executablePath, expectedExecutable))
         {
             return;
@@ -395,7 +400,7 @@ public sealed class DependencyHealthService
     private static string? ResolveExpectedBackendAssetRoot()
     {
         var bundledRoot = Path.Combine(AppContext.BaseDirectory, "assets", "backend", "windows-x64");
-        if (File.Exists(Path.Combine(bundledRoot, BackendExecutableFileName)))
+        if (File.Exists(Path.Combine(bundledRoot, BackendExecutableNames.ManagedExecutableFileName)))
         {
             return bundledRoot;
         }
@@ -407,7 +412,7 @@ public sealed class DependencyHealthService
         }
 
         var repositoryAssets = Path.Combine(repositoryRoot, AppConstants.ResourcesDirectoryName, "backend", "windows-x64");
-        return File.Exists(Path.Combine(repositoryAssets, BackendExecutableFileName))
+        return File.Exists(Path.Combine(repositoryAssets, BackendExecutableNames.ManagedExecutableFileName))
             ? repositoryAssets
             : null;
     }

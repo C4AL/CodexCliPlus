@@ -4,6 +4,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 
 using CodexCliPlus.Core.Abstractions.Paths;
+using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
@@ -437,13 +438,17 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var process in Process.GetProcessesByName("cli-proxy-api"))
+        foreach (var process in Process.GetProcessesByName(
+                     Path.GetFileNameWithoutExtension(BackendExecutableNames.ManagedExecutableFileName)))
         {
             try
             {
                 if (string.Equals(
                         process.MainModule?.FileName,
-                        Path.Combine(_rootDirectory, "backend", "cli-proxy-api.exe"),
+                        Path.Combine(
+                            _rootDirectory,
+                            "backend",
+                            BackendExecutableNames.ManagedExecutableFileName),
                         StringComparison.OrdinalIgnoreCase))
                 {
                     process.Kill(entireProcessTree: true);

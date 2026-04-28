@@ -26,6 +26,13 @@ public sealed class BackendReleaseMetadataTests
     }
 
     [Fact]
+    public void BackendExecutableNamesSeparateUpstreamArchiveEntryFromManagedRuntimeName()
+    {
+        Assert.Equal("cli-proxy-api.exe", BackendExecutableNames.UpstreamExecutableFileName);
+        Assert.Equal("ccp-core.exe", BackendExecutableNames.ManagedExecutableFileName);
+    }
+
+    [Fact]
     public void RuntimeAndBuildToolUseSharedBackendReleaseMetadata()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -41,6 +48,10 @@ public sealed class BackendReleaseMetadataTests
         Assert.Contains("BackendReleaseMetadata.ArchiveSha256", runtimeSource, StringComparison.Ordinal);
         Assert.Contains("BackendReleaseMetadata.ArchiveUrl", buildToolSource, StringComparison.Ordinal);
         Assert.Contains("BackendReleaseMetadata.ArchiveSha256", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains("BackendExecutableNames.ManagedExecutableFileName", runtimeSource, StringComparison.Ordinal);
+        Assert.Contains("BackendExecutableNames.UpstreamExecutableFileName", runtimeSource, StringComparison.Ordinal);
+        Assert.Contains("BackendExecutableNames.ManagedExecutableFileName", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains("BackendExecutableNames.UpstreamExecutableFileName", buildToolSource, StringComparison.Ordinal);
         Assert.DoesNotContain("6.9.34", runtimeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("6.9.34", buildToolSource, StringComparison.Ordinal);
     }

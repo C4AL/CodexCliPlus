@@ -14,7 +14,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
 {
     private static readonly string[] ManagedBackendFiles =
     [
-        "cli-proxy-api.exe",
+        BackendExecutableNames.ManagedExecutableFileName,
         "LICENSE",
         "README.md",
         "README_CN.md",
@@ -62,7 +62,9 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var pathService = new TestPathService(rootDirectory);
         SeedHealthyManagedState(pathService);
         await File.WriteAllTextAsync(
-            Path.Combine(pathService.Directories.BackendDirectory, "cli-proxy-api.exe"),
+            Path.Combine(
+                pathService.Directories.BackendDirectory,
+                BackendExecutableNames.ManagedExecutableFileName),
             "tampered");
 
         var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());

@@ -81,7 +81,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public string GetBackendExecutablePath()
     {
-        return Path.Combine(RootDirectory, "backend", "cli-proxy-api.exe");
+        return Path.Combine(RootDirectory, "backend", BackendExecutableNames.ManagedExecutableFileName);
     }
 
     public static int FindAvailablePort()
@@ -173,7 +173,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
     public IReadOnlyList<int> GetOwnedBackendProcessIds()
     {
         var backendPath = GetBackendExecutablePath();
-        return Process.GetProcessesByName("cli-proxy-api")
+        return Process.GetProcessesByName(GetManagedBackendProcessName())
             .Where(process => MatchesProcessPath(process, backendPath))
             .Select(process => process.Id)
             .Order()
@@ -182,7 +182,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public void StopOwnedBackendProcesses()
     {
-        foreach (var process in Process.GetProcessesByName("cli-proxy-api"))
+        foreach (var process in Process.GetProcessesByName(GetManagedBackendProcessName()))
         {
             try
             {
@@ -276,6 +276,11 @@ internal sealed class SmokeEnvironmentScope : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, CreatePeStubBytes());
+    }
+
+    private static string GetManagedBackendProcessName()
+    {
+        return Path.GetFileNameWithoutExtension(BackendExecutableNames.ManagedExecutableFileName);
     }
 
     private static string FindRepositoryRoot()

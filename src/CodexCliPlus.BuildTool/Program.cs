@@ -390,14 +390,25 @@ public sealed class NoOpSigningService : ISigningService
 
 public static class AssetCommands
 {
-    private static readonly string[] RequiredBackendFiles =
+    private sealed record BackendAssetFileMapping(
+        string RepositoryFileName,
+        string ArchiveEntryName,
+        string TargetFileName);
+
+    private static readonly BackendAssetFileMapping[] RequiredBackendFiles =
     [
-        "cli-proxy-api.exe",
-        "LICENSE",
-        "README.md",
-        "README_CN.md",
-        "config.example.yaml"
+        new(
+            BackendExecutableNames.ManagedExecutableFileName,
+            BackendExecutableNames.UpstreamExecutableFileName,
+            BackendExecutableNames.ManagedExecutableFileName),
+        new("LICENSE", "LICENSE", "LICENSE"),
+        new("README.md", "README.md", "README.md"),
+        new("README_CN.md", "README_CN.md", "README_CN.md"),
+        new("config.example.yaml", "config.example.yaml", "config.example.yaml")
     ];
+
+    private static readonly string[] RequiredBackendFileNames =
+        RequiredBackendFiles.Select(file => file.TargetFileName).ToArray();
 
     public static async Task<int> FetchAssetsAsync(BuildContext context)
     {
@@ -409,14 +420,15 @@ public static class AssetCommands
         SafeFileSystem.CleanDirectory(context.AssetsRoot, context.Options.OutputRoot);
         var backendTarget = Path.Combine(context.AssetsRoot, "backend", "windows-x64");
 
-        if (Directory.Exists(sourceDirectory) && RequiredBackendFiles.All(fileName => File.Exists(Path.Combine(sourceDirectory, fileName))))
+        if (Directory.Exists(sourceDirectory) &&
+            RequiredBackendFiles.All(file => File.Exists(Path.Combine(sourceDirectory, file.RepositoryFileName))))
         {
-            foreach (var fileName in RequiredBackendFiles)
+            foreach (var file in RequiredBackendFiles)
             {
-                var sourcePath = Path.Combine(sourceDirectory, fileName);
+                var sourcePath = Path.Combine(sourceDirectory, file.RepositoryFileName);
                 Directory.CreateDirectory(backendTarget);
-                File.Copy(sourcePath, Path.Combine(backendTarget, fileName), overwrite: true);
-                context.Logger.Info($"asset copied: backend/windows-x64/{fileName}");
+                File.Copy(sourcePath, Path.Combine(backendTarget, file.TargetFileName), overwrite: true);
+                context.Logger.Info($"asset copied: backend/windows-x64/{file.TargetFileName}");
             }
         }
         else
@@ -507,22 +519,27 @@ public static class AssetCommands
         }
 
         using var archiveStream = new MemoryStream(archiveBytes);
+        ExtractBackendArchive(archiveStream, backendTarget, logger);
+    }
+
+    private static void ExtractBackendArchive(Stream archiveStream, string backendTarget, BuildLogger logger)
+    {
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         foreach (var requiredFile in RequiredBackendFiles)
         {
             var entry = archive.Entries.FirstOrDefault(item =>
-                string.Equals(item.Name, requiredFile, StringComparison.OrdinalIgnoreCase));
+                string.Equals(item.Name, requiredFile.ArchiveEntryName, StringComparison.OrdinalIgnoreCase));
             if (entry is null)
             {
-                throw new InvalidDataException($"Downloaded backend archive is missing {requiredFile}.");
+                throw new InvalidDataException($"Downloaded backend archive is missing {requiredFile.ArchiveEntryName}.");
             }
 
-            entry.ExtractToFile(Path.Combine(backendTarget, requiredFile), overwrite: true);
-            logger.Info($"asset downloaded: backend/windows-x64/{requiredFile}");
+            entry.ExtractToFile(Path.Combine(backendTarget, requiredFile.TargetFileName), overwrite: true);
+            logger.Info($"asset downloaded: backend/windows-x64/{requiredFile.TargetFileName}");
         }
     }
 
-    public static IReadOnlyList<string> RequiredFiles => RequiredBackendFiles;
+    public static IReadOnlyList<string> RequiredFiles => RequiredBackendFileNames;
 }
 
 public static class WebUiCommands

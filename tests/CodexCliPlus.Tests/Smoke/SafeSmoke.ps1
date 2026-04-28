@@ -564,7 +564,7 @@ function Invoke-LaunchSmoke {
 
         $childProcesses = Get-ChildProcessTree -RootProcessId $rootProcess.Id
         $backendProcess = $childProcesses | Where-Object {
-            $_.Name -ieq "cli-proxy-api.exe" -and
+            $_.Name -ieq "ccp-core.exe" -and
             -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
             $_.ExecutablePath.StartsWith($isolatedRoots.SmokeRoot, [System.StringComparison]::OrdinalIgnoreCase)
         } | Select-Object -First 1
@@ -617,7 +617,7 @@ function Invoke-LaunchSmoke {
         if ($null -ne $rootProcess) {
             $children = Get-ChildProcessTree -RootProcessId $rootProcess.Id
             $ownedBackendProcesses = $children | Where-Object {
-                $_.Name -ieq "cli-proxy-api.exe" -and
+                $_.Name -ieq "ccp-core.exe" -and
                 -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
                 $_.ExecutablePath.StartsWith($isolatedRoots.SmokeRoot, [System.StringComparison]::OrdinalIgnoreCase)
             }

@@ -5,6 +5,7 @@
 - Keep application display language Chinese-only for all user-facing desktop UI text. Do not introduce English or mixed-language UI strings unless the user explicitly requests it.
 - Treat README edits and UI language changes as high-signal product decisions. If a task would require either, stop and confirm with the user first unless the request is explicit.
 - When creating commits in this repository, use the repository Git identity `C4AL <104809382+C4AL@users.noreply.github.com>`.
+- Commit summaries and commit message bodies for this repository must be written in Chinese. The message body must clearly and concretely list every meaningful change included in the commit, including source changes, generated assets, tests, build artifacts, and verification updates when present.
 - When the user asks to commit, submit, or otherwise save repository changes, default to committing locally and pushing the current branch to its tracked remote.
 - Treat work as planned development when Codex creates or follows a multi-step plan/checklist, implements a feature or workflow, changes behavior across multiple files, or performs more than a narrow single-file fix.
 - Treat changes as medium-to-large when they touch 3 or more source files, change 100 or more non-generated lines, add/move/remove files or directories, affect shared APIs/runtime packaging/build/release/test infrastructure, or alter a user-facing workflow.

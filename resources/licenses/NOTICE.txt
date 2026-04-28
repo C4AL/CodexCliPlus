@@ -1,6 +1,6 @@
-Cli Proxy API Desktop / CPAD combined notices
+CodexCliPlus combined notices
 
-CPAD original desktop code is licensed under the MIT License.
+CodexCliPlus original desktop code is licensed under the MIT License.
 Bundled CLIProxyAPI backend files keep their upstream MIT License.
 Bundled CLI Proxy API Management Center WebUI source and static assets keep
 their upstream MIT License.

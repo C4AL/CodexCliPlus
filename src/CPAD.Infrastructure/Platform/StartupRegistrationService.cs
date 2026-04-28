@@ -28,10 +28,12 @@ public sealed class StartupRegistrationService
             var executablePath = Environment.ProcessPath
                 ?? throw new InvalidOperationException("Could not resolve the current executable path.");
             key.SetValue(AppConstants.ProductKey, $"\"{executablePath}\"");
+            key.DeleteValue(AppConstants.LegacyProductKey, throwOnMissingValue: false);
         }
         else
         {
             key.DeleteValue(AppConstants.ProductKey, throwOnMissingValue: false);
+            key.DeleteValue(AppConstants.LegacyProductKey, throwOnMissingValue: false);
         }
     }
 }

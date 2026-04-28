@@ -520,11 +520,11 @@ function Invoke-LaunchSmoke {
 
     $resolvedAppPath = [System.IO.Path]::GetFullPath($ApplicationPath)
     if (-not (Test-Path -LiteralPath $resolvedAppPath)) {
-        throw "CPAD.exe was not found: $resolvedAppPath"
+        throw "CodexCliPlus.exe was not found: $resolvedAppPath"
     }
 
-    if ([System.IO.Path]::GetFileName($resolvedAppPath) -ne "CPAD.exe") {
-        throw "Launch mode only accepts CPAD.exe. Refusing to run: $resolvedAppPath"
+    if ([System.IO.Path]::GetFileName($resolvedAppPath) -ne "CodexCliPlus.exe") {
+        throw "Launch mode only accepts CodexCliPlus.exe. Refusing to run: $resolvedAppPath"
     }
 
     Write-Section "Launch Smoke"
@@ -540,8 +540,10 @@ function Invoke-LaunchSmoke {
     $startInfo.FileName = $resolvedAppPath
     $startInfo.WorkingDirectory = [System.IO.Path]::GetDirectoryName($resolvedAppPath)
     $startInfo.UseShellExecute = $false
-    $startInfo.EnvironmentVariables["CPAD_APP_ROOT"] = $isolatedRoots.SmokeRoot
-    $startInfo.EnvironmentVariables["CPAD_APP_MODE"] = "development"
+    $startInfo.EnvironmentVariables["CODEXCLIPLUS_APP_ROOT"] = $isolatedRoots.SmokeRoot
+    $startInfo.EnvironmentVariables["CODEXCLIPLUS_APP_MODE"] = "development"
+    $startInfo.EnvironmentVariables.Remove("CPAD_APP_ROOT")
+    $startInfo.EnvironmentVariables.Remove("CPAD_APP_MODE")
     $startInfo.EnvironmentVariables["USERPROFILE"] = $isolatedRoots.UserProfileRoot
     $startInfo.EnvironmentVariables["HOME"] = $isolatedRoots.UserProfileRoot
     $startInfo.EnvironmentVariables["CODEX_HOME"] = $isolatedRoots.CodexHomeRoot
@@ -552,14 +554,14 @@ function Invoke-LaunchSmoke {
     try {
         $rootProcess = [System.Diagnostics.Process]::Start($startInfo)
         if ($null -eq $rootProcess) {
-            throw "Failed to start CPAD.exe."
+            throw "Failed to start CodexCliPlus.exe."
         }
 
-        Write-Output ("Started CPAD.exe (PID {0})." -f $rootProcess.Id)
+        Write-Output ("Started CodexCliPlus.exe (PID {0})." -f $rootProcess.Id)
         Start-Sleep -Seconds $WaitSeconds
 
         if ($rootProcess.HasExited) {
-            throw ("CPAD.exe exited early with code {0}." -f $rootProcess.ExitCode)
+            throw ("CodexCliPlus.exe exited early with code {0}." -f $rootProcess.ExitCode)
         }
 
         $childProcesses = Get-ChildProcessTree -RootProcessId $rootProcess.Id
@@ -608,7 +610,7 @@ function Invoke-LaunchSmoke {
             }
         }
         else {
-            Write-Output "[pass] CPAD.exe stayed running without spawning a backend child during the smoke window."
+            Write-Output "[pass] CodexCliPlus.exe stayed running without spawning a backend child during the smoke window."
         }
 
         Write-Output "[pass] Launch smoke completed with isolated environment variables."
@@ -665,7 +667,7 @@ Write-Section "Summary"
 Write-Output ("Failures: {0}" -f $staticResult.Failures.Count)
 Write-Output ("Warnings: {0}" -f $staticResult.Warnings.Count)
 if (-not $Launch) {
-    Write-Output "Launch smoke was skipped. Re-run with -Launch -AppPath <path-to-CPAD.exe> to verify isolated startup."
+    Write-Output "Launch smoke was skipped. Re-run with -Launch -AppPath <path-to-CodexCliPlus.exe> to verify isolated startup."
 }
 
 if ($staticResult.Failures.Count -gt 0) {

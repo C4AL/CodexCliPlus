@@ -192,7 +192,7 @@ export function LoginPage() {
       {/* 左侧品牌展示区 */}
       <div className={styles.brandPanel}>
         <div className={styles.brandContent}>
-          <span className={styles.brandWord}>CPAD</span>
+          <span className={styles.brandWord}>CodexCliPlus</span>
         </div>
       </div>
 
@@ -201,7 +201,7 @@ export function LoginPage() {
         {showSplash ? (
           /* 启动动画 */
           <div className={styles.splashContent}>
-            <img src={INLINE_LOGO_JPEG} alt="CPAD" className={styles.splashLogo} />
+            <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus" className={styles.splashLogo} />
             <h1 className={styles.splashTitle}>{t('splash.title')}</h1>
             <p className={styles.splashSubtitle}>{t('splash.subtitle')}</p>
             <div className={styles.splashLoader}>

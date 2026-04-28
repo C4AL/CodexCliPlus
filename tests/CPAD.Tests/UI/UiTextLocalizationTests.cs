@@ -29,11 +29,12 @@ public sealed class UiTextLocalizationTests
         var repositoryRoot = FindRepositoryRoot();
         var viewModelSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CPAD.App", "ViewModels", "MainWindowViewModel.cs"), Encoding.UTF8);
 
-        Assert.Contains("CPAD \u684c\u9762\u7248", viewModelSource, StringComparison.Ordinal);
+        Assert.Contains("AppConstants.DisplayName", viewModelSource, StringComparison.Ordinal);
+        Assert.Contains("\u684c\u9762\u7248", viewModelSource, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DesktopWebUiChineseBrandingUsesCpadAndHidesWebLoginConnectionHints()
+    public void DesktopWebUiChineseBrandingUsesCodexCliPlusAndHidesWebLoginConnectionHints()
     {
         var repositoryRoot = FindRepositoryRoot();
         var zhCn = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "i18n", "locales", "zh-CN.json"), Encoding.UTF8);
@@ -53,7 +54,8 @@ public sealed class UiTextLocalizationTests
             mainEntry,
             htmlEntry);
 
-        Assert.Contains("\"main\": \"CPAD\"", zhCn, StringComparison.Ordinal);
+        Assert.Contains("\"main\": \"CodexCliPlus\"", zhCn, StringComparison.Ordinal);
+        Assert.Contains("CodexCliPlus", visibleText, StringComparison.Ordinal);
         Assert.Contains("\"desktop_subtitle\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("!desktopMode &&", loginPage, StringComparison.Ordinal);
 

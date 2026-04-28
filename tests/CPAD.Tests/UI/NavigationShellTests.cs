@@ -56,6 +56,7 @@ public sealed class NavigationShellTests
         Assert.Contains("openExternal", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("__CPAD_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
     }
 
@@ -88,6 +89,8 @@ public sealed class NavigationShellTests
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin?:", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("__CPAD_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("normalizeApiBase(desktopBootstrap.apiBase)", authStoreSource, StringComparison.Ordinal);

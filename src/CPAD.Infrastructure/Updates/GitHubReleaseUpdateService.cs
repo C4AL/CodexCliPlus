@@ -12,8 +12,8 @@ namespace CPAD.Infrastructure.Updates;
 
 public sealed class GitHubReleaseUpdateService : IUpdateCheckService
 {
-    private const string RepositoryOwner = "Blackblock-inc";
-    private const string RepositoryName = "Cli-Proxy-API-Desktop";
+    private const string RepositoryOwner = "C4AL";
+    private const string RepositoryName = "CodexCliPlus";
     private const string Repository = $"{RepositoryOwner}/{RepositoryName}";
     private const string StableReleaseApiUrl = $"https://api.github.com/repos/{Repository}/releases/latest";
     private const string ReleasePageUrl = $"https://github.com/{Repository}/releases";
@@ -49,7 +49,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
 
         var client = _httpClientFactory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, StableReleaseApiUrl);
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CPAD-Desktop", "1.0"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CodexCliPlus-Desktop", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
 

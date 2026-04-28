@@ -7,13 +7,17 @@ namespace CPAD.Infrastructure.Paths;
 
 public sealed class AppPathService : IPathService
 {
+    private readonly bool _shouldAttemptLegacyMigration;
+
     public AppPathService()
     {
         var dataMode = ResolveDataMode();
-        var rootDirectoryOverride = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
+        var rootDirectoryOverride = ResolveRootDirectoryOverride();
         var rootDirectory = string.IsNullOrWhiteSpace(rootDirectoryOverride)
             ? ResolveDefaultRootDirectory(dataMode)
             : Path.GetFullPath(rootDirectoryOverride);
+        _shouldAttemptLegacyMigration = dataMode == AppDataMode.Installed &&
+            string.IsNullOrWhiteSpace(rootDirectoryOverride);
 
         var logsDirectory = Path.Combine(rootDirectory, "logs");
         var configDirectory = Path.Combine(rootDirectory, "config");
@@ -41,6 +45,11 @@ public sealed class AppPathService : IPathService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (_shouldAttemptLegacyMigration)
+        {
+            TryMigrateLegacyInstalledRoot();
+        }
+
         Directory.CreateDirectory(Directories.RootDirectory);
         Directory.CreateDirectory(Directories.LogsDirectory);
         Directory.CreateDirectory(Directories.ConfigDirectory);
@@ -54,13 +63,26 @@ public sealed class AppPathService : IPathService
 
     private static AppDataMode ResolveDataMode()
     {
-        var modeOverride = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        var modeOverride = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_MODE");
+        if (string.IsNullOrWhiteSpace(modeOverride))
+        {
+            modeOverride = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        }
+
         return modeOverride?.Trim().ToLowerInvariant() switch
         {
             "portable" => AppDataMode.Portable,
             "development" => AppDataMode.Development,
             _ => ResolveDataModeFromPackageMarker()
         };
+    }
+
+    private static string? ResolveRootDirectoryOverride()
+    {
+        var rootDirectoryOverride = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_ROOT");
+        return string.IsNullOrWhiteSpace(rootDirectoryOverride)
+            ? Environment.GetEnvironmentVariable("CPAD_APP_ROOT")
+            : rootDirectoryOverride;
     }
 
     private static AppDataMode ResolveDataModeFromPackageMarker()
@@ -89,6 +111,45 @@ public sealed class AppPathService : IPathService
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 AppConstants.ProductKey)
         };
+    }
+
+    private void TryMigrateLegacyInstalledRoot()
+    {
+        if (Directory.Exists(Directories.RootDirectory))
+        {
+            return;
+        }
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            return;
+        }
+
+        var legacyRoot = Path.Combine(localAppData, AppConstants.LegacyProductKey);
+        if (!Directory.Exists(legacyRoot))
+        {
+            return;
+        }
+
+        CopyDirectory(legacyRoot, Directories.RootDirectory);
+    }
+
+    private static void CopyDirectory(string sourceDirectory, string targetDirectory)
+    {
+        Directory.CreateDirectory(targetDirectory);
+
+        foreach (var filePath in Directory.EnumerateFiles(sourceDirectory))
+        {
+            File.Copy(filePath, Path.Combine(targetDirectory, Path.GetFileName(filePath)), overwrite: false);
+        }
+
+        foreach (var directoryPath in Directory.EnumerateDirectories(sourceDirectory))
+        {
+            CopyDirectory(
+                directoryPath,
+                Path.Combine(targetDirectory, Path.GetFileName(directoryPath)));
+        }
     }
 
     private static string ResolveDevelopmentRootDirectory()

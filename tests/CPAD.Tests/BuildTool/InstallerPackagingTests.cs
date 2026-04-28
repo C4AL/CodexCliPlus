@@ -28,14 +28,14 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Equal(string.Empty, error.ToString());
 
-        var installerPath = Path.Combine(outputRoot, "packages", "CPAD.Setup.9.9.9.exe");
+        var installerPath = Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.9.9.9.exe");
         Assert.True(File.Exists(installerPath));
         Assert.Null(WindowsExecutableValidation.ValidateFile(installerPath));
 
-        var stagingPackagePath = Path.Combine(outputRoot, "packages", "CPAD.Setup.9.9.9.win-x64.zip");
+        var stagingPackagePath = Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.9.9.9.win-x64.zip");
         Assert.True(File.Exists(stagingPackagePath));
         using var archive = ZipFile.OpenRead(stagingPackagePath);
-        Assert.Contains(archive.Entries, entry => entry.FullName == "output/CPAD.Setup.9.9.9.exe");
+        Assert.Contains(archive.Entries, entry => entry.FullName == "output/CodexCliPlus.Setup.9.9.9.exe");
         Assert.Contains(archive.Entries, entry => entry.FullName == "micasetup.json");
         Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/assets/webui/upstream/dist/index.html");
         Assert.Contains(archive.Entries, entry => entry.FullName == "app-package/assets/webui/upstream/sync.json");
@@ -46,8 +46,9 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Equal("KeepMyData", cleanupManifest.KeepMyDataOptionName);
         Assert.False(cleanupManifest.KeepMyDataDefault);
         Assert.Equal("full-clean", cleanupManifest.DefaultUninstallProfile);
+        Assert.Contains("%LocalAppData%\\CodexCliPlus\\config\\secrets\\*.bin", cleanupManifest.DeleteByDefault);
         Assert.Contains("%LocalAppData%\\CPAD\\config\\secrets\\*.bin", cleanupManifest.DeleteByDefault);
-        Assert.Contains("%LocalAppData%\\Programs\\CPAD", cleanupManifest.AlwaysDelete);
+        Assert.Contains("%LocalAppData%\\Programs\\CodexCliPlus", cleanupManifest.AlwaysDelete);
 
         var dependencyPrecheck = ReadArchiveJson<JsonElement>(archive, "app-package/packaging/dependency-precheck.json");
         Assert.True(dependencyPrecheck.GetProperty("webView2").GetProperty("required").GetBoolean());
@@ -76,7 +77,7 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.True(runner.DotnetMsbuildInvocations >= 2);
 
-        var installerPath = Path.Combine(outputRoot, "packages", "CPAD.Setup.9.9.9.exe");
+        var installerPath = Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.9.9.9.exe");
         Assert.True(File.Exists(installerPath));
         Assert.Null(WindowsExecutableValidation.ValidateFile(installerPath));
 
@@ -86,10 +87,10 @@ public sealed class InstallerPackagingTests : IDisposable
         var uninstallHelper = File.ReadAllText(Path.Combine(distRoot, "Helper", "Setup", "UninstallHelper.cs"));
 
         Assert.DoesNotContain(".UseElevated()", setupProgram, StringComparison.Ordinal);
-        Assert.Contains("BlackblockInc.CPAD.Setup", setupProgram, StringComparison.Ordinal);
+        Assert.Contains("BlackblockInc.CodexCliPlus.Setup", setupProgram, StringComparison.Ordinal);
         Assert.Contains("RequestExecutionLevel(\"user\")", setupProgram, StringComparison.Ordinal);
         Assert.Contains("option.KeepMyData = false;", uninstProgram, StringComparison.Ordinal);
-        Assert.Contains("CleanupCpadUserData", uninstallHelper, StringComparison.Ordinal);
+        Assert.Contains("CleanupCodexCliPlusUserData", uninstallHelper, StringComparison.Ordinal);
         Assert.DoesNotContain("Option.Current.KeepMyData = true;", uninstallHelper, StringComparison.Ordinal);
     }
 
@@ -129,7 +130,7 @@ public sealed class InstallerPackagingTests : IDisposable
     {
         var publishRoot = Path.Combine(outputRoot, "publish", "win-x64");
         Directory.CreateDirectory(publishRoot);
-        File.WriteAllBytes(Path.Combine(publishRoot, "CPAD.exe"), CreateExecutableBytes());
+        File.WriteAllBytes(Path.Combine(publishRoot, "CodexCliPlus.exe"), CreateExecutableBytes());
         File.WriteAllText(Path.Combine(publishRoot, "desktop.json"), "{}");
         Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist"));
         File.WriteAllText(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "index.html"), "<html></html>");

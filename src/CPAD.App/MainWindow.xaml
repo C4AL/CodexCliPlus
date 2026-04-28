@@ -13,7 +13,7 @@
                  MinHeight="640"
                  FontFamily="{StaticResource TextThemeFontFamily}"
                  Background="{DynamicResource ApplicationBackgroundBrush}"
-                 Icon="pack://application:,,,/Resources/Icons/ico-transparent.png"
+                 Icon="pack://application:,,,/Resources/Icons/codexcliplus.ico"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Auto"
                  WindowStartupLocation="CenterScreen"
@@ -114,7 +114,7 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>
-                    <TextBlock Text="登录 CPAD"
+                    <TextBlock Text="登录 CodexCliPlus"
                                FontSize="24"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource PrimaryTextBrush}" />
@@ -226,10 +226,10 @@
         <tray:NotifyIcon x:Name="TrayIcon"
                          Grid.RowSpan="2"
                          FocusOnLeftClick="False"
-                         Icon="pack://application:,,,/Resources/Icons/ico-transparent.png"
+                         Icon="pack://application:,,,/Resources/Icons/codexcliplus.ico"
                          LeftDoubleClick="TrayIcon_LeftDoubleClick"
                          MenuOnRightClick="True"
-                         TooltipText="CPAD 桌面版">
+                         TooltipText="CodexCliPlus 桌面版">
             <tray:NotifyIcon.Menu>
                 <ContextMenu x:Name="TrayMenu">
                     <MenuItem Header="打开"

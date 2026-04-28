@@ -108,21 +108,21 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
-            "CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
+            "CodexCliPlus.exe",
             "portable-mode.json",
             "assets/webui/upstream/dist/index.html",
             "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
-            "app/CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
+            "app/CodexCliPlus.exe",
             "app/dev-mode.json",
             "app/artifacts/dev-data/.gitkeep",
             "app/assets/webui/upstream/dist/index.html",
             "app/assets/webui/upstream/sync.json");
-        CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
+        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"));
         CreateInstallerStagingZip(
-            Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
             CreateStubExecutableBytes());
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -146,21 +146,21 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
-            "CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
+            "CodexCliPlus.exe",
             "portable-mode.json",
             "assets/webui/upstream/dist/index.html",
             "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
-            "app/CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
+            "app/CodexCliPlus.exe",
             "app/dev-mode.json",
             "app/artifacts/dev-data/.gitkeep",
             "app/assets/webui/upstream/dist/index.html",
             "app/assets/webui/upstream/sync.json");
-        File.WriteAllBytes(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"), new byte[80]);
+        File.WriteAllBytes(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"), new byte[80]);
         CreateInstallerStagingZip(
-            Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
             CreateStubExecutableBytes());
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -183,29 +183,29 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Portable.9.9.9.win-x64.zip"),
-            "CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Portable.9.9.9.win-x64.zip"),
+            "CodexCliPlus.exe",
             "portable-mode.json",
             "assets/webui/upstream/dist/index.html",
             "assets/webui/upstream/sync.json");
         CreateZipWithEntries(
-            Path.Combine(packageRoot, "CPAD.Dev.9.9.9.win-x64.zip"),
-            "app/CPAD.exe",
+            Path.Combine(packageRoot, "CodexCliPlus.Dev.9.9.9.win-x64.zip"),
+            "app/CodexCliPlus.exe",
             "app/dev-mode.json",
             "app/artifacts/dev-data/.gitkeep",
             "app/assets/webui/upstream/dist/index.html",
             "app/assets/webui/upstream/sync.json");
-        CreateStubExecutable(Path.Combine(packageRoot, "CPAD.Setup.9.9.9.exe"));
+        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.exe"));
         CreateZipWithExecutableEntries(
-            Path.Combine(packageRoot, "CPAD.Setup.9.9.9.win-x64.zip"),
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.9.9.9.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
-                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["output/CPAD.Setup.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
+                ["output/CodexCliPlus.Setup.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
@@ -220,7 +220,7 @@ public sealed class BuildToolCommandTests : IDisposable
             new RecordingProcessRunner());
 
         Assert.Equal(1, exitCode);
-        Assert.Contains("output/CPAD.Setup.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("output/CodexCliPlus.Setup.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -321,7 +321,7 @@ public sealed class BuildToolCommandTests : IDisposable
     {
         var publishRoot = Path.Combine(_rootDirectory, "publish");
         Directory.CreateDirectory(publishRoot);
-        File.WriteAllText(Path.Combine(publishRoot, "CPAD.exe"), "cpad");
+        File.WriteAllText(Path.Combine(publishRoot, "CodexCliPlus.exe"), "codexcliplus");
 
         var exception = Assert.Throws<FileNotFoundException>(() => SafeFileSystem.RequirePublishRoot(publishRoot));
 
@@ -399,12 +399,12 @@ public sealed class BuildToolCommandTests : IDisposable
             packagePath,
             new Dictionary<string, byte[]>
             {
-                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["output/CPAD.Setup.9.9.9.exe"] = installerBytes,
+                ["output/CodexCliPlus.Setup.9.9.9.exe"] = installerBytes,
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")

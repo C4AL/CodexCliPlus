@@ -12,6 +12,7 @@ namespace CPAD.Infrastructure.Security;
 public sealed class DpapiCredentialStore : ISecureCredentialStore
 {
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes(AppConstants.AppUserModelId);
+    private static readonly byte[] LegacyEntropy = Encoding.UTF8.GetBytes(AppConstants.LegacyAppUserModelId);
     private static readonly Regex ReferenceSanitizer = new("[^a-z0-9\\-]+", RegexOptions.Compiled);
 
     private readonly IPathService _pathService;
@@ -58,14 +59,39 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
             }
 
             var payload = await File.ReadAllBytesAsync(secretPath, cancellationToken);
-            var plainBytes = ProtectedData.Unprotect(payload, Entropy, DataProtectionScope.CurrentUser);
-            return Encoding.UTF8.GetString(plainBytes);
+            if (TryUnprotect(payload, Entropy, out var plainBytes))
+            {
+                return Encoding.UTF8.GetString(plainBytes);
+            }
+
+            if (TryUnprotect(payload, LegacyEntropy, out plainBytes))
+            {
+                var value = Encoding.UTF8.GetString(plainBytes);
+                await SaveSecretAsync(reference, value, cancellationToken);
+                return value;
+            }
+
+            throw new CryptographicException("Secure credential payload could not be decrypted with current or legacy product entropy.");
         }
         catch (Exception exception) when (exception is CryptographicException or IOException or UnauthorizedAccessException)
         {
             throw new SecureCredentialStoreException(
                 $"Failed to load secure credential reference '{reference}'.",
                 exception);
+        }
+    }
+
+    private static bool TryUnprotect(byte[] payload, byte[] entropy, out byte[] plainBytes)
+    {
+        try
+        {
+            plainBytes = ProtectedData.Unprotect(payload, entropy, DataProtectionScope.CurrentUser);
+            return true;
+        }
+        catch (CryptographicException)
+        {
+            plainBytes = [];
+            return false;
         }
     }
 

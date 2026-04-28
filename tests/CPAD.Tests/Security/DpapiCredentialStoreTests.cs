@@ -1,4 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
+
 using CPAD.Core.Abstractions.Paths;
+using CPAD.Core.Constants;
 using CPAD.Core.Models;
 using CPAD.Infrastructure.Security;
 
@@ -25,6 +29,33 @@ public sealed class DpapiCredentialStoreTests : IDisposable
 
         await store.DeleteSecretAsync("phase6-test");
         Assert.False(File.Exists(secretPath));
+    }
+
+    [Fact]
+    public async Task LoadSecretAsyncReadsLegacyEntropyAndRewritesWithCurrentEntropy()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var store = new DpapiCredentialStore(pathService);
+        await pathService.EnsureCreatedAsync();
+
+        var secretPath = Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "legacy-key.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(secretPath)!);
+        var legacyPayload = ProtectedData.Protect(
+            Encoding.UTF8.GetBytes("legacy-secret"),
+            Encoding.UTF8.GetBytes(AppConstants.LegacyAppUserModelId),
+            DataProtectionScope.CurrentUser);
+        await File.WriteAllBytesAsync(secretPath, legacyPayload);
+
+        var loaded = await store.LoadSecretAsync("legacy-key");
+        var migratedPayload = await File.ReadAllBytesAsync(secretPath);
+        var migratedPlainBytes = ProtectedData.Unprotect(
+            migratedPayload,
+            Encoding.UTF8.GetBytes(AppConstants.AppUserModelId),
+            DataProtectionScope.CurrentUser);
+
+        Assert.Equal("legacy-secret", loaded);
+        Assert.Equal("legacy-secret", Encoding.UTF8.GetString(migratedPlainBytes));
+        Assert.NotEqual(legacyPayload, migratedPayload);
     }
 
     public void Dispose()

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CPAD.Core.Abstractions.Build;
+using CPAD.Core.Constants;
 
 namespace CPAD.ViewModels;
 
@@ -10,7 +11,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(IBuildInfo buildInfo)
     {
-        _title = $"CPAD 桌面版 {buildInfo.ApplicationVersion}";
+        _title = $"{AppConstants.DisplayName} 桌面版 {buildInfo.ApplicationVersion}";
     }
 
     public string Title

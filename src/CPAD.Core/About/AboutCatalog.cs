@@ -7,9 +7,9 @@ public static class AboutCatalog
     public static IReadOnlyList<AboutComponentSource> ComponentSources { get; } =
     [
         new(
-            "CPAD",
+            "CodexCliPlus",
             "Minimal Windows desktop shell",
-            "Blackblock-inc/Cli-Proxy-API-Desktop",
+            "C4AL/CodexCliPlus",
             "MIT",
             "WPF shell for windowing, tray behavior, backend lifecycle, secure storage, updates, and the local WebView2 host."),
         new(
@@ -19,7 +19,7 @@ public static class AboutCatalog
             "MIT",
             "Backend binaries and API semantics are used through local process hosting and HTTP management calls."),
         new(
-            "CPAD 管理界面",
+            "CodexCliPlus 管理界面",
             "Vendored upstream frontend",
             "router-for-me/Cli-Proxy-API-Management-Center",
             "MIT",
@@ -43,9 +43,9 @@ public static class AboutCatalog
         new(
             "桌面程序许可",
             "MIT",
-            "CPAD.LICENSE.txt",
+            "CodexCliPlus.LICENSE.txt",
             "LICENSE.txt",
-            "CPAD 原创桌面应用代码遵循 MIT 许可。"),
+            "CodexCliPlus 原创桌面应用代码遵循 MIT 许可。"),
         new(
             "后端许可",
             "MIT",

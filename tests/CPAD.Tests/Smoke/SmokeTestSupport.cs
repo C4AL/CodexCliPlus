@@ -16,6 +16,8 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 {
     private static readonly string[] EnvironmentKeys =
     [
+        "CODEXCLIPLUS_APP_ROOT",
+        "CODEXCLIPLUS_APP_MODE",
         "CPAD_APP_ROOT",
         "CPAD_APP_MODE",
         "USERPROFILE",
@@ -49,8 +51,10 @@ internal sealed class SmokeEnvironmentScope : IDisposable
             _originalValues[key] = Environment.GetEnvironmentVariable(key);
         }
 
-        SetEnvironment("CPAD_APP_ROOT", RootDirectory);
-        SetEnvironment("CPAD_APP_MODE", mode);
+        SetEnvironment("CODEXCLIPLUS_APP_ROOT", RootDirectory);
+        SetEnvironment("CODEXCLIPLUS_APP_MODE", mode);
+        SetEnvironment("CPAD_APP_ROOT", null);
+        SetEnvironment("CPAD_APP_MODE", null);
         SetEnvironment("USERPROFILE", UserProfileDirectory);
         SetEnvironment("HOME", HomeDirectory);
         SetEnvironment("CODEX_HOME", CodexHomeDirectory);

@@ -733,11 +733,11 @@ public static class PublishCommands
     {
         var manifest = new PublishManifest
         {
-            Product = "Cli Proxy API Desktop",
+            Product = AppConstants.ProductName,
             Version = context.Options.Version,
             Runtime = context.Options.Runtime,
             Configuration = context.Options.Configuration,
-            Application = "CPAD.exe",
+            Application = AppConstants.ExecutableName,
             AssetsManifest = Path.GetRelativePath(context.PublishRoot, context.AssetManifestPath)
         };
         await File.WriteAllTextAsync(
@@ -749,10 +749,6 @@ public static class PublishCommands
 
 public static class PackageCommands
 {
-    private const string ProductName = "Cli Proxy API Desktop";
-    private const string ProductKey = "CPAD";
-    private const string AppUserModelId = "BlackblockInc.CPAD";
-
     public static async Task<int> PackagePortableAsync(BuildContext context)
     {
         var stageRoot = Path.Combine(context.PackageRoot, "staging", "portable");
@@ -779,7 +775,7 @@ public static class PackageCommands
 
         var packagePath = Path.Combine(
             context.PackageRoot,
-            $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip");
+            $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip");
         await CreatePackageAsync(context, stageRoot, packagePath, "portable");
         return 0;
     }
@@ -815,7 +811,7 @@ public static class PackageCommands
 
         var packagePath = Path.Combine(
             context.PackageRoot,
-            $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip");
+            $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip");
         await CreatePackageAsync(context, stageRoot, packagePath, "development");
         return 0;
     }
@@ -828,23 +824,23 @@ public static class PackageCommands
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
         var installerOutputPath = Path.Combine(
             context.PackageRoot,
-            $"CPAD.Setup.{context.Options.Version}.exe");
+            $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe");
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
 
         var installerPlan = new InstallerPlan
         {
-            ProductName = ProductName,
+            ProductName = AppConstants.ProductName,
             InstallerName = Path.GetFileName(installerOutputPath),
-            AppUserModelId = AppUserModelId,
+            AppUserModelId = AppConstants.AppUserModelId,
             CurrentUserDefault = true,
             PayloadDirectory = "app-package",
             MicaSetupRoute = true,
             RequestExecutionLevel = "user",
-            InstallDirectoryHint = "%LocalAppData%\\Programs\\CPAD",
+            InstallDirectoryHint = $"%LocalAppData%\\Programs\\{AppConstants.ProductKey}",
             LaunchAfterInstall = true,
-            StableReleaseSource = "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/latest",
+            StableReleaseSource = "https://github.com/C4AL/CodexCliPlus/releases/latest",
             BetaChannelReserved = true
         };
         await WriteJsonAsync(Path.Combine(stageRoot, "mica-setup.json"), installerPlan);
@@ -877,7 +873,7 @@ public static class PackageCommands
 
         var stagingPackagePath = Path.Combine(
             context.PackageRoot,
-            $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip");
+            $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip");
         await CreatePackageAsync(context, stageRoot, stagingPackagePath, "installer-staging");
         context.Logger.Info($"installer executable: {installerOutputPath}");
         return 0;
@@ -915,7 +911,7 @@ public static class PackageCommands
 
         var manifest = new PackageManifest
         {
-            Product = "Cli Proxy API Desktop",
+            Product = AppConstants.ProductName,
             Version = context.Options.Version,
             Runtime = context.Options.Runtime,
             PackageType = packageType,
@@ -979,78 +975,78 @@ public sealed class PackageVerifier(BuildContext context)
     {
         var failures = new List<string>();
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "CPAD.exe",
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            AppConstants.ExecutableName,
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "portable-mode.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "assets/webui/upstream/dist/index.html",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Portable.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "assets/webui/upstream/sync.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app/CPAD.exe",
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            $"app/{AppConstants.ExecutableName}",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/dev-mode.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/artifacts/dev-data/.gitkeep",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/assets/webui/upstream/dist/index.html",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.ProductName}.Dev.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app/assets/webui/upstream/sync.json",
             failures);
         VerifyExecutable(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.exe"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe"),
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            "app-package/CPAD.exe",
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            $"app-package/{AppConstants.ExecutableName}",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/assets/webui/upstream/dist/index.html",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/assets/webui/upstream/sync.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "mica-setup.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "micasetup.json",
             failures);
         VerifyZipExecutable(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
-            $"output/CPAD.Setup.{context.Options.Version}.exe",
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            $"output/{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/packaging/uninstall-cleanup.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/packaging/dependency-precheck.json",
             failures);
         VerifyZip(
-            Path.Combine(context.PackageRoot, $"CPAD.Setup.{context.Options.Version}.{context.Options.Runtime}.zip"),
+            Path.Combine(context.PackageRoot, $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.{context.Options.Runtime}.zip"),
             "app-package/packaging/update-policy.json",
             failures);
 
@@ -1171,7 +1167,7 @@ public static class InstallerMetadata
                     selfContained = true,
                     targetFramework = "net10.0-windows",
                     bundledFirst = true,
-                    requiredExecutable = "CPAD.exe",
+                    requiredExecutable = AppConstants.ExecutableName,
                     onlineFallback = "https://dotnet.microsoft.com/download/dotnet/10.0",
                     note = "The installed app is self-contained; online runtime repair is reserved for future framework-dependent payloads."
                 },
@@ -1205,8 +1201,8 @@ public static class InstallerMetadata
                 stable = new
                 {
                     enabled = true,
-                    source = "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/latest",
-                    expectedInstallerAsset = $"CPAD.Setup.{context.Options.Version}.exe",
+                    source = "https://github.com/C4AL/CodexCliPlus/releases/latest",
+                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.{context.Options.Version}.exe",
                     installedBuildCanLaunchInstaller = true
                 },
                 beta = new
@@ -1224,13 +1220,18 @@ public static class InstallerMetadata
 
         var cleanup = new InstallerCleanupManifest
         {
-            ProductKey = "CPAD",
+            ProductKey = AppConstants.ProductKey,
             KeepUserDataOption = true,
             KeepMyDataOptionName = "KeepMyData",
             KeepMyDataDefault = false,
             DefaultUninstallProfile = "full-clean",
             SafeDeleteRoots =
             [
+                "%LocalAppData%\\CodexCliPlus",
+                "%AppData%\\CodexCliPlus",
+                "%LocalAppData%\\Programs\\CodexCliPlus",
+                "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
+                "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
                 "%LocalAppData%\\CPAD",
                 "%AppData%\\CPAD",
                 "%LocalAppData%\\Programs\\CPAD",
@@ -1239,12 +1240,21 @@ public static class InstallerMetadata
             ],
             AlwaysDelete =
             [
-                "%LocalAppData%\\Programs\\CPAD",
-                "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\Cli Proxy API Desktop",
-                "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Cli Proxy API Desktop"
+                "%LocalAppData%\\Programs\\CodexCliPlus",
+                "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
+                "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus"
             ],
             DeleteByDefault =
             [
+                "%LocalAppData%\\CodexCliPlus\\config",
+                "%LocalAppData%\\CodexCliPlus\\config\\secrets\\*.bin",
+                "%LocalAppData%\\CodexCliPlus\\cache",
+                "%LocalAppData%\\CodexCliPlus\\cache\\updates",
+                "%LocalAppData%\\CodexCliPlus\\logs",
+                "%LocalAppData%\\CodexCliPlus\\backend",
+                "%LocalAppData%\\CodexCliPlus\\diagnostics",
+                "%LocalAppData%\\CodexCliPlus\\runtime",
+                "%AppData%\\CodexCliPlus",
                 "%LocalAppData%\\CPAD\\config",
                 "%LocalAppData%\\CPAD\\config\\secrets\\*.bin",
                 "%LocalAppData%\\CPAD\\cache",
@@ -1257,31 +1267,35 @@ public static class InstallerMetadata
             ],
             PreserveWhenKeepMyData =
             [
-                "%LocalAppData%\\CPAD\\config",
-                "%LocalAppData%\\CPAD\\config\\secrets",
-                "%LocalAppData%\\CPAD\\logs",
-                "%LocalAppData%\\CPAD\\diagnostics"
+                "%LocalAppData%\\CodexCliPlus\\config",
+                "%LocalAppData%\\CodexCliPlus\\config\\secrets",
+                "%LocalAppData%\\CodexCliPlus\\logs",
+                "%LocalAppData%\\CodexCliPlus\\diagnostics"
             ],
             RegistryValues =
             [
+                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\CodexCliPlus",
+                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CodexCliPlus",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\CPAD",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CPAD"
             ],
             FirewallRules =
             [
+                "CodexCliPlus",
                 "CPAD",
                 "Cli Proxy API Desktop"
             ],
             ScheduledTasks =
             [
+                "CodexCliPlus",
                 "CPAD",
                 "Cli Proxy API Desktop"
             ],
             SafetyRules =
             [
-                "Only delete roots whose resolved final segment is CPAD or Cli Proxy API Desktop.",
-                "Never follow a cleanup item outside AppData, LocalAppData, the selected install directory, Start Menu, CPAD firewall rules, or CPAD scheduled tasks.",
-                "Default uninstall runs the full-clean profile and deletes CPAD user data.",
+                "Only delete roots whose resolved final segment is CodexCliPlus, CPAD, or Cli Proxy API Desktop.",
+                "Never follow a cleanup item outside AppData, LocalAppData, the selected install directory, Start Menu, CodexCliPlus/CPAD firewall rules, or CodexCliPlus/CPAD scheduled tasks.",
+                "Default uninstall runs the full-clean profile and deletes CodexCliPlus user data plus legacy CPAD user data.",
                 "KeepMyData preserves config, credential references, logs, and diagnostics while removing installed binaries and integration points."
             ]
         };
@@ -1397,7 +1411,7 @@ public sealed class MicaSetupToolchain
     {
         using var client = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApiUrl);
-        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CPAD-BuildTool", "1.0"));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CodexCliPlus-BuildTool", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
 
@@ -1470,12 +1484,13 @@ public sealed class MicaSetupToolchain
 
 public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 {
-    private const string CleanupMethodMarker = "private static void CleanupCpadUserData()";
+    private const string CleanupMethodMarker = "private static void CleanupCodexCliPlusUserData()";
 
     private const string UninstallCleanupSource =
         """
-                private static void CleanupCpadUserData()
+                private static void CleanupCodexCliPlusUserData()
                 {
+                    RegistyAutoRunHelper.Disable("CodexCliPlus");
                     RegistyAutoRunHelper.Disable("CPAD");
 
                     if (Option.Current.KeepMyData)
@@ -1483,19 +1498,26 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                         return;
                     }
 
-                    foreach (string path in EnumerateCpadCleanupRoots())
+                    foreach (string path in EnumerateCodexCliPlusCleanupRoots())
                     {
                         TryDeleteSafePath(path);
                     }
 
+                    TryDeleteFirewallRule("CodexCliPlus");
                     TryDeleteFirewallRule("CPAD");
                     TryDeleteFirewallRule("Cli Proxy API Desktop");
+                    TryDeleteScheduledTask("CodexCliPlus");
                     TryDeleteScheduledTask("CPAD");
                     TryDeleteScheduledTask("Cli Proxy API Desktop");
                 }
 
-                private static IEnumerable<string> EnumerateCpadCleanupRoots()
+                private static IEnumerable<string> EnumerateCodexCliPlusCleanupRoots()
                 {
+                    yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CodexCliPlus");
+                    yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CodexCliPlus");
+                    yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CodexCliPlus");
+                    yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", "CodexCliPlus");
+                    yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Microsoft", "Windows", "Start Menu", "Programs", "CodexCliPlus");
                     yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CPAD");
                     yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CPAD");
                     yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "CPAD");
@@ -1505,7 +1527,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
                 private static void TryDeleteSafePath(string path)
                 {
-                    if (string.IsNullOrWhiteSpace(path) || !IsSafeCpadPath(path))
+                    if (string.IsNullOrWhiteSpace(path) || !IsSafeCodexCliPlusPath(path))
                     {
                         return;
                     }
@@ -1527,11 +1549,12 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                     }
                 }
 
-                private static bool IsSafeCpadPath(string path)
+                private static bool IsSafeCodexCliPlusPath(string path)
                 {
                     string fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     string name = Path.GetFileName(fullPath);
-                    if (!string.Equals(name, "CPAD", StringComparison.OrdinalIgnoreCase)
+                    if (!string.Equals(name, "CodexCliPlus", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(name, "CPAD", StringComparison.OrdinalIgnoreCase)
                      && !string.Equals(name, "Cli Proxy API Desktop", StringComparison.OrdinalIgnoreCase))
                     {
                         return false;
@@ -1789,7 +1812,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         var repositoryRoot = context.Options.RepositoryRoot;
         var documents = new (string Source, string Target)[]
         {
-            (Path.Combine(repositoryRoot, "LICENSE.txt"), "CPAD.LICENSE.txt"),
+            (Path.Combine(repositoryRoot, "LICENSE.txt"), "CodexCliPlus.LICENSE.txt"),
             (Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE"), "CLIProxyAPI.LICENSE.txt"),
             (Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"), "BetterGI.GPL-3.0.txt"),
             (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt")
@@ -1811,11 +1834,11 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
     {
         var source = File.ReadAllText(path);
         source = source.Replace(".UseElevated()", string.Empty, StringComparison.Ordinal);
-        source = ReplaceBetween(source, ".UseSingleInstance(\"", "\")", isUninstaller ? "BlackblockInc.CPAD.Uninstall" : "BlackblockInc.CPAD.Setup");
+        source = ReplaceBetween(source, ".UseSingleInstance(\"", "\")", isUninstaller ? "BlackblockInc.CodexCliPlus.Uninstall" : "BlackblockInc.CodexCliPlus.Setup");
         source = ReplaceBetween(source, "[assembly: Guid(\"", "\")]", "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d");
-        source = ReplaceBetween(source, "[assembly: AssemblyTitle(\"", "\")]", isUninstaller ? "Cli Proxy API Desktop Uninstall" : "Cli Proxy API Desktop Setup");
-        source = ReplaceBetween(source, "[assembly: AssemblyProduct(\"", "\")]", "Cli Proxy API Desktop");
-        source = ReplaceBetween(source, "[assembly: AssemblyDescription(\"", "\")]", isUninstaller ? "Cli Proxy API Desktop Uninstall" : "Cli Proxy API Desktop Setup");
+        source = ReplaceBetween(source, "[assembly: AssemblyTitle(\"", "\")]", isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup");
+        source = ReplaceBetween(source, "[assembly: AssemblyProduct(\"", "\")]", "CodexCliPlus");
+        source = ReplaceBetween(source, "[assembly: AssemblyDescription(\"", "\")]", isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup");
         source = ReplaceBetween(source, "[assembly: AssemblyCompany(\"", "\")]", "Blackblock Inc.");
         source = ReplaceBetween(source, "[assembly: AssemblyVersion(\"", "\")]", NormalizeAssemblyVersion(version));
         source = ReplaceBetween(source, "[assembly: AssemblyFileVersion(\"", "\")]", NormalizeAssemblyVersion(version));
@@ -1840,14 +1863,14 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         source = ReplaceAssignment(source, "option.IsInstallCertificate", "false");
         source = ReplaceAssignment(source, "option.IsEnableUninstallDelayUntilReboot", "true");
         source = ReplaceAssignment(source, "option.IsEnvironmentVariable", "false");
-        source = ReplaceAssignment(source, "option.AppName", "\"Cli Proxy API Desktop\"");
-        source = ReplaceAssignment(source, "option.KeyName", "\"CPAD\"");
-        source = ReplaceAssignment(source, "option.ExeName", "\"CPAD.exe\"");
+        source = ReplaceAssignment(source, "option.AppName", "\"CodexCliPlus\"");
+        source = ReplaceAssignment(source, "option.KeyName", "\"CodexCliPlus\"");
+        source = ReplaceAssignment(source, "option.ExeName", "\"CodexCliPlus.exe\"");
         source = ReplaceAssignment(source, "option.DisplayVersion", $"\"{version}\"");
         source = ReplaceAssignment(source, "option.Publisher", "\"Blackblock Inc.\"");
-        source = ReplaceAssignment(source, "option.MessageOfPage1", "\"Cli Proxy API Desktop\"");
-        source = ReplaceAssignment(source, "option.MessageOfPage2", isUninstaller ? "\"Uninstalling CPAD\"" : "\"Installing CPAD\"");
-        source = ReplaceAssignment(source, "option.MessageOfPage3", isUninstaller ? "\"Uninstall completed\"" : "\"Installation completed\"");
+        source = ReplaceAssignment(source, "option.MessageOfPage1", "\"CodexCliPlus\"");
+        source = ReplaceAssignment(source, "option.MessageOfPage2", isUninstaller ? "\"正在卸载 CodexCliPlus\"" : "\"正在安装 CodexCliPlus\"");
+        source = ReplaceAssignment(source, "option.MessageOfPage3", isUninstaller ? "\"卸载完成\"" : "\"安装完成\"");
         if (isUninstaller)
         {
             source = EnsureOptionAssignment(source, "option.KeepMyData", "false", "option.ExeName");
@@ -1948,7 +1971,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             StringComparison.Ordinal);
         source = source.Replace(
             "try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }",
-            "CleanupCpadUserData(); try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }",
+            "CleanupCodexCliPlusUserData(); try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }",
             StringComparison.Ordinal);
         source = source.Replace(
             """
@@ -1958,7 +1981,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                     }
             """,
             """
-                    CleanupCpadUserData();
+                    CleanupCodexCliPlusUserData();
 
                     try
                     {
@@ -2077,7 +2100,7 @@ public static class WindowsExecutableValidation
 
 public sealed class BuildAssetManifest
 {
-    public string Product { get; init; } = "Cli Proxy API Desktop";
+    public string Product { get; init; } = AppConstants.ProductName;
 
     public string Version { get; init; } = string.Empty;
 
@@ -2380,7 +2403,7 @@ public sealed class MicaSetupConfig
 
     public static MicaSetupConfig Create(BuildContext context, string payloadArchivePath, string installerOutputPath)
     {
-        var iconPath = Path.Combine(context.Options.RepositoryRoot, "resources", "icons", "ico-transparent.png");
+        var iconPath = Path.Combine(context.Options.RepositoryRoot, "resources", "icons", "codexcliplus.ico");
         var noticePath = Path.Combine(context.Options.RepositoryRoot, "resources", "licenses", "NOTICE.txt");
         var licensePath = File.Exists(noticePath)
             ? noticePath
@@ -2390,9 +2413,9 @@ public sealed class MicaSetupConfig
             Template = "${MicaDir}/template/default.7z",
             Package = payloadArchivePath,
             Output = installerOutputPath,
-            AppName = "Cli Proxy API Desktop",
-            KeyName = "CPAD",
-            ExeName = "CPAD.exe",
+            AppName = AppConstants.ProductName,
+            KeyName = AppConstants.ProductKey,
+            ExeName = AppConstants.ExecutableName,
             Publisher = "Blackblock Inc.",
             Version = context.Options.Version,
             TargetFramework = "net472",
@@ -2402,9 +2425,9 @@ public sealed class MicaSetupConfig
             UnIcon = File.Exists(iconPath) ? iconPath : null,
             LicenseFile = File.Exists(licensePath) ? licensePath : null,
             RequestExecutionLevel = "user",
-            SingleInstanceMutex = "BlackblockInc.CPAD.Setup",
-            MessageOfPage1 = "Cli Proxy API Desktop",
-            MessageOfPage2 = "正在安装 CPAD",
+            SingleInstanceMutex = "BlackblockInc.CodexCliPlus.Setup",
+            MessageOfPage1 = AppConstants.ProductName,
+            MessageOfPage2 = "正在安装 CodexCliPlus",
             MessageOfPage3 = "安装完成"
         };
     }
@@ -2494,7 +2517,7 @@ public static class SafeFileSystem
     {
         var requiredFiles = new[]
         {
-            "CPAD.exe",
+            AppConstants.ExecutableName,
             Path.Combine("assets", "webui", "upstream", "dist", "index.html"),
             Path.Combine("assets", "webui", "upstream", "sync.json")
         };

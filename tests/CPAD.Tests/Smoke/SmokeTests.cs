@@ -47,15 +47,17 @@ public sealed class SmokeTests
             }
         };
 
-        process.StartInfo.Environment["CPAD_APP_ROOT"] = scope.RootDirectory;
-        process.StartInfo.Environment["CPAD_APP_MODE"] = "development";
+        process.StartInfo.Environment["CODEXCLIPLUS_APP_ROOT"] = scope.RootDirectory;
+        process.StartInfo.Environment["CODEXCLIPLUS_APP_MODE"] = "development";
+        process.StartInfo.Environment.Remove("CPAD_APP_ROOT");
+        process.StartInfo.Environment.Remove("CPAD_APP_MODE");
         process.StartInfo.Environment["USERPROFILE"] = scope.UserProfileDirectory;
         process.StartInfo.Environment["HOME"] = scope.HomeDirectory;
         process.StartInfo.Environment["CODEX_HOME"] = scope.CodexHomeDirectory;
         process.StartInfo.Environment["TEMP"] = scope.TempDirectory;
         process.StartInfo.Environment["TMP"] = scope.TempDirectory;
 
-        Assert.True(process.Start(), "CPAD.exe did not start.");
+        Assert.True(process.Start(), "CodexCliPlus.exe did not start.");
 
         try
         {
@@ -68,11 +70,11 @@ public sealed class SmokeTests
                     Directory.Exists(Path.Combine(scope.RootDirectory, "diagnostics")) &&
                     Directory.Exists(Path.Combine(scope.RootDirectory, "runtime")),
                 TimeSpan.FromSeconds(12),
-                "CPAD.exe did not initialize the isolated app root in time.");
+                "CodexCliPlus.exe did not initialize the isolated app root in time.");
 
             if (process.HasExited)
             {
-                Assert.Fail($"CPAD.exe exited early with code {process.ExitCode}.");
+                Assert.Fail($"CodexCliPlus.exe exited early with code {process.ExitCode}.");
             }
 
             var ownedBackendPids = scope.GetOwnedBackendProcessIds();
@@ -150,8 +152,10 @@ public sealed class SmokeTests
         };
         process.StartInfo.ArgumentList.Add("-config");
         process.StartInfo.ArgumentList.Add(configPath);
-        process.StartInfo.Environment["CPAD_APP_ROOT"] = scope.RootDirectory;
-        process.StartInfo.Environment["CPAD_APP_MODE"] = "development";
+        process.StartInfo.Environment["CODEXCLIPLUS_APP_ROOT"] = scope.RootDirectory;
+        process.StartInfo.Environment["CODEXCLIPLUS_APP_MODE"] = "development";
+        process.StartInfo.Environment.Remove("CPAD_APP_ROOT");
+        process.StartInfo.Environment.Remove("CPAD_APP_MODE");
         process.StartInfo.Environment["USERPROFILE"] = scope.UserProfileDirectory;
         process.StartInfo.Environment["HOME"] = scope.HomeDirectory;
         process.StartInfo.Environment["CODEX_HOME"] = scope.CodexHomeDirectory;
@@ -246,18 +250,18 @@ public sealed class SmokeTests
                 """
                 {
                   "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
                   "published_at": "2026-04-23T00:00:00Z",
                   "assets": [
                     {
-                      "name": "CPAD.Setup.1.2.3.exe",
-                      "browser_download_url": "https://example.test/CPAD.Setup.1.2.3.exe",
+                      "name": "CodexCliPlus.Setup.1.2.3.exe",
+                      "browser_download_url": "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
                       "size": 4096,
                       "digest": "sha256:abc123"
                     },
                     {
-                      "name": "CPAD.Portable.1.2.3.win-x64.zip",
-                      "browser_download_url": "https://example.test/CPAD.Portable.1.2.3.win-x64.zip",
+                      "name": "CodexCliPlus.Portable.1.2.3.win-x64.zip",
+                      "browser_download_url": "https://example.test/CodexCliPlus.Portable.1.2.3.win-x64.zip",
                       "size": 2048
                     }
                   ]
@@ -277,7 +281,7 @@ public sealed class SmokeTests
         Assert.Equal("Update available", result.Status);
         Assert.True(result.HasInstallableAsset);
         Assert.NotNull(result.InstallableAsset);
-        Assert.Equal("CPAD.Setup.1.2.3.exe", result.InstallableAsset!.Name);
+        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.InstallableAsset!.Name);
         Assert.Equal(2, result.Assets.Count);
     }
 
@@ -292,29 +296,29 @@ public sealed class SmokeTests
         Directory.CreateDirectory(packageRoot);
 
         SmokeEnvironmentScope.CreateZipWithEntries(
-            Path.Combine(packageRoot, $"CPAD.Portable.{version}.win-x64.zip"),
-            "CPAD.exe",
+            Path.Combine(packageRoot, $"CodexCliPlus.Portable.{version}.win-x64.zip"),
+            "CodexCliPlus.exe",
             "portable-mode.json",
             "assets/webui/upstream/dist/index.html",
             "assets/webui/upstream/sync.json");
         SmokeEnvironmentScope.CreateZipWithEntries(
-            Path.Combine(packageRoot, $"CPAD.Dev.{version}.win-x64.zip"),
-            "app/CPAD.exe",
+            Path.Combine(packageRoot, $"CodexCliPlus.Dev.{version}.win-x64.zip"),
+            "app/CodexCliPlus.exe",
             "app/dev-mode.json",
             "app/artifacts/dev-data/.gitkeep",
             "app/assets/webui/upstream/dist/index.html",
             "app/assets/webui/upstream/sync.json");
-        SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, $"CPAD.Setup.{version}.exe"));
+        SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, $"CodexCliPlus.Setup.{version}.exe"));
         SmokeEnvironmentScope.CreateZipWithByteEntries(
-            Path.Combine(packageRoot, $"CPAD.Setup.{version}.win-x64.zip"),
+            Path.Combine(packageRoot, $"CodexCliPlus.Setup.{version}.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
-                ["app-package/CPAD.exe"] = Encoding.UTF8.GetBytes("cpad"),
+                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                [$"output/CPAD.Setup.{version}.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
+                [$"output/CodexCliPlus.Setup.{version}.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")

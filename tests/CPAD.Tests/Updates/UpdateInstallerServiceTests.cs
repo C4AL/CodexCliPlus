@@ -34,7 +34,7 @@ public sealed class UpdateInstallerServiceTests
         Assert.True(result.DigestValidated);
         Assert.Equal(AppDataMode.Installed, result.DataMode);
         Assert.Equal(Path.Combine(pathService.Directories.CacheDirectory, "updates"), result.CacheDirectory);
-        Assert.Equal(Path.Combine(result.CacheDirectory, "CPAD.Setup.1.2.3.exe"), result.InstallerPath);
+        Assert.Equal(Path.Combine(result.CacheDirectory, "CodexCliPlus.Setup.1.2.3.exe"), result.InstallerPath);
         Assert.True(File.Exists(result.InstallerPath));
         Assert.Equal(installerBytes, await File.ReadAllBytesAsync(result.InstallerPath));
     }
@@ -48,7 +48,7 @@ public sealed class UpdateInstallerServiceTests
 
         var updatesDirectory = Path.Combine(pathService.Directories.CacheDirectory, "updates");
         Directory.CreateDirectory(updatesDirectory);
-        var installerPath = Path.Combine(updatesDirectory, "CPAD.Setup.1.2.3.exe");
+        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Setup.1.2.3.exe");
         await File.WriteAllBytesAsync(installerPath, installerBytes);
 
         var calls = 0;
@@ -94,8 +94,8 @@ public sealed class UpdateInstallerServiceTests
             CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(Encoding.UTF8.GetBytes("different-installer")))));
 
         Assert.Contains("digest mismatch", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CPAD.Setup.1.2.3.exe")));
-        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CPAD.Setup.1.2.3.exe.download")));
+        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CodexCliPlus.Setup.1.2.3.exe")));
+        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CodexCliPlus.Setup.1.2.3.exe.download")));
     }
 
     [Fact]
@@ -228,13 +228,13 @@ public sealed class UpdateInstallerServiceTests
             service.LaunchInstallerAsync(new PreparedUpdateInstaller
             {
                 DataMode = AppDataMode.Portable,
-                InstallerPath = Path.Combine(pathService.Directories.RootDirectory, "CPAD.Setup.1.2.3.exe"),
+                InstallerPath = Path.Combine(pathService.Directories.RootDirectory, "CodexCliPlus.Setup.1.2.3.exe"),
                 CacheDirectory = pathService.Directories.CacheDirectory,
                 Version = "1.2.3",
                 Asset = new UpdateReleaseAsset
                 {
-                    Name = "CPAD.Setup.1.2.3.exe",
-                    DownloadUrl = "https://example.test/CPAD.Setup.1.2.3.exe"
+                    Name = "CodexCliPlus.Setup.1.2.3.exe",
+                    DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe"
                 }
             }));
 
@@ -250,7 +250,7 @@ public sealed class UpdateInstallerServiceTests
 
         var updatesDirectory = Path.Combine(pathService.Directories.CacheDirectory, "updates");
         Directory.CreateDirectory(updatesDirectory);
-        var installerPath = Path.Combine(updatesDirectory, "CPAD.Setup.1.2.3.exe");
+        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Setup.1.2.3.exe");
         await File.WriteAllBytesAsync(installerPath, [1, 2, 3, 4]);
 
         ProcessStartInfo? capturedStartInfo = null;
@@ -271,8 +271,8 @@ public sealed class UpdateInstallerServiceTests
             DataMode = AppDataMode.Installed,
             Asset = new UpdateReleaseAsset
             {
-                Name = "CPAD.Setup.1.2.3.exe",
-                DownloadUrl = "https://example.test/CPAD.Setup.1.2.3.exe"
+                Name = "CodexCliPlus.Setup.1.2.3.exe",
+                DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe"
             }
         });
 
@@ -293,8 +293,8 @@ public sealed class UpdateInstallerServiceTests
     {
         var asset = new UpdateReleaseAsset
         {
-            Name = $"CPAD.Setup.{version}.exe",
-            DownloadUrl = downloadUrl ?? $"https://example.test/CPAD.Setup.{version}.exe",
+            Name = $"CodexCliPlus.Setup.{version}.exe",
+            DownloadUrl = downloadUrl ?? $"https://example.test/CodexCliPlus.Setup.{version}.exe",
             Size = size,
             Digest = digest
         };

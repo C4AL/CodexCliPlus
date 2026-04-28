@@ -460,7 +460,7 @@ export function MainLayout() {
           >
             {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
           </button>
-          <img src={INLINE_LOGO_JPEG} alt="CPAD logo" className="brand-logo" />
+          <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus logo" className="brand-logo" />
           <div
             className={`brand-header ${brandExpanded ? 'expanded' : 'collapsed'}`}
             onClick={handleBrandClick}

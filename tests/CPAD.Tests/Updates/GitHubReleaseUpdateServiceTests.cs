@@ -17,12 +17,12 @@ public sealed class GitHubReleaseUpdateServiceTests
                 """
                 {
                   "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
                   "published_at": "2026-04-23T00:00:00Z",
                   "assets": [
                     {
-                      "name": "CPAD.Setup.1.2.3.exe",
-                      "browser_download_url": "https://example.test/CPAD.Setup.1.2.3.exe",
+                      "name": "CodexCliPlus.Setup.1.2.3.exe",
+                      "browser_download_url": "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
                       "size": 10485760,
                       "digest": "sha256:abc123"
                     }
@@ -42,11 +42,14 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.False(result.IsNoReleasePublished);
         Assert.Equal("1.2.3", result.LatestVersion);
         Assert.Equal("Update available", result.Status);
+        Assert.Equal("C4AL/CodexCliPlus", result.Repository);
+        Assert.Equal("https://api.github.com/repos/C4AL/CodexCliPlus/releases/latest", result.ApiUrl);
+        Assert.Equal("https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3", result.ReleasePageUrl);
         Assert.True(result.HasInstallableAsset);
         Assert.NotNull(result.InstallableAsset);
         Assert.Single(result.Assets);
-        Assert.Equal("CPAD.Setup.1.2.3.exe", result.Assets[0].Name);
-        Assert.Equal("CPAD.Setup.1.2.3.exe", result.InstallableAsset!.Name);
+        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.Assets[0].Name);
+        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.InstallableAsset!.Name);
     }
 
     [Fact]
@@ -102,12 +105,12 @@ public sealed class GitHubReleaseUpdateServiceTests
                 """
                 {
                   "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
                   "published_at": "2026-04-23T00:00:00Z",
                   "assets": [
                     {
-                      "name": "CPAD.Portable.1.2.3.zip",
-                      "browser_download_url": "https://example.test/CPAD.Portable.1.2.3.zip",
+                      "name": "CodexCliPlus.Portable.1.2.3.zip",
+                      "browser_download_url": "https://example.test/CodexCliPlus.Portable.1.2.3.zip",
                       "size": 2048
                     }
                   ]
@@ -136,11 +139,11 @@ public sealed class GitHubReleaseUpdateServiceTests
                 """
                 {
                   "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/tag/v1.2.3",
+                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
                   "published_at": "2026-04-23T00:00:00Z",
                   "assets": [
                     {
-                      "name": "CPAD.Setup.1.2.3.exe",
+                      "name": "CodexCliPlus.Setup.1.2.3.exe",
                       "size": 2048
                     }
                   ]
@@ -158,7 +161,7 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.False(result.HasInstallableAsset);
         Assert.Null(result.InstallableAsset);
         Assert.Single(result.Assets);
-        Assert.Equal("CPAD.Setup.1.2.3.exe", result.Assets[0].Name);
+        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.Assets[0].Name);
     }
 
     private sealed class FixedHttpClientFactory : IHttpClientFactory, IDisposable

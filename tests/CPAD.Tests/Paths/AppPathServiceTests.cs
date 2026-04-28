@@ -37,6 +37,18 @@ public sealed class AppPathServiceTests
     }
 
     [Fact]
+    public void DirectoriesUseLegacyRootOverrideWhenNewEnvironmentVariableIsNotSet()
+    {
+        using var scope = new AppPathServiceEnvironmentScope();
+        var overrideRoot = scope.CreateTemporaryRoot("cpad-legacy-path-override");
+        AppPathServiceEnvironmentScope.SetLegacyRootOverride(overrideRoot);
+
+        var service = new AppPathService();
+
+        Assert.Equal(Path.GetFullPath(overrideRoot), service.Directories.RootDirectory);
+    }
+
+    [Fact]
     public void DirectoriesUsePortableModeWhenPortablePackageMarkerExists()
     {
         using var scope = new AppPathServiceEnvironmentScope();
@@ -87,6 +99,18 @@ public sealed class AppPathServiceTests
     }
 
     [Fact]
+    public void DirectoriesUseLegacyModeOverrideWhenNewEnvironmentVariableIsNotSet()
+    {
+        using var scope = new AppPathServiceEnvironmentScope();
+        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
+        AppPathServiceEnvironmentScope.SetLegacyModeOverride("portable");
+
+        var service = new AppPathService();
+
+        Assert.Equal(AppDataMode.Portable, service.Directories.DataMode);
+    }
+
+    [Fact]
     public async Task EnsureCreatedAsyncCreatesAllManagedDirectories()
     {
         using var scope = new AppPathServiceEnvironmentScope();
@@ -120,13 +144,17 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
 
     private readonly string? _originalMode;
     private readonly string? _originalRoot;
+    private readonly string? _originalLegacyMode;
+    private readonly string? _originalLegacyRoot;
     private readonly Dictionary<string, string?> _markerSnapshots;
     private readonly List<string> _temporaryRoots = [];
 
     public AppPathServiceEnvironmentScope()
     {
-        _originalMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
-        _originalRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
+        _originalMode = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_MODE");
+        _originalRoot = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_ROOT");
+        _originalLegacyMode = Environment.GetEnvironmentVariable("CPAD_APP_MODE");
+        _originalLegacyRoot = Environment.GetEnvironmentVariable("CPAD_APP_ROOT");
         _markerSnapshots = MarkerFileNames.ToDictionary(
             markerFileName => markerFileName,
             CaptureMarkerContent,
@@ -134,6 +162,8 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
 
         SetModeOverride(null);
         SetRootOverride(null);
+        SetLegacyModeOverride(null);
+        SetLegacyRootOverride(null);
         ClearMarkers();
     }
 
@@ -146,10 +176,20 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
 
     public static void SetModeOverride(string? value)
     {
-        Environment.SetEnvironmentVariable("CPAD_APP_MODE", value);
+        Environment.SetEnvironmentVariable("CODEXCLIPLUS_APP_MODE", value);
     }
 
     public static void SetRootOverride(string? value)
+    {
+        Environment.SetEnvironmentVariable("CODEXCLIPLUS_APP_ROOT", value);
+    }
+
+    public static void SetLegacyModeOverride(string? value)
+    {
+        Environment.SetEnvironmentVariable("CPAD_APP_MODE", value);
+    }
+
+    public static void SetLegacyRootOverride(string? value)
     {
         Environment.SetEnvironmentVariable("CPAD_APP_ROOT", value);
     }
@@ -162,8 +202,10 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
 
     public void Dispose()
     {
-        Environment.SetEnvironmentVariable("CPAD_APP_MODE", _originalMode);
-        Environment.SetEnvironmentVariable("CPAD_APP_ROOT", _originalRoot);
+        Environment.SetEnvironmentVariable("CODEXCLIPLUS_APP_MODE", _originalMode);
+        Environment.SetEnvironmentVariable("CODEXCLIPLUS_APP_ROOT", _originalRoot);
+        Environment.SetEnvironmentVariable("CPAD_APP_MODE", _originalLegacyMode);
+        Environment.SetEnvironmentVariable("CPAD_APP_ROOT", _originalLegacyRoot);
         RestoreMarkers();
 
         foreach (var temporaryRoot in _temporaryRoots)

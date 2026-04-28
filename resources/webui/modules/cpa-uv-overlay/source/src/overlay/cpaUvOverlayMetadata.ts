@@ -1,6 +1,6 @@
 export const CPA_UV_OVERLAY_METADATA = {
   id: 'cpa-uv-overlay',
-  brandName: 'CPAD',
+  brandName: 'CodexCliPlus',
   brandingMode: 'neutral-local',
   managementVersion: 'overlay-2026.04.24',
   updateSourceLabel: 'Local management channel',

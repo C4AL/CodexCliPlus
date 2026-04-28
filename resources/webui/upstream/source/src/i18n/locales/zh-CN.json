@@ -57,13 +57,13 @@
     "unsaved_changes_message": "你有未保存的更改，离开后将丢失这些更改。确定要离开吗？"
   },
   "title": {
-    "main": "CPAD",
-    "login": "CPAD",
-    "abbr": "CPAD"
+    "main": "CodexCliPlus",
+    "login": "CodexCliPlus",
+    "abbr": "CodexCliPlus"
   },
   "splash": {
-    "title": "CPAD",
-    "subtitle": "Cli Proxy API Desktop"
+    "title": "CodexCliPlus",
+    "subtitle": "CodexCliPlus"
   },
   "auto_login": {
     "title": "正在自动登录...",
@@ -71,7 +71,7 @@
   },
   "login": {
     "subtitle": "请输入连接信息以访问管理界面",
-    "desktop_subtitle": "正在使用本地管理服务登录 CPAD",
+    "desktop_subtitle": "正在使用本地管理服务登录 CodexCliPlus",
     "desktop_retry_button": "重试连接",
     "connection_title": "连接地址",
     "connection_current": "当前地址",
@@ -124,7 +124,7 @@
   },
   "dashboard": {
     "title": "仪表盘",
-    "subtitle": "欢迎使用 CPAD",
+    "subtitle": "欢迎使用 CodexCliPlus",
     "openai_providers": "OpenAI 提供商",
     "quick_actions": "快捷操作",
     "current_config": "当前配置",
@@ -1352,8 +1352,8 @@
     "card_idle_hint": "请使用顶部“刷新全部凭证”按钮获取最新额度。"
   },
   "system_info": {
-    "title": "CPAD 信息",
-    "about_title": "CPAD",
+    "title": "CodexCliPlus 信息",
+    "about_title": "CodexCliPlus",
     "connection_status_title": "连接状态",
     "api_status_label": "API 状态:",
     "config_status_label": "配置状态:",
@@ -1484,7 +1484,7 @@
   "footer": {
     "api_version": "后端版本",
     "build_date": "构建时间",
-    "version": "CPAD 版本",
+    "version": "CodexCliPlus 版本",
     "author": "作者"
   }
 }

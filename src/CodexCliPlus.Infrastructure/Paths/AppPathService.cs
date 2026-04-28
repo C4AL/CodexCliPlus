@@ -7,10 +7,14 @@ namespace CodexCliPlus.Infrastructure.Paths;
 
 public sealed class AppPathService : IPathService
 {
+    private readonly bool _usesRootOverride;
+    private bool _legacyMigrationAttempted;
+
     public AppPathService()
     {
         var dataMode = ResolveDataMode();
         var rootDirectoryOverride = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_ROOT");
+        _usesRootOverride = !string.IsNullOrWhiteSpace(rootDirectoryOverride);
         var rootDirectory = string.IsNullOrWhiteSpace(rootDirectoryOverride)
             ? ResolveDefaultRootDirectory(dataMode)
             : Path.GetFullPath(rootDirectoryOverride);
@@ -48,6 +52,7 @@ public sealed class AppPathService : IPathService
         Directory.CreateDirectory(Directories.CacheDirectory);
         Directory.CreateDirectory(Directories.DiagnosticsDirectory);
         Directory.CreateDirectory(Directories.RuntimeDirectory);
+        TryMigrateLegacyLocalAppDataConfiguration();
 
         return Task.CompletedTask;
     }
@@ -57,37 +62,17 @@ public sealed class AppPathService : IPathService
         var modeOverride = Environment.GetEnvironmentVariable("CODEXCLIPLUS_APP_MODE");
         return modeOverride?.Trim().ToLowerInvariant() switch
         {
-            "portable" => AppDataMode.Portable,
             "development" => AppDataMode.Development,
-            _ => ResolveDataModeFromPackageMarker()
+            _ => AppDataMode.Installed
         };
-    }
-
-    private static AppDataMode ResolveDataModeFromPackageMarker()
-    {
-        var baseDirectory = AppContext.BaseDirectory;
-        if (File.Exists(Path.Combine(baseDirectory, "portable-mode.json")))
-        {
-            return AppDataMode.Portable;
-        }
-
-        if (File.Exists(Path.Combine(baseDirectory, "dev-mode.json")))
-        {
-            return AppDataMode.Development;
-        }
-
-        return AppDataMode.Installed;
     }
 
     private static string ResolveDefaultRootDirectory(AppDataMode dataMode)
     {
         return dataMode switch
         {
-            AppDataMode.Portable => Path.Combine(AppContext.BaseDirectory, "data"),
             AppDataMode.Development => ResolveDevelopmentRootDirectory(),
-            _ => Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                AppConstants.ProductKey)
+            _ => AppContext.BaseDirectory
         };
     }
 
@@ -113,5 +98,83 @@ public sealed class AppPathService : IPathService
         }
 
         return null;
+    }
+
+    private void TryMigrateLegacyLocalAppDataConfiguration()
+    {
+        if (_legacyMigrationAttempted ||
+            _usesRootOverride ||
+            Directories.DataMode != AppDataMode.Installed ||
+            HasNewConfiguration())
+        {
+            _legacyMigrationAttempted = true;
+            return;
+        }
+
+        _legacyMigrationAttempted = true;
+        var legacyRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            AppConstants.ProductKey);
+        if (string.IsNullOrWhiteSpace(legacyRoot) ||
+            !Directory.Exists(legacyRoot) ||
+            IsSameDirectory(legacyRoot, Directories.RootDirectory))
+        {
+            return;
+        }
+
+        CopyLegacyFile(
+            Path.Combine(legacyRoot, "config", AppConstants.LegacyAppSettingsFileName),
+            Directories.SettingsFilePath);
+        CopyLegacyFile(
+            Path.Combine(legacyRoot, "config", AppConstants.LegacyBackendConfigFileName),
+            Directories.BackendConfigFilePath);
+        CopyLegacyDirectory(
+            Path.Combine(legacyRoot, "config", AppConstants.SecretsDirectoryName),
+            Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName));
+        CopyLegacyDirectory(Path.Combine(legacyRoot, "backend", "auth"), Path.Combine(Directories.BackendDirectory, "auth"));
+    }
+
+    private bool HasNewConfiguration()
+    {
+        return File.Exists(Directories.SettingsFilePath) ||
+            File.Exists(Directories.BackendConfigFilePath) ||
+            Directory.Exists(Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName)) ||
+            Directory.Exists(Path.Combine(Directories.BackendDirectory, "auth"));
+    }
+
+    private static void CopyLegacyFile(string source, string target)
+    {
+        if (!File.Exists(source) || File.Exists(target))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(source, target, overwrite: false);
+    }
+
+    private static void CopyLegacyDirectory(string source, string target)
+    {
+        if (!Directory.Exists(source) || Directory.Exists(target))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(target);
+        foreach (var sourcePath in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(source, sourcePath);
+            var targetPath = Path.Combine(target, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            File.Copy(sourcePath, targetPath, overwrite: false);
+        }
+    }
+
+    private static bool IsSameDirectory(string first, string second)
+    {
+        return string.Equals(
+            Path.GetFullPath(first).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(second).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
     }
 }

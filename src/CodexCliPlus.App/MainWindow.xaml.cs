@@ -5,9 +5,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
@@ -20,11 +23,16 @@ using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Services;
+using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
 
 using Microsoft.Web.WebView2.Core;
 
 using MessageBox = System.Windows.MessageBox;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfButton = System.Windows.Controls.Button;
+using WpfColor = System.Windows.Media.Color;
+using WpfFontFamily = System.Windows.Media.FontFamily;
 
 namespace CodexCliPlus;
 
@@ -55,6 +63,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IBuildInfo _buildInfo;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
+    private readonly ShellNotificationService _notificationService;
 
     private AppSettings _settings = new();
     private StartupState _startupState = StartupState.Preparing;
@@ -76,7 +85,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ISecureCredentialStore credentialStore,
         IBuildInfo buildInfo,
         IUpdateCheckService updateCheckService,
-        WebUiAssetLocator webUiAssetLocator)
+        WebUiAssetLocator webUiAssetLocator,
+        ShellNotificationService notificationService)
     {
         _viewModel = viewModel;
         _backendProcessManager = backendProcessManager;
@@ -88,11 +98,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _buildInfo = buildInfo;
         _updateCheckService = updateCheckService;
         _webUiAssetLocator = webUiAssetLocator;
+        _notificationService = notificationService;
 
         DataContext = _viewModel;
         InitializeComponent();
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
+        _notificationService.NotificationRequested += ShellNotificationService_NotificationRequested;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -131,6 +143,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void Window_Closed(object? sender, EventArgs e)
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
+        _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
         TrayIcon.Unregister();
@@ -139,6 +152,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     public void Dispose()
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
+        _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
         GC.SuppressFinalize(this);
@@ -212,11 +226,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             System.Windows.Clipboard.SetText(_firstRunManagementKey);
-            ShowFirstRunStatus("安全密钥已复制。");
+            _notificationService.ShowAuto("安全密钥已复制。");
         }
         catch (Exception exception)
         {
-            ShowFirstRunStatus($"复制失败：{exception.Message}", isError: true);
+            _notificationService.ShowManual("复制失败", exception.Message);
         }
     }
 
@@ -230,11 +244,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 filePath,
                 content,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            ShowFirstRunStatus($"已保存到桌面：{Path.GetFileName(filePath)}");
+            _notificationService.ShowAuto($"已保存到桌面：{Path.GetFileName(filePath)}");
         }
         catch (Exception exception)
         {
-            ShowFirstRunStatus($"保存失败：{BuildDesktopSaveErrorMessage(exception)}", isError: true);
+            _notificationService.ShowManual("保存失败", BuildDesktopSaveErrorMessage(exception));
         }
     }
 
@@ -416,7 +430,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         FirstRunSecurityKeyTextBox.CaretIndex = 0;
         FirstRunSecurityKeyTextBox.ScrollToHome();
         FirstRunRememberSecurityKeyCheckBox.IsChecked = false;
-        FirstRunActionStatusText.Visibility = Visibility.Collapsed;
         FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
         FirstRunEnterManagementButton.IsEnabled = true;
         await EnsureMinimumPreparationDisplayAsync();
@@ -427,7 +440,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         if (string.IsNullOrWhiteSpace(_firstRunManagementKey))
         {
-            ShowFirstRunStatus("安全密钥尚未生成，请重试。", isError: true);
+            _notificationService.ShowManual("安全密钥尚未生成", "请重试。");
             return;
         }
 
@@ -461,7 +474,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         if (string.IsNullOrWhiteSpace(_firstRunManagementKey))
         {
-            ShowFirstRunStatus("安全密钥尚未生成，请重试。", isError: true);
+            _notificationService.ShowManual("安全密钥尚未生成", "请重试。");
             return;
         }
 
@@ -479,16 +492,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
             FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
-            await InitializeHostAsync(restartBackend: false);
 
             _firstRunManagementKey = string.Empty;
             FirstRunSecurityKeyTextBox.Text = string.Empty;
+            if (_settings.RememberManagementKey)
+            {
+                await InitializeHostAsync(restartBackend: false);
+                return;
+            }
+
+            _settings.ManagementKey = string.Empty;
+            await _appConfigurationService.SaveAsync(_settings);
+            ShowLogin("初始化已完成，请输入安全密钥登录。");
         }
         catch (Exception exception)
         {
             FirstRunConfirmContinueButton.IsEnabled = true;
             FirstRunConfirmCloseButton.IsEnabled = true;
-            ShowFirstRunStatus($"初始化失败：{exception.Message}", isError: true);
+            _notificationService.ShowManual("初始化失败", exception.Message);
             FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
         }
     }
@@ -914,18 +935,160 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ManagementWebView.Visibility = Visibility.Visible;
     }
 
-    private void ShowFirstRunStatus(string message, bool isError = false)
+    private void ShellNotificationService_NotificationRequested(object? sender, ShellNotificationRequest request)
     {
-        FirstRunActionStatusText.Text = message;
-        FirstRunActionStatusText.Visibility = Visibility.Visible;
-        if (isError)
+        Dispatcher.Invoke(() =>
         {
-            FirstRunActionStatusText.Foreground = System.Windows.Media.Brushes.Firebrick;
-        }
-        else
+            if (request.Placement == ShellNotificationPlacement.BottomCenterAuto)
+            {
+                ShowAutoNotification(request.Message);
+                return;
+            }
+
+            ShowManualNotification(request.Title, request.Message);
+        });
+    }
+
+    private void ShowAutoNotification(string message)
+    {
+        var card = CreateNotificationCard(message, title: null, showCloseButton: false);
+        card.Opacity = 0;
+        card.RenderTransform = new TranslateTransform(0, 18);
+        AutoNotificationStack.Children.Add(card);
+
+        var progress = (Border)card.Tag;
+        card.Loaded += async (_, _) =>
         {
-            FirstRunActionStatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "SecondaryTextBrush");
+            AnimateNotificationIn(card);
+            progress.Width = card.ActualWidth;
+            progress.BeginAnimation(
+                FrameworkElement.WidthProperty,
+                new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(2)))
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+                });
+            await Task.Delay(TimeSpan.FromSeconds(2.15));
+            await FadeOutAndRemoveAsync(AutoNotificationStack, card);
+        };
+    }
+
+    private void ShowManualNotification(string title, string message)
+    {
+        var card = CreateNotificationCard(message, title, showCloseButton: true);
+        card.Opacity = 0;
+        card.RenderTransform = new TranslateTransform(18, 0);
+        ManualNotificationStack.Children.Add(card);
+        card.Loaded += (_, _) => AnimateNotificationIn(card);
+    }
+
+    private Border CreateNotificationCard(string message, string? title, bool showCloseButton)
+    {
+        var progress = new Border
+        {
+            Height = 3,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+            Background = new SolidColorBrush(WpfColor.FromRgb(37, 99, 235))
+        };
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var contentGrid = new Grid { Margin = new Thickness(14, 12, 14, 12) };
+        if (showCloseButton)
+        {
+            contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
+
+        var textStack = new StackPanel();
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            textStack.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (WpfBrush)FindResource("PrimaryTextBrush")
+            });
+        }
+
+        textStack.Children.Add(new TextBlock
+        {
+            Text = message,
+            Margin = string.IsNullOrWhiteSpace(title) ? new Thickness(0) : new Thickness(0, 6, 0, 0),
+            FontSize = 13,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (WpfBrush)FindResource("SecondaryTextBrush")
+        });
+        contentGrid.Children.Add(textStack);
+
+        if (showCloseButton)
+        {
+            var closeButton = new WpfButton
+            {
+                Content = "\uE711",
+                Width = 30,
+                Height = 30,
+                Padding = new Thickness(0),
+                Margin = new Thickness(10, -4, -6, 0),
+                FontFamily = new WpfFontFamily("Segoe MDL2 Assets"),
+                ToolTip = "关闭"
+            };
+            Grid.SetColumn(closeButton, 1);
+            contentGrid.Children.Add(closeButton);
+        }
+
+        root.Children.Add(contentGrid);
+        Grid.SetRow(progress, 1);
+        root.Children.Add(progress);
+
+        var card = new Border
+        {
+            Margin = new Thickness(0, 0, 0, 10),
+            Background = (WpfBrush)FindResource("SurfaceBrush"),
+            BorderBrush = (WpfBrush)FindResource("BorderBrush"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Effect = new DropShadowEffect
+            {
+                BlurRadius = 16,
+                Direction = 270,
+                Color = WpfColor.FromArgb(0x10, 0, 0, 0),
+                Opacity = 1,
+                ShadowDepth = 2
+            },
+            Child = root,
+            Tag = progress
+        };
+
+        if (showCloseButton && contentGrid.Children.OfType<WpfButton>().FirstOrDefault() is { } button)
+        {
+            button.Click += async (_, _) => await FadeOutAndRemoveAsync(ManualNotificationStack, card);
+        }
+
+        return card;
+    }
+
+    private static void AnimateNotificationIn(Border card)
+    {
+        card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(180))));
+        if (card.RenderTransform is TranslateTransform transform)
+        {
+            transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
+            transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
+        }
+    }
+
+    private static async Task FadeOutAndRemoveAsync(System.Windows.Controls.Panel owner, Border card)
+    {
+        if (!owner.Children.Contains(card))
+        {
+            return;
+        }
+
+        card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
+        await Task.Delay(TimeSpan.FromMilliseconds(190));
+        owner.Children.Remove(card);
     }
 
     private void InitializeTrayIcon()

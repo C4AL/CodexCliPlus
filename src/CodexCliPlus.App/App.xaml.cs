@@ -2,6 +2,7 @@ using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Infrastructure.DependencyInjection;
 using CodexCliPlus.Services;
+using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IBuildInfo, BuildInfo>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<WebUiAssetLocator>();
+        services.AddSingleton<ShellNotificationService>();
         services.AddSingleton<MainWindow>();
 
         _serviceProvider = services.BuildServiceProvider();

@@ -78,8 +78,8 @@ public sealed class DiagnosticsService
         using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
         WriteArchiveEntry(archive, "report.txt", BuildReport(backendStatus, codexStatus, dependencyStatus));
         AddFileIfPresent(archive, "desktop.log", Path.Combine(_pathService.Directories.LogsDirectory, AppConstants.DefaultLogFileName));
-        AddFileIfPresent(archive, "desktop.json", _pathService.Directories.SettingsFilePath);
-        AddFileIfPresent(archive, "cliproxyapi.yaml", _pathService.Directories.BackendConfigFilePath);
+        AddFileIfPresent(archive, AppConstants.AppSettingsFileName, _pathService.Directories.SettingsFilePath);
+        AddFileIfPresent(archive, AppConstants.BackendConfigFileName, _pathService.Directories.BackendConfigFilePath);
 
         return packagePath;
     }

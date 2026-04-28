@@ -23,11 +23,11 @@
                  mc:Ignorable="d">
     <ui:FluentWindow.Resources>
         <DropShadowEffect x:Key="ShellRaisedPanelShadow"
-                          BlurRadius="28"
+                          BlurRadius="16"
                           Direction="270"
-                          Color="#22000000"
+                          Color="#10000000"
                           Opacity="1"
-                          ShadowDepth="8" />
+                          ShadowDepth="2" />
         <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -44,8 +44,9 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
             <Setter Property="FontSize" Value="16" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -206,21 +207,12 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
                     <Grid>
-                        <Button x:Name="FirstRunSaveToDesktopButton"
-                                Style="{StaticResource ShellIconButtonStyle}"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Top"
-                                Click="FirstRunSaveToDesktopButton_Click"
-                                Content="⇩"
-                                ToolTip="保存到桌面"
-                                AutomationProperties.Name="保存到桌面" />
                         <StackPanel>
-                            <TextBlock Margin="44,2,0,0"
-                                       Text="首次初始化安全密钥"
+                            <TextBlock Text="首次初始化安全密钥"
                                        FontSize="26"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <TextBlock Margin="44,10,0,18"
+                            <TextBlock Margin="0,10,0,18"
                                        Text="请立即保存下面的安全密钥。完整内容只会在本页显示一次。"
                                        FontSize="13"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
@@ -229,9 +221,17 @@
                                        FontSize="13"
                                        Foreground="{DynamicResource SecondaryTextBrush}" />
                             <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="300" />
+                                    <ColumnDefinition Width="76" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBox x:Name="FirstRunSecurityKeyTextBox"
+                                         Grid.Column="0"
                                          Height="40"
-                                         Padding="10,8,48,8"
+                                         Width="300"
+                                         Padding="10,8"
+                                         HorizontalAlignment="Left"
                                          FontFamily="Consolas"
                                          FontSize="15"
                                          HorizontalScrollBarVisibility="Hidden"
@@ -239,30 +239,35 @@
                                          TextWrapping="NoWrap"
                                          VerticalContentAlignment="Center"
                                          VerticalScrollBarVisibility="Disabled" />
-                                <Button x:Name="FirstRunCopyKeyButton"
-                                        Style="{StaticResource ShellIconButtonStyle}"
-                                        Width="32"
-                                        Height="32"
-                                        HorizontalAlignment="Right"
+                                <StackPanel Grid.Column="1"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Orientation="Horizontal">
+                                    <Button x:Name="FirstRunSaveToDesktopButton"
+                                            Style="{StaticResource ShellIconButtonStyle}"
+                                            Width="32"
+                                            Height="32"
+                                            Click="FirstRunSaveToDesktopButton_Click"
+                                            Content="&#xE72D;"
+                                            ToolTip="保存到桌面"
+                                            AutomationProperties.Name="保存到桌面" />
+                                    <Button x:Name="FirstRunCopyKeyButton"
+                                            Style="{StaticResource ShellIconButtonStyle}"
+                                            Width="32"
+                                            Height="32"
+                                            Margin="8,0,0,0"
+                                            Click="FirstRunCopyKeyButton_Click"
+                                            Content="&#xE8C8;"
+                                            ToolTip="复制密钥"
+                                            AutomationProperties.Name="复制密钥" />
+                                </StackPanel>
+                                <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
+                                        Grid.Column="2"
                                         VerticalAlignment="Center"
-                                        Margin="0,0,4,0"
-                                        Panel.ZIndex="1"
-                                        Click="FirstRunCopyKeyButton_Click"
-                                        Content="⧉"
-                                        ToolTip="复制密钥"
-                                        AutomationProperties.Name="复制密钥" />
+                                        HorizontalAlignment="Right"
+                                        IsChecked="False"
+                                        Content="本机记住安全密钥" />
                             </Grid>
-                            <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
-                                      Margin="0,18,0,0"
-                                      HorizontalAlignment="Left"
-                                      IsChecked="False"
-                                      Content="本机记住安全密钥" />
-                            <TextBlock x:Name="FirstRunActionStatusText"
-                                       Margin="0,12,0,0"
-                                       FontSize="13"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       TextWrapping="Wrap"
-                                       Visibility="Collapsed" />
                             <Button x:Name="FirstRunEnterManagementButton"
                                     Height="38"
                                     Margin="0,24,0,0"
@@ -275,37 +280,46 @@
                 <Grid x:Name="FirstRunConfirmPanel"
                       Visibility="Collapsed"
                       Background="#99000000">
-                    <Border Width="480"
-                            Padding="28"
+                    <Border Width="420"
+                            Padding="0"
                             CornerRadius="16"
                             Style="{StaticResource ShellRaisedPanelStyle}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
-                        <Grid>
+                        <Grid ClipToBounds="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="34" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
                             <Button x:Name="FirstRunConfirmCloseButton"
-                                    Style="{StaticResource ShellIconButtonStyle}"
-                                    HorizontalAlignment="Left"
+                                    Grid.Row="0"
+                                    Width="46"
+                                    Height="34"
+                                    Padding="0"
+                                    Style="{StaticResource TitleBarButtonStyle}"
+                                    HorizontalAlignment="Right"
                                     VerticalAlignment="Top"
                                     Click="FirstRunConfirmCloseButton_Click"
                                     Content="×"
                                     ToolTip="关闭"
                                     AutomationProperties.Name="关闭" />
-                            <StackPanel>
-                                <TextBlock Margin="44,2,0,0"
+                            <StackPanel Grid.Row="1"
+                                        Margin="28,8,28,28">
+                                <TextBlock
                                            Text="确认已保存安全密钥"
                                            FontSize="22"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource PrimaryTextBrush}" />
-                                <TextBlock Margin="44,12,0,0"
+                                <TextBlock Margin="0,12,0,0"
                                            Text="关闭本页后，完整安全密钥不会再次显示。未保存密钥且未选择本机记住时，之后需要重置才能重新初始化。"
                                            FontSize="13"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
                                            TextWrapping="Wrap" />
                                 <Button x:Name="FirstRunConfirmContinueButton"
-                                        Width="140"
+                                        Width="84"
                                         Height="36"
-                                        Margin="44,24,0,0"
-                                        HorizontalAlignment="Left"
+                                        Margin="0,24,0,0"
+                                        HorizontalAlignment="Center"
                                         Click="FirstRunConfirmContinueButton_Click"
                                         Content="确认" />
                             </StackPanel>
@@ -508,6 +522,22 @@
                 </StackPanel>
             </Border>
         </Grid>
+
+        <StackPanel x:Name="AutoNotificationStack"
+                    Grid.Row="1"
+                    Width="380"
+                    Margin="0,0,0,28"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Panel.ZIndex="20" />
+
+        <StackPanel x:Name="ManualNotificationStack"
+                    Grid.Row="1"
+                    Width="360"
+                    Margin="0,0,24,24"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Panel.ZIndex="21" />
 
         <tray:NotifyIcon x:Name="TrayIcon"
                          Grid.RowSpan="2"

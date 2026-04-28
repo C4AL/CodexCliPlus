@@ -5,7 +5,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
@@ -40,6 +42,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private const string AppHostName = "codexcliplus-webui.local";
     private const int FirstRunConfirmationSeconds = 5;
+    private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
 
     private readonly MainWindowViewModel _viewModel;
@@ -58,6 +61,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private string? _bootstrapScriptId;
     private string _firstRunManagementKey = string.Empty;
     private CancellationTokenSource? _firstRunConfirmCountdown;
+    private DateTimeOffset? _preparationPanelShownAt;
     private bool _allowClose;
     private bool _isInitializing;
     private bool _webViewConfigured;
@@ -108,6 +112,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             if (settingsFileExists && IsUpgradeNoticePending())
             {
+                await EnsureMinimumPreparationDisplayAsync();
                 ShowUpgradeNotice();
                 return;
             }
@@ -229,7 +234,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
         catch (Exception exception)
         {
-            ShowFirstRunStatus($"保存失败：{exception.Message}", isError: true);
+            ShowFirstRunStatus($"保存失败：{BuildDesktopSaveErrorMessage(exception)}", isError: true);
         }
     }
 
@@ -243,7 +248,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         await CompleteFirstRunAsync();
     }
 
-    private void FirstRunConfirmCancelButton_Click(object sender, RoutedEventArgs e)
+    private void FirstRunConfirmCloseButton_Click(object sender, RoutedEventArgs e)
     {
         CancelFirstRunConfirmation();
     }
@@ -381,10 +386,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             }
 
             _settings.ManagementKey = string.Empty;
+            await EnsureMinimumPreparationDisplayAsync();
             ShowLogin("本机保存的安全密钥无法通过验证，请重新输入。");
             return;
         }
 
+        await EnsureMinimumPreparationDisplayAsync();
         ShowLogin();
     }
 
@@ -406,10 +413,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             });
 
         FirstRunSecurityKeyTextBox.Text = _firstRunManagementKey;
+        FirstRunSecurityKeyTextBox.CaretIndex = 0;
+        FirstRunSecurityKeyTextBox.ScrollToHome();
         FirstRunRememberSecurityKeyCheckBox.IsChecked = false;
         FirstRunActionStatusText.Visibility = Visibility.Collapsed;
         FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
         FirstRunEnterManagementButton.IsEnabled = true;
+        await EnsureMinimumPreparationDisplayAsync();
         ShowFirstRunKeyReveal();
     }
 
@@ -423,8 +433,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         FirstRunConfirmPanel.Visibility = Visibility.Visible;
         FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmCancelButton.IsEnabled = true;
-        FirstRunConfirmContinueButton.Content = "确认进入";
+        FirstRunConfirmCloseButton.IsEnabled = true;
+        FirstRunConfirmContinueButton.Content = $"确认 ({FirstRunConfirmationSeconds})";
 
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
@@ -435,11 +445,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             for (var seconds = FirstRunConfirmationSeconds; seconds > 0; seconds--)
             {
-                FirstRunConfirmCountdownText.Text = $"{seconds} 秒后可继续。请确认你已经保存完整安全密钥。";
+                FirstRunConfirmContinueButton.Content = $"确认 ({seconds})";
                 await Task.Delay(TimeSpan.FromSeconds(1), token);
             }
 
-            FirstRunConfirmCountdownText.Text = "可以继续。";
+            FirstRunConfirmContinueButton.Content = "确认";
             FirstRunConfirmContinueButton.IsEnabled = true;
         }
         catch (TaskCanceledException)
@@ -456,7 +466,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmCancelButton.IsEnabled = false;
+        FirstRunConfirmCloseButton.IsEnabled = false;
 
         try
         {
@@ -477,7 +487,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         catch (Exception exception)
         {
             FirstRunConfirmContinueButton.IsEnabled = true;
-            FirstRunConfirmCancelButton.IsEnabled = true;
+            FirstRunConfirmCloseButton.IsEnabled = true;
             ShowFirstRunStatus($"初始化失败：{exception.Message}", isError: true);
             FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
         }
@@ -488,7 +498,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _firstRunConfirmCountdown?.Cancel();
         FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
         FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmCancelButton.IsEnabled = true;
+        FirstRunConfirmContinueButton.Content = "确认";
+        FirstRunConfirmCloseButton.IsEnabled = true;
     }
 
     private async Task SignInAsync()
@@ -634,6 +645,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             ShowPreparationStep("管理桥接", 95, "正在打开管理界面。", StartupState.LoadingManagement);
             await EnsureWebViewAsync(bundle, payload);
+            await EnsureMinimumPreparationDisplayAsync();
             ShowWebView();
         }
         catch (WebView2RuntimeNotFoundException exception)
@@ -788,12 +800,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowPreparationStep(string step, double progress, string description, StartupState state)
     {
         _startupState = state;
+        if (LoadingPanel.Visibility != Visibility.Visible || _preparationPanelShownAt is null)
+        {
+            _preparationPanelShownAt = DateTimeOffset.UtcNow;
+        }
+
         LoadingTitleText.Text = state == StartupState.LoadingManagement
             ? "正在进入管理界面"
             : "正在准备桌面管理界面";
         LoadingDescriptionText.Text = description;
+        LoadingStatusText.Text = BuildPreparationStatus(progress, state);
         PreparationStepText.Text = $"当前步骤：{step}";
-        PreparationProgressBar.Value = Math.Clamp(progress, 0, 100);
+        var normalizedProgress = Math.Clamp(progress, 0, 100);
+        PreparationProgressBar.BeginAnimation(
+            RangeBase.ValueProperty,
+            new DoubleAnimation(normalizedProgress, new Duration(TimeSpan.FromMilliseconds(320)))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            });
 
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -806,6 +830,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowUpgradeNotice()
     {
         _startupState = StartupState.UpgradeNotice;
+        _preparationPanelShownAt = null;
         var previousVersion = string.IsNullOrWhiteSpace(_settings.LastSeenApplicationVersion)
             ? "旧版本"
             : _settings.LastSeenApplicationVersion.Trim();
@@ -822,6 +847,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowFirstRunKeyReveal()
     {
         _startupState = StartupState.FirstRunKeyReveal;
+        _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Visible;
         LoginPanel.Visibility = Visibility.Collapsed;
@@ -834,6 +860,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowLogin(string? errorMessage = null)
     {
         _startupState = StartupState.NativeLogin;
+        _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Visible;
@@ -864,6 +891,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void ShowBlocker(string title, string description, string detail)
     {
         _startupState = StartupState.Blocked;
+        _preparationPanelShownAt = null;
         BlockerTitleText.Text = title;
         BlockerDescriptionText.Text = description;
         BlockerDetailText.Text = detail;
@@ -877,6 +905,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ShowWebView()
     {
+        _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Collapsed;
@@ -965,8 +994,68 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             throw new InvalidOperationException("无法定位桌面目录。");
         }
 
+        string normalizedDesktopDirectory;
+        try
+        {
+            normalizedDesktopDirectory = Path.GetFullPath(desktopDirectory);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new InvalidOperationException("桌面目录路径无效。", exception);
+        }
+
+        if (!Directory.Exists(normalizedDesktopDirectory))
+        {
+            throw new InvalidOperationException($"桌面目录不可用：{normalizedDesktopDirectory}");
+        }
+
         var fileName = $"CodexCliPlus-安全密钥-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
-        return Path.Combine(desktopDirectory, fileName);
+        return Path.Combine(normalizedDesktopDirectory, fileName);
+    }
+
+    private static string BuildDesktopSaveErrorMessage(Exception exception)
+    {
+        return exception switch
+        {
+            UnauthorizedAccessException => $"无法写入系统桌面目录。{exception.Message}",
+            IOException => $"无法写入系统桌面目录。{exception.Message}",
+            _ => exception.Message
+        };
+    }
+
+    private async Task EnsureMinimumPreparationDisplayAsync()
+    {
+        if (_preparationPanelShownAt is not { } shownAt)
+        {
+            return;
+        }
+
+        var elapsed = DateTimeOffset.UtcNow - shownAt;
+        var remaining = MinimumPreparationDisplayDuration - elapsed;
+        if (remaining > TimeSpan.Zero)
+        {
+            await Task.Delay(remaining);
+        }
+    }
+
+    private static string BuildPreparationStatus(double progress, StartupState state)
+    {
+        if (state == StartupState.LoadingManagement || progress >= 90)
+        {
+            return "正在接入管理界面";
+        }
+
+        if (progress >= 65)
+        {
+            return "正在启动本地后端";
+        }
+
+        if (progress >= 35)
+        {
+            return "正在校验运行资源";
+        }
+
+        return "正在启动桌面宿主";
     }
 
     private async Task ResetWebUiLocalAuthStateAsync()

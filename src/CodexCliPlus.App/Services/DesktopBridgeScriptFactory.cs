@@ -49,6 +49,17 @@ public static class DesktopBridgeScriptFactory
                 type: 'requestNativeLogin',
                 message: normalizedMessage || undefined
               });
+            },
+            shellStateChanged: (state) => {
+              const normalized = state && typeof state === 'object' ? state : {};
+              postHostMessage({
+                type: 'shellStateChanged',
+                connectionStatus: typeof normalized.connectionStatus === 'string' ? normalized.connectionStatus : 'disconnected',
+                apiBase: typeof normalized.apiBase === 'string' ? normalized.apiBase : '',
+                theme: typeof normalized.theme === 'string' ? normalized.theme : 'auto',
+                resolvedTheme: typeof normalized.resolvedTheme === 'string' ? normalized.resolvedTheme : 'light',
+                sidebarCollapsed: normalized.sidebarCollapsed === true
+              });
             }
           };
 

@@ -6,6 +6,7 @@ using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
+using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Security;
 
@@ -18,7 +19,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new AppThemeModeJsonConverter(), new JsonStringEnumConverter() }
     };
 
     private readonly IPathService _pathService;
@@ -224,6 +225,49 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                     ? null
                     : settings.LastSeenApplicationVersion.Trim()
             };
+        }
+    }
+
+    private sealed class AppThemeModeJsonConverter : JsonConverter<AppThemeMode>
+    {
+        public override AppThemeMode Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var value))
+            {
+                return Enum.IsDefined(typeof(AppThemeMode), value)
+                    ? (AppThemeMode)value
+                    : AppThemeMode.System;
+            }
+
+            if (reader.TokenType != JsonTokenType.String)
+            {
+                return AppThemeMode.System;
+            }
+
+            var text = reader.GetString()?.Trim();
+            return text?.ToLowerInvariant() switch
+            {
+                "system" or "auto" => AppThemeMode.System,
+                "white" or "light" => AppThemeMode.White,
+                "dark" => AppThemeMode.Dark,
+                _ => AppThemeMode.System
+            };
+        }
+
+        public override void Write(
+            Utf8JsonWriter writer,
+            AppThemeMode value,
+            JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value switch
+            {
+                AppThemeMode.White => "White",
+                AppThemeMode.Dark => "Dark",
+                _ => "System"
+            });
         }
     }
 }

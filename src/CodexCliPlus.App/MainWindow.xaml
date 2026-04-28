@@ -17,6 +17,8 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Auto"
                  WindowStartupLocation="CenterScreen"
+                 UseLayoutRounding="True"
+                 SnapsToDevicePixels="True"
                  Closing="Window_Closing"
                  Closed="Window_Closed"
                  Loaded="Window_Loaded"
@@ -40,11 +42,20 @@
             <Setter Property="Height" Value="34" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1"
+                                    ScaleY="1" />
+                </Setter.Value>
+            </Setter>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
@@ -69,6 +80,12 @@
                                 <Setter TargetName="ButtonChrome"
                                         Property="Background"
                                         Value="{DynamicResource BorderBrush}" />
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.96"
+                                                        ScaleY="0.96" />
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45" />
@@ -77,6 +94,27 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="ShellInlineIconButtonStyle"
+               TargetType="{x:Type Button}"
+               BasedOn="{StaticResource ShellIconButtonStyle}">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Opacity" Value="0.58" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="ShellIconViewboxStyle" TargetType="{x:Type Viewbox}">
             <Setter Property="Width" Value="17" />
@@ -91,6 +129,15 @@
             <Setter Property="FontFamily" Value="{StaticResource TextThemeFontFamily}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        </Style>
+        <Style x:Key="ShellStatusPillStyle" TargetType="{x:Type Border}">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent" />
@@ -167,36 +214,222 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32" />
+            <RowDefinition Height="56" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0"
-              Background="{DynamicResource ApplicationBackgroundBrush}">
+              Background="{DynamicResource SurfaceBrush}">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="46" />
                 <ColumnDefinition Width="46" />
             </Grid.ColumnDefinitions>
 
             <Border x:Name="DragRegion"
-                    Grid.Column="0"
-                    Background="{DynamicResource ApplicationBackgroundBrush}"
+                    Grid.ColumnSpan="4"
+                    Background="{DynamicResource SurfaceBrush}"
                     MouseLeftButtonDown="DragRegion_MouseLeftButtonDown" />
 
+            <Button x:Name="ShellSidebarButton"
+                    Grid.Column="0"
+                    Style="{StaticResource ShellIconButtonStyle}"
+                    AutomationProperties.AutomationId="ShellSidebarButton"
+                    AutomationProperties.Name="切换侧栏"
+                    Click="ShellSidebarButton_Click"
+                    ToolTip="切换侧栏"
+                    Panel.ZIndex="1">
+                <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                    <Canvas Width="24"
+                            Height="24">
+                        <Path Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18"
+                              Fill="Transparent"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round" />
+                    </Canvas>
+                </Viewbox>
+            </Button>
+
+            <StackPanel Grid.Column="1"
+                        Margin="4,0,18,0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Panel.ZIndex="1">
+                <Grid Width="34"
+                      Height="34"
+                      SnapsToDevicePixels="True"
+                      UseLayoutRounding="True">
+                    <Border Background="{DynamicResource AccentSoftBrush}"
+                            CornerRadius="9" />
+                    <Image Width="28"
+                           Height="28"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           SnapsToDevicePixels="True"
+                           Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                    <Ellipse x:Name="ShellBrandStatusDot"
+                             Width="7"
+                             Height="7"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Fill="{DynamicResource AccentBrush}"
+                             Stroke="{DynamicResource SurfaceBrush}"
+                             StrokeThickness="1" />
+                </Grid>
+                <Grid Margin="10,0,0,0"
+                      VerticalAlignment="Center"
+                      ClipToBounds="True">
+                    <StackPanel>
+                        <TextBlock Text="CodexCliPlus"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="桌面宿主"
+                                   Margin="0,1,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <Rectangle Height="1"
+                               Width="72"
+                               VerticalAlignment="Bottom"
+                               Fill="{DynamicResource AccentBrush}"
+                               Opacity="0.34">
+                        <Rectangle.RenderTransform>
+                            <TranslateTransform X="-72" />
+                        </Rectangle.RenderTransform>
+                        <Rectangle.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="-72"
+                                                         To="110"
+                                                         Duration="0:0:3.2" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Rectangle.Triggers>
+                    </Rectangle>
+                </Grid>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left"
+                        Panel.ZIndex="1">
+                <Border Style="{StaticResource ShellStatusPillStyle}"
+                        AutomationProperties.AutomationId="ShellConnectionStatusPill">
+                    <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Ellipse x:Name="ShellConnectionStatusDot"
+                                 Width="7"
+                                 Height="7"
+                                 Margin="0,0,7,0"
+                                 Fill="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock x:Name="ShellConnectionStatusText"
+                                   Text="未连接"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Margin="8,0,0,0"
+                        MaxWidth="280"
+                        Style="{StaticResource ShellStatusPillStyle}">
+                    <TextBlock x:Name="ShellBackendAddressText"
+                               Text="-"
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Column="3"
+                        Margin="0,0,6,0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Panel.ZIndex="1">
+                <Button x:Name="ShellRefreshButton"
+                        Style="{StaticResource ShellIconButtonStyle}"
+                        AutomationProperties.AutomationId="ShellRefreshButton"
+                        AutomationProperties.Name="刷新"
+                        Click="ShellRefreshButton_Click"
+                        ToolTip="刷新">
+                    <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                        <Canvas Width="24"
+                                Height="24">
+                            <Path Data="M20,12 C20,16.418 16.418,20 12,20 C7.582,20 4,16.418 4,12 C4,7.582 7.582,4 12,4 C14.245,4 16.277,4.924 17.73,6.414 M20,5 L20,10 L15,10"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                  StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" />
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+                <Button x:Name="ShellThemeButton"
+                        Margin="6,0,0,0"
+                        Style="{StaticResource ShellIconButtonStyle}"
+                        AutomationProperties.AutomationId="ShellThemeButton"
+                        AutomationProperties.Name="切换主题"
+                        Click="ShellThemeButton_Click"
+                        ToolTip="切换主题">
+                    <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                        <Canvas Width="24"
+                                Height="24">
+                            <Path Data="M12,3 C7.029,3 3,7.029 3,12 C3,16.971 7.029,21 12,21 C12,21 12,3 12,3 Z M12,3 C16.971,3 21,7.029 21,12 C21,16.971 16.971,21 12,21"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                  StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" />
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+                <Button x:Name="ShellSettingsButton"
+                        Margin="6,0,0,0"
+                        Style="{StaticResource ShellIconButtonStyle}"
+                        AutomationProperties.AutomationId="ShellSettingsButton"
+                        AutomationProperties.Name="设置"
+                        Click="ShellSettingsButton_Click"
+                        ToolTip="设置">
+                    <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                        <Canvas Width="24"
+                                Height="24">
+                            <Path Data="M12,8.5 A3.5,3.5 0 1 0 12,15.5 A3.5,3.5 0 1 0 12,8.5 M19,13.5 L21,15 L19,18.5 L16.6,17.7 C16,18.1 15.4,18.5 14.7,18.8 L14.3,21 L9.7,21 L9.3,18.8 C8.6,18.5 8,18.1 7.4,17.7 L5,18.5 L3,15 L5,13.5 C4.9,13 4.8,12.5 4.8,12 C4.8,11.5 4.9,11 5,10.5 L3,9 L5,5.5 L7.4,6.3 C8,5.9 8.6,5.5 9.3,5.2 L9.7,3 L14.3,3 L14.7,5.2 C15.4,5.5 16,5.9 16.6,6.3 L19,5.5 L21,9 L19,10.5 C19.1,11 19.2,11.5 19.2,12 C19.2,12.5 19.1,13 19,13.5 Z"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                  StrokeThickness="1.45"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round" />
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+            </StackPanel>
+
             <Button x:Name="MinimizeWindowButton"
-                    Grid.Column="1"
+                    Grid.Column="4"
                     Width="46"
-                    Height="32"
+                    Height="56"
                     Padding="0"
                     Style="{StaticResource TitleBarButtonStyle}"
                     Click="MinimizeWindowButton_Click"
                     Content="−"
                     ToolTip="最小化" />
             <Button x:Name="CloseWindowButton"
-                    Grid.Column="2"
+                    Grid.Column="5"
                     Width="46"
-                    Height="32"
+                    Height="56"
                     Padding="0"
                     Style="{StaticResource TitleBarButtonStyle}"
                     Click="CloseWindowButton_Click"
@@ -271,57 +504,31 @@
                                        Foreground="{DynamicResource SecondaryTextBrush}" />
                             <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="300" />
+                                    <ColumnDefinition Width="360" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="FirstRunSecurityKeyTextBox"
-                                         Grid.Column="0"
-                                         Height="40"
-                                         Width="300"
-                                         Padding="10,8"
-                                         HorizontalAlignment="Left"
-                                         FontFamily="Consolas"
-                                         FontSize="15"
-                                         HorizontalScrollBarVisibility="Hidden"
-                                         IsReadOnly="True"
-                                         AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
-                                         TextWrapping="NoWrap"
-                                         VerticalContentAlignment="Center"
-                                         VerticalScrollBarVisibility="Disabled" />
-                                <StackPanel Grid.Column="1"
-                                            Margin="8,0,0,0"
-                                            VerticalAlignment="Center"
-                                            Orientation="Horizontal">
-                                    <Button x:Name="FirstRunSaveToDesktopButton"
-                                            Style="{StaticResource ShellIconButtonStyle}"
-                                            Width="34"
-                                            Height="34"
-                                            Click="FirstRunSaveToDesktopButton_Click"
-                                            AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
-                                            AutomationProperties.Name="保存到桌面">
-                                        <Button.ToolTip>
-                                            <ToolTip Style="{StaticResource ShellTextToolTipStyle}"
-                                                     Content="保存到桌面" />
-                                        </Button.ToolTip>
-                                        <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
-                                            <Canvas Width="24"
-                                                    Height="24">
-                                                <Path Data="M12,5 L18,11 L12,17 M18,11 L7,11 M7,11 C5.343,11 4,12.343 4,14 L4,17 C4,18.657 5.343,20 7,20 L17,20 C18.657,20 20,18.657 20,17 L20,15"
-                                                      Fill="Transparent"
-                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                                      StrokeThickness="1.8"
-                                                      StrokeStartLineCap="Round"
-                                                      StrokeEndLineCap="Round"
-                                                      StrokeLineJoin="Round" />
-                                            </Canvas>
-                                        </Viewbox>
-                                    </Button>
+                                <Grid Grid.Column="0"
+                                      Width="360"
+                                      Height="40"
+                                      HorizontalAlignment="Left">
+                                    <TextBox x:Name="FirstRunSecurityKeyTextBox"
+                                             Height="40"
+                                             Width="360"
+                                             Padding="10,8,48,8"
+                                             HorizontalAlignment="Left"
+                                             FontFamily="Consolas"
+                                             FontSize="15"
+                                             HorizontalScrollBarVisibility="Hidden"
+                                             IsReadOnly="True"
+                                             AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
+                                             TextWrapping="NoWrap"
+                                             VerticalContentAlignment="Center"
+                                             VerticalScrollBarVisibility="Disabled" />
                                     <Button x:Name="FirstRunCopyKeyButton"
-                                            Style="{StaticResource ShellIconButtonStyle}"
-                                            Width="34"
-                                            Height="34"
-                                            Margin="8,0,0,0"
+                                            Style="{StaticResource ShellInlineIconButtonStyle}"
+                                            HorizontalAlignment="Right"
+                                            Margin="0,0,5,0"
                                             Click="FirstRunCopyKeyButton_Click"
                                             AutomationProperties.AutomationId="FirstRunCopyKeyButton"
                                             AutomationProperties.Name="复制密钥">
@@ -342,7 +549,33 @@
                                             </Canvas>
                                         </Viewbox>
                                     </Button>
-                                </StackPanel>
+                                </Grid>
+                                <Button x:Name="FirstRunSaveToDesktopButton"
+                                        Grid.Column="1"
+                                        Margin="8,0,0,0"
+                                        Style="{StaticResource ShellIconButtonStyle}"
+                                        Width="34"
+                                        Height="34"
+                                        Click="FirstRunSaveToDesktopButton_Click"
+                                        AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
+                                        AutomationProperties.Name="保存到桌面">
+                                    <Button.ToolTip>
+                                        <ToolTip Style="{StaticResource ShellTextToolTipStyle}"
+                                                 Content="保存到桌面" />
+                                    </Button.ToolTip>
+                                    <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
+                                        <Canvas Width="24"
+                                                Height="24">
+                                            <Path Data="M12,5 L18,11 L12,17 M18,11 L7,11 M7,11 C5.343,11 4,12.343 4,14 L4,17 C4,18.657 5.343,20 7,20 L17,20 C18.657,20 20,18.657 20,17 L20,15"
+                                                  Fill="Transparent"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                                                  StrokeThickness="1.8"
+                                                  StrokeStartLineCap="Round"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round" />
+                                        </Canvas>
+                                    </Viewbox>
+                                </Button>
                                 <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
                                         Grid.Column="2"
                                         VerticalAlignment="Center"
@@ -477,42 +710,85 @@
                     VerticalAlignment="Center">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Border x:Name="LoadingBrandBadge"
-                                Width="48"
-                                Height="48"
-                                Background="{DynamicResource AccentSoftBrush}"
-                                CornerRadius="14"
-                                RenderTransformOrigin="0.5,0.5">
-                            <Border.RenderTransform>
-                                <ScaleTransform ScaleX="1"
-                                                ScaleY="1" />
-                            </Border.RenderTransform>
-                            <Border.Triggers>
+                        <Grid Width="56"
+                              Height="56"
+                              SnapsToDevicePixels="True"
+                              UseLayoutRounding="True">
+                            <Border x:Name="LoadingBrandHalo"
+                                    Width="56"
+                                    Height="56"
+                                    Background="{DynamicResource AccentSoftBrush}"
+                                    CornerRadius="18"
+                                    Opacity="0.38">
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever"
+                                                        AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.24"
+                                                                 To="0.58"
+                                                                 Duration="0:0:0.9" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                                <Border.Effect>
+                                    <BlurEffect Radius="5" />
+                                </Border.Effect>
+                            </Border>
+                            <Border x:Name="LoadingBrandBadge"
+                                    Width="48"
+                                    Height="48"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource AccentSoftBrush}"
+                                    CornerRadius="14">
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever"
+                                                        AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.82"
+                                                                 To="1"
+                                                                 Duration="0:0:0.8" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                            </Border>
+                            <Image Width="32"
+                                   Height="32"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   SnapsToDevicePixels="True"
+                                   Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                            <Ellipse Width="7"
+                                     Height="7"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Bottom"
+                                     Margin="0,0,5,5"
+                                     Fill="{DynamicResource AccentBrush}"
+                                     Stroke="{DynamicResource SurfaceBrush}"
+                                     StrokeThickness="1">
+                                <Ellipse.Triggers>
                                 <EventTrigger RoutedEvent="Loaded">
                                     <BeginStoryboard>
                                         <Storyboard RepeatBehavior="Forever"
                                                     AutoReverse="True">
                                             <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                             From="0.72"
+                                                             From="0.42"
                                                              To="1"
-                                                             Duration="0:0:0.8" />
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             From="0.96"
-                                                             To="1.04"
-                                                             Duration="0:0:0.8" />
-                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             From="0.96"
-                                                             To="1.04"
                                                              Duration="0:0:0.8" />
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </EventTrigger>
-                            </Border.Triggers>
-                            <Image Width="30"
-                                   Height="30"
-                                   Source="pack://application:,,,/Resources/Icons/codexcliplus.ico" />
-                        </Border>
-                        <StackPanel Margin="14,2,0,0">
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                        </Grid>
+                        <StackPanel Margin="14,6,0,0">
                             <TextBlock Text="CodexCliPlus"
                                        FontSize="15"
                                        FontWeight="SemiBold"
@@ -636,6 +912,294 @@
                     VerticalAlignment="Bottom"
                     Panel.ZIndex="21"
                     AutomationProperties.AutomationId="ManualNotificationStack" />
+
+        <Grid x:Name="SettingsOverlay"
+              Grid.RowSpan="2"
+              Visibility="Collapsed"
+              Opacity="0"
+              Background="#66000000"
+              Panel.ZIndex="60"
+              MouseLeftButtonDown="SettingsOverlay_MouseLeftButtonDown"
+              AutomationProperties.AutomationId="SettingsOverlay">
+            <Border x:Name="SettingsDialogCard"
+                    Width="760"
+                    MaxHeight="760"
+                    Padding="0"
+                    Style="{StaticResource ShellRaisedPanelStyle}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    RenderTransformOrigin="0.5,0.5"
+                    AutomationProperties.AutomationId="SettingsDialog">
+                <Border.RenderTransform>
+                    <ScaleTransform ScaleX="0.96"
+                                    ScaleY="0.96" />
+                </Border.RenderTransform>
+                <Grid ClipToBounds="True">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="58" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0"
+                          Background="{DynamicResource SurfaceAltBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="46" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="22,0,0,0"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <Image Width="30"
+                                   Height="30"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   SnapsToDevicePixels="True"
+                                   Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="设置"
+                                           FontSize="17"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}" />
+                                <TextBlock Text="CodexCliPlus 桌面控制中心"
+                                           Margin="0,2,0,0"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button x:Name="SettingsOverlayCloseButton"
+                                Grid.Column="1"
+                                Width="46"
+                                Height="58"
+                                Padding="0"
+                                Style="{StaticResource TitleBarButtonStyle}"
+                                Click="SettingsOverlayCloseButton_Click"
+                                AutomationProperties.AutomationId="SettingsOverlayCloseButton"
+                                AutomationProperties.Name="关闭设置"
+                                Content="×"
+                                ToolTip="关闭" />
+                    </Grid>
+                    <ScrollViewer Grid.Row="1"
+                                  MaxHeight="700"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="24">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0"
+                                        Margin="0,0,8,0"
+                                        Padding="16"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="应用"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsAppVersionText"
+                                                   Margin="0,10,0,0"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsBackendVersionText"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsBuildTimeText"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1"
+                                        Margin="8,0,0,0"
+                                        Padding="16"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="连接"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsConnectionText"
+                                                   Margin="0,10,0,0"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsBackendAddressText"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="主题"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                    <StackPanel Margin="0,12,0,0"
+                                                Orientation="Horizontal">
+                                        <Button x:Name="SettingsThemeSystemButton"
+                                                Width="112"
+                                                Height="34"
+                                                Click="SettingsThemeSystemButton_Click"
+                                                AutomationProperties.AutomationId="SettingsThemeSystemButton"
+                                                Content="跟随系统" />
+                                        <Button x:Name="SettingsThemeWhiteButton"
+                                                Width="88"
+                                                Height="34"
+                                                Margin="8,0,0,0"
+                                                Click="SettingsThemeWhiteButton_Click"
+                                                AutomationProperties.AutomationId="SettingsThemeWhiteButton"
+                                                Content="纯白" />
+                                        <Button x:Name="SettingsThemeDarkButton"
+                                                Width="88"
+                                                Height="34"
+                                                Margin="8,0,0,0"
+                                                Click="SettingsThemeDarkButton_Click"
+                                                AutomationProperties.AutomationId="SettingsThemeDarkButton"
+                                                Content="暗色" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="模型概览"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                    <TextBlock x:Name="SettingsModelOverviewText"
+                                               Margin="0,10,0,0"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="SettingsProviderOverviewText"
+                                               Margin="0,6,0,0"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource SurfaceAltBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="快捷链接"
+                                               FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                    <StackPanel Margin="0,12,0,0"
+                                                Orientation="Horizontal">
+                                        <Button Width="118"
+                                                Height="34"
+                                                Click="SettingsOpenMainRepoButton_Click"
+                                                Content="主程序仓库" />
+                                        <Button Width="118"
+                                                Height="34"
+                                                Margin="8,0,0,0"
+                                                Click="SettingsOpenWebUiRepoButton_Click"
+                                                Content="前端仓库" />
+                                        <Button Width="96"
+                                                Height="34"
+                                                Margin="8,0,0,0"
+                                                Click="SettingsOpenDocsButton_Click"
+                                                Content="使用教程" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0"
+                                        Margin="0,0,8,0"
+                                        Padding="16"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="本地登录信息"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock Text="清理本机保存的登录状态，不会更改后端配置。"
+                                                   Margin="0,10,0,12"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <Button x:Name="SettingsClearLoginButton"
+                                                Width="128"
+                                                Height="34"
+                                                HorizontalAlignment="Left"
+                                                Click="SettingsClearLoginButton_Click"
+                                                AutomationProperties.AutomationId="SettingsClearLoginButton"
+                                                Content="清理登录" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1"
+                                        Margin="8,0,0,0"
+                                        Padding="16"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="请求日志"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock x:Name="SettingsRequestLogText"
+                                                   Margin="0,10,0,12"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <Button x:Name="SettingsRequestLogButton"
+                                                Width="128"
+                                                Height="34"
+                                                HorizontalAlignment="Left"
+                                                Click="SettingsRequestLogButton_Click"
+                                                AutomationProperties.AutomationId="SettingsRequestLogButton"
+                                                Content="切换请求日志" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Button x:Name="SettingsRefreshInfoButton"
+                                    Width="120"
+                                    Height="34"
+                                    Margin="0,16,0,0"
+                                    HorizontalAlignment="Left"
+                                    Click="SettingsRefreshInfoButton_Click"
+                                    AutomationProperties.AutomationId="SettingsRefreshInfoButton"
+                                    Content="刷新信息" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
 
         <tray:NotifyIcon x:Name="TrayIcon"
                          Grid.RowSpan="2"

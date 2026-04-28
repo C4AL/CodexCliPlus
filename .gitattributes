@@ -33,3 +33,6 @@
 *.ttf binary
 *.exe binary
 *.zip binary
+
+resources/webui/upstream/dist/index.html linguist-generated=true
+resources/webui/modules/cpa-uv-overlay/live-assets/*.html linguist-generated=true

@@ -51,6 +51,11 @@ public static class DesktopBridgeScriptFactory
             }
           };
 
+          Object.defineProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__', {
+            configurable: true,
+            value: bridge
+          });
+
           Object.defineProperty(window, '__CPAD_DESKTOP_BRIDGE__', {
             configurable: true,
             value: bridge

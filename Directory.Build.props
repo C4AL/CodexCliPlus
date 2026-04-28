@@ -8,7 +8,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Authors>Blackblock-inc</Authors>
     <Company>Blackblock-inc</Company>
-    <Product>Cli Proxy API Desktop</Product>
+    <Product>CodexCliPlus</Product>
     <RootNamespace>$(MSBuildProjectName)</RootNamespace>
   </PropertyGroup>
 </Project>

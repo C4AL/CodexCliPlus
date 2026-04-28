@@ -1,4 +1,6 @@
 using System.Text;
+using CodexCliPlus.Core.Models;
+using CodexCliPlus.Services;
 
 namespace CodexCliPlus.Tests.UI;
 
@@ -72,6 +74,87 @@ public sealed class NavigationShellTests
         Assert.Contains("VerifyManagementKey", hostSource, StringComparison.Ordinal);
         Assert.Contains("LastSeenApplicationVersion", hostSource, StringComparison.Ordinal);
         Assert.Contains("SecurityKeyOnboardingCompleted", hostSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DesktopBridgePayloadUsesWebUiCamelCaseContract()
+    {
+        var script = DesktopBridgeScriptFactory.CreateInitializationScript(new DesktopBootstrapPayload
+        {
+            DesktopMode = true,
+            ApiBase = "http://127.0.0.1:15345",
+            ManagementKey = "secret-key"
+        });
+
+        Assert.Contains("\"desktopMode\":true", script, StringComparison.Ordinal);
+        Assert.Contains("\"apiBase\":\"http://127.0.0.1:15345\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"managementKey\":\"secret-key\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FirstRunOnboardingUsesIconActionsSingleLineKeyAndCountdownConfirm()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
+        var source = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
+
+        Assert.Contains("x:Key=\"ShellRaisedPanelStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource ShellRaisedPanelStyle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunSaveToDesktopButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip=\"保存到桌面\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"⇩\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ToolTip=\"复制密钥\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"⧉\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalScrollBarVisibility=\"Hidden\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarVisibility=\"Disabled\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("FirstRunSecurityKeyTextBox.ScrollToHome()", source, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Left\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunConfirmCloseButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"FirstRunConfirmCancelButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"返回\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"确认进入\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("FirstRunConfirmContinueButton.Content = $\"确认 ({seconds})\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("可以继续。", source, StringComparison.Ordinal);
+        Assert.Contains("MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500)", source, StringComparison.Ordinal);
+        Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
+        Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FirstRunDesktopSavePathUsesOnlySystemDesktopDirectory()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var source = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
+
+        Assert.Contains("Environment.SpecialFolder.DesktopDirectory", source, StringComparison.Ordinal);
+        Assert.Contains("Directory.Exists(normalizedDesktopDirectory)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SpecialFolder.UserProfile", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("USERPROFILE", source, StringComparison.Ordinal);
+
+        var method = typeof(CodexCliPlus.MainWindow).GetMethod(
+            "BuildDesktopSecurityKeyFilePath",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (string.IsNullOrWhiteSpace(desktopDirectory) || !Directory.Exists(desktopDirectory))
+        {
+            var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => method.Invoke(null, null));
+            Assert.IsType<InvalidOperationException>(exception.InnerException);
+            return;
+        }
+
+        var filePath = Assert.IsType<string>(method.Invoke(null, null));
+        var expectedDirectory = Path.GetFullPath(desktopDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var actualDirectory = Path.GetDirectoryName(Path.GetFullPath(filePath))!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        Assert.True(
+            string.Equals(expectedDirectory, actualDirectory, StringComparison.OrdinalIgnoreCase),
+            $"Expected '{actualDirectory}' to match the system desktop '{expectedDirectory}'.");
     }
 
     [Fact]

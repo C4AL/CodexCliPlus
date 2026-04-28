@@ -39,6 +39,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
         Directory.CreateDirectory(RootDirectory);
         Directory.CreateDirectory(UserProfileDirectory);
+        Directory.CreateDirectory(Path.Combine(UserProfileDirectory, "Desktop"));
         Directory.CreateDirectory(CodexHomeDirectory);
         Directory.CreateDirectory(TempDirectory);
         Directory.CreateDirectory(OutputDirectory);

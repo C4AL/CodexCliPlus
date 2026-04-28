@@ -22,6 +22,64 @@
                  Loaded="Window_Loaded"
                  mc:Ignorable="d">
     <ui:FluentWindow.Resources>
+        <DropShadowEffect x:Key="ShellRaisedPanelShadow"
+                          BlurRadius="28"
+                          Direction="270"
+                          Color="#22000000"
+                          Opacity="1"
+                          ShadowDepth="8" />
+        <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Effect" Value="{StaticResource ShellRaisedPanelShadow}" />
+        </Style>
+        <Style x:Key="ShellIconButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource BorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -108,10 +166,7 @@
               Background="{DynamicResource ApplicationBackgroundBrush}">
             <Border Width="500"
                     Padding="30"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="18"
+                    Style="{StaticResource ShellRaisedPanelStyle}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>
@@ -147,61 +202,74 @@
             <Grid>
                 <Border Width="620"
                         Padding="30"
-                        Background="{DynamicResource SurfaceBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="18"
+                        Style="{StaticResource ShellRaisedPanelStyle}"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
-                    <StackPanel>
-                        <TextBlock Text="首次初始化安全密钥"
-                                   FontSize="26"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Margin="0,10,0,18"
-                                   Text="请立即保存下面的安全密钥。完整内容只会在本页显示一次。"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="安全密钥"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                        <TextBox x:Name="FirstRunSecurityKeyTextBox"
-                                 Height="86"
-                                 Margin="0,8,0,0"
-                                 Padding="10"
-                                 FontFamily="Consolas"
-                                 FontSize="15"
-                                 IsReadOnly="True"
-                                 TextWrapping="Wrap"
-                                 VerticalScrollBarVisibility="Auto" />
-                        <StackPanel Margin="0,16,0,0"
-                                    Orientation="Horizontal">
-                            <Button Width="112"
-                                    Height="36"
-                                    Click="FirstRunCopyKeyButton_Click"
-                                    Content="复制密钥" />
-                            <Button Width="128"
-                                    Height="36"
-                                    Margin="12,0,0,0"
-                                    Click="FirstRunSaveToDesktopButton_Click"
-                                    Content="保存到桌面" />
+                    <Grid>
+                        <Button x:Name="FirstRunSaveToDesktopButton"
+                                Style="{StaticResource ShellIconButtonStyle}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Click="FirstRunSaveToDesktopButton_Click"
+                                Content="⇩"
+                                ToolTip="保存到桌面"
+                                AutomationProperties.Name="保存到桌面" />
+                        <StackPanel>
+                            <TextBlock Margin="44,2,0,0"
+                                       Text="首次初始化安全密钥"
+                                       FontSize="26"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Margin="44,10,0,18"
+                                       Text="请立即保存下面的安全密钥。完整内容只会在本页显示一次。"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="安全密钥"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <Grid Margin="0,8,0,0">
+                                <TextBox x:Name="FirstRunSecurityKeyTextBox"
+                                         Height="40"
+                                         Padding="10,8,48,8"
+                                         FontFamily="Consolas"
+                                         FontSize="15"
+                                         HorizontalScrollBarVisibility="Hidden"
+                                         IsReadOnly="True"
+                                         TextWrapping="NoWrap"
+                                         VerticalContentAlignment="Center"
+                                         VerticalScrollBarVisibility="Disabled" />
+                                <Button x:Name="FirstRunCopyKeyButton"
+                                        Style="{StaticResource ShellIconButtonStyle}"
+                                        Width="32"
+                                        Height="32"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Margin="0,0,4,0"
+                                        Panel.ZIndex="1"
+                                        Click="FirstRunCopyKeyButton_Click"
+                                        Content="⧉"
+                                        ToolTip="复制密钥"
+                                        AutomationProperties.Name="复制密钥" />
+                            </Grid>
+                            <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
+                                      Margin="0,18,0,0"
+                                      HorizontalAlignment="Left"
+                                      IsChecked="False"
+                                      Content="本机记住安全密钥" />
+                            <TextBlock x:Name="FirstRunActionStatusText"
+                                       Margin="0,12,0,0"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+                            <Button x:Name="FirstRunEnterManagementButton"
+                                    Height="38"
+                                    Margin="0,24,0,0"
+                                    Click="FirstRunEnterManagementButton_Click"
+                                    Content="进入管理界面" />
                         </StackPanel>
-                        <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
-                                  Margin="0,18,0,0"
-                                  Content="本机记住安全密钥" />
-                        <TextBlock x:Name="FirstRunActionStatusText"
-                                   Margin="0,12,0,0"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   TextWrapping="Wrap"
-                                   Visibility="Collapsed" />
-                        <Button x:Name="FirstRunEnterManagementButton"
-                                Height="38"
-                                Margin="0,24,0,0"
-                                Click="FirstRunEnterManagementButton_Click"
-                                Content="进入管理界面" />
-                    </StackPanel>
+                    </Grid>
                 </Border>
 
                 <Grid x:Name="FirstRunConfirmPanel"
@@ -209,41 +277,39 @@
                       Background="#99000000">
                     <Border Width="480"
                             Padding="28"
-                            Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1"
                             CornerRadius="16"
+                            Style="{StaticResource ShellRaisedPanelStyle}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center">
-                        <StackPanel>
-                            <TextBlock Text="确认已保存安全密钥"
-                                       FontSize="22"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <TextBlock Margin="0,12,0,0"
-                                       Text="关闭本页后，完整安全密钥不会再次显示。未保存密钥且未选择本机记住时，之后需要重置才能重新初始化。"
-                                       FontSize="13"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock x:Name="FirstRunConfirmCountdownText"
-                                       Margin="0,18,0,0"
-                                       FontSize="13"
-                                       Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <StackPanel Margin="0,24,0,0"
-                                        Orientation="Horizontal">
+                        <Grid>
+                            <Button x:Name="FirstRunConfirmCloseButton"
+                                    Style="{StaticResource ShellIconButtonStyle}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Click="FirstRunConfirmCloseButton_Click"
+                                    Content="×"
+                                    ToolTip="关闭"
+                                    AutomationProperties.Name="关闭" />
+                            <StackPanel>
+                                <TextBlock Margin="44,2,0,0"
+                                           Text="确认已保存安全密钥"
+                                           FontSize="22"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}" />
+                                <TextBlock Margin="44,12,0,0"
+                                           Text="关闭本页后，完整安全密钥不会再次显示。未保存密钥且未选择本机记住时，之后需要重置才能重新初始化。"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           TextWrapping="Wrap" />
                                 <Button x:Name="FirstRunConfirmContinueButton"
                                         Width="140"
                                         Height="36"
+                                        Margin="44,24,0,0"
+                                        HorizontalAlignment="Left"
                                         Click="FirstRunConfirmContinueButton_Click"
-                                        Content="确认进入" />
-                                <Button x:Name="FirstRunConfirmCancelButton"
-                                        Width="100"
-                                        Height="36"
-                                        Margin="12,0,0,0"
-                                        Click="FirstRunConfirmCancelButton_Click"
-                                        Content="返回" />
+                                        Content="确认" />
                             </StackPanel>
-                        </StackPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </Grid>
@@ -254,10 +320,7 @@
               Background="{DynamicResource ApplicationBackgroundBrush}">
             <Border Width="440"
                     Padding="28"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="18"
+                    Style="{StaticResource ShellRaisedPanelStyle}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>
@@ -306,19 +369,60 @@
               Background="{DynamicResource ApplicationBackgroundBrush}">
             <Border Width="520"
                     Padding="30"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="18"
+                    Style="{StaticResource ShellRaisedPanelStyle}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>
-                    <TextBlock Text="CodexCliPlus"
-                               FontSize="15"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <StackPanel Orientation="Horizontal">
+                        <Border x:Name="LoadingBrandBadge"
+                                Width="48"
+                                Height="48"
+                                Background="{DynamicResource AccentSoftBrush}"
+                                CornerRadius="14"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1"
+                                                ScaleY="1" />
+                            </Border.RenderTransform>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever"
+                                                    AutoReverse="True">
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             From="0.72"
+                                                             To="1"
+                                                             Duration="0:0:0.8" />
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             From="0.96"
+                                                             To="1.04"
+                                                             Duration="0:0:0.8" />
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             From="0.96"
+                                                             To="1.04"
+                                                             Duration="0:0:0.8" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
+                            <Image Width="30"
+                                   Height="30"
+                                   Source="pack://application:,,,/Resources/Icons/codexcliplus.ico" />
+                        </Border>
+                        <StackPanel Margin="14,2,0,0">
+                            <TextBlock Text="CodexCliPlus"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock x:Name="LoadingStatusText"
+                                       Margin="0,6,0,0"
+                                       Text="正在启动桌面宿主"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource AccentBrush}" />
+                        </StackPanel>
+                    </StackPanel>
                     <TextBlock x:Name="LoadingTitleText"
-                               Margin="0,8,0,0"
+                               Margin="0,18,0,0"
                                Text="正在准备桌面管理界面"
                                FontSize="24"
                                FontWeight="SemiBold"
@@ -329,11 +433,29 @@
                                FontSize="13"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                TextWrapping="Wrap" />
-                    <ProgressBar x:Name="PreparationProgressBar"
-                                 Height="6"
-                                 Minimum="0"
-                                 Maximum="100"
-                                 Value="0" />
+                    <Grid Height="8">
+                        <ProgressBar x:Name="PreparationProgressBar"
+                                     Height="8"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="0" />
+                        <Border Width="120"
+                                HorizontalAlignment="Left"
+                                Background="#33FFFFFF">
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <ThicknessAnimation Storyboard.TargetProperty="Margin"
+                                                                From="-120,0,0,0"
+                                                                To="520,0,0,0"
+                                                                Duration="0:0:1.7" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
+                        </Border>
+                    </Grid>
                     <TextBlock x:Name="PreparationStepText"
                                Margin="0,14,0,0"
                                FontSize="13"
@@ -350,10 +472,8 @@
             <Border Width="560"
                     MaxWidth="560"
                     Padding="30"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="1"
                     CornerRadius="20"
+                    Style="{StaticResource ShellRaisedPanelStyle}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>

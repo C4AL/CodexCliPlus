@@ -9,7 +9,8 @@ public static class DesktopBridgeScriptFactory
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     public static string CreateInitializationScript(DesktopBootstrapPayload payload)

@@ -1,13 +1,19 @@
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
 
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Management;
+using CodexCliPlus.Core.Abstractions.Paths;
+using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Abstractions.Updates;
+using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Backend;
@@ -20,21 +26,38 @@ using MessageBox = System.Windows.MessageBox;
 
 namespace CodexCliPlus;
 
-public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
+public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 {
+    private enum StartupState
+    {
+        UpgradeNotice,
+        Preparing,
+        FirstRunKeyReveal,
+        NativeLogin,
+        LoadingManagement,
+        Blocked
+    }
+
     private const string AppHostName = "codexcliplus-webui.local";
+    private const int FirstRunConfirmationSeconds = 5;
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
 
     private readonly MainWindowViewModel _viewModel;
     private readonly BackendProcessManager _backendProcessManager;
+    private readonly BackendConfigWriter _backendConfigWriter;
     private readonly IManagementSessionService _sessionService;
     private readonly IAppConfigurationService _appConfigurationService;
+    private readonly IPathService _pathService;
+    private readonly ISecureCredentialStore _credentialStore;
     private readonly IBuildInfo _buildInfo;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
 
     private AppSettings _settings = new();
+    private StartupState _startupState = StartupState.Preparing;
     private string? _bootstrapScriptId;
+    private string _firstRunManagementKey = string.Empty;
+    private CancellationTokenSource? _firstRunConfirmCountdown;
     private bool _allowClose;
     private bool _isInitializing;
     private bool _webViewConfigured;
@@ -42,16 +65,22 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     public MainWindow(
         MainWindowViewModel viewModel,
         BackendProcessManager backendProcessManager,
+        BackendConfigWriter backendConfigWriter,
         IManagementSessionService sessionService,
         IAppConfigurationService appConfigurationService,
+        IPathService pathService,
+        ISecureCredentialStore credentialStore,
         IBuildInfo buildInfo,
         IUpdateCheckService updateCheckService,
         WebUiAssetLocator webUiAssetLocator)
     {
         _viewModel = viewModel;
         _backendProcessManager = backendProcessManager;
+        _backendConfigWriter = backendConfigWriter;
         _sessionService = sessionService;
         _appConfigurationService = appConfigurationService;
+        _pathService = pathService;
+        _credentialStore = credentialStore;
         _buildInfo = buildInfo;
         _updateCheckService = updateCheckService;
         _webUiAssetLocator = webUiAssetLocator;
@@ -66,17 +95,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         try
         {
+            ShowPreparationStep("目录", 5, "正在加载本地配置。", StartupState.Preparing);
+            var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
             InitializeTrayIcon();
-            RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
 
-            if (_settings.RememberManagementKey && !string.IsNullOrWhiteSpace(_settings.ManagementKey))
+            if (!_settings.SecurityKeyOnboardingCompleted)
             {
-                await InitializeHostAsync(restartBackend: false);
+                await BeginFirstRunKeyRevealAsync();
                 return;
             }
 
-            ShowLogin();
+            if (settingsFileExists && IsUpgradeNoticePending())
+            {
+                ShowUpgradeNotice();
+                return;
+            }
+
+            await ContinueAfterStartupGateAsync();
         }
         catch (Exception exception)
         {
@@ -90,7 +126,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void Window_Closed(object? sender, EventArgs e)
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
+        _firstRunConfirmCountdown?.Cancel();
+        _firstRunConfirmCountdown?.Dispose();
         TrayIcon.Unregister();
+    }
+
+    public void Dispose()
+    {
+        _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
+        _firstRunConfirmCountdown?.Cancel();
+        _firstRunConfirmCountdown?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -109,7 +155,35 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
     {
+        if (!_settings.SecurityKeyOnboardingCompleted)
+        {
+            await BeginFirstRunKeyRevealAsync();
+            return;
+        }
+
         await InitializeHostAsync(restartBackend: _backendProcessManager.CurrentStatus.State != BackendStateKind.Running);
+    }
+
+    private async void UpgradeContinueButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpgradeContinueButton.IsEnabled = false;
+        try
+        {
+            _settings.LastSeenApplicationVersion = CurrentApplicationVersion;
+            await _appConfigurationService.SaveAsync(_settings);
+            await ContinueAfterStartupGateAsync();
+        }
+        catch (Exception exception)
+        {
+            ShowBlocker(
+                "更新确认失败",
+                "无法保存本次更新确认状态。",
+                exception.Message);
+        }
+        finally
+        {
+            UpgradeContinueButton.IsEnabled = true;
+        }
     }
 
     private async void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -126,6 +200,79 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         e.Handled = true;
         await SignInAsync();
+    }
+
+    private void FirstRunCopyKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetText(_firstRunManagementKey);
+            ShowFirstRunStatus("安全密钥已复制。");
+        }
+        catch (Exception exception)
+        {
+            ShowFirstRunStatus($"复制失败：{exception.Message}", isError: true);
+        }
+    }
+
+    private async void FirstRunSaveToDesktopButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var filePath = BuildDesktopSecurityKeyFilePath();
+            var content = BuildSecurityKeyFileContent(_firstRunManagementKey);
+            await File.WriteAllTextAsync(
+                filePath,
+                content,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            ShowFirstRunStatus($"已保存到桌面：{Path.GetFileName(filePath)}");
+        }
+        catch (Exception exception)
+        {
+            ShowFirstRunStatus($"保存失败：{exception.Message}", isError: true);
+        }
+    }
+
+    private async void FirstRunEnterManagementButton_Click(object sender, RoutedEventArgs e)
+    {
+        await BeginFirstRunConfirmationAsync();
+    }
+
+    private async void FirstRunConfirmContinueButton_Click(object sender, RoutedEventArgs e)
+    {
+        await CompleteFirstRunAsync();
+    }
+
+    private void FirstRunConfirmCancelButton_Click(object sender, RoutedEventArgs e)
+    {
+        CancelFirstRunConfirmation();
+    }
+
+    private async void ForgotSecurityKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        var firstConfirm = MessageBox.Show(
+            this,
+            "重置会清空后端配置、Provider 配置、OAuth/Auth 文件、本机保存的安全密钥和 WebUI 本地登录状态。日志、诊断文件和 backend 资产会保留。",
+            "重置安全密钥",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (firstConfirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var secondConfirm = MessageBox.Show(
+            this,
+            "确认重置后，现有账号与配置无法通过桌面壳恢复。是否继续？",
+            "确认重置",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (secondConfirm != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        await ResetSecurityKeyAsync();
     }
 
     private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e)
@@ -155,6 +302,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void TrayRestartBackendMenuItem_Click(object sender, RoutedEventArgs e)
     {
+        if (!_settings.SecurityKeyOnboardingCompleted)
+        {
+            await BeginFirstRunKeyRevealAsync();
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_settings.ManagementKey) && _backendProcessManager.CurrentStatus.State != BackendStateKind.Running)
+        {
+            ShowLogin("请先输入安全密钥。");
+            return;
+        }
+
         await InitializeHostAsync(restartBackend: true);
     }
 
@@ -209,38 +368,213 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    private async Task ContinueAfterStartupGateAsync()
+    {
+        RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
+
+        if (_settings.RememberManagementKey && !string.IsNullOrWhiteSpace(_settings.ManagementKey))
+        {
+            if (_backendConfigWriter.VerifyManagementKey(_settings.ManagementKey))
+            {
+                await InitializeHostAsync(restartBackend: false);
+                return;
+            }
+
+            _settings.ManagementKey = string.Empty;
+            ShowLogin("本机保存的安全密钥无法通过验证，请重新输入。");
+            return;
+        }
+
+        ShowLogin();
+    }
+
+    private async Task BeginFirstRunKeyRevealAsync()
+    {
+        ShowPreparationStep("配置", 35, "正在生成首次安全密钥。", StartupState.Preparing);
+
+        _firstRunManagementKey = GenerateSecurityKey();
+        _settings.ManagementKey = _firstRunManagementKey;
+        _settings.RememberManagementKey = false;
+        _settings.SecurityKeyOnboardingCompleted = false;
+
+        await _backendConfigWriter.WriteAsync(
+            _settings,
+            new BackendConfigWriteOptions
+            {
+                AllowManagementKeyRotation = true,
+                ValidatePort = false
+            });
+
+        FirstRunSecurityKeyTextBox.Text = _firstRunManagementKey;
+        FirstRunRememberSecurityKeyCheckBox.IsChecked = false;
+        FirstRunActionStatusText.Visibility = Visibility.Collapsed;
+        FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+        FirstRunEnterManagementButton.IsEnabled = true;
+        ShowFirstRunKeyReveal();
+    }
+
+    private async Task BeginFirstRunConfirmationAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_firstRunManagementKey))
+        {
+            ShowFirstRunStatus("安全密钥尚未生成，请重试。", isError: true);
+            return;
+        }
+
+        FirstRunConfirmPanel.Visibility = Visibility.Visible;
+        FirstRunConfirmContinueButton.IsEnabled = false;
+        FirstRunConfirmCancelButton.IsEnabled = true;
+        FirstRunConfirmContinueButton.Content = "确认进入";
+
+        _firstRunConfirmCountdown?.Cancel();
+        _firstRunConfirmCountdown?.Dispose();
+        _firstRunConfirmCountdown = new CancellationTokenSource();
+        var token = _firstRunConfirmCountdown.Token;
+
+        try
+        {
+            for (var seconds = FirstRunConfirmationSeconds; seconds > 0; seconds--)
+            {
+                FirstRunConfirmCountdownText.Text = $"{seconds} 秒后可继续。请确认你已经保存完整安全密钥。";
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
+            }
+
+            FirstRunConfirmCountdownText.Text = "可以继续。";
+            FirstRunConfirmContinueButton.IsEnabled = true;
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task CompleteFirstRunAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_firstRunManagementKey))
+        {
+            ShowFirstRunStatus("安全密钥尚未生成，请重试。", isError: true);
+            return;
+        }
+
+        FirstRunConfirmContinueButton.IsEnabled = false;
+        FirstRunConfirmCancelButton.IsEnabled = false;
+
+        try
+        {
+            _firstRunConfirmCountdown?.Cancel();
+            _settings.ManagementKey = _firstRunManagementKey;
+            _settings.RememberManagementKey = FirstRunRememberSecurityKeyCheckBox.IsChecked == true;
+            _settings.SecurityKeyOnboardingCompleted = true;
+            _settings.LastSeenApplicationVersion = CurrentApplicationVersion;
+            await _appConfigurationService.SaveAsync(_settings);
+
+            RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
+            FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+            await InitializeHostAsync(restartBackend: false);
+
+            _firstRunManagementKey = string.Empty;
+            FirstRunSecurityKeyTextBox.Text = string.Empty;
+        }
+        catch (Exception exception)
+        {
+            FirstRunConfirmContinueButton.IsEnabled = true;
+            FirstRunConfirmCancelButton.IsEnabled = true;
+            ShowFirstRunStatus($"初始化失败：{exception.Message}", isError: true);
+            FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void CancelFirstRunConfirmation()
+    {
+        _firstRunConfirmCountdown?.Cancel();
+        FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+        FirstRunConfirmContinueButton.IsEnabled = false;
+        FirstRunConfirmCancelButton.IsEnabled = true;
+    }
+
     private async Task SignInAsync()
     {
         var managementKey = ManagementKeyPasswordBox.Password.Trim();
         if (string.IsNullOrWhiteSpace(managementKey))
         {
-            LoginErrorText.Text = "请输入管理密钥。";
-            LoginErrorText.Visibility = Visibility.Visible;
+            ShowLoginError("请输入安全密钥。");
             ManagementKeyPasswordBox.Focus();
             return;
         }
 
         LoginButton.IsEnabled = false;
+        ForgotSecurityKeyButton.IsEnabled = false;
         LoginErrorText.Visibility = Visibility.Collapsed;
 
         try
         {
+            if (!_backendConfigWriter.HasExistingManagementKeyHash())
+            {
+                ShowLoginError("未找到后端安全密钥配置，请重置后重新初始化。");
+                return;
+            }
+
+            if (!_backendConfigWriter.VerifyManagementKey(managementKey))
+            {
+                ShowLoginError("安全密钥不正确。");
+                return;
+            }
+
             _settings.ManagementKey = managementKey;
             _settings.RememberManagementKey = RememberManagementKeyCheckBox.IsChecked == true;
+            _settings.SecurityKeyOnboardingCompleted = true;
             await _appConfigurationService.SaveAsync(_settings);
             await InitializeHostAsync(restartBackend: false);
         }
         catch (Exception exception)
         {
-            LoginErrorText.Text = exception.Message;
-            LoginErrorText.Visibility = Visibility.Visible;
+            ShowLoginError(exception.Message);
         }
         finally
         {
             if (LoginPanel.Visibility == Visibility.Visible)
             {
                 LoginButton.IsEnabled = true;
+                ForgotSecurityKeyButton.IsEnabled = true;
             }
+        }
+    }
+
+    private async Task ResetSecurityKeyAsync()
+    {
+        LoginButton.IsEnabled = false;
+        ForgotSecurityKeyButton.IsEnabled = false;
+        ShowPreparationStep("配置", 20, "正在重置安全密钥和本地认证状态。", StartupState.Preparing);
+
+        try
+        {
+            var configuredAuthDirectory = TryReadConfiguredAuthDirectory();
+
+            await _backendProcessManager.StopAsync();
+            await ResetWebUiLocalAuthStateAsync();
+
+            await _credentialStore.DeleteSecretAsync(_settings.ManagementKeyReference);
+            await _credentialStore.DeleteSecretAsync(AppConstants.DefaultManagementKeyReference);
+
+            DeleteFileIfExistsInsideRoot(_pathService.Directories.BackendConfigFilePath);
+            DeleteFileIfExistsInsideRoot(_pathService.Directories.SettingsFilePath);
+            DeleteDirectoryIfExistsInsideRoot(Path.Combine(_pathService.Directories.ConfigDirectory, AppConstants.SecretsDirectoryName));
+            DeleteDirectoryIfExistsInsideRoot(Path.Combine(_pathService.Directories.BackendDirectory, "auth"));
+            if (!string.IsNullOrWhiteSpace(configuredAuthDirectory) && IsPathInsideAppRoot(configuredAuthDirectory))
+            {
+                DeleteDirectoryIfExistsInsideRoot(configuredAuthDirectory);
+            }
+
+            _firstRunManagementKey = string.Empty;
+            ManagementKeyPasswordBox.Password = string.Empty;
+            _settings = await _appConfigurationService.LoadAsync();
+            await BeginFirstRunKeyRevealAsync();
+        }
+        catch (Exception exception)
+        {
+            ShowBlocker(
+                "安全密钥重置失败",
+                "未能完成本地配置和认证状态清理。",
+                exception.Message);
         }
     }
 
@@ -268,18 +602,29 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         _isInitializing = true;
-        ShowLoading("正在准备本地后端和桌面桥接。");
+        ShowPreparationStep("目录", 10, "正在准备本地目录。", StartupState.Preparing);
 
         try
         {
+            await _pathService.EnsureCreatedAsync();
+
+            ShowPreparationStep("WebView2", 25, "正在检查 WebView2 运行时。", StartupState.Preparing);
+            EnsureWebView2Runtime();
+
+            ShowPreparationStep("后端资产", 40, "正在定位管理界面和后端资产。", StartupState.Preparing);
+            var bundle = _webUiAssetLocator.GetRequiredBundle();
+
+            ShowPreparationStep("配置", 55, "正在确认后端配置。", StartupState.Preparing);
             if (restartBackend && _backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
             {
+                ShowPreparationStep("核心启动", 68, "正在重启本地后端。", StartupState.Preparing);
                 await _backendProcessManager.RestartAsync();
             }
 
-            EnsureWebView2Runtime();
-            var bundle = _webUiAssetLocator.GetRequiredBundle();
+            ShowPreparationStep("核心启动", 72, "正在启动本地后端。", StartupState.Preparing);
             var connection = await _sessionService.GetConnectionAsync();
+
+            ShowPreparationStep("健康检查", 86, "本地后端健康检查已通过。", StartupState.Preparing);
             var payload = new DesktopBootstrapPayload
             {
                 DesktopMode = true,
@@ -287,6 +632,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 ManagementKey = connection.ManagementKey
             };
 
+            ShowPreparationStep("管理桥接", 95, "正在打开管理界面。", StartupState.LoadingManagement);
             await EnsureWebViewAsync(bundle, payload);
             ShowWebView();
         }
@@ -418,7 +764,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                         ? messageElement.GetString()
                         : null;
                     ShowLogin(string.IsNullOrWhiteSpace(message)
-                        ? "登录状态已失效，请重新输入管理密钥。"
+                        ? "登录状态已失效，请重新输入安全密钥。"
                         : message);
                     break;
             }
@@ -439,40 +785,90 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         });
     }
 
-    private void ShowLoading(string description)
+    private void ShowPreparationStep(string step, double progress, string description, StartupState state)
     {
+        _startupState = state;
+        LoadingTitleText.Text = state == StartupState.LoadingManagement
+            ? "正在进入管理界面"
+            : "正在准备桌面管理界面";
         LoadingDescriptionText.Text = description;
+        PreparationStepText.Text = $"当前步骤：{step}";
+        PreparationProgressBar.Value = Math.Clamp(progress, 0, 100);
+
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
     }
 
+    private void ShowUpgradeNotice()
+    {
+        _startupState = StartupState.UpgradeNotice;
+        var previousVersion = string.IsNullOrWhiteSpace(_settings.LastSeenApplicationVersion)
+            ? "旧版本"
+            : _settings.LastSeenApplicationVersion.Trim();
+        UpgradeNoticeVersionText.Text = $"已从 {previousVersion} 升级到 {CurrentApplicationVersion}";
+
+        UpgradeNoticePanel.Visibility = Visibility.Visible;
+        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
+        LoginPanel.Visibility = Visibility.Collapsed;
+        LoadingPanel.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+    }
+
+    private void ShowFirstRunKeyReveal()
+    {
+        _startupState = StartupState.FirstRunKeyReveal;
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        FirstRunKeyPanel.Visibility = Visibility.Visible;
+        LoginPanel.Visibility = Visibility.Collapsed;
+        LoadingPanel.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+        FirstRunSecurityKeyTextBox.Focus();
+    }
+
     private void ShowLogin(string? errorMessage = null)
     {
+        _startupState = StartupState.NativeLogin;
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Visible;
         LoadingPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         LoginButton.IsEnabled = true;
+        ForgotSecurityKeyButton.IsEnabled = true;
+        RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
         if (string.IsNullOrWhiteSpace(errorMessage))
         {
             LoginErrorText.Visibility = Visibility.Collapsed;
         }
         else
         {
-            LoginErrorText.Text = errorMessage;
-            LoginErrorText.Visibility = Visibility.Visible;
+            ShowLoginError(errorMessage);
         }
 
         ManagementKeyPasswordBox.Focus();
     }
 
+    private void ShowLoginError(string message)
+    {
+        LoginErrorText.Text = message;
+        LoginErrorText.Visibility = Visibility.Visible;
+    }
+
     private void ShowBlocker(string title, string description, string detail)
     {
+        _startupState = StartupState.Blocked;
         BlockerTitleText.Text = title;
         BlockerDescriptionText.Text = description;
         BlockerDetailText.Text = detail;
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Visible;
         LoadingPanel.Visibility = Visibility.Collapsed;
@@ -481,10 +877,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ShowWebView()
     {
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
         LoginPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Visible;
+    }
+
+    private void ShowFirstRunStatus(string message, bool isError = false)
+    {
+        FirstRunActionStatusText.Text = message;
+        FirstRunActionStatusText.Visibility = Visibility.Visible;
+        if (isError)
+        {
+            FirstRunActionStatusText.Foreground = System.Windows.Media.Brushes.Firebrick;
+        }
+        else
+        {
+            FirstRunActionStatusText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "SecondaryTextBrush");
+        }
     }
 
     private void InitializeTrayIcon()
@@ -514,6 +926,147 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         Activate();
+    }
+
+    private bool IsUpgradeNoticePending()
+    {
+        return !string.Equals(
+            _settings.LastSeenApplicationVersion?.Trim(),
+            CurrentApplicationVersion,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string CurrentApplicationVersion =>
+        string.IsNullOrWhiteSpace(_buildInfo.ApplicationVersion)
+            ? "当前版本"
+            : _buildInfo.ApplicationVersion.Trim();
+
+    private static string GenerateSecurityKey()
+    {
+        return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+    }
+
+    private static string BuildSecurityKeyFileContent(string securityKey)
+    {
+        return
+            "CodexCliPlus 安全密钥" + Environment.NewLine +
+            Environment.NewLine +
+            securityKey + Environment.NewLine +
+            Environment.NewLine +
+            "请妥善保存。完整安全密钥只会在首次初始化页面显示一次。" + Environment.NewLine +
+            "不要把此文件发送给不受信任的人。" + Environment.NewLine;
+    }
+
+    private static string BuildDesktopSecurityKeyFilePath()
+    {
+        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (string.IsNullOrWhiteSpace(desktopDirectory))
+        {
+            throw new InvalidOperationException("无法定位桌面目录。");
+        }
+
+        var fileName = $"CodexCliPlus-安全密钥-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
+        return Path.Combine(desktopDirectory, fileName);
+    }
+
+    private async Task ResetWebUiLocalAuthStateAsync()
+    {
+        if (!_webViewConfigured || ManagementWebView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ManagementWebView.CoreWebView2.CookieManager.DeleteAllCookies();
+            await ManagementWebView.CoreWebView2.ExecuteScriptAsync(
+                """
+                (() => {
+                  try {
+                    [
+                      'codexcliplus-auth',
+                      'cli-proxy-auth',
+                      'isLoggedIn',
+                      'apiBase',
+                      'apiUrl',
+                      'managementKey'
+                    ].forEach((key) => localStorage.removeItem(key));
+                    sessionStorage.clear();
+                  } catch {
+                  }
+                })();
+                """);
+        }
+        catch
+        {
+        }
+    }
+
+    private void DeleteFileIfExistsInsideRoot(string filePath)
+    {
+        EnsurePathInsideAppRoot(filePath);
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    private void DeleteDirectoryIfExistsInsideRoot(string directoryPath)
+    {
+        EnsurePathInsideAppRoot(directoryPath);
+        if (Directory.Exists(directoryPath))
+        {
+            Directory.Delete(directoryPath, recursive: true);
+        }
+    }
+
+    private void EnsurePathInsideAppRoot(string path)
+    {
+        if (!IsPathInsideAppRoot(path))
+        {
+            throw new InvalidOperationException("拒绝清理应用数据目录之外的路径。");
+        }
+    }
+
+    private bool IsPathInsideAppRoot(string path)
+    {
+        var root = Path.GetFullPath(_pathService.Directories.RootDirectory);
+        var normalizedRoot = root.EndsWith(Path.DirectorySeparatorChar)
+            ? root
+            : root + Path.DirectorySeparatorChar;
+        var target = Path.GetFullPath(path);
+
+        return target.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+            target.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string? TryReadConfiguredAuthDirectory()
+    {
+        try
+        {
+            if (!File.Exists(_pathService.Directories.BackendConfigFilePath))
+            {
+                return null;
+            }
+
+            var yaml = File.ReadAllText(_pathService.Directories.BackendConfigFilePath);
+            var match = Regex.Match(yaml, "(?m)^auth-dir:\\s*\"(?<path>(?:\\\\.|[^\"])*)\"");
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            var authDirectory = match.Groups["path"].Value
+                .Replace("\\\"", "\"", StringComparison.Ordinal)
+                .Replace("\\\\", "\\", StringComparison.Ordinal)
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(authDirectory) ? null : authDirectory;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static void EnsureWebView2Runtime()

@@ -26,24 +26,45 @@ public sealed class BackendConfigWriter
         _pathService = pathService;
     }
 
-    public async Task<BackendRuntimeInfo> WriteAsync(
+    public Task<BackendRuntimeInfo> WriteAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
+        return WriteAsync(settings, new BackendConfigWriteOptions(), cancellationToken);
+    }
+
+    public async Task<BackendRuntimeInfo> WriteAsync(
+        AppSettings settings,
+        BackendConfigWriteOptions options,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(options);
 
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
-        settings.ManagementKey = string.IsNullOrWhiteSpace(settings.ManagementKey)
-            ? GenerateManagementKey()
-            : settings.ManagementKey;
+        if (string.IsNullOrWhiteSpace(settings.ManagementKey))
+        {
+            if (settings.SecurityKeyOnboardingCompleted)
+            {
+                throw new InvalidOperationException("请先输入现有安全密钥。普通登录不会生成或重置安全密钥。");
+            }
+
+            settings.ManagementKey = GenerateManagementKey();
+        }
+        else
+        {
+            settings.ManagementKey = settings.ManagementKey.Trim();
+        }
 
         var requestedPort = AppConstants.DefaultBackendPort;
         settings.BackendPort = requestedPort;
 
         var authDirectory = ResolveAuthDirectory();
         Directory.CreateDirectory(authDirectory);
-        var managementKeyHash = ResolveManagementKeyHash(settings.ManagementKey);
+        var managementKeyHash = ResolveManagementKeyHash(
+            settings.ManagementKey,
+            options.AllowManagementKeyRotation || !settings.SecurityKeyOnboardingCompleted);
 
         var yaml = BuildYaml(
             settings.BackendPort,
@@ -57,7 +78,7 @@ public sealed class BackendConfigWriter
 
         await _configurationService.SaveAsync(settings, cancellationToken);
 
-        if (!IsPortAvailable(settings.BackendPort))
+        if (options.ValidatePort && !IsPortAvailable(settings.BackendPort))
         {
             throw new InvalidOperationException(
                 string.Create(
@@ -78,6 +99,27 @@ public sealed class BackendConfigWriter
             HealthUrl = $"{loopbackBaseUrl}/healthz",
             ManagementApiBaseUrl = $"{loopbackBaseUrl}/v0/management"
         };
+    }
+
+    public bool HasExistingManagementKeyHash()
+    {
+        return !string.IsNullOrWhiteSpace(TryLoadExistingManagementKeyHash());
+    }
+
+    public bool VerifyManagementKey(string managementKey)
+    {
+        if (string.IsNullOrWhiteSpace(managementKey))
+        {
+            return false;
+        }
+
+        var existingHash = TryLoadExistingManagementKeyHash();
+        if (string.IsNullOrWhiteSpace(existingHash))
+        {
+            return false;
+        }
+
+        return VerifyManagementKeyHash(managementKey.Trim(), existingHash);
     }
 
     private static string BuildYaml(
@@ -111,12 +153,27 @@ public sealed class BackendConfigWriter
         return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
-    private string ResolveManagementKeyHash(string managementKey)
+    private string ResolveManagementKeyHash(string managementKey, bool allowManagementKeyRotation)
     {
         var existingHash = TryLoadExistingManagementKeyHash();
-        if (!string.IsNullOrWhiteSpace(existingHash) && BCrypt.Net.BCrypt.Verify(managementKey, existingHash))
+        if (string.IsNullOrWhiteSpace(existingHash))
+        {
+            if (!allowManagementKeyRotation)
+            {
+                throw new InvalidOperationException("未找到现有后端安全密钥配置。普通登录不会生成或重置安全密钥。");
+            }
+
+            return ManagementKeyHasher.Hash(managementKey);
+        }
+
+        if (VerifyManagementKeyHash(managementKey, existingHash))
         {
             return existingHash;
+        }
+
+        if (!allowManagementKeyRotation)
+        {
+            throw new InvalidOperationException("安全密钥验证失败，现有后端密钥不会被重写。");
         }
 
         return ManagementKeyHasher.Hash(managementKey);
@@ -124,7 +181,7 @@ public sealed class BackendConfigWriter
 
     private static string GenerateManagementKey()
     {
-        return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+        return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
     }
 
     private string? TryLoadExistingManagementKeyHash()
@@ -143,6 +200,18 @@ public sealed class BackendConfigWriter
         catch
         {
             return null;
+        }
+    }
+
+    private static bool VerifyManagementKeyHash(string managementKey, string hash)
+    {
+        try
+        {
+            return BCrypt.Net.BCrypt.Verify(managementKey, hash);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -179,4 +248,11 @@ public sealed class BackendConfigWriter
             return false;
         }
     }
+}
+
+public sealed class BackendConfigWriteOptions
+{
+    public bool AllowManagementKeyRotation { get; init; }
+
+    public bool ValidatePort { get; init; } = true;
 }

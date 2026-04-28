@@ -2,6 +2,7 @@ using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Processes;
+using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Security;
@@ -75,7 +76,7 @@ public sealed class BackendProcessManager : IDisposable
             UpdateStatus(new BackendStatusSnapshot
             {
                 State = BackendStateKind.Starting,
-                Message = "Starting CLIProxyAPI backend..."
+                Message = $"Starting {BackendExecutableNames.ManagedExecutableFileName} backend..."
             });
 
             var assetLayout = await _assetService.EnsureAssetsAsync(cancellationToken);
@@ -94,7 +95,8 @@ public sealed class BackendProcessManager : IDisposable
                 cancellationToken);
 
             _managedProcess.Exited += OnProcessExited;
-            AppendLogLine($"Started CLIProxyAPI backend process (PID {_managedProcess.ProcessId}).");
+            AppendLogLine(
+                $"Started {BackendExecutableNames.ManagedExecutableFileName} backend process (PID {_managedProcess.ProcessId}).");
 
             var isHealthy = await _healthChecker.WaitUntilHealthyAsync(
                 runtime.HealthUrl,
@@ -195,12 +197,13 @@ public sealed class BackendProcessManager : IDisposable
             return;
         }
 
-        AppendLogLine("CLIProxyAPI backend process exited unexpectedly.");
+        AppendLogLine($"{BackendExecutableNames.ManagedExecutableFileName} backend process exited unexpectedly.");
         UpdateStatus(new BackendStatusSnapshot
         {
             State = BackendStateKind.Error,
             Message = "Backend process exited unexpectedly.",
-            LastError = "CLIProxyAPI process exited unexpectedly. Check the desktop log for details.",
+            LastError =
+                $"{BackendExecutableNames.ManagedExecutableFileName} process exited unexpectedly. Check the desktop log for details.",
             Runtime = CurrentStatus.Runtime,
             ProcessId = CurrentStatus.ProcessId
         });

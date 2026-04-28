@@ -28,13 +28,14 @@ public sealed class BackendAssetService
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
         var workingDirectory = _pathService.Directories.BackendDirectory;
-        var executablePath = Path.Combine(workingDirectory, "cli-proxy-api.exe");
+        var executablePath = GetManagedExecutablePath(workingDirectory);
 
         Directory.CreateDirectory(workingDirectory);
 
         if (File.Exists(executablePath) &&
             await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
         {
+            CleanupLegacyManagedExecutable(workingDirectory);
             return CreateLayout(workingDirectory, executablePath);
         }
 
@@ -46,7 +47,7 @@ public sealed class BackendAssetService
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
         var workingDirectory = _pathService.Directories.BackendDirectory;
-        var executablePath = Path.Combine(workingDirectory, "cli-proxy-api.exe");
+        var executablePath = GetManagedExecutablePath(workingDirectory);
         Directory.CreateDirectory(workingDirectory);
 
         if (TryCopyFromBundledAssets(workingDirectory, executablePath))
@@ -54,6 +55,7 @@ public sealed class BackendAssetService
             if (await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
             {
                 _logger.Info("Copied backend files from the application bundle.");
+                CleanupLegacyManagedExecutable(workingDirectory);
                 return CreateLayout(workingDirectory, executablePath);
             }
 
@@ -65,6 +67,7 @@ public sealed class BackendAssetService
             if (await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
             {
                 _logger.Info("Copied backend files from repository resources.");
+                CleanupLegacyManagedExecutable(workingDirectory);
                 return CreateLayout(workingDirectory, executablePath);
             }
 
@@ -73,6 +76,13 @@ public sealed class BackendAssetService
 
         _logger.Info("Downloading CLIProxyAPI backend assets.");
         await DownloadBackendArchiveAsync(workingDirectory, executablePath, cancellationToken);
+        if (!await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                $"Downloaded CLIProxyAPI backend did not match the pinned version {BackendReleaseMetadata.Version}.");
+        }
+
+        CleanupLegacyManagedExecutable(workingDirectory);
 
         return CreateLayout(workingDirectory, executablePath);
     }
@@ -177,11 +187,18 @@ public sealed class BackendAssetService
         return new BackendAssetLayout(workingDirectory, executablePath);
     }
 
+    private static string GetManagedExecutablePath(string workingDirectory)
+    {
+        return Path.Combine(workingDirectory, BackendExecutableNames.ManagedExecutableFileName);
+    }
+
     private static bool TryCopyFromBundledAssets(string workingDirectory, string executablePath)
     {
         var assetsRoot = Path.Combine(AppContext.BaseDirectory, "assets");
         var bundledBackendDirectory = Path.Combine(assetsRoot, "backend", "windows-x64");
-        var bundledExecutable = Path.Combine(bundledBackendDirectory, "cli-proxy-api.exe");
+        var bundledExecutable = Path.Combine(
+            bundledBackendDirectory,
+            BackendExecutableNames.ManagedExecutableFileName);
 
         if (!File.Exists(bundledExecutable))
         {
@@ -205,7 +222,9 @@ public sealed class BackendAssetService
 
         var resourcesRoot = Path.Combine(repositoryRoot, AppConstants.ResourcesDirectoryName);
         var repositoryBackendDirectory = Path.Combine(resourcesRoot, "backend", "windows-x64");
-        var repositoryExecutable = Path.Combine(repositoryBackendDirectory, "cli-proxy-api.exe");
+        var repositoryExecutable = Path.Combine(
+            repositoryBackendDirectory,
+            BackendExecutableNames.ManagedExecutableFileName);
 
         if (!File.Exists(repositoryExecutable))
         {
@@ -231,12 +250,15 @@ public sealed class BackendAssetService
         using var archiveStream = new MemoryStream(archiveBytes);
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         var executableEntry = archive.Entries.FirstOrDefault(
-            entry => string.Equals(entry.Name, "cli-proxy-api.exe", StringComparison.OrdinalIgnoreCase));
+            entry => string.Equals(
+                entry.Name,
+                BackendExecutableNames.UpstreamExecutableFileName,
+                StringComparison.OrdinalIgnoreCase));
 
         if (executableEntry is null)
         {
             throw new InvalidOperationException(
-                "The downloaded CLIProxyAPI archive does not contain cli-proxy-api.exe.");
+                $"The downloaded CLIProxyAPI archive does not contain {BackendExecutableNames.UpstreamExecutableFileName}.");
         }
 
         ExtractEntry(executableEntry, executablePath);
@@ -245,6 +267,28 @@ public sealed class BackendAssetService
             item => item.Name is "LICENSE" or "README.md" or "README_CN.md" or "config.example.yaml"))
         {
             ExtractEntry(entry, Path.Combine(workingDirectory, entry.Name));
+        }
+    }
+
+    private void CleanupLegacyManagedExecutable(string workingDirectory)
+    {
+        var legacyExecutablePath = Path.Combine(
+            workingDirectory,
+            BackendExecutableNames.UpstreamExecutableFileName);
+        if (!File.Exists(legacyExecutablePath))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(legacyExecutablePath);
+            _logger.Info($"Removed legacy managed backend executable '{legacyExecutablePath}'.");
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn(
+                $"Failed to remove legacy managed backend executable '{legacyExecutablePath}': {exception.Message}");
         }
     }
 

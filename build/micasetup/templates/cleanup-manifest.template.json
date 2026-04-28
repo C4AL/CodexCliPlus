@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "manifestId": "cpad-cleanup-v1",
+  "manifestId": "codexcliplus-cleanup-v1",
   "product": {
-    "appName": "Cli Proxy API Desktop",
-    "productKey": "CPAD",
-    "appUserModelId": "BlackblockInc.CPAD"
+    "appName": "CodexCliPlus",
+    "productKey": "CodexCliPlus",
+    "appUserModelId": "BlackblockInc.CodexCliPlus"
   },
   "options": {
     "keepUserDataOptionName": "KeepMyData",
     "keepUserDataDefault": false,
     "keepUserDataArgument": "--keep-my-data",
-    "keepUserDataEnvironmentVariable": "CPAD_KEEP_MY_DATA",
-    "installDirectoryHint": "%LocalAppData%\\Programs\\CPAD"
+    "keepUserDataEnvironmentVariable": "CODEXCLIPLUS_KEEP_MY_DATA",
+    "installDirectoryHint": "%LocalAppData%\\Programs\\CodexCliPlus"
   },
   "groups": [
     {
@@ -74,7 +74,7 @@
           "kind": "registry-value",
           "hive": "HKCU",
           "keyPath": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-          "valueName": "CPAD"
+          "valueName": "CodexCliPlus"
         }
       ]
     },
@@ -85,12 +85,12 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\runtime",
+          "path": "%LocalAppData%\\CodexCliPlus\\runtime",
           "recursive": true
         },
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\backend",
+          "path": "%LocalAppData%\\CodexCliPlus\\backend",
           "recursive": true
         }
       ]
@@ -102,7 +102,7 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\cache\\updates",
+          "path": "%LocalAppData%\\CodexCliPlus\\cache\\updates",
           "recursive": true
         }
       ]
@@ -114,7 +114,7 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\cache",
+          "path": "%LocalAppData%\\CodexCliPlus\\cache",
           "recursive": true,
           "excludeRelativePaths": [
             "updates"
@@ -129,7 +129,7 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\config",
+          "path": "%LocalAppData%\\CodexCliPlus\\config",
           "recursive": true,
           "excludeRelativePaths": [
             "secrets"
@@ -144,13 +144,13 @@
       "targets": [
         {
           "kind": "glob",
-          "basePath": "%LocalAppData%\\CPAD\\config\\secrets",
+          "basePath": "%LocalAppData%\\CodexCliPlus\\config\\secrets",
           "pattern": "*.bin",
           "recursive": false
         },
         {
           "kind": "prune-directory-if-empty",
-          "path": "%LocalAppData%\\CPAD\\config\\secrets"
+          "path": "%LocalAppData%\\CodexCliPlus\\config\\secrets"
         }
       ]
     },
@@ -161,7 +161,7 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\logs",
+          "path": "%LocalAppData%\\CodexCliPlus\\logs",
           "recursive": true
         }
       ]
@@ -173,7 +173,7 @@
       "targets": [
         {
           "kind": "directory",
-          "path": "%LocalAppData%\\CPAD\\diagnostics",
+          "path": "%LocalAppData%\\CodexCliPlus\\diagnostics",
           "recursive": true
         }
       ]
@@ -185,7 +185,7 @@
       "targets": [
         {
           "kind": "prune-directory-if-empty",
-          "path": "%LocalAppData%\\CPAD"
+          "path": "%LocalAppData%\\CodexCliPlus"
         }
       ]
     }

@@ -1,14 +1,14 @@
 {
-  "productName": "Cli Proxy API Desktop",
-  "installerName": "CPAD.Setup.1.0.0.exe",
-  "appUserModelId": "BlackblockInc.CPAD",
+  "productName": "CodexCliPlus",
+  "installerName": "CodexCliPlus.Setup.1.0.0.exe",
+  "appUserModelId": "BlackblockInc.CodexCliPlus",
   "currentUserDefault": true,
   "payloadDirectory": "app-package",
   "micaSetupRoute": true,
   "requestExecutionLevel": "user",
-  "installDirectoryHint": "%LocalAppData%\\Programs\\CPAD",
+  "installDirectoryHint": "%LocalAppData%\\Programs\\CodexCliPlus",
   "launchAfterInstall": true,
-  "stableReleaseSource": "https://github.com/Blackblock-inc/Cli-Proxy-API-Desktop/releases/latest",
+  "stableReleaseSource": "https://github.com/C4AL/CodexCliPlus/releases/latest",
   "betaChannelReserved": true,
   "templateRoot": "build/micasetup",
   "micasetupTemplate": "build/micasetup/templates/micasetup.json.template",
@@ -17,7 +17,7 @@
   "renderTokens": {
     "__MICA_TEMPLATE_ARCHIVE__": "build/micasetup/toolchain/build/template/default.7z",
     "__PAYLOAD_ARCHIVE_PATH__": "artifacts/buildtool/installer/win-x64/stage/publish.7z",
-    "__INSTALLER_OUTPUT_PATH__": "artifacts/buildtool/packages/CPAD.Setup.1.0.0.exe",
+    "__INSTALLER_OUTPUT_PATH__": "artifacts/buildtool/packages/CodexCliPlus.Setup.1.0.0.exe",
     "__VERSION__": "1.0.0",
     "__PUBLISHER__": "Blackblock Inc.",
     "__PRODUCT_GUID__": "00000000-0000-0000-0000-000000000000",
@@ -26,9 +26,9 @@
     "__UNINSTALL_ICON_PATH__": "build/micasetup/assets/FaviconUninst.png",
     "__LICENSE_FILE__": "LICENSE.txt",
     "__AUTO_RUN_LAUNCH_COMMAND__": "/autostart",
-    "__INSTALL_DIRECTORY__": "%LocalAppData%\\Programs\\CPAD",
-    "__DESKTOP_SHORTCUT__": "%UserProfile%\\Desktop\\Cli Proxy API Desktop.lnk",
-    "__START_MENU_DIRECTORY__": "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\Cli Proxy API Desktop",
-    "__QUICK_LAUNCH_SHORTCUT__": "%AppData%\\Microsoft\\Internet Explorer\\Quick Launch\\Cli Proxy API Desktop.lnk"
+    "__INSTALL_DIRECTORY__": "%LocalAppData%\\Programs\\CodexCliPlus",
+    "__DESKTOP_SHORTCUT__": "%UserProfile%\\Desktop\\CodexCliPlus.lnk",
+    "__START_MENU_DIRECTORY__": "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
+    "__QUICK_LAUNCH_SHORTCUT__": "%AppData%\\Microsoft\\Internet Explorer\\Quick Launch\\CodexCliPlus.lnk"
   }
 }

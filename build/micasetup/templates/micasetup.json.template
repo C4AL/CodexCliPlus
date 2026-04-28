@@ -2,9 +2,9 @@
   "Template": "__MICA_TEMPLATE_ARCHIVE__",
   "Package": "__PAYLOAD_ARCHIVE_PATH__",
   "Output": "__INSTALLER_OUTPUT_PATH__",
-  "AppName": "Cli Proxy API Desktop",
-  "KeyName": "CPAD",
-  "ExeName": "CPAD.exe",
+  "AppName": "CodexCliPlus",
+  "KeyName": "CodexCliPlus",
+  "ExeName": "CodexCliPlus.exe",
   "Publisher": "__PUBLISHER__",
   "Version": "__VERSION__",
   "TargetFramework": "net472",
@@ -16,7 +16,7 @@
   "License": null,
   "LicenseType": null,
   "RequestExecutionLevel": "user",
-  "SingleInstanceMutex": "BlackblockInc.CPAD.Setup",
+  "SingleInstanceMutex": "BlackblockInc.CodexCliPlus.Setup",
   "IsCreateDesktopShortcut": true,
   "IsCreateUninst": true,
   "IsUninstLower": false,
@@ -41,7 +41,7 @@
   "IsUseTempPathFork": false,
   "OverlayInstallRemoveExt": "exe,dll,pdb,xml,json,yaml,config,7z",
   "UnpackingPassword": null,
-  "MessageOfPage1": "Cli Proxy API Desktop",
-  "MessageOfPage2": "Installing Cli Proxy API Desktop",
-  "MessageOfPage3": "Cli Proxy API Desktop has been installed."
+  "MessageOfPage1": "CodexCliPlus",
+  "MessageOfPage2": "Installing CodexCliPlus",
+  "MessageOfPage3": "CodexCliPlus has been installed."
 }

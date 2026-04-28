@@ -1,0 +1,125 @@
+<Page x:Class="CodexCliPlus.Views.Pages.UsagePage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ds="clr-namespace:CodexCliPlus.Management.DesignSystem.Controls;assembly=CodexCliPlus.Management.DesignSystem"
+      Background="{DynamicResource ApplicationBackgroundBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource ManagementPagePadding}">
+            <TextBlock Style="{StaticResource ManagementPageTitleStyle}"
+                       Text="{Binding Title}" />
+            <TextBlock Margin="0,8,0,0"
+                       Style="{StaticResource ManagementPageSubtitleStyle}"
+                       Text="{Binding Subtitle}" />
+
+            <StackPanel Margin="0,18,0,0"
+                        Orientation="Horizontal">
+                <ds:StatusBadge x:Name="StatusBadge" />
+                <TextBlock x:Name="ErrorTextBlock"
+                           Margin="12,4,0,0"
+                           Foreground="{StaticResource ManagementDangerBrush}"
+                           Visibility="Collapsed" />
+            </StackPanel>
+
+            <ds:FloatingActionBar Margin="0,20,0,0">
+                <ds:FloatingActionBar.LeadingContent>
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                               Text="用量快照" />
+                </ds:FloatingActionBar.LeadingContent>
+                <ds:FloatingActionBar.TrailingContent>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Click="RefreshButton_Click"
+                                Content="刷新" />
+                        <Button Click="ExportButton_Click"
+                                Content="导出 JSON" />
+                        <Button Background="{StaticResource ManagementAccentBrush}"
+                                Foreground="White"
+                                Click="ImportButton_Click"
+                                Content="导入 JSON" />
+                    </StackPanel>
+                </ds:FloatingActionBar.TrailingContent>
+            </ds:FloatingActionBar>
+
+            <ItemsControl x:Name="MetricItems"
+                          Margin="0,20,0,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource ManagementCardBorderStyle}"
+                                Width="250"
+                                Margin="0,0,16,16">
+                            <StackPanel>
+                                <TextBlock FontSize="28"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                                           Text="{Binding Value}" />
+                                <TextBlock Margin="0,8,0,0"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource ManagementSecondaryTextBrush}"
+                                           Text="{Binding Label}" />
+                                <TextBlock Margin="0,8,0,0"
+                                           Style="{StaticResource ManagementHintTextStyle}"
+                                           Text="{Binding Detail}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="18" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <ds:UsageTrendChart x:Name="RequestsTrendChart"
+                                    Grid.Column="0"
+                                    Title="按天请求趋势" />
+                <ds:UsageTrendChart x:Name="TokensTrendChart"
+                                    Grid.Column="2"
+                                    Title="按天 Token 趋势" />
+            </Grid>
+
+            <Border Style="{StaticResource ManagementCardBorderStyle}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource ManagementSectionTitleStyle}"
+                               Text="提供商明细" />
+                    <ItemsControl x:Name="ProviderItems"
+                                  Margin="0,16,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="120" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Foreground="{StaticResource ManagementPrimaryTextBrush}"
+                                               Text="{Binding Provider}" />
+                                    <TextBlock Grid.Column="1"
+                                               Foreground="{StaticResource ManagementSecondaryTextBrush}"
+                                               Text="{Binding TotalRequests}" />
+                                    <TextBlock Grid.Column="2"
+                                               Foreground="{StaticResource ManagementSecondaryTextBrush}"
+                                               Text="{Binding TotalTokens}" />
+                                    <TextBlock Grid.Column="3"
+                                               Foreground="{StaticResource ManagementSecondaryTextBrush}"
+                                               Text="{Binding ModelCount}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

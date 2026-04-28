@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>CodexCliPlus.Tests</AssemblyName>
+    <RootNamespace>CodexCliPlus.Tests</RootNamespace>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\\..\\src\\CodexCliPlus.App\\CodexCliPlus.App.csproj" />
+    <ProjectReference Include="..\\..\\src\\CodexCliPlus.BuildTool\\CodexCliPlus.BuildTool.csproj" />
+    <ProjectReference Include="..\\..\\src\\CodexCliPlus.Core\\CodexCliPlus.Core.csproj" />
+    <ProjectReference Include="..\\..\\src\\CodexCliPlus.Infrastructure\\CodexCliPlus.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

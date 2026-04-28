@@ -33,11 +33,11 @@ export const MAX_AUTH_FILES_PAGE_SIZE = 100;
 export const MAX_AUTH_FILE_SIZE = 10 * 1024 * 1024;
 
 // 本地存储键名
-export const STORAGE_KEY_AUTH = 'cpad-auth';
-export const STORAGE_KEY_THEME = 'cpad-theme';
-export const STORAGE_KEY_LANGUAGE = 'cpad-language';
-export const STORAGE_KEY_SIDEBAR = 'cpad-sidebar-collapsed';
-export const STORAGE_KEY_AUTH_FILES_PAGE_SIZE = 'cpad-auth-files-page-size';
+export const STORAGE_KEY_AUTH = 'codexcliplus-auth';
+export const STORAGE_KEY_THEME = 'codexcliplus-theme';
+export const STORAGE_KEY_LANGUAGE = 'codexcliplus-language';
+export const STORAGE_KEY_SIDEBAR = 'codexcliplus-sidebar-collapsed';
+export const STORAGE_KEY_AUTH_FILES_PAGE_SIZE = 'codexcliplus-auth-files-page-size';
 
 // 语言配置
 export const LANGUAGE_ORDER = defineLanguageOrder(['zh-CN'] as const);

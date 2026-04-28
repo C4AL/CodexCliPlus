@@ -14,7 +14,6 @@ interface DesktopBridge {
 declare global {
   interface Window {
     __CODEXCLIPLUS_DESKTOP_BRIDGE__?: DesktopBridge;
-    __CPAD_DESKTOP_BRIDGE__?: DesktopBridge;
   }
 }
 
@@ -25,7 +24,7 @@ function getBridge(): DesktopBridge | null {
     return null;
   }
 
-  return window.__CODEXCLIPLUS_DESKTOP_BRIDGE__ ?? window.__CPAD_DESKTOP_BRIDGE__ ?? null;
+  return window.__CODEXCLIPLUS_DESKTOP_BRIDGE__ ?? null;
 }
 
 function normalizePayload(payload: DesktopBootstrapPayload | null | undefined): DesktopBootstrapPayload | null {

@@ -22,14 +22,29 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="8.30.1"
+          asset="gitleaks_${version}_linux_x64.tar.gz"
+          base_url="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          tmp_dir="$(mktemp -d)"
+
+          curl --fail --location --retry 3 --retry-delay 2 --output "$tmp_dir/$asset" "$base_url/$asset"
+          curl --fail --location --retry 3 --retry-delay 2 --output "$tmp_dir/checksums.txt" "$base_url/gitleaks_${version}_checksums.txt"
+
+          checksum_line="$(grep "  ${asset}$" "$tmp_dir/checksums.txt")"
+          printf '%s\n' "$checksum_line" | (cd "$tmp_dir" && sha256sum --check --strict)
+          tar -xzf "$tmp_dir/$asset" -C "$tmp_dir" gitleaks
+          echo "$tmp_dir" >> "$GITHUB_PATH"
+
+      - name: Run Gitleaks
+        run: gitleaks detect --source . --redact --no-banner --config .gitleaks.toml
 
   secrets-and-sbom:
     name: secrets-and-sbom
@@ -37,12 +52,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
@@ -56,14 +71,14 @@ jobs:
         run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
 
       - name: Generate Syft SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@v0.24.0
         with:
           path: .
           format: cyclonedx-json
           output-file: artifacts/sbom/codexcliplus.syft.cyclonedx.json
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: artifacts/sbom

@@ -240,7 +240,7 @@ public sealed class AiProvidersPageViewModel : ManagementPageViewModel
     private readonly IManagementProvidersService _providersService;
 
     public AiProvidersPageViewModel(IManagementProvidersService providersService)
-        : base("AI 提供商", "Gemini、Codex、Claude、Vertex、Ampcode 和 OpenAI 兼容配置")
+        : base("账号配置", "Gemini、Codex、Claude、Vertex、Ampcode 和 OpenAI 兼容配置")
     {
         _providersService = providersService;
     }

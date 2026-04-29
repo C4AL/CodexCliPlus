@@ -58,7 +58,8 @@ public static class DesktopBridgeScriptFactory
                 apiBase: typeof normalized.apiBase === 'string' ? normalized.apiBase : '',
                 theme: typeof normalized.theme === 'string' ? normalized.theme : 'auto',
                 resolvedTheme: typeof normalized.resolvedTheme === 'string' ? normalized.resolvedTheme : 'light',
-                sidebarCollapsed: normalized.sidebarCollapsed === true
+                sidebarCollapsed: normalized.sidebarCollapsed === true,
+                pathname: typeof normalized.pathname === 'string' ? normalized.pathname : '/'
               });
             }
           };
@@ -67,6 +68,21 @@ public static class DesktopBridgeScriptFactory
             configurable: true,
             value: bridge
           });
+
+          let navigationHoverZoneActive = false;
+          const updateNavigationHoverZone = (active) => {
+            if (navigationHoverZoneActive === active) {
+              return;
+            }
+
+            navigationHoverZoneActive = active;
+            postHostMessage({ type: 'navigationHoverZone', active });
+          };
+
+          window.addEventListener('mousemove', (event) => {
+            updateNavigationHoverZone(event.clientX <= window.innerWidth * 0.25);
+          }, { passive: true });
+          window.addEventListener('mouseleave', () => updateNavigationHoverZone(false));
 
           const previousOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
           window.open = (url, target, features) => {

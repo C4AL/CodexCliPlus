@@ -96,6 +96,60 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="ShellTopActionButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1"
+                                    ScaleY="1" />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource BorderBrush}" />
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.96"
+                                                        ScaleY="0.96" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="ShellInlineIconButtonStyle"
                TargetType="{x:Type Button}"
                BasedOn="{StaticResource ShellIconButtonStyle}">
@@ -167,13 +221,15 @@
         <Style x:Key="SilentLoginRiskIconStyle" TargetType="{x:Type Button}">
             <Setter Property="Width" Value="24" />
             <Setter Property="Height" Value="24" />
-            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Margin" Value="2,0,0,0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Focusable" Value="True" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="120" />
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Button}">
@@ -262,6 +318,49 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="ShellNavigationButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="MinWidth" Value="52" />
+            <Setter Property="Margin" Value="6,3" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                            </Trigger>
+                            <Trigger Property="Tag" Value="Active">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource AccentSoftBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="DialogCloseButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -302,14 +401,14 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="56" />
+            <RowDefinition Height="50" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0"
               Background="{DynamicResource SurfaceBrush}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -325,6 +424,7 @@
             <Button x:Name="ShellSidebarButton"
                     Grid.Column="0"
                     Style="{StaticResource ShellIconButtonStyle}"
+                    Visibility="Collapsed"
                     AutomationProperties.AutomationId="ShellSidebarButton"
                     AutomationProperties.Name="切换侧栏"
                     Click="ShellSidebarButton_Click"
@@ -368,8 +468,8 @@
                                SnapsToDevicePixels="True"
                                Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
                         <Ellipse x:Name="ShellBrandStatusDot"
-                                 Width="7"
-                                 Height="7"
+                                  Width="9"
+                                  Height="9"
                                  HorizontalAlignment="Right"
                                  VerticalAlignment="Bottom"
                                  Fill="{DynamicResource AccentBrush}"
@@ -414,10 +514,11 @@
                    VerticalOffset="8"
                    StaysOpen="False"
                    AllowsTransparency="True"
-                   PopupAnimation="Fade"
+                   PopupAnimation="None"
                    AutomationProperties.AutomationId="ShellBrandDockPopup">
                 <Border Width="336"
                         Padding="16"
+                        Background="{DynamicResource SurfaceBrush}"
                         Style="{StaticResource ShellRaisedPanelStyle}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal"
@@ -546,7 +647,7 @@
                         VerticalAlignment="Center"
                         Panel.ZIndex="1">
                 <Button x:Name="ShellRefreshButton"
-                        Style="{StaticResource ShellIconButtonStyle}"
+                        Style="{StaticResource ShellTopActionButtonStyle}"
                         AutomationProperties.AutomationId="ShellRefreshButton"
                         AutomationProperties.Name="刷新"
                         Click="ShellRefreshButton_Click"
@@ -566,7 +667,7 @@
                 </Button>
                 <Button x:Name="ShellThemeButton"
                         Margin="6,0,0,0"
-                        Style="{StaticResource ShellIconButtonStyle}"
+                        Style="{StaticResource ShellTopActionButtonStyle}"
                         AutomationProperties.AutomationId="ShellThemeButton"
                         AutomationProperties.Name="切换主题"
                         Click="ShellThemeButton_Click"
@@ -578,7 +679,7 @@
                 </Button>
                 <Button x:Name="ShellSettingsButton"
                         Margin="6,0,0,0"
-                        Style="{StaticResource ShellIconButtonStyle}"
+                        Style="{StaticResource ShellTopActionButtonStyle}"
                         AutomationProperties.AutomationId="ShellSettingsButton"
                         AutomationProperties.Name="设置"
                         Click="ShellSettingsButton_Click"
@@ -601,7 +702,7 @@
             <Button x:Name="MinimizeWindowButton"
                     Grid.Column="4"
                     Width="46"
-                    Height="56"
+                    Height="50"
                     Padding="0"
                     Style="{StaticResource TitleBarButtonStyle}"
                     Click="MinimizeWindowButton_Click"
@@ -610,7 +711,7 @@
             <Button x:Name="CloseWindowButton"
                     Grid.Column="5"
                     Width="46"
-                    Height="56"
+                    Height="50"
                     Padding="0"
                     Style="{StaticResource TitleBarButtonStyle}"
                     Click="CloseWindowButton_Click"
@@ -618,10 +719,166 @@
                     ToolTip="关闭" />
         </Grid>
 
-        <wv2:WebView2 x:Name="ManagementWebView"
-                      Grid.Row="1"
-                      AutomationProperties.AutomationId="ManagementWebView"
-                      Visibility="Collapsed" />
+        <Grid x:Name="ManagementContentHost"
+              Grid.Row="1"
+              ClipToBounds="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="ShellNavigationDockHost"
+                    Grid.Column="0"
+                    Width="6"
+                    ClipToBounds="True"
+                    Background="Transparent"
+                    MouseEnter="ShellNavigationDockHost_MouseEnter"
+                    MouseLeave="ShellNavigationDockHost_MouseLeave"
+                    Panel.ZIndex="2"
+                    AutomationProperties.AutomationId="ShellNavigationDockHost">
+                <Grid Width="216"
+                      HorizontalAlignment="Left">
+                    <Border x:Name="ShellNavigationRail"
+                            Width="3"
+                            Margin="0,24,0,24"
+                            HorizontalAlignment="Left"
+                            Background="#FFFFFFFF"
+                            CornerRadius="2"
+                            Opacity="0.92" />
+                    <Border x:Name="ShellNavigationPanel"
+                            Width="216"
+                            Margin="0,18,12,18"
+                            Padding="0,12"
+                            HorizontalAlignment="Left"
+                            Background="#CCFFFFFF"
+                            BorderBrush="#55FFFFFF"
+                            BorderThickness="1"
+                            CornerRadius="0,18,18,0"
+                            Opacity="0"
+                            MouseEnter="ShellNavigationPanel_MouseEnter">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="20"
+                                              Direction="0"
+                                              Color="#18000000"
+                                              Opacity="1"
+                                              ShadowDepth="4" />
+                        </Border.Effect>
+                        <StackPanel>
+                            <Button x:Name="ShellNavDashboardButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="LayoutDashboard"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="仪表盘" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavConfigButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/config">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="Settings"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="配置" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavAccountButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/ai-providers">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="CircleUserRound"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="账号配置" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavAuthFilesButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/auth-files">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="FileKey"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="认证文件" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavQuotaButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/quota">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="CircleGauge"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="额度" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavUsageButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/usage">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="ChartNoAxesCombined"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="用量" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ShellNavLogsButton"
+                                    Style="{StaticResource ShellNavigationButtonStyle}"
+                                    Click="ShellNavigationButton_Click"
+                                    CommandParameter="/logs">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconLucide Kind="FileText"
+                                                             Width="18"
+                                                             Height="18"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                    <TextBlock Margin="14,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="日志查看" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <wv2:WebView2 x:Name="ManagementWebView"
+                          Grid.Column="1"
+                          AutomationProperties.AutomationId="ManagementWebView"
+                          Visibility="Collapsed" />
+        </Grid>
 
         <Grid x:Name="UpgradeNoticePanel"
               Grid.Row="1"
@@ -1170,43 +1427,34 @@
                         <RowDefinition Height="58" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Grid Grid.Row="0"
-                          Background="{DynamicResource SurfaceAltBrush}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="46" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Margin="22,0,0,0"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                            <Image Width="30"
-                                   Height="30"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   SnapsToDevicePixels="True"
-                                   Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
-                            <StackPanel Margin="12,0,0,0">
-                                <TextBlock Text="设置"
-                                           FontSize="17"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryTextBrush}" />
-                                <TextBlock Text="CodexCliPlus 桌面控制中心"
-                                           Margin="0,2,0,0"
-                                           FontSize="12"
-                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource SurfaceAltBrush}"
+                            CornerRadius="18,18,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="22,0,0,0"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Image Width="30"
+                                       Height="30"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       SnapsToDevicePixels="True"
+                                       Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                                <StackPanel Margin="12,0,0,0">
+                                    <TextBlock Text="设置"
+                                               FontSize="17"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                    <TextBlock Text="CodexCliPlus 桌面控制中心"
+                                               Margin="0,2,0,0"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                        <Button x:Name="SettingsOverlayCloseButton"
-                                Grid.Column="1"
-                                Width="46"
-                                Height="58"
-                                Padding="0"
-                                Style="{StaticResource TitleBarButtonStyle}"
-                                Click="SettingsOverlayCloseButton_Click"
-                                AutomationProperties.AutomationId="SettingsOverlayCloseButton"
-                                AutomationProperties.Name="关闭设置"
-                                Content="×"
-                                ToolTip="关闭" />
-                    </Grid>
+                        </Grid>
+                    </Border>
                     <ScrollViewer Grid.Row="1"
                                   MaxHeight="700"
                                   VerticalScrollBarVisibility="Auto">
@@ -1222,29 +1470,13 @@
                                                FontSize="14"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource PrimaryTextBrush}" />
-                                    <StackPanel Margin="0,12,0,0"
-                                                Orientation="Horizontal">
-                                        <Button x:Name="SettingsThemeSystemButton"
-                                                Width="112"
-                                                Height="34"
-                                                Click="SettingsThemeSystemButton_Click"
-                                                AutomationProperties.AutomationId="SettingsThemeSystemButton"
-                                                Content="跟随系统" />
-                                        <Button x:Name="SettingsThemeWhiteButton"
-                                                Width="88"
-                                                Height="34"
-                                                Margin="8,0,0,0"
-                                                Click="SettingsThemeWhiteButton_Click"
-                                                AutomationProperties.AutomationId="SettingsThemeWhiteButton"
-                                                Content="纯白" />
-                                        <Button x:Name="SettingsThemeDarkButton"
-                                                Width="88"
-                                                Height="34"
-                                                Margin="8,0,0,0"
-                                                Click="SettingsThemeDarkButton_Click"
-                                                AutomationProperties.AutomationId="SettingsThemeDarkButton"
-                                                Content="暗色" />
-                                    </StackPanel>
+                                    <CheckBox x:Name="SettingsFollowSystemCheckBox"
+                                              Margin="0,12,0,0"
+                                              VerticalAlignment="Center"
+                                              Checked="SettingsFollowSystemCheckBox_Changed"
+                                              Unchecked="SettingsFollowSystemCheckBox_Changed"
+                                              AutomationProperties.AutomationId="SettingsFollowSystemCheckBox"
+                                              Content="跟随系统主题" />
                                 </StackPanel>
                             </Border>
 
@@ -1272,6 +1504,33 @@
                                 </StackPanel>
                             </Border>
 
+                            <Grid Margin="0,16,0,0">
+                                <Border Padding="16"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="注销账号"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                        <TextBlock Text="注销本机保存的登录状态，不会更改后端配置。"
+                                                   Margin="0,10,0,12"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <Button x:Name="SettingsClearLoginButton"
+                                                Width="128"
+                                                Height="34"
+                                                HorizontalAlignment="Left"
+                                                Click="SettingsClearLoginButton_Click"
+                                                AutomationProperties.AutomationId="SettingsClearLoginButton"
+                                                Content="注销账号" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
                             <Border Margin="0,16,0,0"
                                     Padding="16"
                                     CornerRadius="10"
@@ -1285,91 +1544,50 @@
                                                Foreground="{DynamicResource PrimaryTextBrush}" />
                                     <StackPanel Margin="0,12,0,0"
                                                 Orientation="Horizontal">
-                                        <Button Width="118"
-                                                Height="34"
-                                                Click="SettingsOpenMainRepoButton_Click"
-                                                Content="主程序仓库" />
-                                        <Button Width="118"
-                                                Height="34"
+                                        <Button Height="34"
+                                                Padding="12,0"
+                                                Click="SettingsOpenMainRepoButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconLucide Kind="Github"
+                                                                         Width="15"
+                                                                         Height="15"
+                                                                         VerticalAlignment="Center" />
+                                                <TextBlock Margin="8,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Text="主程序仓库" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Height="34"
                                                 Margin="8,0,0,0"
-                                                Click="SettingsOpenWebUiRepoButton_Click"
-                                                Content="前端仓库" />
-                                        <Button Width="96"
-                                                Height="34"
+                                                Padding="12,0"
+                                                Click="SettingsOpenWebUiRepoButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconLucide Kind="Github"
+                                                                         Width="15"
+                                                                         Height="15"
+                                                                         VerticalAlignment="Center" />
+                                                <TextBlock Margin="8,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Text="前端仓库" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Height="34"
                                                 Margin="8,0,0,0"
-                                                Click="SettingsOpenDocsButton_Click"
-                                                Content="使用教程" />
+                                                Padding="12,0"
+                                                Click="SettingsOpenDocsButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconLucide Kind="BookOpen"
+                                                                         Width="15"
+                                                                         Height="15"
+                                                                         VerticalAlignment="Center" />
+                                                <TextBlock Margin="8,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Text="使用教程" />
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
-
-                            <Grid Margin="0,16,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0"
-                                        Margin="0,0,8,0"
-                                        Padding="16"
-                                        CornerRadius="10"
-                                        Background="{DynamicResource SurfaceAltBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="本地登录信息"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                                        <TextBlock Text="清理本机保存的登录状态，不会更改后端配置。"
-                                                   Margin="0,10,0,12"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   TextWrapping="Wrap" />
-                                        <Button x:Name="SettingsClearLoginButton"
-                                                Width="128"
-                                                Height="34"
-                                                HorizontalAlignment="Left"
-                                                Click="SettingsClearLoginButton_Click"
-                                                AutomationProperties.AutomationId="SettingsClearLoginButton"
-                                                Content="清理登录" />
-                                    </StackPanel>
-                                </Border>
-                                <Border Grid.Column="1"
-                                        Margin="8,0,0,0"
-                                        Padding="16"
-                                        CornerRadius="10"
-                                        Background="{DynamicResource SurfaceAltBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="请求日志"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsRequestLogText"
-                                                   Margin="0,10,0,12"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   TextWrapping="Wrap" />
-                                        <Button x:Name="SettingsRequestLogButton"
-                                                Width="128"
-                                                Height="34"
-                                                HorizontalAlignment="Left"
-                                                Click="SettingsRequestLogButton_Click"
-                                                AutomationProperties.AutomationId="SettingsRequestLogButton"
-                                                Content="切换请求日志" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-
-                            <Button x:Name="SettingsRefreshInfoButton"
-                                    Width="120"
-                                    Height="34"
-                                    Margin="0,16,0,0"
-                                    HorizontalAlignment="Left"
-                                    Click="SettingsRefreshInfoButton_Click"
-                                    AutomationProperties.AutomationId="SettingsRefreshInfoButton"
-                                    Content="刷新信息" />
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

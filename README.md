@@ -12,8 +12,6 @@
   C# / WPF / WebView2 / .NET 10 + CLIProxyAPI Go 后端 + Codex CLI 增强层
 </p>
 
-
-
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6?style=flat-square" />
   <img alt=".NET" src="https://img.shields.io/badge/.NET-10-512BD4?style=flat-square" />
@@ -24,66 +22,30 @@
 </p>
 
 <p align="center">
-  <a href="./docs/architecture-freeze.md">架构设计</a>
-  ·
-  <a href="./docs/repository-gap-analysis.md">仓库纠偏</a>
+  <a href="./docs/architecture-freeze.md">架构约束</a>
   ·
   <a href="./docs/build-and-release.md">构建与发布</a>
+  ·
+  <a href="./docs/testing.md">测试与验收</a>
+  ·
+  <a href="./docs/management-api-mapping.md">管理 API 映射</a>
   ·
   <a href="https://qm.qq.com/q/HVH9TOEaYk">QQ群聊</a>
 </p>
 
 ## 项目定位
 
-**CodexCliPlus** 是一个面向 **Windows 10/11 x64** 的 Codex CLI 一站式管理增强平台，底层基于 **CLIProxyAPI**，专注于把 Codex CLI 的代理、账号配置、插件、会话、日志、限额状态和桌面托盘体验整合到一个本地桌面应用中。
+**CodexCliPlus** 是面向 **Windows 10/11 x64** 的 Codex CLI 本地管理增强平台。桌面端负责 WPF/WebView2 宿主、托盘、后端生命周期、更新与安全存储；管理界面来自仓库内置的 WebUI；后端运行时基于 CLIProxyAPI，并以 `ccp-core.exe` 作为 CodexCliPlus 托管资产名。
 
-它不是 OpenAI 官方 Codex App，不是 OpenCode Desktop，也不是泛 CLIProxyAPI 管理面板。CodexCliPlus 的目标是服务 **Codex Windows CLI 用户**，为本地开发、配置切换、插件扩展和日常运行诊断提供更完整的桌面控制层。
+CodexCliPlus 不是 OpenAI 官方 Codex App，也不是 ChatGPT Plus / Pro 订阅产品。项目只提供本地桌面管理、配置、诊断、插件与工作流增强能力，不绕过官方认证、安全审批或使用限制。
 
-## 核心能力
+## 当前能力
 
-- **CLIProxyAPI 本地托管**
-  - 启动、停止、重启、健康检查、端口占用检测
-  - 后端日志聚合、错误提示、运行状态显示
-  - 本地代理地址自动注入 Codex CLI 运行环境
-
-- **Codex CLI 管理**
-  - Codex CLI 检测、版本识别、启动入口
-  - Node.js、npm、PowerShell、PATH、WSL 环境诊断
-  - 常用启动参数、工作目录、项目入口与最近会话管理
-
-- **账号配置档案**
-  - Codex OAuth profile 管理
-  - 多账号配置档案、本地状态查看、手动切换
-  - 代理绑定、配置隔离、失败原因提示
-  - 不绕过官方使用限制，不提供自动规避限额能力
-
-- **插件与技能中心**
-  - Codex plugins、skills、MCP、工作流模板的安装、启用、禁用与更新
-  - 常用开发场景模板，例如审计、构建、修复、发布、README、Issue 处理
-  - 插件配置可视化管理，降低手动维护配置文件的成本
-
-- **Codex CLI 增强层**
-  - 通过 wrapper / profile / config / plugin 方式增强 Codex CLI 使用体验
-  - 支持配置模板、启动模板、任务模板、并发任务入口
-  - 不破坏官方 CLI 的认证、安全审批和限制机制
-
-- **配置编辑器**
-  - 图形化编辑 Codex CLI 配置、profile、model、reasoning effort、sandbox、approval、status line 等常用选项
-  - 支持配置备份、恢复、校验与快速切换
-
-- **限额、日志与诊断**
-  - 账号状态、请求日志、失败原因、后端日志统一查看
-  - Codex CLI 常见问题诊断，例如安装失败、PATH 异常、代理失败、OAuth 失效、WSL 网络异常
-  - 为 5h / weekly 等状态提供可视化提示，但不绕过使用限制
-
-- **Windows 桌面体验**
-  - WPF + WebView2 桌面宿主
-  - 系统托盘菜单
-  - 首次运行向导
-  - 开机启动、最小化到托盘、退出时停止后端
-  - 安装器、便携版与发布脚本
-
-
+- **桌面宿主**：WPF + WebView2 主窗口、系统托盘、启动阻断视图、外部链接转交系统浏览器。
+- **后端托管**：拉取、校验并打包 CLIProxyAPI 运行时；桌面端负责本地后端启动、停止、健康检查和管理密钥注入。
+- **管理 WebUI**：从 `resources/webui/upstream/source` 构建，发布后由本地文件 `assets/webui/upstream/dist/index.html` 提供。
+- **Codex 支持**：检测 Codex CLI、Node.js、npm、PowerShell、PATH、WSL 等本地依赖，并提供配置、日志、账号与用量管理入口。
+- **发布链路**：`CodexCliPlus.BuildTool` 统一处理资产拉取、WebUI 构建、桌面发布、在线/离线安装器打包和包结构校验。
 
 ## 快速开始
 
@@ -91,70 +53,67 @@
 
 - Windows 10/11 x64
 - .NET SDK 10
+- Node.js 与 npm
 - PowerShell 7 或 Windows PowerShell 5.1
-- WebView2 Runtime（开发运行建议预装；安装器会自动检测并静默安装）
-- Codex CLI（可选；未安装时仍可完成桌面宿主初始化）
-- CLIProxyAPI 相关资源（由 BuildTool 拉取或通过发布资产提供）
+- Microsoft Edge WebView2 Runtime
+- Codex CLI（可选；未安装时仍可启动桌面宿主）
 
-### 2. 拉取并构建
+### 2. 拉取、还原并构建
 
 ```powershell
 git clone https://github.com/Blackblock-inc/CodexCliPlus.git
 cd CodexCliPlus
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets
-dotnet build CliProxyApiDesktop.sln
-dotnet test tests/CPAD.Tests/CPAD.Tests.csproj
-```
 
-> 说明：当前源码项目名、solution、测试项目可能仍保留 `CPAD.*` 历史命名。仓库产品名已切换为 CodexCliPlus，后续可逐步重构命名空间、项目文件与发布产物名称。
-
-如需完整发布资产，请通过当前 BuildTool 链路拉取并校验资源：
-
-```powershell
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-assets
+dotnet tool restore
+dotnet restore CodexCliPlus.sln
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets
+dotnet build CodexCliPlus.sln --configuration Release
+dotnet test ./tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release
 ```
 
 ### 3. 启动桌面宿主
 
 ```powershell
-dotnet run --project ./src/CPAD.App/CPAD.App.csproj
+dotnet run --project ./src/CodexCliPlus.App/CodexCliPlus.App.csproj
 ```
 
-### 4. 自动化验证
+### 4. 验证 WebUI
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./tests/CPAD.Tests/Smoke/SafeSmoke.ps1
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-package
+Push-Location ./resources/webui/upstream/source
+npm ci
+npm run lint
+npm run type-check
+npm run test
+npm run build
+Pop-Location
 ```
 
-### 5. 构建安装器
+### 5. 发布与打包
 
 ```powershell
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- fetch-assets --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-assets --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- publish --configuration Release --runtime win-x64 --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-portable --configuration Release --runtime win-x64 --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-dev --configuration Release --runtime win-x64 --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- package-installer --configuration Release --runtime win-x64 --version <version>
-dotnet run --project ./src/CPAD.BuildTool/CPAD.BuildTool.csproj -- verify-package --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-assets --version <version>
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- publish --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-online-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-offline-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-package --configuration Release --runtime win-x64 --version <version>
 ```
 
-发布产物位于 `artifacts/buildtool`。当前历史产物名可能仍为 `CPAD.exe`；正式产品发布建议逐步切换为 `CodexCliPlus.exe`、`CodexCliPlus-Setup.exe`、`CodexCliPlus-Portable.zip`。
+主要产物位于 `artifacts/buildtool`：
 
-
+- `publish/win-x64/CodexCliPlus.exe`
+- `publish/win-x64/assets/backend/windows-x64/ccp-core.exe`
+- `publish/win-x64/assets/webui/upstream/dist/index.html`
+- `packages/CodexCliPlus.Setup.Online.<version>.exe`
+- `packages/CodexCliPlus.Setup.Offline.<version>.exe`
 
 ## 文档
 
-- [架构设计](./docs/architecture-freeze.md)
-- [仓库纠偏与差距分析](./docs/repository-gap-analysis.md)
+- [架构约束](./docs/architecture-freeze.md)
 - [构建与发布](./docs/build-and-release.md)
-
-## 免责声明
-
-CodexCliPlus is not affiliated with OpenAI, not an official Codex App, and not a ChatGPT Plus subscription product.
-
-CodexCliPlus 不隶属于 OpenAI，不是 OpenAI 官方 Codex App，也不是 ChatGPT Plus / Pro 订阅产品。项目仅提供本地桌面管理、配置、诊断、插件与工作流增强能力。
+- [测试与验收](./docs/testing.md)
+- [管理 API 映射](./docs/management-api-mapping.md)
+- [项目状态与待办](./docs/repository-gap-analysis.md)
 
 ## 许可证
 

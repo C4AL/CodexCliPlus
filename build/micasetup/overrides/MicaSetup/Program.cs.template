@@ -9,9 +9,9 @@ using MicaSetup.Services;
 using MicaSetup.Views;
 
 [assembly: Guid("__PRODUCT_GUID__")]
-[assembly: AssemblyTitle("Cli Proxy API Desktop Setup")]
-[assembly: AssemblyProduct("Cli Proxy API Desktop")]
-[assembly: AssemblyDescription("Cli Proxy API Desktop Setup")]
+[assembly: AssemblyTitle("CodexCliPlus Setup")]
+[assembly: AssemblyProduct("CodexCliPlus")]
+[assembly: AssemblyDescription("CodexCliPlus Setup")]
 [assembly: AssemblyCompany("__PUBLISHER__")]
 [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
 [assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
@@ -26,7 +26,7 @@ internal static class Program
     {
         Hosting.CreateBuilder()
             .UseLogger(false)
-            .UseSingleInstance("BlackblockInc.CPAD.Setup")
+            .UseSingleInstance("BlackblockInc.CodexCliPlus.Setup")
             .UseTempPathFork()
             .UseDpiAware()
             .UseOptions(option =>
@@ -55,17 +55,17 @@ internal static class Program
                 option.OverlayInstallRemoveExt = "exe,dll,pdb,xml,json,yaml,config,7z";
                 option.UnpackingPassword = null;
                 option.IsEnvironmentVariable = false;
-                option.AppName = "Cli Proxy API Desktop";
-                option.KeyName = "CPAD";
-                option.ExeName = "CPAD.exe";
+                option.AppName = "CodexCliPlus";
+                option.KeyName = "CodexCliPlus";
+                option.ExeName = "CodexCliPlus.exe";
                 option.DisplayName = option.AppName;
                 option.DisplayIcon = option.ExeName;
                 option.DisplayVersion = "__DISPLAY_VERSION__";
                 option.Publisher = "__PUBLISHER__";
                 option.SetupName = option.AppName + " Setup";
-                option.MessageOfPage1 = "Cli Proxy API Desktop";
-                option.MessageOfPage2 = "Installing Cli Proxy API Desktop";
-                option.MessageOfPage3 = "Cli Proxy API Desktop has been installed.";
+                option.MessageOfPage1 = "CodexCliPlus";
+                option.MessageOfPage2 = "Installing CodexCliPlus";
+                option.MessageOfPage3 = "CodexCliPlus has been installed.";
             })
             .UseServices(service =>
             {

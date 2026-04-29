@@ -9,9 +9,9 @@ using MicaSetup.Services;
 using MicaSetup.Views;
 
 [assembly: Guid("__PRODUCT_GUID__")]
-[assembly: AssemblyTitle("Cli Proxy API Desktop Uninst")]
-[assembly: AssemblyProduct("Cli Proxy API Desktop")]
-[assembly: AssemblyDescription("Cli Proxy API Desktop Uninst")]
+[assembly: AssemblyTitle("CodexCliPlus Uninstall")]
+[assembly: AssemblyProduct("CodexCliPlus")]
+[assembly: AssemblyDescription("CodexCliPlus Uninstall")]
 [assembly: AssemblyCompany("__PUBLISHER__")]
 [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
 [assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
@@ -27,7 +27,7 @@ internal static class Program
         Hosting.CreateBuilder()
             .UseAsUninst()
             .UseLogger(false)
-            .UseSingleInstance("BlackblockInc.CPAD.Uninstall")
+            .UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall")
             .UseTempPathFork()
             .UseDpiAware()
             .UseOptions(option =>
@@ -45,18 +45,18 @@ internal static class Program
                 option.IsInstallCertificate = false;
                 option.IsEnableUninstallDelayUntilReboot = true;
                 option.IsEnvironmentVariable = false;
-                option.AppName = "Cli Proxy API Desktop";
-                option.KeyName = "CPAD";
-                option.ExeName = "CPAD.exe";
+                option.AppName = "CodexCliPlus";
+                option.KeyName = "CodexCliPlus";
+                option.ExeName = "CodexCliPlus.exe";
                 option.KeepMyData = false;
                 option.DisplayName = option.AppName;
                 option.DisplayIcon = option.ExeName;
                 option.DisplayVersion = "__DISPLAY_VERSION__";
                 option.Publisher = "__PUBLISHER__";
                 option.SetupName = option.AppName + " Uninstall";
-                option.MessageOfPage1 = "Cli Proxy API Desktop";
-                option.MessageOfPage2 = "Removing Cli Proxy API Desktop";
-                option.MessageOfPage3 = "Cli Proxy API Desktop has been removed.";
+                option.MessageOfPage1 = "CodexCliPlus";
+                option.MessageOfPage2 = "Removing CodexCliPlus";
+                option.MessageOfPage3 = "CodexCliPlus has been removed.";
             })
             .UseServices(service =>
             {

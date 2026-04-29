@@ -1,53 +1,37 @@
-# Repository Gap Analysis
+# 项目状态与待办
 
-## Snapshot
+## 快照
 
-- Date: 2026-04-24
-- Active desktop frontend baseline: vendored official upstream WebUI hosted in WebView2
-- Full product closure status: not complete yet
+- 日期：2026-04-29
+- 桌面前端基线：仓库内置 WebUI，由 `CodexCliPlus.App` 通过 WebView2 本地加载。
+- 构建入口：`CodexCliPlus.sln`、`CodexCliPlus.BuildTool`、`justfile`。
+- 发布状态：在线/离线安装器链路已进入 BuildTool；完整安装、卸载、更新验收仍需隔离环境证明。
 
-## Already completed
+## 已完成
 
-- `CPAD` solution and project layout are established.
-- Minimal WPF shell, tray behavior, backend hosting, diagnostics, and secure credential handling are established.
-- Vendored official WebUI source now lives under `resources/webui/upstream/source`.
-- Vendored WebUI build metadata is pinned by `resources/webui/upstream/sync.json`.
-- Desktop bootstrap flow is established for:
-  - `desktopMode`
-  - `apiBase`
-  - `managementKey`
-- Desktop-mode auth recovery is wired to consume bootstrap first and to avoid persisting `managementKey` into browser storage.
-- `CPAD.BuildTool` owns the repository command surface for:
+- CodexCliPlus 命名的 solution、项目文件、测试项目和发布产物名已建立。
+- WPF shell、托盘行为、WebView2 宿主、后端托管、诊断和安全凭据存储已建立。
+- WebUI 源码位于 `resources/webui/upstream/source`，构建产物和同步元数据位于 `resources/webui/upstream/dist` 与 `resources/webui/upstream/sync.json`。
+- 桌面 bootstrap 已覆盖 `desktopMode`、`apiBase`、`managementKey`，并避免将管理密钥写入浏览器持久化存储。
+- `CodexCliPlus.BuildTool` 负责：
   - `fetch-assets`
   - `verify-assets`
   - `publish`
-  - `package-portable`
-  - `package-dev`
-  - `package-installer`
+  - `package-online-installer`
+  - `package-offline-installer`
   - `verify-package`
-- Automated verification is established across:
-  - `dotnet restore`
-  - `dotnet build`
-  - `dotnet test`
-  - isolated smoke coverage
-  - BuildTool packaging and verification tests
+- 自动化验证覆盖 .NET 构建/测试、WebUI lint/type/test/build、CSharpier、knip 和 SafeSmoke 静态/启动检查。
 
-## Still pending
+## 待完成
 
-### Frontend parity and acceptance
+- 对 9 个主要管理页面和关键二级流程执行固定视口截图验收，并把重叠、空白闪烁和滚动性能问题纳入回归检查。
+- 在隔离 VM 或一次性测试用户中跑通真实安装、卸载、更新和 `KeepMyData` 组合验收。
+- 发布并验证 `C4AL/CodexCliPlus` 的稳定 GitHub Releases 线。
+- 继续保持 WebUI 上游同步卫生，避免把可追踪的上游差异变成不可审计的零散改写。
+- 逐步收敛保留的兼容代码和源码注释债务，但不改变后端管理 API、WebView2 bridge payload 或打包目录契约。
 
-- Run the fixed-viewport screenshot acceptance pass against the vendored upstream commit for the 9 primary pages and the defined secondary flows.
-- Continue upstream sync hygiene so future frontend changes are commit-based syncs rather than ad hoc desktop rewrites.
+## 当前非阻塞债务
 
-### Build and packaging
-
-- Run the full BuildTool publish/package/verify flow end to end against real release inputs and owned toolchain assets, not only repository tests.
-- Complete the installer/update experience for installed builds as the future guided update path.
-- Publish and validate a real stable GitHub Releases line for `Blackblock-inc/Cli-Proxy-API-Desktop`.
-- Keep beta reserved until an actual beta release line exists.
-
-### Known non-blocking debt
-
-- `NU1701` compatibility warnings remain accepted technical debt for the current milestone.
-- Legacy native management page code still exists in the tree for compile compatibility, but it is no longer the runtime product path.
-- Code-analysis warnings remain cleanup work, but they do not block the current desktop acceptance baseline.
+- 部分 WPF 原生管理页仍保留用于编译、测试和过渡期兼容，不是运行时主前端方向。
+- BuildTool 的 `verify-package` 只能证明包结构和关键文件存在，不能替代完整安装/卸载验收。
+- 上游后端文档位于 `resources/backend/**`，描述的是 CLIProxyAPI 行为，不代表 CodexCliPlus 桌面 UI 或安装器承诺。

@@ -1,88 +1,78 @@
-# Build, Packaging, And Release
+# 构建与发布
 
-## Current workflow
-
-Use the solution build, test project, and desktop host startup as the active validation path:
+## 常规构建
 
 ```powershell
-dotnet restore
-dotnet build CliProxyApiDesktop.sln --no-restore
-dotnet test tests/CPAD.Tests/CPAD.Tests.csproj --no-build
-dotnet run --project src/CPAD.App/CPAD.App.csproj
+dotnet tool restore
+dotnet restore CodexCliPlus.sln
+dotnet build CodexCliPlus.sln --configuration Release --no-restore
+dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build
+dotnet run --project src/CodexCliPlus.App/CodexCliPlus.App.csproj
 ```
 
-When changes touch assets, vendored WebUI, publish output, or release packaging, run the C# BuildTool chain instead of reviving the retired PowerShell/Inno flow:
+## WebUI 验证
 
 ```powershell
-dotnet run --project src/CPAD.BuildTool -- fetch-assets
-dotnet run --project src/CPAD.BuildTool -- verify-assets
-dotnet run --project src/CPAD.BuildTool -- publish
-dotnet run --project src/CPAD.BuildTool -- package-portable
-dotnet run --project src/CPAD.BuildTool -- package-dev
-dotnet run --project src/CPAD.BuildTool -- package-installer
-dotnet run --project src/CPAD.BuildTool -- verify-package
+Push-Location resources/webui/upstream/source
+npm ci
+npm run lint
+npm run type-check
+npm run test
+npm run build
+Pop-Location
 ```
 
-Default BuildTool output roots are:
+## BuildTool 命令面
 
-- Publish: `artifacts/buildtool/publish/<rid>/`
-- Packages: `artifacts/buildtool/packages/`
-- Installer staging: `artifacts/buildtool/installer/stage/`
+当前 BuildTool 命令为：
 
-## Minimum smoke checks
+```powershell
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-assets
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- publish
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-online-installer
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-offline-installer
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-package
+```
 
-- The app starts into the minimal WebView2 host window.
-- Tray icon and tray actions are available.
-- The desktop app can start the managed backend.
-- The published output contains packaged WebUI assets under `assets/webui/upstream/`.
-- `/healthz` responds successfully.
-- The automated test suite passes.
+通用选项：
 
-## Current release topology
+- `--configuration <Debug|Release>`，默认 `Release`
+- `--runtime <rid>`，默认 `win-x64`
+- `--version <version>`，默认 `1.0.0`
+- `--repo-root <path>`，默认自动查找包含 `CodexCliPlus.sln` 的仓库根目录
+- `--output <path>`，默认 `artifacts/buildtool`
 
-- `PowerShell + Inno Setup` is no longer a formal release chain for this repository.
-- `CPAD.BuildTool` is the active build/publish/package entry point.
-- `publish` explicitly rebuilds the vendored WebUI from `resources/webui/upstream/source` before `dotnet publish`.
-- `package-portable` emits a portable zip with `portable-mode.json` and package-local data intent.
-- `package-dev` emits a development zip with `app/dev-mode.json` plus dev-data scaffolding for validation scenarios.
-- `package-installer` emits a MicaSetup-based installer executable plus a staging zip that includes `mica-setup.json`, the app payload, and packaging metadata.
-- `verify-package` validates the produced package set and keeps package structure checks in the BuildTool lane.
+## 发布流程
 
-## Package types
+```powershell
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-assets --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- publish --configuration Release --runtime win-x64 --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-online-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-offline-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-package --configuration Release --runtime win-x64 --version <version>
+```
 
-- Installed package:
-  Produced by `package-installer`.
-  Emits `CPAD.Setup.<version>.exe` and a staging zip.
-  Uses current-user install intent and points at `%LocalAppData%\\Programs\\CPAD`.
-- Portable package:
-  Produced by `package-portable`.
-  Emits `CPAD.Portable.<version>.<rid>.zip`.
-  Intended to keep writable state beside the app and remain a manual distribution path.
-- Development package:
-  Produced by `package-dev`.
-  Emits `CPAD.Dev.<version>.<rid>.zip`.
-  Includes `app/dev-mode.json` plus `app/artifacts/dev-data` scaffolding and is intended for developer/testing distribution rather than the primary end-user channel.
+`publish` 会先构建 `resources/webui/upstream/source`，再执行桌面端 self-contained publish，并把后端、WebUI、许可证和发布清单复制到输出目录。
 
-## Update channel direction
+## 输出结构
 
-- Stable desktop update checks already query `https://api.github.com/repos/Blackblock-inc/Cli-Proxy-API-Desktop/releases/latest`.
-- Beta is intentionally preserved as a reserved configuration entry, but stable GitHub Releases remain the only active desktop update source in the current phase.
-- The desktop currently reports release state, release assets, release page links, and whether a stable release exposes an installer-shaped asset. It does not yet claim a fully finished end-to-end self-updater.
-- Portable and development packages should remain manual/no-auto-update packages. If installer-driven update automation is added later, it should stay on the installer route rather than mutating non-installed deployments in place.
+默认输出根目录为 `artifacts/buildtool`：
 
-## Installer And Uninstall Metadata
+- `publish/<rid>/CodexCliPlus.exe`
+- `publish/<rid>/assets/backend/windows-x64/ccp-core.exe`
+- `publish/<rid>/assets/webui/upstream/dist/index.html`
+- `publish/<rid>/assets/webui/upstream/sync.json`
+- `packages/CodexCliPlus.Setup.Online.<version>.exe`
+- `packages/CodexCliPlus.Setup.Online.<version>.<rid>.zip`
+- `packages/CodexCliPlus.Setup.Offline.<version>.exe`
+- `packages/CodexCliPlus.Setup.Offline.<version>.<rid>.zip`
 
-- BuildTool writes `dependency-precheck.json`, `update-policy.json`, and `uninstall-cleanup.json` into installer packaging metadata.
-- Current metadata already records:
-  WebView2 runtime requirement,
-  bundled-first dependency policy,
-  vendored WebUI asset expectations,
-  stable release source,
-  beta reserved status,
-  keep-user-data uninstall behavior,
-  and bounded cleanup roots for config/cache/logs/backend/diagnostics/runtime and related CPAD-owned entries.
-- `verify-package` requires installer metadata to be present in the staging zip, but that is still package validation, not a substitute for later isolated install/uninstall acceptance.
+## 发布约束
 
-## Current expectation
-
-Repository acceptance still starts with successful build, successful tests, and a working desktop startup smoke run. Packaging work should additionally pass the relevant `CPAD.BuildTool` commands and `verify-package`.
+- `ccp-core.exe` 是 CodexCliPlus 的托管后端资产名，不能在发布目录中改回 `cli-proxy-api.exe`。
+- `resources/webui/upstream/dist/index.html` 和 `resources/webui/upstream/sync.json` 是 WebUI 打包契约的一部分。
+- 在线安装器用于后续在线依赖/更新路径，离线安装器用于捆绑优先的完整校验路径。
+- `verify-package` 是包结构和关键可执行文件校验，不等同于完整安装、卸载和更新验收。
+- 稳定更新元数据指向 `https://github.com/C4AL/CodexCliPlus/releases/latest`；Beta 仍为保留渠道。

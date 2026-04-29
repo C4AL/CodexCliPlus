@@ -1,73 +1,67 @@
-# CPAD Desktop Architecture
+# CodexCliPlus 桌面架构约束
 
-## Fixed rules
+## 固定规则
 
-- The runtime frontend baseline is the vendored official upstream Management Center WebUI, not a native WPF reimplementation.
-- `CPAD.App` is a minimal native shell: windowing, tray, backend lifecycle, secure storage, updates, and host-level blocker UI.
-- The official WebUI is served from local packaged files through `WebView2`, not from a remote URL.
-- Backend remains `CLIProxyAPI`; the desktop app is still the source of truth for backend startup and management credentials.
-- Desktop bootstrap is the first login path in desktop mode and must not persist `managementKey` into browser storage.
-- Release packaging remains `CPAD.BuildTool + MicaSetup`; old PowerShell/Inno chains stay retired.
-- Stable desktop release discovery is sourced from GitHub Releases for `Blackblock-inc/Cli-Proxy-API-Desktop`.
-- Beta remains a reserved channel until a real beta release line exists.
-- Portable packages stay manual/no-auto-update packages.
+- 运行时前端基线是仓库内置 WebUI，不回退到完整原生 WPF 管理页。
+- `CodexCliPlus.App` 只负责桌面宿主职责：窗口、托盘、WebView2、后端生命周期、安全存储、更新状态和启动阻断视图。
+- WebUI 必须从本地打包文件加载，入口为 `assets/webui/upstream/dist/index.html`，不能改为远程 URL。
+- 后端仍基于 CLIProxyAPI；CodexCliPlus 托管运行时资产名固定为 `ccp-core.exe`。上游压缩包内的 `cli-proxy-api.exe` 只作为拉取输入名。
+- 桌面端是管理密钥来源。WebView2 bootstrap 可以注入 `desktopMode`、`apiBase`、`managementKey`，但不能把 `managementKey` 持久化到浏览器存储。
+- 发布链路固定为 `CodexCliPlus.BuildTool + MicaSetup`，旧 PowerShell/Inno 发布链不再作为正式路径。
+- 稳定更新检查指向 `C4AL/CodexCliPlus` 的 GitHub Releases；Beta 渠道保留配置位，但还不是实际发布线。
 
-## Current delivery status
+## 当前分层
 
-- As of 2026-04-24, the active desktop path is the single `WebView2` host window in `CPAD.App`.
-- Native management pages and native navigation shells are no longer the product frontend target.
-- Repository acceptance baseline remains:
-  - `dotnet restore`
-  - `dotnet build --no-restore`
-  - `dotnet test --no-build`
-- Packaging acceptance additionally requires BuildTool publish/package output plus `verify-package`.
-
-## Current layering
-
-- `CPAD.App`
-  Minimal WPF shell and WebView2 host, tray integration, blocker UI, and desktop bootstrap injection.
+- `src/CodexCliPlus.App`
+  WPF shell、WebView2 host、托盘、通知、导航状态、启动阻断视图。
+- `src/CodexCliPlus.Core`
+  常量、共享模型、枚举、管理 API 契约和桌面 bootstrap payload。
+- `src/CodexCliPlus.Infrastructure`
+  后端资产准备、配置写入、进程托管、日志、诊断、安全存储、管理 API 客户端。
+- `src/CodexCliPlus.BuildTool`
+  资产拉取/校验、WebUI 构建、桌面 publish、安装器打包和包结构校验。
 - `resources/webui/upstream/source`
-  Vendored official upstream WebUI source tree pinned by `resources/webui/upstream/sync.json`.
+  内置 WebUI 源码。
 - `resources/webui/upstream/dist`
-  Vendored built WebUI assets copied into desktop publish/package outputs.
-- `CPAD.Core`
-  Shared contracts, enums, constants, about metadata, and desktop bootstrap payload types.
-- `CPAD.Infrastructure`
-  Backend asset preparation, config writing, process hosting, logging, diagnostics, and secure storage.
-- `CPAD.BuildTool`
-  Unified asset fetch/verify, vendored WebUI build, publish, package, and package verification toolchain.
+  打包时复制进桌面发布目录的 WebUI 构建产物。
+- `resources/webui/modules/cpa-uv-overlay`
+  保留上游/覆盖层页面、路由和行为来源追踪，供同步与差异审计使用。
 
-## Backend and authentication constraints
+## 打包约束
 
-- Backend binds to local loopback only.
-- Backend config written by the desktop app keeps the upstream control panel disabled:
-  `disable-control-panel: true`
-- The desktop shell remains the source of truth for the management key through secure storage.
-- Desktop bootstrap must provide:
-  - `desktopMode`
-  - `apiBase`
-  - `managementKey`
-- Desktop mode may persist non-sensitive UI state such as theme, language, and cached layout state, but not `managementKey`.
+发布输出必须至少包含：
 
-## Packaging constraints
+- `CodexCliPlus.exe`
+- `assets/backend/windows-x64/ccp-core.exe`
+- `assets/webui/upstream/dist/index.html`
+- `assets/webui/upstream/sync.json`
+- `publish-manifest.json`
 
-- Publish output must contain:
-  - `CPAD.exe`
-  - `assets/webui/upstream/dist/index.html`
-  - `assets/webui/upstream/sync.json`
-- Portable packages are marked by `portable-mode.json` and keep writable state under a package-local `data/` root.
-- Development packages are marked by `dev-mode.json` and are intended for validation/developer use with isolated `app/artifacts/dev-data` scaffolding.
-- Installed packages default to installed mode and keep using the normal user data root under `%LocalAppData%`.
-- Installer metadata must describe both packaged WebUI assets and the external WebView2 runtime requirement.
+安装器包必须校验：
 
-## Host behavior constraints
+- `app-package/CodexCliPlus.exe`
+- `app-package/assets/webui/upstream/dist/index.html`
+- `app-package/assets/webui/upstream/sync.json`
+- `app-package/packaging/dependency-precheck.json`
+- `app-package/packaging/update-policy.json`
+- `app-package/packaging/uninstall-cleanup.json`
 
-- Main window is a single WebView2 host, not a native page router.
-- Closing the main window minimizes to tray by default when tray mode is enabled.
-- Tray menu remains:
-  - Open
-  - Restart Backend
-  - Check Updates
-  - Exit
-- External links from the hosted WebUI must open in the system browser.
-- Missing WebView2 runtime, missing packaged WebUI assets, or backend startup failure must show a native blocker view instead of a blank host.
+## 宿主行为约束
+
+- 主窗口是单一 WebView2 宿主，不恢复旧运行时原生导航壳。
+- 缺少 WebView2 Runtime、缺少 WebUI 资产或后端启动失败时，必须显示原生阻断视图，不能留下空白 WebView2。
+- 外部链接必须交给系统浏览器。
+- 关闭主窗口时，托盘模式开启则默认最小化到托盘。
+- 托盘必须保留打开、重启后端、检查更新、退出等核心操作。
+
+## 验收基线
+
+常规仓库验收从以下命令开始：
+
+```powershell
+dotnet restore CodexCliPlus.sln
+dotnet build CodexCliPlus.sln --configuration Release --no-restore
+dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build
+```
+
+涉及 WebUI、发布或打包时，追加对应的 npm 验证和 `CodexCliPlus.BuildTool` 发布/打包/校验命令。

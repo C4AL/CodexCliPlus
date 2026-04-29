@@ -1,8 +1,8 @@
 # MicaSetup Overlay
 
-This directory keeps repo-owned installer resources that `CPAD.BuildTool` can render into a real MicaSetup stage.
+This directory keeps repo-owned installer resources that `CodexCliPlus.BuildTool` can render into a real MicaSetup stage.
 
-The goal is to keep installer behavior reviewable in source control instead of burying every decision in `src/CPAD.BuildTool`.
+The goal is to keep installer behavior reviewable in source control instead of burying every decision in `src/CodexCliPlus.BuildTool`.
 
 ## Layout
 
@@ -36,17 +36,18 @@ Recommended minimum token set:
 - `__START_MENU_DIRECTORY__`
 - `__QUICK_LAUNCH_SHORTCUT__`
 
-## Current-user defaults
+## Installer defaults
 
-The templates are intentionally biased toward current-user install:
+The active BuildTool route renders MicaSetup configuration from `src/CodexCliPlus.BuildTool` and writes package metadata beside the app payload. The source templates in this directory are kept as a reviewable fallback and example route.
 
-- `RequestExecutionLevel = "user"`
-- `IsUseInstallPathPreferAppDataLocalPrograms = true`
-- install root hint: `%LocalAppData%\Programs\CPAD`
-- HKCU startup cleanup only
+Current product identifiers are:
 
-The current desktop app stores its working state under `%LocalAppData%\CPAD`.
-Secure credential references are DPAPI-protected `*.bin` files under `%LocalAppData%\CPAD\config\secrets`.
+- app name: `CodexCliPlus`
+- executable: `CodexCliPlus.exe`
+- setup prefix: `CodexCliPlus.Setup`
+- managed backend asset: `ccp-core.exe`
+
+The desktop app stores its working state under the CodexCliPlus app data root. Secure credential references are DPAPI-protected `*.bin` files under the app `config\secrets` directory.
 There is no Windows Credential Manager entry to remove today.
 
 ## Cleanup policy
@@ -57,8 +58,8 @@ Always remove:
 
 - install directory
 - uninstaller sidecar files
-- current-user shortcuts
-- HKCU `Run\CPAD`
+- shortcuts
+- startup registration for `CodexCliPlus`
 - update cache
 - runtime and backend working directories
 - general cache
@@ -74,7 +75,7 @@ Default uninstall runs the full-clean profile with `KeepMyData = false`.
 
 Remove when `KeepMyData = false`:
 
-- all of the above, then prune `%LocalAppData%\CPAD` if empty
+- all of the above, then prune the CodexCliPlus app data root if empty
 
 ## Source overlay usage
 

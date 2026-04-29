@@ -27,4 +27,4 @@ Use it for:
 5. Wire uninstall pages or services to evaluate `keepUserData` and execute the selected profile.
 
 Keep this route current-user-first unless product requirements explicitly change.
-Do not add `.UseElevated()` by default for a `%LocalAppData%\Programs\CPAD` install.
+Do not add `.UseElevated()` by default for a current-user `%LocalAppData%\Programs\CodexCliPlus` install.

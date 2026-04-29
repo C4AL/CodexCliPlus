@@ -83,6 +83,15 @@ public sealed class BackendAssetService
             );
         }
 
+        if (!BackendReleaseMetadata.RemoteArchiveFallbackEnabled)
+        {
+            throw new InvalidOperationException(
+                "Patched CLIProxyAPI backend assets are unavailable from the application bundle "
+                    + "or repository resources, and remote archive fallback is disabled for this "
+                    + "build because the upstream archive has known vulnerable dependencies."
+            );
+        }
+
         _logger.Info("Downloading CLIProxyAPI backend assets.");
         await DownloadBackendArchiveAsync(workingDirectory, executablePath, cancellationToken);
         if (!await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
@@ -239,22 +248,29 @@ public sealed class BackendAssetService
             return false;
         }
 
-        var resourcesRoot = Path.Combine(repositoryRoot, AppConstants.ResourcesDirectoryName);
-        var repositoryBackendDirectory = Path.Combine(resourcesRoot, "backend", "windows-x64");
-        var repositoryExecutable = Path.Combine(
-            repositoryBackendDirectory,
-            BackendExecutableNames.ManagedExecutableFileName
-        );
-
-        if (!File.Exists(repositoryExecutable))
+        foreach (
+            var repositoryBackendDirectory in EnumerateRepositoryBackendAssetDirectories(
+                repositoryRoot
+            )
+        )
         {
-            return false;
+            var repositoryExecutable = Path.Combine(
+                repositoryBackendDirectory,
+                BackendExecutableNames.ManagedExecutableFileName
+            );
+
+            if (!File.Exists(repositoryExecutable))
+            {
+                continue;
+            }
+
+            CopyAssetFile(repositoryExecutable, executablePath);
+            CopyDocumentationFiles(repositoryBackendDirectory, workingDirectory);
+
+            return true;
         }
 
-        CopyAssetFile(repositoryExecutable, executablePath);
-        CopyDocumentationFiles(repositoryBackendDirectory, workingDirectory);
-
-        return true;
+        return false;
     }
 
     private async Task DownloadBackendArchiveAsync(
@@ -382,5 +398,25 @@ public sealed class BackendAssetService
         }
 
         return null;
+    }
+
+    private static IEnumerable<string> EnumerateRepositoryBackendAssetDirectories(
+        string repositoryRoot
+    )
+    {
+        yield return Path.Combine(
+            repositoryRoot,
+            AppConstants.ResourcesDirectoryName,
+            "backend",
+            "windows-x64"
+        );
+        yield return Path.Combine(
+            repositoryRoot,
+            "artifacts",
+            "buildtool",
+            "assets",
+            "backend",
+            "windows-x64"
+        );
     }
 }

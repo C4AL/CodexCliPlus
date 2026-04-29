@@ -5,9 +5,11 @@
 ```powershell
 dotnet restore CodexCliPlus.sln
 dotnet build CodexCliPlus.sln --configuration Release --no-restore
-dotnet test tests\CodexCliPlus.Tests\CodexCliPlus.Tests.csproj --configuration Release --no-build
+dotnet test tests\CodexCliPlus.Tests\CodexCliPlus.Tests.csproj --configuration Release --no-build --filter "Category!=LiveBackend&Category!=Smoke"
 dotnet csharpier check src tests
 ```
+
+PR CI 默认排除 `LiveBackend` 与 `Smoke` 分类。它们需要真实后端进程、端口和桌面/系统环境，由 `Backend Integration` 的 nightly/manual workflow 承担。
 
 UI 自动化测试需要本机可用的 WebView2/桌面交互环境：
 
@@ -63,9 +65,19 @@ dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj --
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- write-checksums
 ```
 
+Release 签名链路额外要求：
+
+```powershell
+$env:CODEXCLIPLUS_SIGNING_REQUIRED = "true"
+$env:WINDOWS_CODESIGN_PFX_BASE64 = "<base64-pfx>"
+$env:WINDOWS_CODESIGN_PFX_PASSWORD = "<pfx-password>"
+$env:WINDOWS_CODESIGN_TIMESTAMP_URL = "http://timestamp.digicert.com"
+```
+
 包结构至少应包含：
 
 - `CodexCliPlus.exe`
+- `CodexCliPlus.exe.signature.json`（强制签名发布）
 - `assets/backend/windows-x64/ccp-core.exe`
 - `assets/webui/upstream/dist/index.html`
 - `assets/webui/upstream/sync.json`

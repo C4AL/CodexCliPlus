@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CodexCliPlus.Core.Constants;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace CodexCliPlus.BuildTool;
 
@@ -67,7 +69,7 @@ public static class BuildToolApp
         try
         {
             processRunner ??= new ProcessRunner();
-            signingService ??= new NoOpSigningService();
+            signingService ??= SigningServiceFactory.CreateFromEnvironment();
 
             var context = new BuildContext(options, logger, processRunner, signingService);
             logger.Info($"CodexCliPlus.BuildTool {options.Command}");
@@ -315,6 +317,7 @@ public interface IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken cancellationToken = default
     );
 }
@@ -326,6 +329,7 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -341,6 +345,21 @@ public sealed class ProcessRunner : IProcessRunner
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        if (environment is not null)
+        {
+            foreach (var (name, value) in environment)
+            {
+                if (value is null)
+                {
+                    startInfo.Environment.Remove(name);
+                }
+                else
+                {
+                    startInfo.Environment[name] = value;
+                }
+            }
         }
 
         var standardErrorLines = new List<string>();
@@ -408,17 +427,9 @@ public sealed class NoOpSigningService : ISigningService
         CancellationToken cancellationToken = default
     )
     {
-        var markerPath = $"{artifactPath}.unsigned.json";
-        var marker = new
-        {
-            artifact = Path.GetFileName(artifactPath),
-            signing = "skipped",
-            reason = "No signing certificate configured for the first BuildTool release chain.",
-        };
-        await File.WriteAllTextAsync(
-            markerPath,
-            JsonSerializer.Serialize(marker, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+        await ArtifactSignatureMetadata.WriteUnsignedAsync(
+            artifactPath,
+            "No signing certificate configured for this local build.",
             cancellationToken
         );
     }
@@ -426,6 +437,11 @@ public sealed class NoOpSigningService : ISigningService
 
 public static class AssetCommands
 {
+    private const string BackendSourceRepositoryUrl =
+        "https://github.com/router-for-me/CLIProxyAPI.git";
+
+    private const string PatchedBackendBuildDate = "2026-04-29";
+
     private sealed record BackendAssetFileMapping(
         string RepositoryFileName,
         string ArchiveEntryName,
@@ -481,11 +497,23 @@ public static class AssetCommands
         }
         else
         {
-            context.Logger.Info(
-                $"local backend resources are incomplete; downloading {BackendReleaseMetadata.ArchiveUrl}"
-            );
-            await DownloadBackendArchiveAsync(backendTarget, context.Logger);
-            sourceDirectory = BackendReleaseMetadata.ArchiveUrl;
+            if (!BackendReleaseMetadata.RemoteArchiveFallbackEnabled)
+            {
+                context.Logger.Info(
+                    "local patched backend resources are incomplete; building patched backend from source."
+                );
+                await BuildPatchedBackendFromSourceAsync(context, backendTarget);
+                sourceDirectory =
+                    $"{BackendSourceRepositoryUrl}@{BackendReleaseMetadata.SourceCommit}";
+            }
+            else
+            {
+                context.Logger.Info(
+                    $"local backend resources are incomplete; downloading {BackendReleaseMetadata.ArchiveUrl}"
+                );
+                await DownloadBackendArchiveAsync(backendTarget, context.Logger);
+                sourceDirectory = BackendReleaseMetadata.ArchiveUrl;
+            }
         }
 
         var manifest = await BuildAssetManifest.CreateAsync(
@@ -529,6 +557,170 @@ public static class AssetCommands
 
         context.Logger.Info($"asset verification passed: {manifest.Files.Count} file(s)");
         return 0;
+    }
+
+    private static async Task BuildPatchedBackendFromSourceAsync(
+        BuildContext context,
+        string backendTarget
+    )
+    {
+        Directory.CreateDirectory(backendTarget);
+        var sourceRoot = Path.Combine(context.Options.OutputRoot, "temp", "backend-source");
+        SafeFileSystem.CleanDirectory(sourceRoot, context.Options.OutputRoot);
+
+        await RunRequiredAsync(
+            context,
+            "git",
+            ["clone", "--no-checkout", BackendSourceRepositoryUrl, sourceRoot],
+            context.Options.RepositoryRoot,
+            "clone CLIProxyAPI source"
+        );
+        await RunRequiredAsync(
+            context,
+            "git",
+            ["checkout", BackendReleaseMetadata.SourceCommit],
+            sourceRoot,
+            "checkout pinned CLIProxyAPI commit"
+        );
+
+        ApplyPatchedBackendSourceChanges(sourceRoot);
+
+        await RunRequiredAsync(
+            context,
+            "go",
+            [
+                "get",
+                "github.com/jackc/pgx/v5@v5.9.2",
+                "github.com/cloudflare/circl@v1.6.3",
+                "github.com/go-git/go-git/v6@v6.0.0-alpha.2",
+                "golang.org/x/crypto@v0.50.0",
+                "golang.org/x/net@v0.53.0",
+                "golang.org/x/sync@v0.20.0",
+            ],
+            sourceRoot,
+            "apply patched backend dependency versions"
+        );
+        await RunRequiredAsync(
+            context,
+            "go",
+            ["mod", "tidy"],
+            sourceRoot,
+            "tidy patched backend module"
+        );
+        await RunRequiredAsync(
+            context,
+            "gofmt",
+            ["-w", Path.Combine("internal", "store", "gitstore.go")],
+            sourceRoot,
+            "format patched backend source"
+        );
+
+        var executablePath = Path.Combine(
+            backendTarget,
+            BackendExecutableNames.ManagedExecutableFileName
+        );
+        var shortCommit = BackendReleaseMetadata.SourceCommit[..7];
+        var ldflags =
+            $"-s -w -X 'main.Version={BackendReleaseMetadata.Version}' "
+            + $"-X 'main.Commit={shortCommit}-deps' "
+            + $"-X 'main.BuildDate={PatchedBackendBuildDate}'";
+        await RunRequiredAsync(
+            context,
+            "go",
+            ["build", "-trimpath", "-ldflags", ldflags, "-o", executablePath, "./cmd/server/"],
+            sourceRoot,
+            "build patched backend executable",
+            new Dictionary<string, string?>
+            {
+                ["CGO_ENABLED"] = "0",
+                ["GOOS"] = "windows",
+                ["GOARCH"] = "amd64",
+            }
+        );
+
+        foreach (
+            var file in RequiredBackendFiles.Where(file =>
+                !string.Equals(
+                    file.TargetFileName,
+                    BackendExecutableNames.ManagedExecutableFileName,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+        )
+        {
+            File.Copy(
+                Path.Combine(sourceRoot, file.ArchiveEntryName),
+                Path.Combine(backendTarget, file.TargetFileName),
+                overwrite: true
+            );
+            context.Logger.Info($"asset built: backend/windows-x64/{file.TargetFileName}");
+        }
+
+        if (!File.Exists(executablePath))
+        {
+            throw new FileNotFoundException(
+                $"Patched backend build did not create {BackendExecutableNames.ManagedExecutableFileName}.",
+                executablePath
+            );
+        }
+
+        context.Logger.Info(
+            $"asset built: backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+        );
+    }
+
+    private static async Task RunRequiredAsync(
+        BuildContext context,
+        string fileName,
+        IReadOnlyList<string> arguments,
+        string workingDirectory,
+        string description,
+        IReadOnlyDictionary<string, string?>? environment = null
+    )
+    {
+        var exitCode = await context.ProcessRunner.RunAsync(
+            fileName,
+            arguments,
+            workingDirectory,
+            context.Logger,
+            environment: environment
+        );
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException($"{description} failed with exit code {exitCode}.");
+        }
+    }
+
+    private static void ApplyPatchedBackendSourceChanges(string sourceRoot)
+    {
+        var gitStorePath = Path.Combine(sourceRoot, "internal", "store", "gitstore.go");
+        var source = File.ReadAllText(gitStorePath, Encoding.UTF8).Replace("\r\n", "\n");
+        source = ReplaceRequired(
+            source,
+            "\"github.com/go-git/go-git/v6/plumbing\"\n",
+            "\"github.com/go-git/go-git/v6/plumbing\"\n\t\"github.com/go-git/go-git/v6/plumbing/client\"\n"
+        );
+        source = ReplaceRequired(source, "Auth: authMethod", "ClientOptions: authMethod");
+        source = ReplaceRequired(source, "Auth: s.gitAuth()", "ClientOptions: s.gitAuth()");
+        source = ReplaceRequired(source, "transport.AuthMethod", "[]client.Option");
+        source = ReplaceRequired(
+            source,
+            "return &http.BasicAuth{Username: user, Password: s.password}",
+            "return []client.Option{client.WithHTTPAuth(&http.BasicAuth{Username: user, Password: s.password})}"
+        );
+        File.WriteAllText(gitStorePath, source, new UTF8Encoding(false));
+    }
+
+    private static string ReplaceRequired(string source, string oldValue, string newValue)
+    {
+        if (!source.Contains(oldValue, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source no longer contains expected patch fragment: {oldValue}"
+            );
+        }
+
+        return source.Replace(oldValue, newValue, StringComparison.Ordinal);
     }
 
     private static async Task DownloadBackendArchiveAsync(string backendTarget, BuildLogger logger)
@@ -839,6 +1031,10 @@ public static class PublishCommands
             context.WebUiAssetsRoot,
             Path.Combine(context.PublishRoot, "assets", "webui")
         );
+        await context.SigningService.SignAsync(
+            Path.Combine(context.PublishRoot, AppConstants.ExecutableName),
+            context
+        );
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
         context.Logger.Info($"publish output: {context.PublishRoot}");
@@ -962,6 +1158,10 @@ public static class PackageCommands
             Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath)),
             overwrite: true
         );
+        CopySigningMetadataIfExists(
+            installerOutputPath,
+            Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath))
+        );
 
         var stagingPackagePath = Path.Combine(
             context.PackageRoot,
@@ -1025,6 +1225,34 @@ public static class PackageCommands
         );
         await context.SigningService.SignAsync(packagePath, context);
         context.Logger.Info($"{packageType} package: {packagePath}");
+    }
+
+    private static void CopySigningMetadataIfExists(
+        string sourceArtifactPath,
+        string targetArtifactPath
+    )
+    {
+        foreach (
+            var metadataPath in new[]
+            {
+                ArtifactSignatureMetadata.GetSignaturePath(sourceArtifactPath),
+                ArtifactSignatureMetadata.GetUnsignedPath(sourceArtifactPath),
+            }
+        )
+        {
+            if (!File.Exists(metadataPath))
+            {
+                continue;
+            }
+
+            var targetMetadataPath = metadataPath.EndsWith(
+                ".signature.json",
+                StringComparison.OrdinalIgnoreCase
+            )
+                ? ArtifactSignatureMetadata.GetSignaturePath(targetArtifactPath)
+                : ArtifactSignatureMetadata.GetUnsignedPath(targetArtifactPath);
+            File.Copy(metadataPath, targetMetadataPath, overwrite: true);
+        }
     }
 
     private static async Task<int> CreateMicaPayloadArchiveAsync(
@@ -1111,6 +1339,10 @@ public static class ReleaseArtifactCommands
         {
             var sha256 = await ComputeSha256Async(file);
             var relativePath = ToRepositoryRelativePath(context, file);
+            var signature = await ArtifactSignatureMetadata.ReadForArtifactAsync(file);
+            var signatureMetadataPath = signature is null
+                ? null
+                : ToRepositoryRelativePath(context, signature.MetadataPath);
             checksumLines.Add($"{sha256}  {relativePath}");
             artifacts.Add(
                 new
@@ -1118,6 +1350,10 @@ public static class ReleaseArtifactCommands
                     path = relativePath,
                     size = new FileInfo(file).Length,
                     sha256,
+                    signed = signature?.Metadata.HasSignature ?? false,
+                    signatureKind = signature?.Metadata.SignatureKind ?? "none",
+                    signatureMetadataPath,
+                    attestationExpected = signature?.Metadata.AttestationExpected ?? true,
                 }
             );
         }
@@ -1136,6 +1372,8 @@ public static class ReleaseArtifactCommands
             runtime = context.Options.Runtime,
             configuration = context.Options.Configuration,
             generatedAtUtc = DateTimeOffset.UtcNow,
+            signingRequired = SigningOptions.FromEnvironment().SigningRequired,
+            attestation = new { provider = "github-artifact-attestation", expected = true },
             artifacts,
         };
         await File.WriteAllTextAsync(
@@ -1197,8 +1435,17 @@ public static class ReleaseArtifactCommands
     }
 }
 
-public sealed class PackageVerifier(BuildContext context)
+public sealed class PackageVerifier
 {
+    private readonly BuildContext context;
+    private readonly SigningOptions signingOptions;
+
+    public PackageVerifier(BuildContext context, SigningOptions? signingOptions = null)
+    {
+        this.context = context;
+        this.signingOptions = signingOptions ?? SigningOptions.FromEnvironment();
+    }
+
     public IReadOnlyList<string> VerifyAll()
     {
         var failures = new List<string>();
@@ -1216,8 +1463,9 @@ public sealed class PackageVerifier(BuildContext context)
             context.PackageRoot,
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
         );
+        var installerPath = Path.Combine(context.PackageRoot, installerName);
 
-        VerifyExecutable(Path.Combine(context.PackageRoot, installerName), failures);
+        VerifyExecutable(installerPath, failures);
         VerifyZip(stagingPackagePath, $"app-package/{AppConstants.ExecutableName}", failures);
         VerifyZip(
             stagingPackagePath,
@@ -1231,6 +1479,33 @@ public sealed class PackageVerifier(BuildContext context)
         VerifyZip(stagingPackagePath, "app-package/packaging/uninstall-cleanup.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/dependency-precheck.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/update-policy.json", failures);
+
+        if (!signingOptions.SigningRequired)
+        {
+            return;
+        }
+
+        VerifySignatureMetadata(installerPath, "authenticode", expectedSigned: true, failures);
+        VerifySignatureMetadata(
+            stagingPackagePath,
+            "github-artifact-attestation",
+            expectedSigned: false,
+            failures
+        );
+        VerifyZipSignatureMetadata(
+            stagingPackagePath,
+            $"app-package/{AppConstants.ExecutableName}.signature.json",
+            "authenticode",
+            expectedSigned: true,
+            failures
+        );
+        VerifyZipSignatureMetadata(
+            stagingPackagePath,
+            $"output/{installerName}.signature.json",
+            "authenticode",
+            expectedSigned: true,
+            failures
+        );
     }
 
     private static void VerifyZip(string path, string requiredEntry, List<string> failures)
@@ -1326,6 +1601,144 @@ public sealed class PackageVerifier(BuildContext context)
         if (validationFailure is not null)
         {
             failures.Add(validationFailure);
+        }
+    }
+
+    private static void VerifySignatureMetadata(
+        string artifactPath,
+        string expectedSignatureKind,
+        bool expectedSigned,
+        List<string> failures
+    )
+    {
+        var metadataPath = ArtifactSignatureMetadata.GetSignaturePath(artifactPath);
+        if (!File.Exists(metadataPath))
+        {
+            failures.Add($"Signature metadata missing: {metadataPath}");
+            return;
+        }
+
+        try
+        {
+            var metadata = JsonSerializer.Deserialize<ArtifactSignatureMetadata>(
+                File.ReadAllText(metadataPath, Encoding.UTF8),
+                JsonDefaults.Options
+            );
+            VerifySignatureMetadata(
+                metadata,
+                metadataPath,
+                expectedSignatureKind,
+                expectedSigned,
+                failures
+            );
+        }
+        catch (JsonException exception)
+        {
+            failures.Add(
+                $"Signature metadata is not valid JSON: {metadataPath}: {exception.Message}"
+            );
+        }
+    }
+
+    private static void VerifyZipSignatureMetadata(
+        string packagePath,
+        string requiredEntry,
+        string expectedSignatureKind,
+        bool expectedSigned,
+        List<string> failures
+    )
+    {
+        if (!File.Exists(packagePath))
+        {
+            failures.Add($"Package missing: {packagePath}");
+            return;
+        }
+
+        try
+        {
+            using var archive = ZipFile.OpenRead(packagePath);
+            var entry = archive.Entries.FirstOrDefault(item =>
+                string.Equals(
+                    NormalizeEntryName(item.FullName),
+                    requiredEntry,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
+            if (entry is null)
+            {
+                failures.Add($"Package '{packagePath}' is missing entry '{requiredEntry}'.");
+                return;
+            }
+
+            using var stream = entry.Open();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var metadata = JsonSerializer.Deserialize<ArtifactSignatureMetadata>(
+                reader.ReadToEnd(),
+                JsonDefaults.Options
+            );
+            VerifySignatureMetadata(
+                metadata,
+                $"{packagePath}!{requiredEntry}",
+                expectedSignatureKind,
+                expectedSigned,
+                failures
+            );
+        }
+        catch (InvalidDataException exception)
+        {
+            failures.Add(
+                $"Package '{packagePath}' is not a readable zip archive: {exception.Message}"
+            );
+        }
+        catch (JsonException exception)
+        {
+            failures.Add(
+                $"Signature metadata in package is not valid JSON: {packagePath}!{requiredEntry}: {exception.Message}"
+            );
+        }
+    }
+
+    private static void VerifySignatureMetadata(
+        ArtifactSignatureMetadata? metadata,
+        string displayPath,
+        string expectedSignatureKind,
+        bool expectedSigned,
+        List<string> failures
+    )
+    {
+        if (metadata is null)
+        {
+            failures.Add($"Signature metadata is empty: {displayPath}");
+            return;
+        }
+
+        if (!string.Equals(metadata.SignatureKind, expectedSignatureKind, StringComparison.Ordinal))
+        {
+            failures.Add(
+                $"Signature metadata kind mismatch: {displayPath}; expected {expectedSignatureKind}, got {metadata.SignatureKind}."
+            );
+        }
+
+        if (!metadata.AttestationExpected)
+        {
+            failures.Add(
+                $"Signature metadata does not require artifact attestation: {displayPath}"
+            );
+        }
+
+        if (
+            expectedSigned
+            && (!metadata.HasSignature || !metadata.Verified || metadata.Signing != "signed")
+        )
+        {
+            failures.Add($"Artifact is not recorded as signed and verified: {displayPath}");
+        }
+
+        if (!expectedSigned && metadata.Signing != "not-applicable")
+        {
+            failures.Add(
+                $"Artifact attestation metadata has unexpected signing state: {displayPath}"
+            );
         }
     }
 
@@ -1520,7 +1933,11 @@ public sealed class MicaSetupToolchain
             "micasetup",
             "toolchain"
         );
-        var repoOwnedToolchain = await TryCreateFromDirectoryAsync(repoOwnedRoot, "repo-owned");
+        var repoOwnedToolchain = await TryCreateFromDirectoryAsync(
+            repoOwnedRoot,
+            "repo-owned",
+            context.Logger
+        );
         if (repoOwnedToolchain is not null)
         {
             context.Logger.Info($"MicaSetup tools repo-owned: {repoOwnedToolchain.Version}");
@@ -1528,7 +1945,7 @@ public sealed class MicaSetupToolchain
         }
 
         var root = Path.Combine(context.ToolsRoot, "micasetup");
-        var cachedToolchain = await TryCreateFromDirectoryAsync(root, "cached");
+        var cachedToolchain = await TryCreateFromDirectoryAsync(root, "cached", context.Logger);
         if (cachedToolchain is not null)
         {
             context.Logger.Info($"MicaSetup tools cached: {cachedToolchain.Version}");
@@ -1569,12 +1986,23 @@ public sealed class MicaSetupToolchain
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
         );
         context.Logger.Info($"MicaSetup tools downloaded: {release.TagName}");
-        return new MicaSetupToolchain(root, sevenZip, makeMica, template, release.TagName);
+        var compatibleMakeMica = MakeMicaVisualStudioCompatibility.TryCreateCompatibleMakeMica(
+            makeMica,
+            context.Logger
+        );
+        return new MicaSetupToolchain(
+            root,
+            sevenZip,
+            compatibleMakeMica,
+            template,
+            release.TagName
+        );
     }
 
     private static async Task<MicaSetupToolchain?> TryCreateFromDirectoryAsync(
         string root,
-        string fallbackVersion
+        string fallbackVersion,
+        BuildLogger logger
     )
     {
         var sevenZip = Path.Combine(root, "build", "bin", "7z.exe");
@@ -1594,7 +2022,11 @@ public sealed class MicaSetupToolchain
             version = fallbackVersion;
         }
 
-        return new MicaSetupToolchain(root, sevenZip, makeMica, template, version);
+        var compatibleMakeMica = MakeMicaVisualStudioCompatibility.TryCreateCompatibleMakeMica(
+            makeMica,
+            logger
+        );
+        return new MicaSetupToolchain(root, sevenZip, compatibleMakeMica, template, version);
     }
 
     private static async Task<MicaSetupRelease> QueryLatestReleaseAsync()
@@ -1692,6 +2124,127 @@ public sealed class MicaSetupToolchain
     );
 
     private sealed record MicaSetupReleaseAsset(string Name, string DownloadUrl);
+}
+
+public static class MakeMicaVisualStudioCompatibility
+{
+    private const string OriginalVsWhereArguments = "-latest -property installationPath";
+    private const string Vs2026AwareVsWhereArguments =
+        "-latest -products * -property installationPath";
+    private const string CompatibleExecutableSuffix = ".vs2026.exe";
+
+    public static string TryCreateCompatibleMakeMica(string makeMicaPath, BuildLogger logger)
+    {
+        var directory = Path.GetDirectoryName(makeMicaPath);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return makeMicaPath;
+        }
+
+        var compatiblePath = Path.Combine(
+            directory,
+            $"{Path.GetFileNameWithoutExtension(makeMicaPath)}{CompatibleExecutableSuffix}"
+        );
+
+        if (IsCompatibleCopyCurrent(makeMicaPath, compatiblePath))
+        {
+            return compatiblePath;
+        }
+
+        var temporaryPath = $"{compatiblePath}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using var assembly = AssemblyDefinition.ReadAssembly(
+                makeMicaPath,
+                new ReaderParameters { InMemory = true, ReadingMode = ReadingMode.Immediate }
+            );
+            var replacementCount = ReplaceVsWhereArguments(assembly.MainModule);
+            if (replacementCount == 0)
+            {
+                TryDeleteFile(temporaryPath);
+                return makeMicaPath;
+            }
+
+            assembly.Write(temporaryPath);
+            File.Move(temporaryPath, compatiblePath, overwrite: true);
+            File.SetLastWriteTimeUtc(
+                compatiblePath,
+                File.GetLastWriteTimeUtc(makeMicaPath).AddSeconds(1)
+            );
+            logger.Info(
+                $"MicaSetup makemica.exe compatibility copy created for VS 2026 Build Tools: {compatiblePath}"
+            );
+            return compatiblePath;
+        }
+        catch (BadImageFormatException)
+        {
+            TryDeleteFile(temporaryPath);
+            return makeMicaPath;
+        }
+        catch (Exception exception)
+        {
+            TryDeleteFile(temporaryPath);
+            logger.Warning(
+                $"Could not create VS 2026-compatible makemica.exe copy; using original makemica.exe: {exception.Message}"
+            );
+            return makeMicaPath;
+        }
+    }
+
+    private static bool IsCompatibleCopyCurrent(string makeMicaPath, string compatiblePath)
+    {
+        return File.Exists(compatiblePath)
+            && File.GetLastWriteTimeUtc(compatiblePath) > File.GetLastWriteTimeUtc(makeMicaPath);
+    }
+
+    private static int ReplaceVsWhereArguments(ModuleDefinition module)
+    {
+        var replacementCount = 0;
+        foreach (var type in EnumerateTypes(module.Types))
+        {
+            foreach (var method in type.Methods.Where(method => method.HasBody))
+            {
+                foreach (var instruction in method.Body.Instructions)
+                {
+                    if (
+                        instruction.OpCode == OpCodes.Ldstr
+                        && instruction.Operand is string value
+                        && string.Equals(value, OriginalVsWhereArguments, StringComparison.Ordinal)
+                    )
+                    {
+                        instruction.Operand = Vs2026AwareVsWhereArguments;
+                        replacementCount++;
+                    }
+                }
+            }
+        }
+
+        return replacementCount;
+    }
+
+    private static IEnumerable<TypeDefinition> EnumerateTypes(IEnumerable<TypeDefinition> types)
+    {
+        foreach (var type in types)
+        {
+            yield return type;
+            foreach (var nestedType in EnumerateTypes(type.NestedTypes))
+            {
+                yield return nestedType;
+            }
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch { }
+    }
 }
 
 public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
@@ -2781,10 +3334,27 @@ public static class SafeFileSystem
 
         if (Directory.Exists(fullTarget))
         {
+            ClearReadOnlyAttributes(fullTarget);
             Directory.Delete(fullTarget, recursive: true);
         }
 
         Directory.CreateDirectory(fullTarget);
+    }
+
+    private static void ClearReadOnlyAttributes(string directory)
+    {
+        foreach (
+            var path in Directory.EnumerateFileSystemEntries(
+                directory,
+                "*",
+                SearchOption.AllDirectories
+            )
+        )
+        {
+            File.SetAttributes(path, FileAttributes.Normal);
+        }
+
+        File.SetAttributes(directory, FileAttributes.Normal);
     }
 
     public static void CopyDirectory(

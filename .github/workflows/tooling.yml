@@ -42,7 +42,7 @@ jobs:
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
       - name: Test .NET
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
 
       - name: Install web dependencies
         working-directory: resources/webui/upstream/source
@@ -64,6 +64,22 @@ jobs:
         working-directory: resources/webui/upstream/source
         run: npm run coverage -- --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html
 
+      - name: Enforce web coverage baseline
+        working-directory: resources/webui/upstream/source
+        shell: pwsh
+        run: |
+          $summaryPath = "coverage/coverage-summary.json"
+          if (!(Test-Path $summaryPath)) {
+            throw "Web coverage summary not found: $summaryPath"
+          }
+
+          $summary = Get-Content -Raw $summaryPath | ConvertFrom-Json
+          $lineCoverage = [decimal]$summary.total.lines.pct
+          $minimumLineCoverage = [decimal]80.0
+          if ($lineCoverage -lt $minimumLineCoverage) {
+            throw "Web line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
+          }
+
       - name: Upload web coverage artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -73,4 +89,4 @@ jobs:
 
       - name: Check unused frontend surface
         working-directory: resources/webui/upstream/source
-        run: npm run knip
+        run: npm run knip:strict

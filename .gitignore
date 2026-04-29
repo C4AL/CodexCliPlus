@@ -15,3 +15,16 @@ resources/webui/upstream/dist/
 resources/webui/upstream/source/node_modules/
 resources/webui/upstream/source/coverage/
 resources/webui/modules/cpa-uv-overlay/live-assets/
+
+# Local secrets and generated credential backups
+.env
+.env.*
+*.bak
+*.pem
+*.key
+*.p12
+*.pfx
+auth.json
+auth/*.json
+config.yaml
+management-key.txt

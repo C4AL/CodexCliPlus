@@ -55,6 +55,7 @@ docs/** linguist-detectable=false
 *.css linguist-detectable=false
 *.html linguist-detectable=false
 *.svg linguist-detectable=false
+*.json linguist-detectable=false
 *.yml linguist-detectable=false
 *.yaml linguist-detectable=false
 *.md linguist-detectable=false

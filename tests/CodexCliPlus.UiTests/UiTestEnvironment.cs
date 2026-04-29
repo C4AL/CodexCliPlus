@@ -148,6 +148,17 @@ internal sealed class UiTestRun : IDisposable
         Thread.Sleep(650);
     }
 
+    public void MoveMouseRelativeToWindow(double x, double y, int settleMilliseconds = 650)
+    {
+        var bounds = MainWindow.BoundingRectangle;
+        var target = new System.Drawing.Point(
+            (int)Math.Round(bounds.Left + x),
+            (int)Math.Round(bounds.Top + y)
+        );
+        Mouse.MoveTo(target.X, target.Y);
+        Thread.Sleep(settleMilliseconds);
+    }
+
     public void CaptureWindow(string fileName)
     {
         var bounds = MainWindow.BoundingRectangle;

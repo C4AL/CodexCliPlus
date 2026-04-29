@@ -254,13 +254,21 @@ public sealed class FirstRunUiAutomationTests
         await Task.Delay(250);
         run.CaptureWindow("settings-overlay-second-open.png");
         run.Click("ShellSettingsButton");
+        await Task.Delay(250);
 
         run.CaptureWindow("webui-bridge-full.png");
+        var windowBounds = run.MainWindow.BoundingRectangle;
+        var dockProbeY = Math.Max(120, windowBounds.Height * 0.52);
+        run.MoveMouseRelativeToWindow(24, dockProbeY);
+        run.CaptureWindow("navigation-dock-icons-full.png");
+        run.MoveMouseRelativeToWindow(44, dockProbeY);
+        run.CaptureWindow("navigation-dock-expanded-full.png");
         run.WriteReview(
             "review.md",
             "记住安全密钥 WebUI 桥接探针",
             "查看 webui-page.png 和 webui-bridge-full.png：勾选记住后应进入 WebUI 管理界面，不应停留在原生加载页。",
             "查看 shell-brand-dock-full.png：点击顶部 logo/CodexCliPlus 后必须出现包含程序版本、内核版本、连接状态和后端地址的 dock。",
+            "查看 navigation-dock-icons-full.png 和 navigation-dock-expanded-full.png：左侧 Dock 应覆盖在 WebView 上方，图标态不能露出半截文字，展开态不能推动页面内容。",
             "查看 settings-overlay-first-open.png 和 settings-overlay-second-open.png：设置按钮必须能打开设置窗口，关闭后再次点击仍能正常打开且没有 X 关闭按钮。",
             "查看 webui-state.json：DesktopMode 与 AppShellVisible 必须为 true，AuthFailureVisible 必须为 false，URL 应为 codexcliplus-webui.local。"
         );

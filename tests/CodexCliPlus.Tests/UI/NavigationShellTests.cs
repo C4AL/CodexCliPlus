@@ -29,6 +29,11 @@ public sealed class NavigationShellTests
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
             Encoding.UTF8
         );
+        var shellBrandDockPopupXaml = SliceBetween(
+            xaml,
+            "x:Name=\"ShellBrandDockPopup\"",
+            "      </Popup>"
+        );
 
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
         Assert.Contains(
@@ -64,20 +69,74 @@ public sealed class NavigationShellTests
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
         Assert.Contains("x:Name=\"ShellSidebarButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"Collapsed\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavigationDockPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=ManagementContentHost}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"ShellNavigationDockHost\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"34\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"56\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Panel.ZIndex=\"0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ClipToBounds=\"False\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellNavigationRailTrack\"", xaml, StringComparison.Ordinal);
         Assert.Contains(
             "MouseMove=\"ShellNavigationDockHost_MouseMove\"",
             xaml,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "MouseLeave=\"ShellNavigationPanel_MouseLeave\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("NavigationDockVisualState", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
+        Assert.Contains("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ApplyNavigationDockLabelState", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "NavigationDockExpandThreshold",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Effect=\"{StaticResource ShellNavigationDockShadow}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Effect=\"{StaticResource ShellNavigationRailShadow}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ShellNavigationDockShadow",
+            shellResources,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ShellNavigationRailShadow",
+            shellResources,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellBrandDockCard\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Opened=\"ShellBrandDockPopup_Opened\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Closed=\"ShellBrandDockPopup_Closed\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellBrandDockScaleTransform\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "codexcliplus-display.png",
+            shellBrandDockPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Text=\"CodexCliPlus\"",
+            shellBrandDockPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"ShellDockAppVersionText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellDockCoreVersionText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellDockConnectionStatusText\"", xaml, StringComparison.Ordinal);
@@ -281,7 +340,12 @@ public sealed class NavigationShellTests
         Assert.Contains("Content=\"保存到桌面\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"复制密钥\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"静默登录\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"静默登录\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "MouseLeftButtonDown=\"SilentLoginLabel_MouseLeftButtonDown\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Content=\"本机记住安全密钥\"", xaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"FirstRunSilentLoginRiskIndicator\"",
@@ -778,5 +842,14 @@ public sealed class NavigationShellTests
         }
 
         return count;
+    }
+
+    private static string SliceBetween(string source, string start, string end)
+    {
+        var startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Expected to find '{start}'.");
+        var endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex >= 0, $"Expected to find '{end}'.");
+        return source[startIndex..endIndex];
     }
 }

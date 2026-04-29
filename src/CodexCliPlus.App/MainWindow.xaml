@@ -5,6 +5,7 @@
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
                  Title="{Binding Title}"
                  Width="1440"
@@ -116,6 +117,88 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="ShellBrandDockButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1"
+                                    ScaleY="1" />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="{DynamicResource SurfaceAltBrush}" />
+                                <Setter Property="BorderBrush"
+                                        Value="{DynamicResource BorderBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.98"
+                                                        ScaleY="0.98" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SilentLoginRiskIconStyle" TargetType="{x:Type Button}">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="#18B42318" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ButtonChrome"
+                                        Property="Background"
+                                        Value="#18B42318" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="ShellIconViewboxStyle" TargetType="{x:Type Viewbox}">
             <Setter Property="Width" Value="17" />
             <Setter Property="Height" Value="17" />
@@ -129,6 +212,11 @@
             <Setter Property="FontFamily" Value="{StaticResource TextThemeFontFamily}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        </Style>
+        <Style x:Key="ShellRiskToolTipStyle"
+               TargetType="{x:Type ToolTip}"
+               BasedOn="{StaticResource ShellTextToolTipStyle}">
+            <Setter Property="Foreground" Value="#B42318" />
         </Style>
         <Style x:Key="ShellStatusPillStyle" TargetType="{x:Type Border}">
             <Setter Property="Height" Value="28" />
@@ -255,101 +343,202 @@
                 </Viewbox>
             </Button>
 
-            <StackPanel Grid.Column="1"
-                        Margin="4,0,18,0"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Panel.ZIndex="1">
-                <Grid Width="34"
-                      Height="34"
-                      SnapsToDevicePixels="True"
-                      UseLayoutRounding="True">
-                    <Border Background="{DynamicResource AccentSoftBrush}"
-                            CornerRadius="9" />
-                    <Image Width="28"
-                           Height="28"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           RenderOptions.BitmapScalingMode="HighQuality"
-                           SnapsToDevicePixels="True"
-                           Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
-                    <Ellipse x:Name="ShellBrandStatusDot"
-                             Width="7"
-                             Height="7"
-                             HorizontalAlignment="Right"
-                             VerticalAlignment="Bottom"
-                             Fill="{DynamicResource AccentBrush}"
-                             Stroke="{DynamicResource SurfaceBrush}"
-                             StrokeThickness="1" />
-                </Grid>
-                <Grid Margin="10,0,0,0"
-                      VerticalAlignment="Center"
-                      ClipToBounds="True">
-                    <StackPanel>
+            <Button x:Name="ShellBrandDockButton"
+                    Grid.Column="1"
+                    Margin="4,0,18,0"
+                    Style="{StaticResource ShellBrandDockButtonStyle}"
+                    AutomationProperties.AutomationId="ShellBrandDockButton"
+                    AutomationProperties.Name="打开状态面板"
+                    Click="ShellBrandDockButton_Click"
+                    ToolTip="打开状态面板"
+                    Panel.ZIndex="1">
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Grid Width="34"
+                          Height="34"
+                          SnapsToDevicePixels="True"
+                          UseLayoutRounding="True">
+                        <Border Background="{DynamicResource AccentSoftBrush}"
+                                CornerRadius="9" />
+                        <Image Width="28"
+                               Height="28"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               SnapsToDevicePixels="True"
+                               Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                        <Ellipse x:Name="ShellBrandStatusDot"
+                                 Width="7"
+                                 Height="7"
+                                 HorizontalAlignment="Right"
+                                 VerticalAlignment="Bottom"
+                                 Fill="{DynamicResource AccentBrush}"
+                                 Stroke="{DynamicResource SurfaceBrush}"
+                                 StrokeThickness="1" />
+                    </Grid>
+                    <Grid Margin="10,0,0,0"
+                          VerticalAlignment="Center"
+                          ClipToBounds="True">
                         <TextBlock Text="CodexCliPlus"
                                    FontSize="15"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="桌面宿主"
-                                   Margin="0,1,0,0"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                    </StackPanel>
-                    <Rectangle Height="1"
-                               Width="72"
-                               VerticalAlignment="Bottom"
-                               Fill="{DynamicResource AccentBrush}"
-                               Opacity="0.34">
-                        <Rectangle.RenderTransform>
-                            <TranslateTransform X="-72" />
-                        </Rectangle.RenderTransform>
-                        <Rectangle.Triggers>
-                            <EventTrigger RoutedEvent="Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard RepeatBehavior="Forever">
-                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                         From="-72"
-                                                         To="110"
-                                                         Duration="0:0:3.2" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Rectangle.Triggers>
-                    </Rectangle>
-                </Grid>
-            </StackPanel>
+                        <Rectangle Height="1"
+                                   Width="72"
+                                   VerticalAlignment="Bottom"
+                                   Fill="{DynamicResource AccentBrush}"
+                                   Opacity="0.34">
+                            <Rectangle.RenderTransform>
+                                <TranslateTransform X="-72" />
+                            </Rectangle.RenderTransform>
+                            <Rectangle.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                             From="-72"
+                                                             To="110"
+                                                             Duration="0:0:3.2" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Rectangle.Triggers>
+                        </Rectangle>
+                    </Grid>
+                </StackPanel>
+            </Button>
 
-            <StackPanel Grid.Column="2"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Left"
-                        Panel.ZIndex="1">
-                <Border Style="{StaticResource ShellStatusPillStyle}"
-                        AutomationProperties.AutomationId="ShellConnectionStatusPill">
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center">
-                        <Ellipse x:Name="ShellConnectionStatusDot"
-                                 Width="7"
-                                 Height="7"
-                                 Margin="0,0,7,0"
-                                 Fill="{DynamicResource SecondaryTextBrush}" />
-                        <TextBlock x:Name="ShellConnectionStatusText"
-                                   Text="未连接"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+            <Popup x:Name="ShellBrandDockPopup"
+                   PlacementTarget="{Binding ElementName=ShellBrandDockButton}"
+                   Placement="Bottom"
+                   VerticalOffset="8"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade"
+                   AutomationProperties.AutomationId="ShellBrandDockPopup">
+                <Border Width="336"
+                        Padding="16"
+                        Style="{StaticResource ShellRaisedPanelStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <Image Width="26"
+                                   Height="26"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
+                                   SnapsToDevicePixels="True"
+                                   Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png" />
+                            <TextBlock Text="CodexCliPlus"
+                                       Margin="10,0,0,0"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                        </StackPanel>
+                        <Grid Margin="0,14,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="88" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0"
+                                       Grid.Column="0"
+                                       Text="程序版本"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock x:Name="ShellDockAppVersionText"
+                                       Grid.Row="0"
+                                       Grid.Column="1"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       AutomationProperties.AutomationId="ShellDockAppVersionText" />
+
+                            <TextBlock Grid.Row="1"
+                                       Grid.Column="0"
+                                       Margin="0,10,0,0"
+                                       Text="内核版本"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock x:Name="ShellDockCoreVersionText"
+                                       Grid.Row="1"
+                                       Grid.Column="1"
+                                       Margin="0,10,0,0"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       AutomationProperties.AutomationId="ShellDockCoreVersionText" />
+
+                            <TextBlock Grid.Row="2"
+                                       Grid.Column="0"
+                                       Margin="0,10,0,0"
+                                       Text="连接状态"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <StackPanel Grid.Row="2"
+                                        Grid.Column="1"
+                                        Margin="0,10,0,0"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Ellipse x:Name="ShellDockConnectionStatusDot"
+                                         Width="8"
+                                         Height="8"
+                                         Margin="0,0,7,0"
+                                         Fill="{DynamicResource SecondaryTextBrush}" />
+                                <TextBlock x:Name="ShellDockConnectionStatusText"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           AutomationProperties.AutomationId="ShellDockConnectionStatusText" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="3"
+                                       Grid.Column="0"
+                                       Margin="0,10,0,0"
+                                       Text="后端地址"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <Grid Grid.Row="3"
+                                  Grid.Column="1"
+                                  Margin="0,7,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="30" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="ShellDockBackendAddressText"
+                                           Grid.Column="0"
+                                           VerticalAlignment="Center"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           TextTrimming="CharacterEllipsis"
+                                           AutomationProperties.AutomationId="ShellDockBackendAddressText" />
+                                <Button x:Name="ShellDockCopyBackendAddressButton"
+                                        Grid.Column="1"
+                                        Style="{StaticResource ShellInlineIconButtonStyle}"
+                                        Width="26"
+                                        Height="26"
+                                        HorizontalAlignment="Right"
+                                        Click="ShellDockCopyBackendAddressButton_Click"
+                                        AutomationProperties.AutomationId="ShellDockCopyBackendAddressButton"
+                                        AutomationProperties.Name="复制后端地址"
+                                        ToolTip="复制后端地址">
+                                    <iconPacks:PackIconLucide Kind="Copy"
+                                                             Width="15"
+                                                             Height="15"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
+                                </Button>
+                            </Grid>
+                        </Grid>
                     </StackPanel>
                 </Border>
-                <Border Margin="8,0,0,0"
-                        MaxWidth="280"
-                        Style="{StaticResource ShellStatusPillStyle}">
-                    <TextBlock x:Name="ShellBackendAddressText"
-                               Text="-"
-                               FontSize="12"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               TextTrimming="CharacterEllipsis" />
-                </Border>
-            </StackPanel>
+            </Popup>
 
             <StackPanel Grid.Column="3"
                         Margin="0,0,6,0"
@@ -382,18 +571,10 @@
                         AutomationProperties.Name="切换主题"
                         Click="ShellThemeButton_Click"
                         ToolTip="切换主题">
-                    <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
-                        <Canvas Width="24"
-                                Height="24">
-                            <Path Data="M12,3 C7.029,3 3,7.029 3,12 C3,16.971 7.029,21 12,21 C12,21 12,3 12,3 Z M12,3 C16.971,3 21,7.029 21,12 C21,16.971 16.971,21 12,21"
-                                  Fill="Transparent"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                                  StrokeThickness="1.8"
-                                  StrokeStartLineCap="Round"
-                                  StrokeEndLineCap="Round"
-                                  StrokeLineJoin="Round" />
-                        </Canvas>
-                    </Viewbox>
+                    <iconPacks:PackIconLucide Kind="SunMoon"
+                                             Width="18"
+                                             Height="18"
+                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}" />
                 </Button>
                 <Button x:Name="ShellSettingsButton"
                         Margin="6,0,0,0"
@@ -576,13 +757,37 @@
                                         </Canvas>
                                     </Viewbox>
                                 </Button>
-                                <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        HorizontalAlignment="Right"
-                                        IsChecked="False"
-                                        AutomationProperties.AutomationId="FirstRunRememberSecurityKeyCheckBox"
-                                        Content="本机记住安全密钥" />
+                                <StackPanel Grid.Column="2"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Right">
+                                    <CheckBox x:Name="FirstRunRememberSecurityKeyCheckBox"
+                                            VerticalAlignment="Center"
+                                            IsChecked="False"
+                                            AutomationProperties.AutomationId="FirstRunRememberSecurityKeyCheckBox"
+                                            Content="静默登录" />
+                                    <Button x:Name="FirstRunSilentLoginRiskIndicator"
+                                            Style="{StaticResource SilentLoginRiskIconStyle}"
+                                            AutomationProperties.AutomationId="FirstRunSilentLoginRiskIndicator"
+                                            AutomationProperties.Name="静默登录风险提示"
+                                            ToolTipService.ShowDuration="20000">
+                                        <Button.ToolTip>
+                                            <ToolTip Style="{StaticResource ShellRiskToolTipStyle}"
+                                                     AutomationProperties.Name="静默登录风险提示">
+                                                <TextBlock MaxWidth="290"
+                                                           Text="启用后会把安全密钥保存在本机凭据存储中，启动时可自动进入管理界面。仅在受信任的个人设备上使用；共用设备、远程桌面或系统账户不安全时请关闭。"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="#B42318" />
+                                            </ToolTip>
+                                        </Button.ToolTip>
+                                        <iconPacks:PackIconLucide Kind="CircleAlert"
+                                                                 Width="17"
+                                                                 Height="17"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="#B42318" />
+                                    </Button>
+                                </StackPanel>
                             </Grid>
                             <Button x:Name="FirstRunEnterManagementButton"
                                     Height="38"
@@ -674,9 +879,34 @@
                                  Height="36"
                                  Margin="0,8,0,0"
                                  KeyDown="ManagementKeyPasswordBox_KeyDown" />
-                    <CheckBox x:Name="RememberManagementKeyCheckBox"
-                              Margin="0,16,0,0"
-                              Content="本机记住安全密钥" />
+                    <StackPanel Margin="0,16,0,0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <CheckBox x:Name="RememberManagementKeyCheckBox"
+                                  VerticalAlignment="Center"
+                                  Content="静默登录" />
+                        <Button x:Name="LoginSilentLoginRiskIndicator"
+                                Style="{StaticResource SilentLoginRiskIconStyle}"
+                                AutomationProperties.AutomationId="LoginSilentLoginRiskIndicator"
+                                AutomationProperties.Name="静默登录风险提示"
+                                ToolTipService.ShowDuration="20000">
+                            <Button.ToolTip>
+                                <ToolTip Style="{StaticResource ShellRiskToolTipStyle}"
+                                         AutomationProperties.Name="静默登录风险提示">
+                                    <TextBlock MaxWidth="290"
+                                               Text="启用后会把安全密钥保存在本机凭据存储中，启动时可自动进入管理界面。仅在受信任的个人设备上使用；共用设备、远程桌面或系统账户不安全时请关闭。"
+                                               TextWrapping="Wrap"
+                                               Foreground="#B42318" />
+                                </ToolTip>
+                            </Button.ToolTip>
+                            <iconPacks:PackIconLucide Kind="CircleAlert"
+                                                     Width="17"
+                                                     Height="17"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="#B42318" />
+                        </Button>
+                    </StackPanel>
                     <TextBlock x:Name="LoginErrorText"
                                Margin="0,12,0,0"
                                FontSize="13"
@@ -929,6 +1159,7 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     RenderTransformOrigin="0.5,0.5"
+                    MouseLeftButtonDown="SettingsDialogCard_MouseLeftButtonDown"
                     AutomationProperties.AutomationId="SettingsDialog">
                 <Border.RenderTransform>
                     <ScaleTransform ScaleX="0.96"
@@ -980,63 +1211,7 @@
                                   MaxHeight="700"
                                   VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="24">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0"
-                                        Margin="0,0,8,0"
-                                        Padding="16"
-                                        CornerRadius="10"
-                                        Background="{DynamicResource SurfaceAltBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="应用"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsAppVersionText"
-                                                   Margin="0,10,0,0"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsBackendVersionText"
-                                                   Margin="0,6,0,0"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsBuildTimeText"
-                                                   Margin="0,6,0,0"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                                    </StackPanel>
-                                </Border>
-                                <Border Grid.Column="1"
-                                        Margin="8,0,0,0"
-                                        Padding="16"
-                                        CornerRadius="10"
-                                        Background="{DynamicResource SurfaceAltBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="连接"
-                                                   FontSize="14"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsConnectionText"
-                                                   Margin="0,10,0,0"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                                        <TextBlock x:Name="SettingsBackendAddressText"
-                                                   Margin="0,6,0,0"
-                                                   FontSize="13"
-                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                   TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-
-                            <Border Margin="0,16,0,0"
+                            <Border
                                     Padding="16"
                                     CornerRadius="10"
                                     Background="{DynamicResource SurfaceAltBrush}"

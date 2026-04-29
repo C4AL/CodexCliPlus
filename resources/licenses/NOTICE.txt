@@ -6,6 +6,9 @@ Bundled CLI Proxy API Management Center WebUI source and static assets keep
 their upstream MIT License.
 The migrated WPF shell styling and copied UI resources derived from BetterGI
 are licensed under GPL-3.0; see BetterGI.GPL-3.0.txt in this directory.
+MahApps.Metro.IconPacks.Lucide is used for WPF shell icons under the MIT
+License. Lucide icon glyphs are provided by lucide-icons/lucide under the ISC
+License.
 
 This notice is shipped with release packages so users can distinguish original
 MIT components from GPL-3.0-derived shell resources.

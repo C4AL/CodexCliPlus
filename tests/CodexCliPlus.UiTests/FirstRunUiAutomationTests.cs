@@ -20,6 +20,7 @@ public sealed class FirstRunUiAutomationTests
         run.WaitForAutomationId("FirstRunCopyKeyButton", TimeSpan.FromSeconds(15));
         run.WaitForAutomationId("FirstRunSaveToDesktopButton", TimeSpan.FromSeconds(3));
         run.WaitForAutomationId("FirstRunRememberSecurityKeyCheckBox", TimeSpan.FromSeconds(3));
+        run.WaitForAutomationId("FirstRunSilentLoginRiskIndicator", TimeSpan.FromSeconds(3));
 
         var keyBoxBounds = run.GetElementBounds("FirstRunSecurityKeyTextBox");
         var saveButtonBounds = run.GetElementBounds("FirstRunSaveToDesktopButton");
@@ -34,9 +35,11 @@ public sealed class FirstRunUiAutomationTests
             "FirstRunSecurityKeyTextBox",
             "FirstRunSaveToDesktopButton",
             "FirstRunCopyKeyButton",
-            "FirstRunRememberSecurityKeyCheckBox");
+            "FirstRunRememberSecurityKeyCheckBox",
+            "FirstRunSilentLoginRiskIndicator");
         run.CaptureElement("FirstRunCopyKeyButton", "copy-button-crop.png", padding: 6);
         run.CaptureElement("FirstRunSaveToDesktopButton", "save-button-crop.png", padding: 6);
+        run.CaptureElement("FirstRunSilentLoginRiskIndicator", "silent-login-risk-crop.png", padding: 8);
 
         run.Hover("FirstRunCopyKeyButton");
         run.CaptureTooltip("复制密钥", "copy-tooltip.png");
@@ -45,6 +48,10 @@ public sealed class FirstRunUiAutomationTests
         run.Hover("FirstRunSaveToDesktopButton");
         run.CaptureTooltip("保存到桌面", "save-tooltip.png");
         run.CaptureWindow("save-tooltip-full.png");
+
+        run.Hover("FirstRunSilentLoginRiskIndicator");
+        run.CaptureTooltip("静默登录风险提示", "silent-login-risk-tooltip.png", padding: 12);
+        run.CaptureWindow("silent-login-risk-tooltip-full.png");
 
         run.TrackDesktopSecurityKeyFiles();
         run.Click("FirstRunSaveToDesktopButton");
@@ -78,6 +85,7 @@ public sealed class FirstRunUiAutomationTests
             "查看 security-key-row-crop.png：复制按钮必须悬浮在密钥框内右侧，保存按钮必须在密钥框外侧且不重叠。",
             "查看 copy-button-crop.png：复制图标必须完整、居中、无裁切、无拉伸，默认半透明。",
             "查看 save-button-crop.png：分享/保存图标必须完整、居中、无裁切、无拉伸。",
+            "查看 silent-login-risk-crop.png 和 silent-login-risk-tooltip.png：静默登录右侧必须有红色感叹号，悬浮提示必须使用红色风险文本。",
             "查看 copy-tooltip.png 和 save-tooltip.png：中文必须正常显示，不能出现空框符号。",
             "查看 confirm-close-hover-crop.png：右上角 hover 背景必须匹配弹窗圆角，不应是方形雾玻璃块。",
             "查看 loading-progress.png（若存在）：高光动画不应溢出进度轨道。",
@@ -110,14 +118,17 @@ public sealed class FirstRunUiAutomationTests
         continueButton.AsButton().Click();
 
         run.WaitForAutomationId("LoginButton", TimeSpan.FromSeconds(8));
+        run.WaitForAutomationId("LoginSilentLoginRiskIndicator", TimeSpan.FromSeconds(3));
         run.CaptureWindow("unremembered-login-full.png");
         run.CaptureElement("LoginButton", "login-button-crop.png", padding: 10);
+        run.CaptureElement("LoginSilentLoginRiskIndicator", "login-silent-risk-crop.png", padding: 8);
         run.WriteUiaTree("uia-tree.json");
         run.WriteReview(
             "review.md",
             "未记住安全密钥登录流探针",
             "查看 unremembered-login-full.png：未勾选记住时确认后必须进入原生登录页，而不是直接进入管理页。",
-            "查看 login-button-crop.png：登录按钮布局和文字应完整自然。");
+            "查看 login-button-crop.png：登录按钮布局和文字应完整自然。",
+            "查看 login-silent-risk-crop.png：登录页静默登录右侧必须保留红色风险提示图标。");
 
         Assert.True(File.Exists(Path.Combine(run.ArtifactDirectory, "unremembered-login-full.png")));
     }
@@ -171,11 +182,31 @@ public sealed class FirstRunUiAutomationTests
             },
             TimeSpan.FromSeconds(30),
             "管理 WebView 没有在原生窗口中变为可见。");
+        run.WaitForAutomationId("ShellBrandDockButton", TimeSpan.FromSeconds(5));
+        run.WaitForAutomationId("ShellSettingsButton", TimeSpan.FromSeconds(5));
+        run.Click("ShellBrandDockButton");
+        await Task.Delay(300);
+        run.CaptureWindow("shell-brand-dock-full.png");
+
+        run.Click("ShellSettingsButton");
+        run.WaitForAutomationId("SettingsOverlayCloseButton", TimeSpan.FromSeconds(5));
+        await Task.Delay(250);
+        run.CaptureWindow("settings-overlay-first-open.png");
+        run.Click("SettingsOverlayCloseButton");
+        await Task.Delay(300);
+        run.Click("ShellSettingsButton");
+        run.WaitForAutomationId("SettingsOverlayCloseButton", TimeSpan.FromSeconds(5));
+        await Task.Delay(250);
+        run.CaptureWindow("settings-overlay-second-open.png");
+        run.Click("SettingsOverlayCloseButton");
+
         run.CaptureWindow("webui-bridge-full.png");
         run.WriteReview(
             "review.md",
             "记住安全密钥 WebUI 桥接探针",
             "查看 webui-page.png 和 webui-bridge-full.png：勾选记住后应进入 WebUI 管理界面，不应停留在原生加载页。",
+            "查看 shell-brand-dock-full.png：点击顶部 logo/CodexCliPlus 后必须出现包含程序版本、内核版本、连接状态和后端地址的 dock。",
+            "查看 settings-overlay-first-open.png 和 settings-overlay-second-open.png：设置按钮必须能打开叠加层，关闭后再次点击仍能正常打开。",
             "查看 webui-state.json：DesktopMode 与 AppShellVisible 必须为 true，AuthFailureVisible 必须为 false，URL 应为 codexcliplus-webui.local。");
 
         Assert.True(state.DesktopMode);

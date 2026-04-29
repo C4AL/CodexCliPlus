@@ -83,6 +83,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private string _firstRunManagementKey = string.Empty;
     private string _shellConnectionStatus = "disconnected";
     private string _shellApiBase = string.Empty;
+    private string _shellBackendVersion = BackendReleaseMetadata.Version;
     private string _shellTheme = "auto";
     private string _shellResolvedTheme = "light";
     private CancellationTokenSource? _firstRunConfirmCountdown;
@@ -92,7 +93,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isInitializing;
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
+    private bool _settingsOverlayHidManagementWebView;
     private bool _sidebarCollapsed;
+    private Visibility _managementWebViewVisibilityBeforeSettingsOverlay = Visibility.Collapsed;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -365,6 +368,34 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _notificationService.ShowAuto("已请求刷新。");
     }
 
+    private async void ShellBrandDockButton_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateShellDockPresentation();
+        ShellBrandDockPopup.IsOpen = !ShellBrandDockPopup.IsOpen;
+        if (ShellBrandDockPopup.IsOpen)
+        {
+            await RefreshShellDockOverviewAsync();
+        }
+    }
+
+    private void ShellDockCopyBackendAddressButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_shellApiBase))
+        {
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(_shellApiBase);
+            _notificationService.ShowAuto("后端地址已复制。");
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("复制后端地址失败", exception.Message);
+        }
+    }
+
     private async void ShellThemeButton_Click(object sender, RoutedEventArgs e)
     {
         var next = _settings.ThemeMode switch
@@ -379,6 +410,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async void ShellSettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        ShellBrandDockPopup.IsOpen = false;
         await ShowSettingsOverlayAsync();
     }
 
@@ -393,6 +425,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             await HideSettingsOverlayAsync();
         }
+    }
+
+    private void SettingsDialogCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
     }
 
     private async void SettingsThemeSystemButton_Click(object sender, RoutedEventArgs e)
@@ -1198,31 +1235,37 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void UpdateShellConnectionPresentation()
     {
-        var statusText = _shellConnectionStatus switch
-        {
-            "connected" => "已连接",
-            "connecting" => "连接中",
-            "error" => "异常",
-            _ => "未连接"
-        };
+        UpdateShellDockPresentation();
 
-        ShellConnectionStatusText.Text = statusText;
-        ShellBackendAddressText.Text = string.IsNullOrWhiteSpace(_shellApiBase)
+        if (_settingsOverlayOpen)
+        {
+            UpdateSettingsOverlayBaseline();
+        }
+    }
+
+    private void UpdateShellDockPresentation()
+    {
+        var statusBrush = GetConnectionStatusBrush();
+        ShellBrandStatusDot.Fill = statusBrush;
+        ShellDockConnectionStatusDot.Fill = statusBrush;
+        ShellDockAppVersionText.Text = CurrentApplicationVersion;
+        ShellDockCoreVersionText.Text = FormatUnknown(_shellBackendVersion);
+        ShellDockConnectionStatusText.Text = ShellConnectionStatusLabel;
+        ShellDockBackendAddressText.Text = string.IsNullOrWhiteSpace(_shellApiBase)
             ? "-"
             : _shellApiBase;
+        ShellDockCopyBackendAddressButton.IsEnabled = !string.IsNullOrWhiteSpace(_shellApiBase);
+    }
 
-        ShellConnectionStatusDot.Fill = _shellConnectionStatus switch
+    private WpfBrush GetConnectionStatusBrush()
+    {
+        return _shellConnectionStatus switch
         {
             "connected" => (WpfBrush)FindResource("AccentBrush"),
             "connecting" => new SolidColorBrush(WpfColor.FromRgb(217, 119, 6)),
             "error" => new SolidColorBrush(WpfColor.FromRgb(220, 38, 38)),
             _ => (WpfBrush)FindResource("SecondaryTextBrush")
         };
-
-        if (_settingsOverlayOpen)
-        {
-            UpdateSettingsOverlayBaseline();
-        }
     }
 
     private async Task SetShellThemeAsync(AppThemeMode themeMode)
@@ -1303,28 +1346,41 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         if (_settingsOverlayOpen)
         {
+            SettingsOverlay.Visibility = Visibility.Visible;
+            UpdateSettingsOverlayBaseline();
             return;
         }
 
-        _settingsOverlayOpen = true;
-        UpdateSettingsOverlayBaseline();
-        SettingsOverlay.Visibility = Visibility.Visible;
-        SettingsOverlay.Opacity = 0;
-        if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
+        try
         {
-            scale.ScaleX = 0.96;
-            scale.ScaleY = 0.96;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(1, 180));
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(1, 180));
-        }
+            _settingsOverlayOpen = true;
+            HideManagementWebViewForSettingsOverlay();
+            UpdateSettingsOverlayBaseline();
+            SettingsOverlay.Visibility = Visibility.Visible;
+            SettingsOverlay.Opacity = 0;
+            if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
+            {
+                scale.ScaleX = 0.96;
+                scale.ScaleY = 0.96;
+                scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(1, 180));
+                scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(1, 180));
+            }
 
-        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
-        await RefreshSettingsOverlayAsync();
+            SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
+            await RefreshSettingsOverlayAsync();
+        }
+        catch (Exception exception)
+        {
+            _settingsOverlayOpen = false;
+            SettingsOverlay.Visibility = Visibility.Collapsed;
+            RestoreManagementWebViewAfterSettingsOverlay();
+            _notificationService.ShowManual("设置打开失败", exception.Message);
+        }
     }
 
     private async Task HideSettingsOverlayAsync()
     {
-        if (!_settingsOverlayOpen)
+        if (!_settingsOverlayOpen && SettingsOverlay.Visibility != Visibility.Visible)
         {
             return;
         }
@@ -1341,6 +1397,48 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         if (!_settingsOverlayOpen)
         {
             SettingsOverlay.Visibility = Visibility.Collapsed;
+            RestoreManagementWebViewAfterSettingsOverlay();
+        }
+    }
+
+    private void HideManagementWebViewForSettingsOverlay()
+    {
+        _managementWebViewVisibilityBeforeSettingsOverlay = ManagementWebView.Visibility;
+        _settingsOverlayHidManagementWebView = ManagementWebView.Visibility == Visibility.Visible;
+        if (_settingsOverlayHidManagementWebView)
+        {
+            ManagementWebView.Visibility = Visibility.Hidden;
+        }
+    }
+
+    private void RestoreManagementWebViewAfterSettingsOverlay()
+    {
+        if (!_settingsOverlayHidManagementWebView)
+        {
+            return;
+        }
+
+        ManagementWebView.Visibility = _managementWebViewVisibilityBeforeSettingsOverlay;
+        _settingsOverlayHidManagementWebView = false;
+    }
+
+    private async Task RefreshShellDockOverviewAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var overview = await _managementOverviewService.GetOverviewAsync(cts.Token);
+            _shellBackendVersion = ResolveBackendVersion(overview.Value.ServerVersion, overview.Metadata.Version);
+        }
+        catch
+        {
+            _shellBackendVersion = string.IsNullOrWhiteSpace(_shellBackendVersion)
+                ? BackendReleaseMetadata.Version
+                : _shellBackendVersion;
+        }
+        finally
+        {
+            UpdateShellDockPresentation();
         }
     }
 
@@ -1357,8 +1455,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             var backendVersion = string.IsNullOrWhiteSpace(overview.Value.ServerVersion)
                 ? overview.Metadata.Version
                 : overview.Value.ServerVersion;
-            SettingsBackendVersionText.Text = $"后端版本：{FormatUnknown(backendVersion)}";
-            SettingsBuildTimeText.Text = $"构建时间：{FormatUnknown(overview.Metadata.BuildDate)}";
+            _shellBackendVersion = ResolveBackendVersion(backendVersion, null);
+            UpdateShellDockPresentation();
             SettingsModelOverviewText.Text = overview.Value.AvailableModelCount is { } count
                 ? $"可用模型：{count} 个"
                 : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
@@ -1371,8 +1469,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         catch (Exception exception)
         {
             _settingsOverview = null;
-            SettingsBackendVersionText.Text = "后端版本：未知";
-            SettingsBuildTimeText.Text = "构建时间：未知";
+            _shellBackendVersion = string.IsNullOrWhiteSpace(_shellBackendVersion)
+                ? BackendReleaseMetadata.Version
+                : _shellBackendVersion;
+            UpdateShellDockPresentation();
             SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
             SettingsProviderOverviewText.Text = "提供商概览：未加载";
             SettingsRequestLogText.Text = "请求日志状态：未加载";
@@ -1386,9 +1486,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void UpdateSettingsOverlayBaseline()
     {
-        SettingsAppVersionText.Text = $"应用版本：{CurrentApplicationVersion}";
-        SettingsConnectionText.Text = $"连接状态：{ShellConnectionStatusLabel}";
-        SettingsBackendAddressText.Text = $"后端地址：{(string.IsNullOrWhiteSpace(_shellApiBase) ? "-" : _shellApiBase)}";
         UpdateShellThemePresentation();
         UpdateRequestLogPresentation();
     }
@@ -1635,6 +1732,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private static string FormatUnknown(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "未知" : value.Trim();
+    }
+
+    private static string ResolveBackendVersion(string? preferredVersion, string? fallbackVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredVersion))
+        {
+            return preferredVersion.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(fallbackVersion))
+        {
+            return fallbackVersion.Trim();
+        }
+
+        return BackendReleaseMetadata.Version;
     }
 
     private static string NormalizeConnectionStatus(string? value)

@@ -2,8 +2,9 @@
   "overlayModuleId": "cpa-uv-overlay",
   "capturedAt": "2026-04-24",
   "sourceOfTruth": {
-    "kind": "live-asset-snapshot",
-    "path": "live-assets/cpa-uv-management-reference.html",
+    "kind": "external-live-asset-snapshot",
+    "originalPath": "live-assets/cpa-uv-management-reference.html",
+    "retainedInGit": false,
     "sha256": "a855c350add2598b08b5c2a5c3541af80436d39c6a50a0db5673a347abefc707"
   },
   "derivedOverlayFiles": [

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Infrastructure.Backend;
 
@@ -32,6 +33,37 @@ public sealed class BackendReleaseMetadataTests
     {
         Assert.Equal("cli-proxy-api.exe", BackendExecutableNames.UpstreamExecutableFileName);
         Assert.Equal("ccp-core.exe", BackendExecutableNames.ManagedExecutableFileName);
+    }
+
+    [Fact]
+    public void BackendSourceManifestMatchesPinnedRuntimeMetadata()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var manifestPath = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "backend",
+            "windows-x64",
+            "source-manifest.json"
+        );
+        using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
+        var root = document.RootElement;
+
+        Assert.Equal(BackendReleaseMetadata.Version, root.GetProperty("version").GetString());
+        Assert.Equal(BackendReleaseMetadata.ReleaseTag, root.GetProperty("releaseTag").GetString());
+        Assert.Equal(BackendReleaseMetadata.ArchiveUrl, root.GetProperty("archiveUrl").GetString());
+        Assert.Equal(
+            BackendReleaseMetadata.ArchiveSha256,
+            root.GetProperty("archiveSha256").GetString()
+        );
+        Assert.Equal(
+            BackendExecutableNames.UpstreamExecutableFileName,
+            root.GetProperty("upstreamExecutableName").GetString()
+        );
+        Assert.Equal(
+            BackendExecutableNames.ManagedExecutableFileName,
+            root.GetProperty("managedExecutableName").GetString()
+        );
     }
 
     [Fact]

@@ -55,10 +55,12 @@ powershell -ExecutionPolicy Bypass -File tests\CodexCliPlus.Tests\Smoke\SafeSmok
 ```powershell
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- fetch-assets
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- verify-assets
+dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- build-webui
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- publish
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- package-online-installer
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- package-offline-installer
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- verify-package
+dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- write-checksums
 ```
 
 包结构至少应包含：
@@ -76,5 +78,5 @@ dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj --
 - 不要对真实用户配置目录运行启动 smoke；必须隔离 `CODEX_HOME`、`USERPROFILE`、`HOME`、`TEMP`、`TMP`。
 - 不要使用 `taskkill /IM`、`Stop-Process -Name` 或按进程名批量结束后端。
 - 不要把旧的 `artifacts/publish` 或 `artifacts/installer` 目录当作当前发布证据。
-- 不要删除或重命名 `resources/webui/upstream/dist/index.html`、`assets/webui/upstream/sync.json`、`ccp-core.exe` 或上游许可证。
+- 不要删除或重命名 `assets/webui/upstream/dist/index.html`、`assets/webui/upstream/sync.json`、`ccp-core.exe` 或上游许可证；`resources/webui/upstream/dist` 是本地生成目录，不应作为源码提交。
 - 完整安装、卸载和更新验收应在 VM、隔离测试用户或一次性环境中执行。

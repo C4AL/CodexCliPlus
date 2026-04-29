@@ -28,7 +28,9 @@ public sealed class BuildToolCommandTests : IDisposable
 
         Assert.Equal(0, exitCode);
         Assert.Contains("fetch-assets", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("write-checksums", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -287,6 +289,60 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task WriteChecksumsCreatesReleaseManifestForGeneratedArtifacts()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"),
+            "installer"
+        );
+        Directory.CreateDirectory(Path.Combine(outputRoot, "assets"));
+        await File.WriteAllTextAsync(
+            Path.Combine(outputRoot, "assets", "asset-manifest.json"),
+            "{}"
+        );
+        Directory.CreateDirectory(Path.Combine(outputRoot, "publish", "win-x64"));
+        await File.WriteAllTextAsync(
+            Path.Combine(outputRoot, "publish", "win-x64", "publish-manifest.json"),
+            "{}"
+        );
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "write-checksums",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        var checksums = await File.ReadAllTextAsync(Path.Combine(outputRoot, "SHA256SUMS.txt"));
+        var manifest = await File.ReadAllTextAsync(
+            Path.Combine(outputRoot, "release-manifest.json")
+        );
+        Assert.Contains(
+            "artifacts/buildtool/packages/CodexCliPlus.Setup.Online.9.9.9.exe",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("\"version\": \"9.9.9\"", manifest, StringComparison.Ordinal);
+        Assert.Contains("\"sha256\"", manifest, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task VerifyPackageRejectsInstallerExecutableWithoutPeHeader()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
@@ -389,7 +445,14 @@ public sealed class BuildToolCommandTests : IDisposable
         var logger = new BuildLogger(output, error);
         var runner = new OverlayRecordingProcessRunner();
         var context = new BuildContext(
-            new BuildOptions("publish", repositoryRoot, outputRoot, "Release", "win-x64", "9.9.9"),
+            new BuildOptions(
+                "build-webui",
+                repositoryRoot,
+                outputRoot,
+                "Release",
+                "win-x64",
+                "9.9.9"
+            ),
             logger,
             runner,
             new NoOpSigningService()
@@ -418,8 +481,9 @@ public sealed class BuildToolCommandTests : IDisposable
         );
         Assert.Equal(
             "overlay",
-            File.ReadAllText(Path.Combine(context.WebUiVendoredDistRoot, "index.html"))
+            File.ReadAllText(Path.Combine(context.WebUiGeneratedDistRoot, "index.html"))
         );
+        Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedRoot, "sync.json")));
         Assert.Equal(
             "upstream",
             File.ReadAllText(Path.Combine(context.WebUiSourceRoot, "src", "message.txt"))

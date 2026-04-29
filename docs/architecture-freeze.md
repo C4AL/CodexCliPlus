@@ -22,8 +22,8 @@
   资产拉取/校验、WebUI 构建、桌面 publish、安装器打包和包结构校验。
 - `resources/webui/upstream/source`
   内置 WebUI 源码。
-- `resources/webui/upstream/dist`
-  打包时复制进桌面发布目录的 WebUI 构建产物。
+- `artifacts/buildtool/assets/webui/upstream/dist`
+  BuildTool 生成并复制进桌面发布目录的 WebUI 构建产物。
 - `resources/webui/modules/cpa-uv-overlay`
   保留上游/覆盖层页面、路由和行为来源追踪，供同步与差异审计使用。
 

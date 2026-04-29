@@ -398,12 +398,27 @@ function Invoke-StaticVerification {
     else {
         $appProject = [System.IO.File]::ReadAllText($appProjectPath, [System.Text.Encoding]::UTF8)
         foreach ($requiredToken in @(
-                "Microsoft.Web.WebView2",
-                "resources\webui\upstream\dist\**\*",
-                "resources\webui\upstream\sync.json"
+                "Microsoft.Web.WebView2"
             )) {
             if ($appProject -notmatch [Regex]::Escape($requiredToken)) {
-                Add-Finding -List $failures -Kind "Vendored WebUI packaging missing" -Detail ("src\CodexCliPlus.App\CodexCliPlus.App.csproj is missing '{0}'." -f $requiredToken)
+                Add-Finding -List $failures -Kind "WebView2 package missing" -Detail ("src\CodexCliPlus.App\CodexCliPlus.App.csproj is missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $buildToolPath = Join-Path $RepositoryRoot "src\CodexCliPlus.BuildTool\Program.cs"
+    if (-not (Test-Path -LiteralPath $buildToolPath)) {
+        Add-Finding -List $failures -Kind "Missing BuildTool source" -Detail (Get-DisplayPath -FullPath $buildToolPath -Root $RepositoryRoot)
+    }
+    else {
+        $buildTool = [System.IO.File]::ReadAllText($buildToolPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "build-webui",
+                "WebUiGeneratedDistRoot",
+                "Path.Combine(context.PublishRoot, ""assets"", ""webui"")"
+            )) {
+            if ($buildTool -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "Generated WebUI packaging missing" -Detail ("src\CodexCliPlus.BuildTool\Program.cs is missing '{0}'." -f $requiredToken)
             }
         }
     }
@@ -424,9 +439,9 @@ function Invoke-StaticVerification {
         }
     }
 
-    $webUiDistIndexPath = Join-Path $RepositoryRoot "resources\webui\upstream\dist\index.html"
-    if (-not (Test-Path -LiteralPath $webUiDistIndexPath)) {
-        Add-Finding -List $failures -Kind "Vendored WebUI build output missing" -Detail "resources\webui\upstream\dist\index.html was not found."
+    $webUiBridgePath = Join-Path $RepositoryRoot "resources\webui\upstream\source\src\desktop\bridge.ts"
+    if (-not (Test-Path -LiteralPath $webUiBridgePath)) {
+        Add-Finding -List $failures -Kind "Vendored WebUI desktop bridge missing" -Detail "resources\webui\upstream\source\src\desktop\bridge.ts was not found."
     }
 
     $embeddedGitPath = Join-Path $RepositoryRoot "resources\webui\upstream\source\.git"

@@ -5,7 +5,7 @@ namespace CodexCliPlus.Tests.UI;
 public sealed class ManagementDesignSystemTests
 {
     [Fact]
-    public void AppProjectReferencesWebView2AndPublishesVendoredWebUiAssets()
+    public void AppProjectReferencesWebView2AndBuildToolPublishesGeneratedWebUiAssets()
     {
         var repositoryRoot = FindRepositoryRoot();
         var csproj = File.ReadAllText(
@@ -14,17 +14,24 @@ public sealed class ManagementDesignSystemTests
         );
 
         Assert.Contains("Microsoft.Web.WebView2", csproj, StringComparison.Ordinal);
-        Assert.Contains(
-            "resources\\webui\\upstream\\dist\\**\\*",
+        Assert.DoesNotContain("resources\\webui\\upstream\\dist", csproj, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "resources\\webui\\upstream\\sync.json",
             csproj,
             StringComparison.Ordinal
         );
-        Assert.Contains("resources\\webui\\upstream\\sync.json", csproj, StringComparison.Ordinal);
         Assert.Contains(
             "CliProxyApiManagementCenter.LICENSE.txt",
             csproj,
             StringComparison.Ordinal
         );
+
+        var buildTool = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"),
+            Encoding.UTF8
+        );
+        Assert.Contains("context.WebUiAssetsRoot", buildTool, StringComparison.Ordinal);
+        Assert.Contains("assets\", \"webui", buildTool, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -67,9 +74,18 @@ public sealed class ManagementDesignSystemTests
             buildTool,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "WebUiGeneratedDistRoot => Path.Combine(WebUiGeneratedRoot, \"dist\")",
+            buildTool,
+            StringComparison.Ordinal
+        );
         Assert.True(
-            locator.IndexOf("TryResolveFromRepository", StringComparison.Ordinal)
-                < locator.IndexOf("TryResolveFromBaseDirectory", StringComparison.Ordinal)
+            locator.IndexOf("TryResolveFromBaseDirectory", StringComparison.Ordinal)
+                < locator.IndexOf("TryResolveFromGeneratedAssets", StringComparison.Ordinal)
+        );
+        Assert.True(
+            locator.IndexOf("TryResolveFromGeneratedAssets", StringComparison.Ordinal)
+                < locator.IndexOf("TryResolveFromRepository", StringComparison.Ordinal)
         );
     }
 

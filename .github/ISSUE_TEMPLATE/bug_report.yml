@@ -1,0 +1,43 @@
+name: 缺陷报告
+description: 报告可复现的 CodexCliPlus 问题
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题描述
+      description: 简要说明实际行为和预期行为。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请列出从干净状态复现问题的步骤。
+      placeholder: |
+        1. 打开...
+        2. 点击...
+        3. 看到...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: CodexCliPlus 版本或 commit。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: Windows 版本、.NET SDK、Node.js、WebView2 Runtime 等。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或截图
+      description: 请先移除密钥、令牌和真实用户路径中的敏感信息。

@@ -680,20 +680,42 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
-    public void VendoredWebUiDistContainsDesktopRecoveryBridge()
+    public void VendoredWebUiSourceContainsDesktopRecoveryBridge()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var distIndex = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "dist", "index.html"),
+        var bridgeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "desktop",
+                "bridge.ts"
+            ),
+            Encoding.UTF8
+        );
+        var protectedRouteSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "ProtectedRoute.tsx"
+            ),
             Encoding.UTF8
         );
 
-        Assert.Contains("requestNativeLogin", distIndex, StringComparison.Ordinal);
-        Assert.Contains("shellStateChanged", distIndex, StringComparison.Ordinal);
-        Assert.Contains("toggleSidebarCollapsed", distIndex, StringComparison.Ordinal);
-        Assert.Contains("navigate", distIndex, StringComparison.Ordinal);
-        Assert.Contains("pathname", distIndex, StringComparison.Ordinal);
-        Assert.Contains("桌面登录已失效", distIndex, StringComparison.Ordinal);
+        Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("toggleSidebarCollapsed", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("navigate", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
     }
 
     [Fact]

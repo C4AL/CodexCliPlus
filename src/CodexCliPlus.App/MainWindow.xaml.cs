@@ -49,6 +49,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         Blocked,
     }
 
+    private enum NavigationDockVisualState
+    {
+        Resting,
+        Icons,
+        Expanded,
+    }
+
     private const string AppHostName = "codexcliplus-webui.local";
     private const string UiTestModeEnvironmentVariable = "CODEXCLIPLUS_UI_TEST_MODE";
     private const string UiTestWebViewUserDataFolderEnvironmentVariable =
@@ -56,6 +63,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable =
         "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
+    private const double NavigationDockRestingWidth = 34;
+    private const double NavigationDockIconsWidth = 78;
+    private const double NavigationDockExpandedWidth = 220;
+    private const double NavigationDockPanelIconsWidth = 58;
+    private const double NavigationDockPanelExpandedWidth = 204;
+    private const double NavigationDockExpandThreshold = 26;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         2500
     );
@@ -94,6 +107,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private ManagementOverviewSnapshot? _settingsOverview;
     private Window? _settingsWindow;
     private Grid? _settingsWindowRoot;
+    private CancellationTokenSource? _settingsOverviewRefreshCts;
+    private int _settingsOverviewRefreshRequestId;
+    private NavigationDockVisualState _navigationDockState = NavigationDockVisualState.Resting;
     private bool _suppressFollowSystemChange;
     private readonly DispatcherTimer _navigationDockCollapseTimer;
     private bool _allowClose;
@@ -193,6 +209,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
+        _settingsOverviewRefreshCts?.Cancel();
+        _settingsOverviewRefreshCts?.Dispose();
         CloseSettingsWindow();
         TrayIcon.Unregister();
     }
@@ -206,6 +224,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
+        _settingsOverviewRefreshCts?.Cancel();
+        _settingsOverviewRefreshCts?.Dispose();
         CloseSettingsWindow();
         GC.SuppressFinalize(this);
     }
@@ -1231,6 +1251,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             }
         );
+        PreparationProgressFillScale.BeginAnimation(
+            ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(
+                normalizedProgress / 100,
+                new Duration(TimeSpan.FromMilliseconds(420))
+            )
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
 
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -1349,6 +1379,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         var statusBrush = GetConnectionStatusBrush();
         ShellBrandStatusDot.Fill = statusBrush;
         ShellDockConnectionStatusDot.Fill = statusBrush;
+        if (ShellBrandStatusDotGlow is DropShadowEffect glow)
+        {
+            glow.Color = GetConnectionStatusGlowColor();
+        }
+
         ShellDockAppVersionText.Text = CurrentApplicationVersion;
         ShellDockCoreVersionText.Text = FormatUnknown(_shellBackendVersion);
         ShellDockConnectionStatusText.Text = ShellConnectionStatusLabel;
@@ -1358,14 +1393,25 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ShellDockCopyBackendAddressButton.IsEnabled = !string.IsNullOrWhiteSpace(_shellApiBase);
     }
 
-    private WpfBrush GetConnectionStatusBrush()
+    private SolidColorBrush GetConnectionStatusBrush()
     {
         return _shellConnectionStatus switch
         {
-            "connected" => (WpfBrush)FindResource("AccentBrush"),
-            "connecting" => new SolidColorBrush(WpfColor.FromRgb(217, 119, 6)),
-            "error" => new SolidColorBrush(WpfColor.FromRgb(220, 38, 38)),
-            _ => (WpfBrush)FindResource("SecondaryTextBrush"),
+            "connected" => new SolidColorBrush(WpfColor.FromRgb(20, 184, 166)),
+            "connecting" => new SolidColorBrush(WpfColor.FromRgb(245, 158, 11)),
+            "error" => new SolidColorBrush(WpfColor.FromRgb(244, 63, 94)),
+            _ => new SolidColorBrush(WpfColor.FromRgb(148, 163, 184)),
+        };
+    }
+
+    private WpfColor GetConnectionStatusGlowColor()
+    {
+        return _shellConnectionStatus switch
+        {
+            "connected" => WpfColor.FromRgb(20, 184, 166),
+            "connecting" => WpfColor.FromRgb(245, 158, 11),
+            "error" => WpfColor.FromRgb(244, 63, 94),
+            _ => WpfColor.FromRgb(148, 163, 184),
         };
     }
 
@@ -1398,6 +1444,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("PrimaryTextBrush", "#EEF2F7");
             SetBrushResource("SecondaryTextBrush", "#AAB4C0");
             SetBrushResource("BorderBrush", "#343A46");
+            SetBrushResource("NavigationDockPanelBrush", "#D01E242D");
+            SetBrushResource("NavigationDockBorderBrush", "#55FFFFFF");
+            SetBrushResource("NavigationDockRailBrush", "#F22DD4BF");
+            SetBrushResource("NavigationDockRailTrackBrush", "#2438BDF8");
+            SetBrushResource("NavigationDockButtonHoverBrush", "#2438BDF8");
         }
         else
         {
@@ -1409,6 +1460,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("PrimaryTextBrush", "#17202B");
             SetBrushResource("SecondaryTextBrush", "#526070");
             SetBrushResource("BorderBrush", "#D7DCE5");
+            SetBrushResource("NavigationDockPanelBrush", "#EAF8FAFC");
+            SetBrushResource("NavigationDockBorderBrush", "#BFFFFFFF");
+            SetBrushResource("NavigationDockRailBrush", "#EA14B8A6");
+            SetBrushResource("NavigationDockRailTrackBrush", "#320F766E");
+            SetBrushResource("NavigationDockButtonHoverBrush", "#2A14B8A6");
         }
     }
 
@@ -1471,6 +1527,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ExpandNavigationDock(showLabels: false);
     }
 
+    private void ShellNavigationDockHost_MouseMove(
+        object sender,
+        System.Windows.Input.MouseEventArgs e
+    )
+    {
+        var position = e.GetPosition(ShellNavigationDockHost);
+        ExpandNavigationDock(position.X >= NavigationDockExpandThreshold);
+    }
+
     private void ShellNavigationPanel_MouseEnter(
         object sender,
         System.Windows.Input.MouseEventArgs e
@@ -1490,38 +1555,108 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void NavigationDockCollapseTimer_Tick(object? sender, EventArgs e)
     {
         _navigationDockCollapseTimer.Stop();
-        AnimateNavigationDock(width: 6, panelOpacity: 0);
+        if (ShellNavigationDockHost.IsMouseOver)
+        {
+            var position = Mouse.GetPosition(ShellNavigationDockHost);
+            ExpandNavigationDock(position.X >= NavigationDockExpandThreshold);
+            return;
+        }
+
+        AnimateNavigationDock(NavigationDockVisualState.Resting);
     }
 
     private void ExpandNavigationDock(bool showLabels)
     {
         _navigationDockCollapseTimer.Stop();
-        AnimateNavigationDock(showLabels ? 216 : 64, panelOpacity: 1);
+        AnimateNavigationDock(
+            showLabels ? NavigationDockVisualState.Expanded : NavigationDockVisualState.Icons
+        );
     }
 
     private void CollapseNavigationDockWithDelay(bool shortDelay)
     {
         _navigationDockCollapseTimer.Stop();
-        _navigationDockCollapseTimer.Interval = TimeSpan.FromMilliseconds(shortDelay ? 220 : 520);
+        _navigationDockCollapseTimer.Interval = TimeSpan.FromMilliseconds(shortDelay ? 110 : 170);
         _navigationDockCollapseTimer.Start();
     }
 
-    private void AnimateNavigationDock(double width, double panelOpacity)
+    private void AnimateNavigationDock(NavigationDockVisualState state)
     {
+        if (_navigationDockState == state)
+        {
+            ShellNavigationPanel.IsHitTestVisible = state != NavigationDockVisualState.Resting;
+            return;
+        }
+
+        _navigationDockState = state;
+        var hostWidth = state switch
+        {
+            NavigationDockVisualState.Expanded => NavigationDockExpandedWidth,
+            NavigationDockVisualState.Icons => NavigationDockIconsWidth,
+            _ => NavigationDockRestingWidth,
+        };
+        var panelWidth =
+            state == NavigationDockVisualState.Expanded
+                ? NavigationDockPanelExpandedWidth
+                : NavigationDockPanelIconsWidth;
+        var panelOpacity = state == NavigationDockVisualState.Resting ? 0 : 1;
+        var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0.38;
+        var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0.12;
+        var panelOffset = state == NavigationDockVisualState.Resting ? -10 : 0;
+        var duration = state == NavigationDockVisualState.Resting ? 130 : 240;
+        var panelDuration = state == NavigationDockVisualState.Resting ? 110 : 210;
+        ShellNavigationPanel.IsHitTestVisible = state != NavigationDockVisualState.Resting;
         ShellNavigationDockHost.BeginAnimation(
             FrameworkElement.WidthProperty,
-            new DoubleAnimation(width, new Duration(TimeSpan.FromMilliseconds(220)))
+            new DoubleAnimation(hostWidth, new Duration(TimeSpan.FromMilliseconds(duration)))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
+        ShellNavigationPanel.BeginAnimation(
+            FrameworkElement.WidthProperty,
+            new DoubleAnimation(panelWidth, new Duration(TimeSpan.FromMilliseconds(duration)))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             }
         );
         ShellNavigationPanel.BeginAnimation(
             UIElement.OpacityProperty,
-            new DoubleAnimation(panelOpacity, new Duration(TimeSpan.FromMilliseconds(160)))
+            new DoubleAnimation(
+                panelOpacity,
+                new Duration(TimeSpan.FromMilliseconds(panelDuration))
+            )
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             }
         );
+        ShellNavigationRail.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(railOpacity, new Duration(TimeSpan.FromMilliseconds(panelDuration)))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
+        ShellNavigationRailTrack.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(
+                railTrackOpacity,
+                new Duration(TimeSpan.FromMilliseconds(panelDuration))
+            )
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
+        if (ShellNavigationPanel.RenderTransform is TranslateTransform transform)
+        {
+            transform.BeginAnimation(
+                TranslateTransform.XProperty,
+                new DoubleAnimation(panelOffset, new Duration(TimeSpan.FromMilliseconds(duration)))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                }
+            );
+        }
     }
 
     private void UpdateNavigationActiveState()
@@ -1633,6 +1768,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         _settingsOverlayOpen = false;
+        CancelSettingsOverviewRefresh();
         _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
         if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
         {
@@ -1678,21 +1814,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             Content = _settingsWindowRoot,
             Topmost = false,
         };
-        _settingsWindow.Deactivated += SettingsWindow_Deactivated;
         _settingsWindow.Closed += SettingsWindow_Closed;
     }
 
     private async void SettingsWindowRoot_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (ReferenceEquals(e.OriginalSource, _settingsWindowRoot))
-        {
-            await HideSettingsOverlayAsync();
-        }
-    }
-
-    private async void SettingsWindow_Deactivated(object? sender, EventArgs e)
-    {
-        if (_settingsOverlayOpen)
         {
             await HideSettingsOverlayAsync();
         }
@@ -1739,7 +1866,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return;
         }
 
-        _settingsWindow.Deactivated -= SettingsWindow_Deactivated;
         _settingsWindow.Closed -= SettingsWindow_Closed;
         var window = _settingsWindow;
         _settingsWindow = null;
@@ -1789,35 +1915,108 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async Task RefreshSettingsOverlayAsync()
     {
+        CancelSettingsOverviewRefresh();
+        var requestId = ++_settingsOverviewRefreshRequestId;
+        _settingsOverviewRefreshCts = new CancellationTokenSource();
+        var cancellationToken = _settingsOverviewRefreshCts.Token;
+
         UpdateSettingsOverlayBaseline();
-        try
+        SettingsModelOverviewText.Text = "可用模型：正在加载...";
+        SettingsProviderOverviewText.Text = "提供商概览：正在加载...";
+
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-            var overview = await _managementOverviewService.GetOverviewAsync(cts.Token);
-            _settingsOverview = overview.Value;
-            var backendVersion = string.IsNullOrWhiteSpace(overview.Value.ServerVersion)
-                ? overview.Metadata.Version
-                : overview.Value.ServerVersion;
-            _shellBackendVersion = ResolveBackendVersion(backendVersion, null);
-            UpdateShellDockPresentation();
-            SettingsModelOverviewText.Text =
-                overview.Value.AvailableModelCount is { } count ? $"可用模型：{count} 个"
-                : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
-                    ? "可用模型：未加载"
-                : $"可用模型：{overview.Value.AvailableModelsError}";
-            SettingsProviderOverviewText.Text =
-                $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
+            try
+            {
+                if (attempt > 0)
+                {
+                    SettingsModelOverviewText.Text = "可用模型：正在重试加载...";
+                    SettingsProviderOverviewText.Text = "提供商概览：正在刷新...";
+                    await Task.Delay(TimeSpan.FromMilliseconds(420 * attempt), cancellationToken);
+                }
+
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken
+                );
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+                var overview = await _managementOverviewService.GetOverviewAsync(timeoutCts.Token);
+                if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
+                {
+                    return;
+                }
+
+                _settingsOverview = overview.Value;
+                var backendVersion = string.IsNullOrWhiteSpace(overview.Value.ServerVersion)
+                    ? overview.Metadata.Version
+                    : overview.Value.ServerVersion;
+                _shellBackendVersion = ResolveBackendVersion(backendVersion, null);
+                UpdateShellDockPresentation();
+                SettingsModelOverviewText.Text =
+                    overview.Value.AvailableModelCount is { } count ? $"可用模型：{count} 个"
+                    : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
+                        ? "可用模型：正在等待后端模型数据..."
+                    : $"可用模型：{overview.Value.AvailableModelsError}";
+                SettingsProviderOverviewText.Text =
+                    $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
+
+                var needsRetry =
+                    overview.Value.AvailableModelCount is null
+                    && string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
+                    && attempt < 2;
+                if (!needsRetry)
+                {
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception) when (attempt < 2)
+            {
+                if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
+                {
+                    return;
+                }
+
+                SettingsModelOverviewText.Text =
+                    $"可用模型：加载失败，正在重试，{exception.Message}";
+                SettingsProviderOverviewText.Text = "提供商概览：正在重试";
+            }
+            catch (Exception exception)
+            {
+                if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
+                {
+                    return;
+                }
+
+                _settingsOverview = null;
+                _shellBackendVersion = string.IsNullOrWhiteSpace(_shellBackendVersion)
+                    ? BackendReleaseMetadata.Version
+                    : _shellBackendVersion;
+                UpdateShellDockPresentation();
+                SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
+                SettingsProviderOverviewText.Text = "提供商概览：未加载";
+                return;
+            }
         }
-        catch (Exception exception)
-        {
-            _settingsOverview = null;
-            _shellBackendVersion = string.IsNullOrWhiteSpace(_shellBackendVersion)
-                ? BackendReleaseMetadata.Version
-                : _shellBackendVersion;
-            UpdateShellDockPresentation();
-            SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
-            SettingsProviderOverviewText.Text = "提供商概览：未加载";
-        }
+    }
+
+    private void CancelSettingsOverviewRefresh()
+    {
+        _settingsOverviewRefreshCts?.Cancel();
+        _settingsOverviewRefreshCts?.Dispose();
+        _settingsOverviewRefreshCts = null;
+    }
+
+    private bool IsCurrentSettingsOverviewRequest(
+        int requestId,
+        CancellationToken cancellationToken
+    )
+    {
+        return _settingsOverlayOpen
+            && !cancellationToken.IsCancellationRequested
+            && requestId == _settingsOverviewRefreshRequestId;
     }
 
     private void UpdateSettingsOverlayBaseline()

@@ -79,7 +79,7 @@ public static class DesktopBridgeScriptFactory
               };
 
               window.addEventListener('mousemove', (event) => {
-                updateNavigationHoverZone(event.clientX <= window.innerWidth * 0.25);
+                updateNavigationHoverZone(event.clientX <= 64);
               }, { passive: true });
               window.addEventListener('mouseleave', () => updateNavigationHoverZone(false));
 

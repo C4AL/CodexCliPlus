@@ -23,6 +23,8 @@
   SnapsToDevicePixels="True"
   Closing="Window_Closing"
   Closed="Window_Closed"
+  Activated="Window_Activated"
+  Deactivated="Window_Deactivated"
   Loaded="Window_Loaded"
   LocationChanged="Window_PlacementChanged"
   SizeChanged="Window_PlacementChanged"

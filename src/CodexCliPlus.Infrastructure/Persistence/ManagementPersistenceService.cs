@@ -1,11 +1,9 @@
-using System.Text;
 using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Persistence;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
-using CodexCliPlus.Infrastructure.Management;
 
 namespace CodexCliPlus.Infrastructure.Persistence;
 
@@ -20,7 +18,9 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
     private readonly IPathService _pathService;
     private readonly IManagementUsageService _usageService;
     private readonly IManagementLogsService _logsService;
+    private readonly UsageKeeperStore _usageKeeperStore;
     private readonly SemaphoreSlim _syncLock = new(1, 1);
+    private string? _lastError;
 
     public ManagementPersistenceService(
         IPathService pathService,
@@ -31,43 +31,50 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
         _pathService = pathService;
         _usageService = usageService;
         _logsService = logsService;
+        _usageKeeperStore = new UsageKeeperStore(_pathService.Directories.PersistenceDirectory);
     }
-
-    private string UsageSnapshotPath =>
-        Path.Combine(_pathService.Directories.PersistenceDirectory, "usage-snapshot.json");
-
-    private string LogsSnapshotPath =>
-        Path.Combine(_pathService.Directories.PersistenceDirectory, "logs-snapshot.json");
 
     public async Task ImportNewerUsageSnapshotAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(UsageSnapshotPath))
-        {
-            return;
-        }
-
-        var local = await ReadUsageSnapshotAsync(cancellationToken);
-        if (local is null)
-        {
-            return;
-        }
-
-        ManagementUsageExportPayload? current = null;
+        await _syncLock.WaitAsync(cancellationToken);
         try
         {
-            current = (await _usageService.ExportUsageAsync(cancellationToken)).Value;
-        }
-        catch
-        {
-            return;
-        }
+            await _pathService.EnsureCreatedAsync(cancellationToken);
+            await _usageKeeperStore.InitializeAsync(cancellationToken);
+            await _usageKeeperStore.MigrateLegacySnapshotAsync(cancellationToken);
 
-        if (!IsLocalUsageSnapshotNewer(local, current))
-        {
-            return;
-        }
+            var current = (await _usageService.ExportUsageAsync(cancellationToken)).Value;
+            var localClock = await _usageKeeperStore.GetLatestLocalSnapshotClockAsync(
+                cancellationToken
+            );
+            if (IsLocalUsageSnapshotNewer(localClock, current.ExportedAt))
+            {
+                var localUsage = await _usageKeeperStore.BuildUsageSnapshotAsync(cancellationToken);
+                await _usageService.ImportUsageAsync(
+                    new ManagementUsageExportPayload
+                    {
+                        Version = current.Version <= 0 ? 1 : current.Version,
+                        ExportedAt = localClock,
+                        Usage = localUsage,
+                    },
+                    cancellationToken
+                );
+                _lastError = null;
+                return;
+            }
 
-        await _usageService.ImportUsageAsync(local, cancellationToken);
+            await SaveExportAsync(current, cancellationToken);
+            _lastError = null;
+        }
+        catch (Exception exception)
+        {
+            _lastError = exception.Message;
+            throw;
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
     }
 
     public async Task SyncUsageSnapshotAsync(CancellationToken cancellationToken = default)
@@ -76,22 +83,16 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
         try
         {
             await _pathService.EnsureCreatedAsync(cancellationToken);
+            await _usageKeeperStore.InitializeAsync(cancellationToken);
+            await _usageKeeperStore.MigrateLegacySnapshotAsync(cancellationToken);
             var payload = (await _usageService.ExportUsageAsync(cancellationToken)).Value;
-            var json = JsonSerializer.Serialize(
-                new
-                {
-                    version = payload.Version <= 0 ? 1 : payload.Version,
-                    exportedAt = DateTimeOffset.UtcNow,
-                    usage = payload.Usage,
-                },
-                JsonOptions
-            );
-            await File.WriteAllTextAsync(
-                UsageSnapshotPath,
-                json,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken
-            );
+            await SaveExportAsync(payload, cancellationToken);
+            _lastError = null;
+        }
+        catch (Exception exception)
+        {
+            _lastError = exception.Message;
+            throw;
         }
         finally
         {
@@ -105,15 +106,20 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
         try
         {
             await _pathService.EnsureCreatedAsync(cancellationToken);
+            await _usageKeeperStore.InitializeAsync(cancellationToken);
             var payload = (
                 await _logsService.GetLogsAsync(limit: 500, cancellationToken: cancellationToken)
             ).Value;
-            await File.WriteAllTextAsync(
-                LogsSnapshotPath,
-                JsonSerializer.Serialize(payload, JsonOptions),
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken
+            UsageKeeperStore.AtomicWriteText(
+                _usageKeeperStore.LogsSnapshotPath,
+                JsonSerializer.Serialize(payload, JsonOptions)
             );
+            _lastError = null;
+        }
+        catch (Exception exception)
+        {
+            _lastError = exception.Message;
+            throw;
         }
         finally
         {
@@ -126,19 +132,23 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
         await _syncLock.WaitAsync(cancellationToken);
         try
         {
-            if (File.Exists(UsageSnapshotPath))
-            {
-                File.Delete(UsageSnapshotPath);
-            }
-
+            await _pathService.EnsureCreatedAsync(cancellationToken);
+            await _usageKeeperStore.ClearUsageAsync(cancellationToken);
             await _usageService.ImportUsageAsync(
                 new ManagementUsageExportPayload
                 {
                     Version = 1,
+                    ExportedAt = DateTimeOffset.UtcNow,
                     Usage = new ManagementUsageSnapshot(),
                 },
                 cancellationToken
             );
+            _lastError = null;
+        }
+        catch (Exception exception)
+        {
+            _lastError = exception.Message;
+            throw;
         }
         finally
         {
@@ -148,45 +158,65 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
 
     public PersistenceStatus GetStatus()
     {
-        return new PersistenceStatus
+        try
         {
-            Directory = _pathService.Directories.PersistenceDirectory,
-            UsesFallbackDirectory = _pathService.Directories.UsesPersistenceFallback,
-            LastUsageSnapshotAt = GetLastWriteTimeOrNull(UsageSnapshotPath),
-            LastLogsSnapshotAt = GetLastWriteTimeOrNull(LogsSnapshotPath),
-        };
+            var status = _usageKeeperStore
+                .GetStatusAsync(CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            return new PersistenceStatus
+            {
+                Directory = _usageKeeperStore.KeeperDirectory,
+                UsesFallbackDirectory = _pathService.Directories.UsesPersistenceFallback,
+                LastUsageSnapshotAt = status.LastSyncAt,
+                LastLogsSnapshotAt = GetLastWriteTimeOrNull(_usageKeeperStore.LogsSnapshotPath),
+                UsageDatabasePath = _usageKeeperStore.DatabasePath,
+                UsageBackupDirectory = _usageKeeperStore.BackupDirectory,
+                UsageEventCount = status.EventCount,
+                LastUsageEventAt = status.LastEventAt,
+                LastUsageSyncAt = status.LastSyncAt,
+                LastPersistenceError = _lastError ?? status.LastError,
+                UsesKeeperDatabase = true,
+                KeeperSourceCommit = UsageKeeperStore.SourceCommit,
+            };
+        }
+        catch (Exception exception)
+        {
+            _lastError = exception.Message;
+            return new PersistenceStatus
+            {
+                Directory = _usageKeeperStore.KeeperDirectory,
+                UsesFallbackDirectory = _pathService.Directories.UsesPersistenceFallback,
+                LastLogsSnapshotAt = GetLastWriteTimeOrNull(_usageKeeperStore.LogsSnapshotPath),
+                UsageDatabasePath = _usageKeeperStore.DatabasePath,
+                UsageBackupDirectory = _usageKeeperStore.BackupDirectory,
+                LastPersistenceError = _lastError,
+                UsesKeeperDatabase = false,
+                KeeperSourceCommit = UsageKeeperStore.SourceCommit,
+            };
+        }
     }
 
-    private async Task<ManagementUsageExportPayload?> ReadUsageSnapshotAsync(
+    private async Task SaveExportAsync(
+        ManagementUsageExportPayload payload,
         CancellationToken cancellationToken
     )
     {
-        try
-        {
-            await using var stream = File.OpenRead(UsageSnapshotPath);
-            using var document = await JsonDocument.ParseAsync(
-                stream,
-                cancellationToken: cancellationToken
-            );
-            return ManagementMappers.MapUsageExport(document.RootElement);
-        }
-        catch
-        {
-            return null;
-        }
+        var rawJson = UsageKeeperJson.SerializeExport(payload);
+        await _usageKeeperStore.SaveExportAsync(payload, rawJson, cancellationToken);
     }
 
     private static bool IsLocalUsageSnapshotNewer(
-        ManagementUsageExportPayload local,
-        ManagementUsageExportPayload current
+        DateTimeOffset? localClock,
+        DateTimeOffset? currentExportedAt
     )
     {
-        if (local.ExportedAt is null)
+        if (localClock is null)
         {
             return false;
         }
 
-        return current.ExportedAt is null || local.ExportedAt > current.ExportedAt;
+        return currentExportedAt is null || localClock.Value > currentExportedAt.Value;
     }
 
     private static DateTimeOffset? GetLastWriteTimeOrNull(string path)

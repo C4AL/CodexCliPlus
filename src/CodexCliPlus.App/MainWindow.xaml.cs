@@ -31,6 +31,7 @@ using Microsoft.Win32;
 using MessageBox = System.Windows.MessageBox;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfButton = System.Windows.Controls.Button;
+using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfFontFamily = System.Windows.Media.FontFamily;
@@ -63,12 +64,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable =
         "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
-    private const double NavigationDockRestingWidth = 34;
-    private const double NavigationDockIconsWidth = 78;
-    private const double NavigationDockExpandedWidth = 220;
+    private const double NavigationDockRestingWidth = 56;
+    private const double NavigationDockIconsWidth = 110;
+    private const double NavigationDockExpandedWidth = 264;
     private const double NavigationDockPanelIconsWidth = 58;
-    private const double NavigationDockPanelExpandedWidth = 204;
-    private const double NavigationDockExpandThreshold = 26;
+    private const double NavigationDockPanelExpandedWidth = 208;
+    private const double NavigationDockPanelRestingHeight = 132;
+    private const double NavigationDockPanelOpenHeight = 346;
+    private const double NavigationDockLabelExpandedWidth = 124;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         2500
     );
@@ -116,6 +119,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isInitializing;
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
+    private bool _isShellBrandDockClosing;
     private bool _sidebarCollapsed;
 
     public MainWindow(
@@ -417,11 +421,28 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private async void ShellBrandDockButton_Click(object sender, RoutedEventArgs e)
     {
         UpdateShellDockPresentation();
-        ShellBrandDockPopup.IsOpen = !ShellBrandDockPopup.IsOpen;
+        if (ShellBrandDockPopup.IsOpen)
+        {
+            await HideShellBrandDockPopupAsync();
+            return;
+        }
+
+        ShellBrandDockPopup.IsOpen = true;
         if (ShellBrandDockPopup.IsOpen)
         {
             await RefreshShellDockOverviewAsync();
         }
+    }
+
+    private void ShellBrandDockPopup_Opened(object sender, EventArgs e)
+    {
+        AnimateShellBrandDockPopupIn();
+    }
+
+    private void ShellBrandDockPopup_Closed(object sender, EventArgs e)
+    {
+        _isShellBrandDockClosing = false;
+        ResetShellBrandDockPopupVisual();
     }
 
     private void ShellDockCopyBackendAddressButton_Click(object sender, RoutedEventArgs e)
@@ -453,7 +474,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async void ShellSettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        ShellBrandDockPopup.IsOpen = false;
+        await HideShellBrandDockPopupAsync();
         if (_settingsOverlayOpen)
         {
             await HideSettingsOverlayAsync();
@@ -474,6 +495,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void SettingsDialogCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
+    }
+
+    private void SilentLoginLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: WpfCheckBox checkBox })
+        {
+            checkBox.IsChecked = checkBox.IsChecked != true;
+            e.Handled = true;
+        }
     }
 
     private async void SettingsFollowSystemCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -1268,6 +1298,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         LoadingPanel.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+        SetNavigationDockPopupOpen(false);
     }
 
     private void ShowUpgradeNotice()
@@ -1286,6 +1317,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         LoadingPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+        SetNavigationDockPopupOpen(false);
     }
 
     private void ShowFirstRunKeyReveal()
@@ -1298,6 +1330,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         LoadingPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+        SetNavigationDockPopupOpen(false);
         FirstRunSecurityKeyTextBox.Focus();
     }
 
@@ -1313,6 +1346,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         LoadingPanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+        SetNavigationDockPopupOpen(false);
         LoginButton.IsEnabled = true;
         ForgotSecurityKeyButton.IsEnabled = true;
         RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
@@ -1349,6 +1383,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         BlockerPanel.Visibility = Visibility.Visible;
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
+        SetNavigationDockPopupOpen(false);
     }
 
     private void ShowWebView()
@@ -1362,6 +1397,27 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         BlockerPanel.Visibility = Visibility.Collapsed;
         LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Visible;
+        UpdateNavigationDockPopupVisibility();
+    }
+
+    private void UpdateNavigationDockPopupVisibility()
+    {
+        SetNavigationDockPopupOpen(
+            ManagementWebView.Visibility == Visibility.Visible && !_settingsOverlayOpen
+        );
+    }
+
+    private void SetNavigationDockPopupOpen(bool isOpen)
+    {
+        if (!isOpen)
+        {
+            AnimateNavigationDock(NavigationDockVisualState.Resting);
+        }
+
+        if (ShellNavigationDockPopup.IsOpen != isOpen)
+        {
+            ShellNavigationDockPopup.IsOpen = isOpen;
+        }
     }
 
     private void UpdateShellConnectionPresentation()
@@ -1391,6 +1447,67 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ? "-"
             : _shellApiBase;
         ShellDockCopyBackendAddressButton.IsEnabled = !string.IsNullOrWhiteSpace(_shellApiBase);
+    }
+
+    private void AnimateShellBrandDockPopupIn()
+    {
+        _isShellBrandDockClosing = false;
+        ShellBrandDockCard.Opacity = 0;
+        ShellBrandDockScaleTransform.ScaleX = 0.98;
+        ShellBrandDockScaleTransform.ScaleY = 0.98;
+        ShellBrandDockTranslateTransform.Y = -6;
+
+        ShellBrandDockCard.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 150));
+        ShellBrandDockScaleTransform.BeginAnimation(
+            ScaleTransform.ScaleXProperty,
+            CreateEaseAnimation(1, 180)
+        );
+        ShellBrandDockScaleTransform.BeginAnimation(
+            ScaleTransform.ScaleYProperty,
+            CreateEaseAnimation(1, 180)
+        );
+        ShellBrandDockTranslateTransform.BeginAnimation(
+            TranslateTransform.YProperty,
+            CreateEaseAnimation(0, 180)
+        );
+    }
+
+    private async Task HideShellBrandDockPopupAsync()
+    {
+        if (!ShellBrandDockPopup.IsOpen || _isShellBrandDockClosing)
+        {
+            return;
+        }
+
+        _isShellBrandDockClosing = true;
+        ShellBrandDockCard.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 120));
+        ShellBrandDockScaleTransform.BeginAnimation(
+            ScaleTransform.ScaleXProperty,
+            CreateEaseAnimation(0.985, 130)
+        );
+        ShellBrandDockScaleTransform.BeginAnimation(
+            ScaleTransform.ScaleYProperty,
+            CreateEaseAnimation(0.985, 130)
+        );
+        ShellBrandDockTranslateTransform.BeginAnimation(
+            TranslateTransform.YProperty,
+            CreateEaseAnimation(-5, 130)
+        );
+
+        await Task.Delay(TimeSpan.FromMilliseconds(135));
+        ShellBrandDockPopup.IsOpen = false;
+    }
+
+    private void ResetShellBrandDockPopupVisual()
+    {
+        ShellBrandDockCard.BeginAnimation(UIElement.OpacityProperty, null);
+        ShellBrandDockScaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        ShellBrandDockScaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        ShellBrandDockTranslateTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        ShellBrandDockCard.Opacity = 0;
+        ShellBrandDockScaleTransform.ScaleX = 0.98;
+        ShellBrandDockScaleTransform.ScaleY = 0.98;
+        ShellBrandDockTranslateTransform.Y = -6;
     }
 
     private SolidColorBrush GetConnectionStatusBrush()
@@ -1444,8 +1561,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("PrimaryTextBrush", "#EEF2F7");
             SetBrushResource("SecondaryTextBrush", "#AAB4C0");
             SetBrushResource("BorderBrush", "#343A46");
+            SetBrushResource("ShellDockGlassBrush", "#D01E242D");
+            SetBrushResource("ShellDockGlassBorderBrush", "#55FFFFFF");
+            SetBrushResource("ShellDockGlassHighlightBrush", "#75FFFFFF");
             SetBrushResource("NavigationDockPanelBrush", "#D01E242D");
             SetBrushResource("NavigationDockBorderBrush", "#55FFFFFF");
+            SetBrushResource("NavigationDockInnerHighlightBrush", "#66FFFFFF");
             SetBrushResource("NavigationDockRailBrush", "#F22DD4BF");
             SetBrushResource("NavigationDockRailTrackBrush", "#2438BDF8");
             SetBrushResource("NavigationDockButtonHoverBrush", "#2438BDF8");
@@ -1460,8 +1581,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("PrimaryTextBrush", "#17202B");
             SetBrushResource("SecondaryTextBrush", "#526070");
             SetBrushResource("BorderBrush", "#D7DCE5");
+            SetBrushResource("ShellDockGlassBrush", "#EAF8FAFC");
+            SetBrushResource("ShellDockGlassBorderBrush", "#BFFFFFFF");
+            SetBrushResource("ShellDockGlassHighlightBrush", "#FFFFFFFF");
             SetBrushResource("NavigationDockPanelBrush", "#EAF8FAFC");
             SetBrushResource("NavigationDockBorderBrush", "#BFFFFFFF");
+            SetBrushResource("NavigationDockInnerHighlightBrush", "#FFFFFFFF");
             SetBrushResource("NavigationDockRailBrush", "#EA14B8A6");
             SetBrushResource("NavigationDockRailTrackBrush", "#320F766E");
             SetBrushResource("NavigationDockButtonHoverBrush", "#2A14B8A6");
@@ -1532,8 +1657,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
-        var position = e.GetPosition(ShellNavigationDockHost);
-        ExpandNavigationDock(position.X >= NavigationDockExpandThreshold);
+        ExpandNavigationDock(showLabels: ShellNavigationPanel.IsMouseOver);
     }
 
     private void ShellNavigationPanel_MouseEnter(
@@ -1542,6 +1666,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     )
     {
         ExpandNavigationDock(showLabels: true);
+    }
+
+    private void ShellNavigationPanel_MouseLeave(
+        object sender,
+        System.Windows.Input.MouseEventArgs e
+    )
+    {
+        if (ShellNavigationDockHost.IsMouseOver)
+        {
+            ExpandNavigationDock(showLabels: false);
+        }
     }
 
     private void ShellNavigationDockHost_MouseLeave(
@@ -1557,8 +1692,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _navigationDockCollapseTimer.Stop();
         if (ShellNavigationDockHost.IsMouseOver)
         {
-            var position = Mouse.GetPosition(ShellNavigationDockHost);
-            ExpandNavigationDock(position.X >= NavigationDockExpandThreshold);
+            ExpandNavigationDock(showLabels: ShellNavigationPanel.IsMouseOver);
             return;
         }
 
@@ -1585,6 +1719,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         if (_navigationDockState == state)
         {
             ShellNavigationPanel.IsHitTestVisible = state != NavigationDockVisualState.Resting;
+            ApplyNavigationDockLabelState(
+                expanded: state == NavigationDockVisualState.Expanded,
+                durationMilliseconds: 0
+            );
             return;
         }
 
@@ -1599,13 +1737,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             state == NavigationDockVisualState.Expanded
                 ? NavigationDockPanelExpandedWidth
                 : NavigationDockPanelIconsWidth;
+        var panelHeight =
+            state == NavigationDockVisualState.Resting
+                ? NavigationDockPanelRestingHeight
+                : NavigationDockPanelOpenHeight;
         var panelOpacity = state == NavigationDockVisualState.Resting ? 0 : 1;
         var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0.38;
         var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0.12;
-        var panelOffset = state == NavigationDockVisualState.Resting ? -10 : 0;
+        var panelOffset = state == NavigationDockVisualState.Resting ? -6 : 0;
         var duration = state == NavigationDockVisualState.Resting ? 130 : 240;
         var panelDuration = state == NavigationDockVisualState.Resting ? 110 : 210;
         ShellNavigationPanel.IsHitTestVisible = state != NavigationDockVisualState.Resting;
+        ApplyNavigationDockLabelState(
+            expanded: state == NavigationDockVisualState.Expanded,
+            durationMilliseconds: panelDuration
+        );
         ShellNavigationDockHost.BeginAnimation(
             FrameworkElement.WidthProperty,
             new DoubleAnimation(hostWidth, new Duration(TimeSpan.FromMilliseconds(duration)))
@@ -1616,6 +1762,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ShellNavigationPanel.BeginAnimation(
             FrameworkElement.WidthProperty,
             new DoubleAnimation(panelWidth, new Duration(TimeSpan.FromMilliseconds(duration)))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
+        ShellNavigationPanel.BeginAnimation(
+            FrameworkElement.HeightProperty,
+            new DoubleAnimation(panelHeight, new Duration(TimeSpan.FromMilliseconds(duration)))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
             }
@@ -1654,6 +1807,50 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 new DoubleAnimation(panelOffset, new Duration(TimeSpan.FromMilliseconds(duration)))
                 {
                     EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                }
+            );
+        }
+    }
+
+    private void ApplyNavigationDockLabelState(bool expanded, int durationMilliseconds)
+    {
+        foreach (var button in ShellNavigationItemsHost.Children.OfType<WpfButton>())
+        {
+            button.HorizontalContentAlignment = expanded
+                ? System.Windows.HorizontalAlignment.Left
+                : System.Windows.HorizontalAlignment.Center;
+        }
+
+        foreach (var label in FindVisualChildren<TextBlock>(ShellNavigationItemsHost))
+        {
+            label.Margin = expanded ? new Thickness(14, 0, 0, 0) : new Thickness(0);
+            if (!expanded || durationMilliseconds <= 0)
+            {
+                label.BeginAnimation(FrameworkElement.WidthProperty, null);
+                label.BeginAnimation(UIElement.OpacityProperty, null);
+                label.Width = expanded ? NavigationDockLabelExpandedWidth : 0;
+                label.Opacity = expanded ? 1 : 0;
+                continue;
+            }
+
+            label.BeginAnimation(
+                FrameworkElement.WidthProperty,
+                new DoubleAnimation(
+                    expanded ? NavigationDockLabelExpandedWidth : 0,
+                    new Duration(TimeSpan.FromMilliseconds(durationMilliseconds))
+                )
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                }
+            );
+            label.BeginAnimation(
+                UIElement.OpacityProperty,
+                new DoubleAnimation(
+                    expanded ? 1 : 0,
+                    new Duration(TimeSpan.FromMilliseconds(durationMilliseconds))
+                )
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
                 }
             );
         }
@@ -1727,6 +1924,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             _settingsOverlayOpen = true;
+            SetNavigationDockPopupOpen(false);
             UpdateSettingsOverlayBaseline();
             EnsureSettingsWindow();
             PositionSettingsWindow();
@@ -1756,6 +1954,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             _settingsOverlayOpen = false;
             CloseSettingsWindow();
+            UpdateNavigationDockPopupVisibility();
             _notificationService.ShowManual("设置打开失败", exception.Message);
         }
     }
@@ -1780,6 +1979,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         if (!_settingsOverlayOpen)
         {
             CloseSettingsWindow();
+            UpdateNavigationDockPopupVisibility();
         }
     }
 
@@ -2374,6 +2574,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         };
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in FindVisualChildren<T>(child))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static void SetThemeButtonState(WpfButton button, bool active)

@@ -141,50 +141,55 @@
               Foreground="{DynamicResource PrimaryTextBrush}"
               VerticalAlignment="Top"
             />
-            <Rectangle
+            <Grid
               Width="90"
-              Height="1"
-              Margin="0,0,0,1"
+              Height="3"
               HorizontalAlignment="Left"
               VerticalAlignment="Bottom"
-              Fill="{DynamicResource AccentBrush}"
-              Opacity="0.16"
-              RadiusX="1"
-              RadiusY="1"
-            />
-            <Rectangle
-              Width="30"
-              Height="2"
-              Margin="0,0,0,0"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Bottom"
-              Fill="{DynamicResource AccentBrush}"
-              Opacity="0.7"
-              RadiusX="1"
-              RadiusY="1"
+              ClipToBounds="True"
             >
-              <Rectangle.RenderTransform>
-                <TranslateTransform X="-34" />
-              </Rectangle.RenderTransform>
-              <Rectangle.Triggers>
-                <EventTrigger RoutedEvent="Loaded">
-                  <BeginStoryboard>
-                    <Storyboard RepeatBehavior="Forever">
-                      <DoubleAnimation
-                        Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                        From="-34"
-                        To="96"
-                        Duration="0:0:2.6"
-                      >
-                        <DoubleAnimation.EasingFunction>
-                          <SineEase EasingMode="EaseInOut" />
-                        </DoubleAnimation.EasingFunction>
-                      </DoubleAnimation>
-                    </Storyboard>
-                  </BeginStoryboard>
-                </EventTrigger>
-              </Rectangle.Triggers>
-            </Rectangle>
+              <Rectangle
+                Height="1"
+                Margin="0,0,0,1"
+                VerticalAlignment="Bottom"
+                Fill="{DynamicResource AccentBrush}"
+                Opacity="0.16"
+                RadiusX="1"
+                RadiusY="1"
+              />
+              <Rectangle
+                Width="30"
+                Height="2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Fill="{DynamicResource AccentBrush}"
+                Opacity="0.7"
+                RadiusX="1"
+                RadiusY="1"
+              >
+                <Rectangle.RenderTransform>
+                  <TranslateTransform X="-34" />
+                </Rectangle.RenderTransform>
+                <Rectangle.Triggers>
+                  <EventTrigger RoutedEvent="Loaded">
+                    <BeginStoryboard>
+                      <Storyboard RepeatBehavior="Forever">
+                        <DoubleAnimation
+                          Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                          From="-34"
+                          To="94"
+                          Duration="0:0:2.6"
+                        >
+                          <DoubleAnimation.EasingFunction>
+                            <SineEase EasingMode="EaseInOut" />
+                          </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </EventTrigger>
+                </Rectangle.Triggers>
+              </Rectangle>
+            </Grid>
           </Grid>
         </StackPanel>
       </Button>
@@ -197,38 +202,49 @@
         StaysOpen="False"
         AllowsTransparency="True"
         PopupAnimation="None"
+        Opened="ShellBrandDockPopup_Opened"
+        Closed="ShellBrandDockPopup_Closed"
         AutomationProperties.AutomationId="ShellBrandDockPopup"
       >
         <Border
+          x:Name="ShellBrandDockCard"
           Width="336"
           Padding="16"
-          Style="{StaticResource ShellRaisedPanelStyle}"
-          Background="{DynamicResource SurfaceBrush}"
-          BorderBrush="Transparent"
-          BorderThickness="0"
+          Background="{DynamicResource ShellDockGlassBrush}"
+          BorderBrush="{DynamicResource ShellDockGlassBorderBrush}"
+          BorderThickness="1"
           CornerRadius="18"
           Effect="{x:Null}"
+          Opacity="0"
+          RenderTransformOrigin="0.5,0"
           SnapsToDevicePixels="True"
           UseLayoutRounding="True"
         >
-          <StackPanel>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-              <Image
-                Width="26"
-                Height="26"
-                RenderOptions.BitmapScalingMode="HighQuality"
-                SnapsToDevicePixels="True"
-                Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png"
-              />
-              <TextBlock
-                Text="CodexCliPlus"
-                Margin="10,0,0,0"
-                FontSize="15"
-                FontWeight="SemiBold"
-                Foreground="{DynamicResource PrimaryTextBrush}"
-              />
-            </StackPanel>
-            <Grid Margin="0,14,0,0">
+          <Border.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform x:Name="ShellBrandDockScaleTransform" ScaleX="0.98" ScaleY="0.98" />
+              <TranslateTransform x:Name="ShellBrandDockTranslateTransform" Y="-6" />
+            </TransformGroup>
+          </Border.RenderTransform>
+          <Grid>
+            <Border Margin="-15" CornerRadius="18" IsHitTestVisible="False" Opacity="0.5">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#FFFFFFFF" Offset="0" />
+                  <GradientStop Color="#33FFFFFF" Offset="0.46" />
+                  <GradientStop Color="#00FFFFFF" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border
+              Margin="-1"
+              BorderBrush="{DynamicResource ShellDockGlassHighlightBrush}"
+              BorderThickness="1,1,1,0"
+              CornerRadius="18"
+              IsHitTestVisible="False"
+              Opacity="0.78"
+            />
+            <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -353,7 +369,7 @@
                 </Button>
               </Grid>
             </Grid>
-          </StackPanel>
+          </Grid>
         </Border>
       </Popup>
 
@@ -403,7 +419,11 @@
             VerticalAlignment="Center"
             SnapsToDevicePixels="True"
             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-          />
+          >
+            <iconPacks:PackIconLucide.RenderTransform>
+              <TranslateTransform Y="-1" />
+            </iconPacks:PackIconLucide.RenderTransform>
+          </iconPacks:PackIconLucide>
         </Button>
         <Button
           x:Name="ShellSettingsButton"
@@ -454,199 +474,234 @@
       />
     </Grid>
 
-    <Grid x:Name="ManagementContentHost" Grid.Row="1" ClipToBounds="True">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="Auto" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
-
-      <Border
-        x:Name="ShellNavigationDockHost"
-        Grid.Column="0"
-        Width="34"
-        ClipToBounds="True"
-        Background="Transparent"
-        MouseEnter="ShellNavigationDockHost_MouseEnter"
-        MouseMove="ShellNavigationDockHost_MouseMove"
-        MouseLeave="ShellNavigationDockHost_MouseLeave"
-        Panel.ZIndex="2"
-        AutomationProperties.AutomationId="ShellNavigationDockHost"
-      >
-        <Grid Width="220" HorizontalAlignment="Left" ClipToBounds="True">
-          <Border
-            x:Name="ShellNavigationRailTrack"
-            Width="13"
-            Height="132"
-            Margin="11,0,0,0"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center"
-            Background="{DynamicResource NavigationDockRailTrackBrush}"
-            CornerRadius="7"
-            Opacity="0.58"
-          />
-          <Border
-            x:Name="ShellNavigationRail"
-            Width="5"
-            Height="106"
-            Margin="15,0,0,0"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center"
-            Background="{DynamicResource NavigationDockRailBrush}"
-            CornerRadius="3"
-            Opacity="1"
-            Effect="{StaticResource ShellNavigationRailShadow}"
-          />
-          <Border
-            x:Name="ShellNavigationPanel"
-            Width="58"
-            Margin="10,18,12,18"
-            Padding="0,10"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Center"
-            Background="{DynamicResource NavigationDockPanelBrush}"
-            BorderBrush="{DynamicResource NavigationDockBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="22"
-            ClipToBounds="True"
-            IsHitTestVisible="False"
-            Opacity="0"
-            MouseEnter="ShellNavigationPanel_MouseEnter"
-            Effect="{StaticResource ShellNavigationDockShadow}"
-          >
-            <Border.RenderTransform>
-              <TranslateTransform X="-10" />
-            </Border.RenderTransform>
-            <StackPanel x:Name="ShellNavigationItemsHost" VerticalAlignment="Center">
-              <Button
-                x:Name="ShellNavDashboardButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="LayoutDashboard"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="仪表盘" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavConfigButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/config"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="Settings"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="配置" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavAccountButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/ai-providers"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="CircleUserRound"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="账号配置" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavAuthFilesButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/auth-files"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="FileKey"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="认证文件" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavQuotaButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/quota"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="CircleGauge"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="额度" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavUsageButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/usage"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="ChartNoAxesCombined"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="用量" />
-                </StackPanel>
-              </Button>
-              <Button
-                x:Name="ShellNavLogsButton"
-                Style="{StaticResource ShellNavigationButtonStyle}"
-                Click="ShellNavigationButton_Click"
-                CommandParameter="/logs"
-              >
-                <StackPanel Orientation="Horizontal">
-                  <iconPacks:PackIconLucide
-                    Kind="FileText"
-                    Width="18"
-                    Height="18"
-                    VerticalAlignment="Center"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                  <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="日志查看" />
-                </StackPanel>
-              </Button>
-            </StackPanel>
-          </Border>
-        </Grid>
-      </Border>
-
+    <Grid x:Name="ManagementContentHost" Grid.Row="1" ClipToBounds="False">
       <wv2:WebView2
         x:Name="ManagementWebView"
-        Grid.Column="1"
+        Panel.ZIndex="0"
         AutomationProperties.AutomationId="ManagementWebView"
         Visibility="Collapsed"
       />
+
+      <Popup
+        x:Name="ShellNavigationDockPopup"
+        PlacementTarget="{Binding ElementName=ManagementContentHost}"
+        Placement="Relative"
+        HorizontalOffset="0"
+        VerticalOffset="0"
+        AllowsTransparency="True"
+        StaysOpen="True"
+        PopupAnimation="None"
+      >
+        <Border
+          x:Name="ShellNavigationDockHost"
+          Width="56"
+          Height="{Binding ActualHeight, ElementName=ManagementContentHost}"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Stretch"
+          ClipToBounds="False"
+          Background="Transparent"
+          MouseEnter="ShellNavigationDockHost_MouseEnter"
+          MouseMove="ShellNavigationDockHost_MouseMove"
+          MouseLeave="ShellNavigationDockHost_MouseLeave"
+          Panel.ZIndex="2"
+          AutomationProperties.AutomationId="ShellNavigationDockHost"
+        >
+          <Grid Width="270" HorizontalAlignment="Left" ClipToBounds="False">
+            <Border
+              x:Name="ShellNavigationRailTrack"
+              Width="18"
+              Height="136"
+              Margin="14,0,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Center"
+              CornerRadius="9"
+              Opacity="0.78"
+            >
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#F4FFFFFF" Offset="0" />
+                  <GradientStop Color="#D8FFFFFF" Offset="0.42" />
+                  <GradientStop Color="#88D7E3EA" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+            </Border>
+            <Border
+              x:Name="ShellNavigationRail"
+              Width="7"
+              Height="108"
+              Margin="19,0,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Center"
+              Background="{DynamicResource NavigationDockRailBrush}"
+              CornerRadius="4"
+              Opacity="0.95"
+            />
+            <Border
+              x:Name="ShellNavigationPanel"
+              Width="58"
+              Height="132"
+              Margin="34,18,12,18"
+              Padding="0,10"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Center"
+              Background="{DynamicResource NavigationDockPanelBrush}"
+              BorderBrush="{DynamicResource NavigationDockBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="24"
+              ClipToBounds="True"
+              IsHitTestVisible="False"
+              Opacity="0"
+              MouseEnter="ShellNavigationPanel_MouseEnter"
+              MouseLeave="ShellNavigationPanel_MouseLeave"
+              Effect="{x:Null}"
+            >
+              <Border.RenderTransform>
+                <TranslateTransform X="-6" />
+              </Border.RenderTransform>
+              <Grid ClipToBounds="True">
+                <Border IsHitTestVisible="False" Opacity="0.38">
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                      <GradientStop Color="#FFFFFFFF" Offset="0" />
+                      <GradientStop Color="#55FFFFFF" Offset="0.45" />
+                      <GradientStop Color="#00FFFFFF" Offset="1" />
+                    </LinearGradientBrush>
+                  </Border.Background>
+                </Border>
+                <Border
+                  Margin="0"
+                  BorderBrush="{DynamicResource NavigationDockInnerHighlightBrush}"
+                  BorderThickness="1,1,1,0"
+                  CornerRadius="23"
+                  IsHitTestVisible="False"
+                  Opacity="0.72"
+                />
+                <StackPanel x:Name="ShellNavigationItemsHost" VerticalAlignment="Center">
+                  <Button
+                    x:Name="ShellNavDashboardButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="LayoutDashboard"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="仪表盘" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavConfigButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/config"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="Settings"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="配置" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavAccountButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/ai-providers"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="CircleUserRound"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="账号配置" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavAuthFilesButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/auth-files"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="FileKey"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="认证文件" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavQuotaButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/quota"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="CircleGauge"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="额度" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavUsageButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/usage"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="ChartNoAxesCombined"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="用量" />
+                    </StackPanel>
+                  </Button>
+                  <Button
+                    x:Name="ShellNavLogsButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/logs"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="FileText"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="日志查看" />
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </Border>
+      </Popup>
     </Grid>
 
     <Grid
@@ -827,7 +882,16 @@
                     VerticalAlignment="Center"
                     IsChecked="False"
                     AutomationProperties.AutomationId="FirstRunRememberSecurityKeyCheckBox"
-                    Content="静默登录"
+                    AutomationProperties.Name="静默登录"
+                  />
+                  <TextBlock
+                    Margin="4,0,0,0"
+                    VerticalAlignment="Center"
+                    Cursor="Hand"
+                    Foreground="{DynamicResource PrimaryTextBrush}"
+                    MouseLeftButtonDown="SilentLoginLabel_MouseLeftButtonDown"
+                    Tag="{Binding ElementName=FirstRunRememberSecurityKeyCheckBox}"
+                    Text="静默登录"
                   />
                   <Button
                     x:Name="FirstRunSilentLoginRiskIndicator"
@@ -978,7 +1042,16 @@
             <CheckBox
               x:Name="RememberManagementKeyCheckBox"
               VerticalAlignment="Center"
-              Content="静默登录"
+              AutomationProperties.Name="静默登录"
+            />
+            <TextBlock
+              Margin="4,0,0,0"
+              VerticalAlignment="Center"
+              Cursor="Hand"
+              Foreground="{DynamicResource PrimaryTextBrush}"
+              MouseLeftButtonDown="SilentLoginLabel_MouseLeftButtonDown"
+              Tag="{Binding ElementName=RememberManagementKeyCheckBox}"
+              Text="静默登录"
             />
             <Button
               x:Name="LoginSilentLoginRiskIndicator"

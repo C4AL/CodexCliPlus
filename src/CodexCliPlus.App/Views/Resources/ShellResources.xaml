@@ -10,24 +10,12 @@
     Opacity="1"
     ShadowDepth="2"
   />
-  <DropShadowEffect
-    x:Key="ShellNavigationDockShadow"
-    BlurRadius="24"
-    Direction="0"
-    Color="#26000000"
-    Opacity="1"
-    ShadowDepth="6"
-  />
-  <DropShadowEffect
-    x:Key="ShellNavigationRailShadow"
-    BlurRadius="14"
-    Direction="0"
-    Color="#550F766E"
-    Opacity="1"
-    ShadowDepth="0"
-  />
+  <SolidColorBrush x:Key="ShellDockGlassBrush" Color="#EFFFFFFF" />
+  <SolidColorBrush x:Key="ShellDockGlassBorderBrush" Color="#BFFFFFFF" />
+  <SolidColorBrush x:Key="ShellDockGlassHighlightBrush" Color="#E6FFFFFF" />
   <SolidColorBrush x:Key="NavigationDockPanelBrush" Color="#EFFFFFFF" />
   <SolidColorBrush x:Key="NavigationDockBorderBrush" Color="#70FFFFFF" />
+  <SolidColorBrush x:Key="NavigationDockInnerHighlightBrush" Color="#DFFFFFFF" />
   <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D914B8A6" />
   <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#33FFFFFF" />
   <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#22FFFFFF" />
@@ -239,9 +227,9 @@
     </Setter>
   </Style>
   <Style x:Key="SilentLoginRiskIconStyle" TargetType="{x:Type Button}">
-    <Setter Property="Width" Value="21" />
-    <Setter Property="Height" Value="22" />
-    <Setter Property="Margin" Value="-2,0,0,0" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="Margin" Value="1,0,0,0" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />

@@ -66,6 +66,7 @@ public static class DesktopBridgeScriptFactory
                 importSacPackage: () => postHostMessage({ type: 'importSacPackage' }),
                 exportSacPackage: () => postHostMessage({ type: 'exportSacPackage' }),
                 clearUsageStats: () => postHostMessage({ type: 'clearUsageStats' }),
+                usageStatsRefreshed: () => postHostMessage({ type: 'usageStatsRefreshed' }),
                 checkDesktopUpdate: () => postHostMessage({ type: 'checkDesktopUpdate' }),
                 applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' })
               };

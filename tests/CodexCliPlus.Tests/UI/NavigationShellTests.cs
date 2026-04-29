@@ -59,6 +59,8 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("MinimizeWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("CloseWindowButton_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains("Activated=\"Window_Activated\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Deactivated=\"Window_Deactivated\"", xaml, StringComparison.Ordinal);
         Assert.Contains("复制密钥", xaml, StringComparison.Ordinal);
         Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
         Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
@@ -91,6 +93,15 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("NavigationDockVisualState", hostSource, StringComparison.Ordinal);
+        Assert.Contains("CanShowNavigationDockPopup", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_isMainWindowActive", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "WindowState != WindowState.Minimized",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Window_Deactivated", hostSource, StringComparison.Ordinal);
+        Assert.Contains("CloseShellDockPopups", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
         Assert.Contains("ApplyNavigationDockLabelState", hostSource, StringComparison.Ordinal);
@@ -250,6 +261,9 @@ public sealed class NavigationShellTests
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("usageStatsRefreshed", hostSource, StringComparison.Ordinal);
+        Assert.Contains("usageStatsRefreshed", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("ScheduleUsageStatsRefreshedSync", hostSource, StringComparison.Ordinal);
         Assert.Contains("event.clientX > 8", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("setTimeout", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("180", bridgeSource, StringComparison.Ordinal);

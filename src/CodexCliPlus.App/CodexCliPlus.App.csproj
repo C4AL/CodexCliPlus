@@ -59,6 +59,11 @@
       CopyToOutputDirectory="PreserveNewest"
     />
     <None
+      Include="..\..\resources\licenses\cpa-usage-keeper.MIT.txt"
+      Link="Licenses\cpa-usage-keeper.MIT.txt"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <None
       Include="..\..\resources\licenses\NOTICE.txt"
       Link="Licenses\NOTICE.txt"
       CopyToOutputDirectory="PreserveNewest"

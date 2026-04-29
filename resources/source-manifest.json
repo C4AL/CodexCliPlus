@@ -67,6 +67,17 @@
       "size": 54461,
       "sha256": "8421570cb6e9a37774e3dde40e404c437245e172ed9bff1243620f73282a1e8b",
       "updatePolicy": "Update only through the WebUI upstream sync process and refresh resources/webui/upstream/sync.json."
+    },
+    {
+      "path": "resources/licenses/cpa-usage-keeper.MIT.txt",
+      "kind": "license",
+      "source": "Willxup/cpa-usage-keeper commit 06117c79ca254a5fe5113d05768f17c335d62596",
+      "sourceUrl": "https://github.com/Willxup/cpa-usage-keeper",
+      "license": "MIT",
+      "licenseFile": "resources/licenses/cpa-usage-keeper.MIT.txt",
+      "size": 1061,
+      "sha256": "8bd33c6ab9b46bff98548757e25c869db1ce93611947fc16a47a5165f850b04b",
+      "updatePolicy": "Update only when the keeper-derived persistence implementation is re-audited against a new upstream commit."
     }
   ]
 }

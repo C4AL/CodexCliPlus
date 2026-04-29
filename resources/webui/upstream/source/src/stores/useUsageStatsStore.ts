@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { notifyUsageStatsRefreshedInDesktopShell } from '@/desktop/bridge';
 import { usageApi } from '@/services/api';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { collectUsageDetails, computeKeyStatsFromDetails, type KeyStats, type UsageDetail } from '@/utils/usage';
@@ -108,6 +109,7 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
           lastRefreshedAt: Date.now(),
           scopeKey
         });
+        notifyUsageStatsRefreshedInDesktopShell();
       } catch (error: unknown) {
         if (requestId !== usageRequestToken) return;
         const message = getErrorMessage(error);

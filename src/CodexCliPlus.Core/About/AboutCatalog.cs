@@ -48,6 +48,13 @@ public static class AboutCatalog
             "MIT / ISC",
             "Provides WPF Lucide icon controls for the desktop shell theme button, risk indicator, and status dock."
         ),
+        new(
+            "cpa-usage-keeper",
+            "Local SQLite usage event persistence design",
+            "Willxup/cpa-usage-keeper@06117c79ca254a5fe5113d05768f17c335d62596",
+            "MIT",
+            "CodexCliPlus ports the keeper schema, event flattening, SHA-256 de-duplication, watermark overlap filtering, and raw export backup retention into the .NET desktop host."
+        ),
     ];
 
     public static IReadOnlyList<AboutLicenseDocument> LicenseDocuments { get; } =
@@ -79,6 +86,13 @@ public static class AboutCatalog
             "BetterGI.GPL-3.0.txt",
             Path.Combine("resources", "licenses", "BetterGI.GPL-3.0.txt"),
             "BetterGI 派生的桌面外壳、字体和资源按 GPL-3.0 再分发。"
+        ),
+        new(
+            "cpa-usage-keeper 派生持久化许可",
+            "MIT",
+            "cpa-usage-keeper.MIT.txt",
+            Path.Combine("resources", "licenses", "cpa-usage-keeper.MIT.txt"),
+            "本地 SQLite 统计持久化逻辑移植自 cpa-usage-keeper。"
         ),
         new(
             "合并 NOTICE",

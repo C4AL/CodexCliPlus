@@ -11,6 +11,9 @@ License. Lucide icon glyphs are provided by lucide-icons/lucide under the ISC
 License.
 Konscious.Security.Cryptography.Argon2 and its Blake2 dependency are used for
 desktop secure account package key derivation under the MIT License.
+The local usage keeper SQLite persistence logic is derived from
+Willxup/cpa-usage-keeper commit 06117c79ca254a5fe5113d05768f17c335d62596
+under the MIT License; see cpa-usage-keeper.MIT.txt in this directory.
 
 This notice is shipped with release packages so users can distinguish original
 MIT components from GPL-3.0-derived shell resources.

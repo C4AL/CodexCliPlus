@@ -38,6 +38,7 @@ interface DesktopBridge {
   importSacPackage?: () => void;
   exportSacPackage?: () => void;
   clearUsageStats?: () => void;
+  usageStatsRefreshed?: () => void;
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
 }
@@ -278,6 +279,10 @@ export function exportSacPackageInDesktopShell(): boolean {
 
 export function clearUsageStatsInDesktopShell(): boolean {
   return invokeDesktopBridgeAction('clearUsageStats');
+}
+
+export function notifyUsageStatsRefreshedInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('usageStatsRefreshed');
 }
 
 export function checkDesktopUpdateInDesktopShell(): boolean {

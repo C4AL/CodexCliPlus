@@ -34,6 +34,13 @@ public sealed class AboutCatalogTests
         );
         Assert.Contains(
             sources,
+            item =>
+                item.Name == "cpa-usage-keeper"
+                && item.License == "MIT"
+                && item.Origin.Contains("06117c79", StringComparison.Ordinal)
+        );
+        Assert.Contains(
+            sources,
             item => item.Notes.Contains("WebView2", StringComparison.OrdinalIgnoreCase)
         );
     }
@@ -60,6 +67,10 @@ public sealed class AboutCatalogTests
         Assert.Contains(
             documents,
             item => item.OutputFileName == "BetterGI.GPL-3.0.txt" && item.License == "GPL-3.0"
+        );
+        Assert.Contains(
+            documents,
+            item => item.OutputFileName == "cpa-usage-keeper.MIT.txt" && item.License == "MIT"
         );
         Assert.Contains(
             documents,

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -126,6 +127,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _settingsOverlayOpen;
     private bool _isShellBrandDockClosing;
     private bool _sidebarCollapsed;
+    private bool _isMainWindowActive;
+    private CancellationTokenSource? _usageStatsSyncDebounceCts;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -163,14 +166,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
 
-        DataContext = _viewModel;
-        InitializeComponent();
-
         _navigationDockCollapseTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(520),
         };
         _navigationDockCollapseTimer.Tick += NavigationDockCollapseTimer_Tick;
+
+        DataContext = _viewModel;
+        InitializeComponent();
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested +=
@@ -182,6 +185,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         try
         {
+            _isMainWindowActive = IsActive;
             ShowPreparationStep("目录", 5, "正在加载本地配置。", StartupState.Preparing);
             var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
@@ -227,6 +231,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _firstRunConfirmCountdown?.Dispose();
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
+        CancelUsageStatsSyncDebounce();
         CloseSettingsWindow();
         TrayIcon.Unregister();
     }
@@ -242,8 +247,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _firstRunConfirmCountdown?.Dispose();
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
+        CancelUsageStatsSyncDebounce();
         CloseSettingsWindow();
         GC.SuppressFinalize(this);
+    }
+
+    private void Window_Activated(object? sender, EventArgs e)
+    {
+        _isMainWindowActive = true;
+        UpdateNavigationDockPopupVisibility();
+    }
+
+    private void Window_Deactivated(object? sender, EventArgs e)
+    {
+        _isMainWindowActive = false;
+        CloseShellDockPopups();
     }
 
     private void SystemEvents_UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
@@ -270,6 +288,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        CloseShellDockPopups();
         if (_allowClose)
         {
             return;
@@ -284,6 +303,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void Window_PlacementChanged(object? sender, EventArgs e)
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+        }
+
         PositionSettingsWindow();
         RefreshNavigationDockPopupPlacement();
     }
@@ -417,6 +441,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e)
     {
+        CloseShellDockPopups();
         WindowState = WindowState.Minimized;
     }
 
@@ -751,6 +776,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         SettingsClearUsageButton.IsEnabled = false;
         try
         {
+            CancelUsageStatsSyncDebounce();
             await _persistenceService.ClearUsageSnapshotAsync();
             PostWebUiCommand(new { type = "clearUsageStats" });
             _notificationService.ShowAuto("使用统计已清除。");
@@ -1165,12 +1191,60 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async Task SyncPersistenceBeforeExitAsync()
     {
+        CancelUsageStatsSyncDebounce();
         try
         {
             await _persistenceService.SyncUsageSnapshotAsync();
             await _persistenceService.SyncLogsSnapshotAsync();
         }
         catch { }
+    }
+
+    private void ScheduleUsageStatsRefreshedSync()
+    {
+        if (_backendProcessManager.CurrentStatus.State != BackendStateKind.Running)
+        {
+            return;
+        }
+
+        CancelUsageStatsSyncDebounce();
+        var cts = new CancellationTokenSource();
+        _usageStatsSyncDebounceCts = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(1200), cts.Token);
+                await _persistenceService.SyncUsageSnapshotAsync(cts.Token);
+            }
+            catch (OperationCanceledException) { }
+            catch { }
+            finally
+            {
+                if (ReferenceEquals(_usageStatsSyncDebounceCts, cts))
+                {
+                    _usageStatsSyncDebounceCts = null;
+                }
+
+                cts.Dispose();
+            }
+        });
+    }
+
+    private void CancelUsageStatsSyncDebounce()
+    {
+        var cts = _usageStatsSyncDebounceCts;
+        _usageStatsSyncDebounceCts = null;
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException) { }
     }
 
     private void DragRegion_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1389,6 +1463,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             var configuredAuthDirectory = TryReadConfiguredAuthDirectory();
 
+            await SyncPersistenceBeforeExitAsync();
             await _backendProcessManager.StopAsync();
             await ResetWebUiLocalAuthStateAsync();
 
@@ -1484,6 +1559,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             )
             {
                 ShowPreparationStep("核心启动", 68, "正在重启本地后端。", StartupState.Preparing);
+                await SyncPersistenceBeforeExitAsync();
                 await _backendProcessManager.RestartAsync();
             }
 
@@ -1735,7 +1811,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     var navigationHoverZoneActive =
                         root.TryGetProperty("active", out var activeElement)
                         && activeElement.ValueKind is JsonValueKind.True;
-                    if (navigationHoverZoneActive)
+                    if (navigationHoverZoneActive && CanShowNavigationDockPopup())
                     {
                         ShowNavigationDockIconsFromEdgeIntent();
                     }
@@ -1744,6 +1820,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                         CollapseNavigationDockWithDelay(shortDelay: false);
                     }
 
+                    break;
+
+                case "usageStatsRefreshed":
+                    ScheduleUsageStatsRefreshedSync();
                     break;
 
                 case "importAccountConfig":
@@ -2000,15 +2080,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void UpdateNavigationDockPopupVisibility()
     {
-        SetNavigationDockPopupOpen(
-            ManagementWebView.Visibility == Visibility.Visible && !_settingsOverlayOpen
-        );
+        SetNavigationDockPopupOpen(CanShowNavigationDockPopup());
     }
 
     private void SetNavigationDockPopupOpen(bool isOpen)
     {
+        if (!IsNavigationDockInitialized())
+        {
+            return;
+        }
+
+        if (isOpen && !CanShowNavigationDockPopup())
+        {
+            isOpen = false;
+        }
+
         if (!isOpen)
         {
+            _navigationDockCollapseTimer.Stop();
             AnimateNavigationDock(NavigationDockVisualState.Resting);
         }
 
@@ -2020,6 +2109,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void RefreshNavigationDockPopupPlacement()
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         if (!ShellNavigationDockPopup.IsOpen)
         {
             return;
@@ -2029,7 +2124,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         Dispatcher.BeginInvoke(
             () =>
             {
-                if (ManagementWebView.Visibility == Visibility.Visible && !_settingsOverlayOpen)
+                if (CanShowNavigationDockPopup())
                 {
                     ShellNavigationDockPopup.IsOpen = true;
                 }
@@ -2267,6 +2362,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         if (IsPointerInDockEdgeIntent(e))
         {
             ShowNavigationDockIconsFromEdgeIntent();
@@ -2278,6 +2379,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         if (_navigationDockState == NavigationDockVisualState.Expanded)
         {
             return;
@@ -2294,6 +2401,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         ExpandNavigationDock(showLabels: true);
     }
 
@@ -2319,6 +2432,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void NavigationDockCollapseTimer_Tick(object? sender, EventArgs e)
     {
         _navigationDockCollapseTimer.Stop();
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         if (ShellNavigationDockHost.IsMouseOver)
         {
             ExpandNavigationDock(showLabels: ShellNavigationPanel.IsMouseOver);
@@ -2330,6 +2449,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ExpandNavigationDock(bool showLabels)
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         _navigationDockCollapseTimer.Stop();
         AnimateNavigationDock(
             showLabels ? NavigationDockVisualState.Expanded : NavigationDockVisualState.Icons
@@ -2338,8 +2463,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ShowNavigationDockIconsFromEdgeIntent()
     {
-        if (_settingsOverlayOpen || ManagementWebView.Visibility != Visibility.Visible)
+        if (!CanShowNavigationDockPopup())
         {
+            SetNavigationDockPopupOpen(false);
             return;
         }
 
@@ -2368,9 +2494,55 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void CollapseNavigationDockWithDelay(bool shortDelay)
     {
+        if (!CanShowNavigationDockPopup())
+        {
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         _navigationDockCollapseTimer.Stop();
         _navigationDockCollapseTimer.Interval = TimeSpan.FromMilliseconds(shortDelay ? 110 : 170);
         _navigationDockCollapseTimer.Start();
+    }
+
+    private bool CanShowNavigationDockPopup()
+    {
+        return _isMainWindowActive
+            && IsVisible
+            && WindowState != WindowState.Minimized
+            && IsNavigationDockInitialized()
+            && ManagementWebView.Visibility == Visibility.Visible
+            && !_settingsOverlayOpen;
+    }
+
+    private bool IsNavigationDockInitialized()
+    {
+        return ShellNavigationDockPopup is not null
+            && ShellNavigationDockHost is not null
+            && ShellNavigationPanel is not null
+            && ManagementWebView is not null;
+    }
+
+    private void CloseShellDockPopups()
+    {
+        if (!IsNavigationDockInitialized())
+        {
+            return;
+        }
+
+        _navigationDockCollapseTimer.Stop();
+        AnimateNavigationDock(NavigationDockVisualState.Resting);
+        if (ShellNavigationDockPopup.IsOpen)
+        {
+            ShellNavigationDockPopup.IsOpen = false;
+        }
+
+        if (ShellBrandDockPopup.IsOpen)
+        {
+            _isShellBrandDockClosing = false;
+            ShellBrandDockPopup.IsOpen = false;
+            ResetShellBrandDockPopupVisual();
+        }
     }
 
     private void AnimateNavigationDock(NavigationDockVisualState state)
@@ -2653,6 +2825,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         _settingsOverlayOpen = false;
+        CloseShellDockPopups();
         CancelSettingsOverviewRefresh();
         _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
         if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
@@ -2747,6 +2920,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void CloseSettingsWindow()
     {
+        CloseShellDockPopups();
         if (_settingsWindow is null)
         {
             return;
@@ -2912,7 +3086,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         var fallbackSuffix = persistence.UsesFallbackDirectory
             ? "持久化目录已降级到可写应用数据目录。"
             : "持久化目录使用安装目录。";
-        SettingsUpdateStatusText.Text = $"当前版本：{CurrentApplicationVersion}。{fallbackSuffix}";
+        var keeperStatus = persistence.UsesKeeperDatabase
+            ? $"统计库：{persistence.UsageEventCount} 条事件，最近同步：{FormatStatusTime(persistence.LastUsageSyncAt)}，数据库：{persistence.UsageDatabasePath}"
+            : $"统计库不可用：{FormatUnknown(persistence.LastPersistenceError)}";
+        SettingsUpdateStatusText.Text =
+            $"当前版本：{CurrentApplicationVersion}。{fallbackSuffix}{Environment.NewLine}{keeperStatus}";
     }
 
     private string ShellConnectionStatusLabel =>
@@ -3180,6 +3358,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void HideToTray()
     {
+        CloseShellDockPopups();
         ShowInTaskbar = false;
         Hide();
     }
@@ -3213,6 +3392,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private static string FormatUnknown(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "未知" : value.Trim();
+    }
+
+    private static string FormatStatusTime(DateTimeOffset? value)
+    {
+        return value is null
+            ? "从未"
+            : value
+                .Value.ToLocalTime()
+                .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     private static string ResolveBackendVersion(string? preferredVersion, string? fallbackVersion)

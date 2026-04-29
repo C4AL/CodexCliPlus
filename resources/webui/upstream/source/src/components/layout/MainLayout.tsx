@@ -14,6 +14,7 @@ import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
 import {
   IconSidebarAuthFiles,
+  IconSidebarConsole,
   IconSidebarConfig,
   IconSidebarDashboard,
   IconSidebarLogs,
@@ -34,12 +35,14 @@ import {
   useConfigStore,
   useNotificationStore,
   useThemeStore,
+  useUsageStatsStore,
 } from '@/stores';
 import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import type { Theme } from '@/types';
 
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
+  console: <IconSidebarConsole size={18} />,
   aiProviders: <IconSidebarProviders size={18} />,
   authFiles: <IconSidebarAuthFiles size={18} />,
   quota: <IconSidebarQuota size={18} />,
@@ -202,6 +205,7 @@ export function MainLayout() {
   const theme = useThemeStore((state) => state.theme);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setTheme = useThemeStore((state) => state.setTheme);
+  const clearUsageStats = useUsageStatsStore((state) => state.clearUsageStats);
 
   const desktopMode = isDesktopMode();
   const [desktopBootstrap] = useState(() => getDesktopBootstrap());
@@ -369,6 +373,7 @@ export function MainLayout() {
 
   const navItems = [
     { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
+    { path: '/console', label: t('nav.console'), icon: sidebarIcons.console },
     { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
     { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
     { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
@@ -477,9 +482,15 @@ export function MainLayout() {
 
       if (command.type === 'navigate') {
         navigate(command.path || '/');
+        return;
+      }
+
+      if (command.type === 'clearUsageStats') {
+        clearUsageStats();
+        showNotification(t('system_info.clear_usage_success'), 'success');
       }
     });
-  }, [desktopMode, handleRefreshAll, navigate, setTheme]);
+  }, [clearUsageStats, desktopMode, handleRefreshAll, navigate, setTheme, showNotification, t]);
 
   useEffect(() => {
     if (!desktopMode) {

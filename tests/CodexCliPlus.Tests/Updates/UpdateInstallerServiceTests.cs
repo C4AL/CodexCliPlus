@@ -12,7 +12,7 @@ namespace CodexCliPlus.Tests.Updates;
 public sealed class UpdateInstallerServiceTests
 {
     [Fact]
-    public async Task DownloadInstallerAsyncDownloadsInstallerToUpdatesCacheAndValidatesDigest()
+    public async Task DownloadInstallerAsyncDownloadsUpdatePackageToUpdatesCacheAndValidatesDigest()
     {
         var installerBytes = Encoding.UTF8.GetBytes("installer-payload");
         using var pathService = new TestPathService();
@@ -43,7 +43,7 @@ public sealed class UpdateInstallerServiceTests
             result.CacheDirectory
         );
         Assert.Equal(
-            Path.Combine(result.CacheDirectory, "CodexCliPlus.Setup.1.2.3.exe"),
+            Path.Combine(result.CacheDirectory, "CodexCliPlus.Update.1.2.3.win-x64.zip"),
             result.InstallerPath
         );
         Assert.True(File.Exists(result.InstallerPath));
@@ -51,7 +51,7 @@ public sealed class UpdateInstallerServiceTests
     }
 
     [Fact]
-    public async Task DownloadInstallerAsyncReusesValidatedCachedInstallerWithoutNetworkRequest()
+    public async Task DownloadInstallerAsyncReusesValidatedCachedUpdatePackageWithoutNetworkRequest()
     {
         var installerBytes = Encoding.UTF8.GetBytes("cached-installer");
         using var pathService = new TestPathService();
@@ -59,7 +59,7 @@ public sealed class UpdateInstallerServiceTests
 
         var updatesDirectory = Path.Combine(pathService.Directories.CacheDirectory, "updates");
         Directory.CreateDirectory(updatesDirectory);
-        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Setup.1.2.3.exe");
+        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Update.1.2.3.win-x64.zip");
         await File.WriteAllBytesAsync(installerPath, installerBytes);
 
         var calls = 0;
@@ -126,7 +126,7 @@ public sealed class UpdateInstallerServiceTests
                 Path.Combine(
                     pathService.Directories.CacheDirectory,
                     "updates",
-                    "CodexCliPlus.Setup.1.2.3.exe"
+                    "CodexCliPlus.Update.1.2.3.win-x64.zip"
                 )
             )
         );
@@ -135,7 +135,7 @@ public sealed class UpdateInstallerServiceTests
                 Path.Combine(
                     pathService.Directories.CacheDirectory,
                     "updates",
-                    "CodexCliPlus.Setup.1.2.3.exe.download"
+                    "CodexCliPlus.Update.1.2.3.win-x64.zip.download"
                 )
             )
         );
@@ -290,14 +290,14 @@ public sealed class UpdateInstallerServiceTests
                     DataMode = AppDataMode.Development,
                     InstallerPath = Path.Combine(
                         pathService.Directories.RootDirectory,
-                        "CodexCliPlus.Setup.1.2.3.exe"
+                        "CodexCliPlus.Update.1.2.3.win-x64.zip"
                     ),
                     CacheDirectory = pathService.Directories.CacheDirectory,
                     Version = "1.2.3",
                     Asset = new UpdateReleaseAsset
                     {
-                        Name = "CodexCliPlus.Setup.1.2.3.exe",
-                        DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                        Name = "CodexCliPlus.Update.1.2.3.win-x64.zip",
+                        DownloadUrl = "https://example.test/CodexCliPlus.Update.1.2.3.win-x64.zip",
                     },
                 }
             )
@@ -308,15 +308,23 @@ public sealed class UpdateInstallerServiceTests
     }
 
     [Fact]
-    public async Task LaunchInstallerAsyncUsesShellExecuteForPreparedInstaller()
+    public async Task LaunchInstallerAsyncStartsBundledUpdaterForPreparedPackage()
     {
         using var pathService = new TestPathService();
         await pathService.EnsureCreatedAsync();
+        var appDirectory = Path.Combine(pathService.Directories.RootDirectory, "app");
+        var updaterDirectory = Path.Combine(appDirectory, "updater");
+        Directory.CreateDirectory(updaterDirectory);
+        var updaterPath = Path.Combine(updaterDirectory, "CodexCliPlus.Updater.exe");
+        var appPath = Path.Combine(appDirectory, "CodexCliPlus.exe");
+        await File.WriteAllBytesAsync(updaterPath, [1, 2, 3, 4]);
+        await File.WriteAllBytesAsync(appPath, [1, 2, 3, 4]);
 
         var updatesDirectory = Path.Combine(pathService.Directories.CacheDirectory, "updates");
         Directory.CreateDirectory(updatesDirectory);
-        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Setup.1.2.3.exe");
-        await File.WriteAllBytesAsync(installerPath, [1, 2, 3, 4]);
+        var packageBytes = Encoding.UTF8.GetBytes("prepared-update-package");
+        var installerPath = Path.Combine(updatesDirectory, "CodexCliPlus.Update.1.2.3.win-x64.zip");
+        await File.WriteAllBytesAsync(installerPath, packageBytes);
 
         ProcessStartInfo? capturedStartInfo = null;
         var service = new UpdateInstallerService(
@@ -328,7 +336,8 @@ public sealed class UpdateInstallerServiceTests
             {
                 capturedStartInfo = startInfo;
                 return Process.GetCurrentProcess();
-            }
+            },
+            () => appDirectory
         );
 
         await service.LaunchInstallerAsync(
@@ -340,16 +349,27 @@ public sealed class UpdateInstallerServiceTests
                 DataMode = AppDataMode.Installed,
                 Asset = new UpdateReleaseAsset
                 {
-                    Name = "CodexCliPlus.Setup.1.2.3.exe",
-                    DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                    Name = "CodexCliPlus.Update.1.2.3.win-x64.zip",
+                    DownloadUrl = "https://example.test/CodexCliPlus.Update.1.2.3.win-x64.zip",
+                    Digest = ComputeDigest(packageBytes),
                 },
             }
         );
 
         Assert.NotNull(capturedStartInfo);
-        Assert.True(capturedStartInfo!.UseShellExecute);
-        Assert.Equal(installerPath, capturedStartInfo.FileName);
-        Assert.Equal(updatesDirectory, capturedStartInfo.WorkingDirectory);
+        Assert.False(capturedStartInfo!.UseShellExecute);
+        Assert.Equal(updaterPath, capturedStartInfo.FileName);
+        Assert.Equal(updaterDirectory, capturedStartInfo.WorkingDirectory);
+        var arguments = capturedStartInfo.ArgumentList.ToArray();
+        Assert.Contains("--pid", arguments);
+        Assert.Contains("--app-dir", arguments);
+        Assert.Contains(appDirectory, arguments);
+        Assert.Contains("--package", arguments);
+        Assert.Contains(installerPath, arguments);
+        Assert.Contains("--sha256", arguments);
+        Assert.Contains(ComputeDigest(packageBytes)["sha256:".Length..], arguments);
+        Assert.Contains("--restart", arguments);
+        Assert.Contains(appPath, arguments);
     }
 
     private static UpdateCheckResult CreateUpdateResult(
@@ -364,8 +384,9 @@ public sealed class UpdateInstallerServiceTests
     {
         var asset = new UpdateReleaseAsset
         {
-            Name = $"CodexCliPlus.Setup.{version}.exe",
-            DownloadUrl = downloadUrl ?? $"https://example.test/CodexCliPlus.Setup.{version}.exe",
+            Name = $"CodexCliPlus.Update.{version}.win-x64.zip",
+            DownloadUrl =
+                downloadUrl ?? $"https://example.test/CodexCliPlus.Update.{version}.win-x64.zip",
             Size = size,
             Digest = digest,
         };

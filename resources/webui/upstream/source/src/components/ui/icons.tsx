@@ -383,6 +383,18 @@ export function IconSidebarConfig({ size = 20, ...props }: IconProps) {
   );
 }
 
+export function IconSidebarConsole({ size = 20, ...props }: IconProps) {
+  return (
+    <svg {...sidebarSvgProps} width={size} height={size} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 8.5h18" />
+      <path d="M7 12l3 2.5L7 17" />
+      <path d="M13 17h4" />
+      <rect x="14" y="11" width="4" height="3" rx="0.8" fill="currentColor" fillOpacity="0.12" />
+    </svg>
+  );
+}
+
 export function IconSidebarProviders({ size = 20, ...props }: IconProps) {
   return (
     <svg {...sidebarSvgProps} width={size} height={size} {...props}>

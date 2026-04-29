@@ -171,6 +171,9 @@ export function AiProvidersPage() {
       <div className={styles.content}>
         {error && <div className="error-box">{error}</div>}
 
+        <div id="provider-oauth">
+          <OAuthPage embedded />
+        </div>
         <div id="provider-codex">
           <CodexSection
             configs={codexConfigs}
@@ -185,9 +188,6 @@ export function AiProvidersPage() {
             onDelete={(index) => void deleteCodex(index)}
             onToggle={(index, enabled) => void setConfigEnabled(index, enabled)}
           />
-        </div>
-        <div id="provider-oauth">
-          <OAuthPage embedded />
         </div>
       </div>
 

@@ -60,7 +60,14 @@ public static class DesktopBridgeScriptFactory
                     sidebarCollapsed: normalized.sidebarCollapsed === true,
                     pathname: typeof normalized.pathname === 'string' ? normalized.pathname : '/'
                   });
-                }
+                },
+                importAccountConfig: (mode) => postHostMessage({ type: 'importAccountConfig', mode: typeof mode === 'string' ? mode : 'json' }),
+                exportAccountConfig: (mode) => postHostMessage({ type: 'exportAccountConfig', mode: typeof mode === 'string' ? mode : 'json' }),
+                importSacPackage: () => postHostMessage({ type: 'importSacPackage' }),
+                exportSacPackage: () => postHostMessage({ type: 'exportSacPackage' }),
+                clearUsageStats: () => postHostMessage({ type: 'clearUsageStats' }),
+                checkDesktopUpdate: () => postHostMessage({ type: 'checkDesktopUpdate' }),
+                applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' })
               };
 
               Object.defineProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__', {
@@ -69,6 +76,19 @@ public static class DesktopBridgeScriptFactory
               });
 
               let navigationHoverZoneActive = false;
+              let navigationHoverZoneTimer = null;
+              let pointerDown = false;
+              let dragStarted = false;
+              let lastPointer = { x: 0, y: 0 };
+
+              const isEditableElement = (target) => {
+                if (!target || typeof target.closest !== 'function') {
+                  return false;
+                }
+
+                return Boolean(target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]'));
+              };
+
               const updateNavigationHoverZone = (active) => {
                 if (navigationHoverZoneActive === active) {
                   return;
@@ -78,10 +98,58 @@ public static class DesktopBridgeScriptFactory
                 postHostMessage({ type: 'navigationHoverZone', active });
               };
 
+              const clearNavigationHoverTimer = () => {
+                if (navigationHoverZoneTimer) {
+                  window.clearTimeout(navigationHoverZoneTimer);
+                  navigationHoverZoneTimer = null;
+                }
+              };
+
+              const cancelNavigationHoverIntent = () => {
+                clearNavigationHoverTimer();
+                updateNavigationHoverZone(false);
+              };
+
               window.addEventListener('mousemove', (event) => {
-                updateNavigationHoverZone(event.clientX <= 64);
+                const movedFar =
+                  Math.abs(event.clientX - lastPointer.x) > 4 ||
+                  Math.abs(event.clientY - lastPointer.y) > 4;
+                lastPointer = { x: event.clientX, y: event.clientY };
+                if (pointerDown && movedFar) {
+                  dragStarted = true;
+                }
+
+                if (
+                  pointerDown ||
+                  dragStarted ||
+                  isEditableElement(event.target) ||
+                  event.clientX > 8
+                ) {
+                  cancelNavigationHoverIntent();
+                  return;
+                }
+
+                if (navigationHoverZoneActive || navigationHoverZoneTimer) {
+                  return;
+                }
+
+                navigationHoverZoneTimer = window.setTimeout(() => {
+                  navigationHoverZoneTimer = null;
+                  updateNavigationHoverZone(true);
+                }, 180);
               }, { passive: true });
-              window.addEventListener('mouseleave', () => updateNavigationHoverZone(false));
+              window.addEventListener('mousedown', (event) => {
+                pointerDown = true;
+                dragStarted = false;
+                lastPointer = { x: event.clientX, y: event.clientY };
+                cancelNavigationHoverIntent();
+              }, { passive: true });
+              window.addEventListener('mouseup', () => {
+                pointerDown = false;
+                dragStarted = false;
+              }, { passive: true });
+              window.addEventListener('mouseleave', () => cancelNavigationHoverIntent());
+              window.addEventListener('blur', () => cancelNavigationHoverIntent());
 
               const previousOpen = typeof window.open === 'function' ? window.open.bind(window) : null;
               window.open = (url, target, features) => {

@@ -91,8 +91,8 @@ public sealed class SigningTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out-verify-signed");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        await CreateSignedInstallerPackageAsync(packageRoot, "Online");
         await CreateSignedInstallerPackageAsync(packageRoot, "Offline");
+        CreateUpdatePackage(packageRoot);
         var context = CreateContext(repositoryRoot, outputRoot, new RecordingProcessRunner());
 
         var failures = new PackageVerifier(context, RequiredSigningOptions()).VerifyAll();
@@ -107,8 +107,8 @@ public sealed class SigningTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out-verify-unsigned");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateUnsignedInstallerPackage(packageRoot, "Online");
         CreateUnsignedInstallerPackage(packageRoot, "Offline");
+        CreateUpdatePackage(packageRoot);
         var context = CreateContext(repositoryRoot, outputRoot, new RecordingProcessRunner());
 
         var failures = new PackageVerifier(context, RequiredSigningOptions()).VerifyAll();
@@ -224,6 +224,16 @@ public sealed class SigningTests : IDisposable
             installerName,
             CreateExecutableBytes()
         );
+    }
+
+    private static void CreateUpdatePackage(string packageRoot)
+    {
+        using var archive = ZipFile.Open(
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            ZipArchiveMode.Create
+        );
+        WriteEntry(archive, "update-manifest.json", Encoding.UTF8.GetBytes("{}"));
+        WriteEntry(archive, "payload/CodexCliPlus.exe", CreateExecutableBytes());
     }
 
     private static void CreateInstallerStagingZip(

@@ -1,5 +1,6 @@
 import { Navigate, useRoutes, type Location } from 'react-router-dom';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { ConsolePage } from '@/pages/ConsolePage';
 import { AiProvidersPage } from '@/pages/AiProvidersPage';
 import { AiProvidersCodexEditPage } from '@/pages/AiProvidersCodexEditPage';
 import { AuthFilesPage } from '@/pages/AuthFilesPage';
@@ -14,6 +15,8 @@ import { SystemPage } from '@/pages/SystemPage';
 const mainRoutes = [
   { path: '/', element: <DashboardPage /> },
   { path: '/dashboard', element: <DashboardPage /> },
+  { path: '/dashboard/overview', element: <Navigate to="/console" replace /> },
+  { path: '/console', element: <ConsolePage /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
   { path: '/ai-providers/codex/new', element: <AiProvidersCodexEditPage /> },

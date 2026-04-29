@@ -23,7 +23,16 @@ import { Select } from '@/components/ui/Select';
 import { IconFilterAll } from '@/components/ui/icons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
+import {
+  exportAccountConfigInDesktopShell,
+  exportSacPackageInDesktopShell,
+  importAccountConfigInDesktopShell,
+  importSacPackageInDesktopShell,
+  isDesktopMode,
+} from '@/desktop/bridge';
+import { authFilesApi } from '@/services/api';
 import { copyToClipboard } from '@/utils/clipboard';
+import { downloadBlob } from '@/utils/download';
 import {
   MAX_CARD_PAGE_SIZE,
   MIN_CARD_PAGE_SIZE,
@@ -99,6 +108,10 @@ export function AuthFilesPage() {
   const [viewMode, setViewMode] = useState<'diagram' | 'list'>('list');
   const [sortMode, setSortMode] = useState<AuthFilesSortMode>('default');
   const [batchActionBarVisible, setBatchActionBarVisible] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importJsonText, setImportJsonText] = useState('');
+  const [importingConfig, setImportingConfig] = useState(false);
+  const [exportingConfig, setExportingConfig] = useState(false);
   const [uiStateHydrated, setUiStateHydrated] = useState(false);
   const floatingBatchActionsRef = useRef<HTMLDivElement>(null);
   const batchActionAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
@@ -470,6 +483,126 @@ export function AuthFilesPage() {
     [showNotification, t]
   );
 
+  const buildJsonImportFiles = useCallback((payload: unknown): File[] => {
+    const now = Date.now();
+    const normalizeName = (name: string, index: number) => {
+      const base = name.trim() || `codex-import-${now}-${index + 1}`;
+      return base.toLowerCase().endsWith('.json') ? base : `${base}.json`;
+    };
+
+    if (Array.isArray(payload)) {
+      return payload.map(
+        (item, index) =>
+          new File([JSON.stringify(item, null, 2)], normalizeName(`codex-import-${index + 1}`, index), {
+            type: 'application/json',
+          })
+      );
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return [];
+    }
+
+    const record = payload as Record<string, unknown>;
+    const entries = Object.entries(record.files && typeof record.files === 'object' ? record.files : record);
+    return entries.map(
+      ([name, value], index) =>
+        new File([JSON.stringify(value, null, 2)], normalizeName(name, index), {
+          type: 'application/json',
+        })
+    );
+  }, []);
+
+  const handleJsonImport = useCallback(async () => {
+    const trimmed = importJsonText.trim();
+    if (!trimmed) {
+      showNotification(t('auth_files.import_json_empty'), 'warning');
+      return;
+    }
+
+    setImportingConfig(true);
+    try {
+      const payload = JSON.parse(trimmed) as unknown;
+      const importFiles = buildJsonImportFiles(payload);
+      if (importFiles.length === 0) {
+        showNotification(t('auth_files.import_json_invalid'), 'error');
+        return;
+      }
+
+      const result = await authFilesApi.uploadFiles(importFiles);
+      await loadFiles();
+      await refreshKeyStats();
+      setImportModalOpen(false);
+      setImportJsonText('');
+      showNotification(
+        t('auth_files.import_json_success', { count: result.uploaded }),
+        result.failed.length ? 'warning' : 'success'
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t('common.unknown_error');
+      showNotification(`${t('auth_files.import_json_failed')}: ${message}`, 'error');
+    } finally {
+      setImportingConfig(false);
+    }
+  }, [
+    buildJsonImportFiles,
+    importJsonText,
+    loadFiles,
+    refreshKeyStats,
+    showNotification,
+    t,
+  ]);
+
+  const handleOtherCpaImport = useCallback(() => {
+    if (isDesktopMode() && importAccountConfigInDesktopShell('cpa')) {
+      showNotification(t('auth_files.import_cpa_requested'), 'info');
+      return;
+    }
+    showNotification(t('auth_files.desktop_bridge_required'), 'warning');
+  }, [showNotification, t]);
+
+  const handleSacImport = useCallback(() => {
+    if (isDesktopMode() && importSacPackageInDesktopShell()) {
+      showNotification(t('auth_files.import_sac_requested'), 'info');
+      return;
+    }
+    showNotification(t('auth_files.desktop_bridge_required'), 'warning');
+  }, [showNotification, t]);
+
+  const handleExportConfig = useCallback(async () => {
+    if (isDesktopMode() && exportAccountConfigInDesktopShell('json')) {
+      showNotification(t('auth_files.export_requested'), 'info');
+      return;
+    }
+
+    setExportingConfig(true);
+    try {
+      const exportItems = await Promise.all(
+        codexFiles
+          .filter((file) => !isRuntimeOnlyAuthFile(file))
+          .map(async (file) => [file.name, JSON.parse(await authFilesApi.downloadText(file.name))] as const)
+      );
+      const blob = new Blob([JSON.stringify(Object.fromEntries(exportItems), null, 2)], {
+        type: 'application/json',
+      });
+      downloadBlob({ filename: 'codex-auth-files-export.json', blob });
+      showNotification(t('auth_files.export_success'), 'success');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t('common.unknown_error');
+      showNotification(`${t('auth_files.export_failed')}: ${message}`, 'error');
+    } finally {
+      setExportingConfig(false);
+    }
+  }, [codexFiles, showNotification, t]);
+
+  const handleSacExport = useCallback(() => {
+    if (isDesktopMode() && exportSacPackageInDesktopShell()) {
+      showNotification(t('auth_files.export_sac_requested'), 'info');
+      return;
+    }
+    showNotification(t('auth_files.desktop_bridge_required'), 'warning');
+  }, [showNotification, t]);
+
   const openExcludedEditor = useCallback(
     (_provider?: string) => {
       const providerValue = CODEX_PROVIDER_FILTER;
@@ -708,6 +841,23 @@ export function AuthFilesPage() {
               {t('auth_files.upload_button')}
             </Button>
             <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setImportModalOpen(true)}
+              disabled={disableControls || importingConfig}
+            >
+              {t('auth_files.import_config_button')}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleExportConfig()}
+              disabled={disableControls || exportingConfig}
+              loading={exportingConfig}
+            >
+              {t('auth_files.export_config_button')}
+            </Button>
+            <Button
               variant="danger"
               size="sm"
               onClick={() =>
@@ -908,6 +1058,48 @@ export function AuthFilesPage() {
         onRenameAlias={handleRenameAlias}
         onDeleteAlias={handleDeleteAlias}
       />
+
+      {importModalOpen && (
+        <div className={styles.importModalOverlay} onClick={() => setImportModalOpen(false)}>
+          <div className={styles.importModal} onClick={(event) => event.stopPropagation()}>
+            <div className={styles.importModalHeader}>
+              <div>
+                <h2>{t('auth_files.import_config_title')}</h2>
+                <p>{t('auth_files.import_config_desc')}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setImportModalOpen(false)}>
+                {t('common.close')}
+              </Button>
+            </div>
+            <textarea
+              className={styles.importJsonInput}
+              value={importJsonText}
+              onChange={(event) => setImportJsonText(event.currentTarget.value)}
+              placeholder={t('auth_files.import_json_placeholder')}
+            />
+            <div className={styles.importModalActions}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => void handleJsonImport()}
+                loading={importingConfig}
+                disabled={importingConfig}
+              >
+                {t('auth_files.import_json_button')}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleOtherCpaImport}>
+                {t('auth_files.import_cpa_button')}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleSacImport}>
+                {t('auth_files.import_sac_button')}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleSacExport}>
+                {t('auth_files.export_sac_button')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AuthFileModelsModal
         open={modelsModalOpen}

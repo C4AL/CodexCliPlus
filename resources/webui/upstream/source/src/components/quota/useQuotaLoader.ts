@@ -23,6 +23,20 @@ interface LoadQuotaResult<TData> {
   errorStatus?: number;
 }
 
+const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+const isTransientQuotaError = (err: unknown): boolean => {
+  const status = getStatusFromError(err);
+  if (typeof status === 'number') {
+    return TRANSIENT_STATUS_CODES.has(status);
+  }
+
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
+  return /network|timeout|timed?\s*out|temporar|connection|econn|aborted|failed to fetch/i.test(
+    message
+  );
+};
+
 export function useQuotaLoader<TState, TData>(config: QuotaConfig<TState, TData>) {
   const { t } = useTranslation();
   const quota = useQuotaStore(config.storeSelector);
@@ -58,7 +72,15 @@ export function useQuotaLoader<TState, TData>(config: QuotaConfig<TState, TData>
         const results = await Promise.all(
           targets.map(async (file): Promise<LoadQuotaResult<TData>> => {
             try {
-              const data = await config.fetchQuota(file, t);
+              let data: TData;
+              try {
+                data = await config.fetchQuota(file, t);
+              } catch (err: unknown) {
+                if (!isTransientQuotaError(err)) {
+                  throw err;
+                }
+                data = await config.fetchQuota(file, t);
+              }
               return { name: file.name, status: 'success', data };
             } catch (err: unknown) {
               const message = err instanceof Error ? err.message : t('common.unknown_error');

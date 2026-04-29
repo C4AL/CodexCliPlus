@@ -25,6 +25,7 @@ public sealed class AppPathService : IPathService
         var cacheDirectory = Path.Combine(rootDirectory, "cache");
         var diagnosticsDirectory = Path.Combine(rootDirectory, "diagnostics");
         var runtimeDirectory = Path.Combine(rootDirectory, "runtime");
+        var persistenceDirectory = ResolvePersistenceDirectory(rootDirectory);
 
         Directories = new AppDirectories(
             dataMode,
@@ -36,7 +37,8 @@ public sealed class AppPathService : IPathService
             diagnosticsDirectory,
             runtimeDirectory,
             Path.Combine(configDirectory, AppConstants.AppSettingsFileName),
-            Path.Combine(configDirectory, AppConstants.BackendConfigFileName)
+            Path.Combine(configDirectory, AppConstants.BackendConfigFileName),
+            persistenceDirectory
         );
     }
 
@@ -53,6 +55,7 @@ public sealed class AppPathService : IPathService
         Directory.CreateDirectory(Directories.CacheDirectory);
         Directory.CreateDirectory(Directories.DiagnosticsDirectory);
         Directory.CreateDirectory(Directories.RuntimeDirectory);
+        Directory.CreateDirectory(Directories.PersistenceDirectory);
         TryMigrateLegacyLocalAppDataConfiguration();
 
         return Task.CompletedTask;
@@ -83,6 +86,37 @@ public sealed class AppPathService : IPathService
         return repositoryRoot is null
             ? Path.Combine(AppContext.BaseDirectory, "artifacts", "dev-data")
             : Path.Combine(repositoryRoot, "artifacts", "dev-data");
+    }
+
+    private static string ResolvePersistenceDirectory(string rootDirectory)
+    {
+        var preferredDirectory = Path.Combine(rootDirectory, "persistence");
+        if (CanCreateProbeFile(preferredDirectory))
+        {
+            return preferredDirectory;
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            AppConstants.ProductKey,
+            "persistence"
+        );
+    }
+
+    private static bool CanCreateProbeFile(string directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var probePath = Path.Combine(directory, ".write-test");
+            File.WriteAllText(probePath, string.Empty);
+            File.Delete(probePath);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string? TryResolveRepositoryRoot()

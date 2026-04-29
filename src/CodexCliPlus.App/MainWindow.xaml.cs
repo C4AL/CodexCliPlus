@@ -16,6 +16,7 @@ using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Abstractions.Paths;
+using CodexCliPlus.Core.Abstractions.Persistence;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
@@ -34,7 +35,6 @@ using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
-using WpfFontFamily = System.Windows.Media.FontFamily;
 
 namespace CodexCliPlus;
 
@@ -65,13 +65,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
     private const double NavigationDockRestingWidth = 56;
-    private const double NavigationDockIconsWidth = 110;
-    private const double NavigationDockExpandedWidth = 264;
+    private const double NavigationDockEdgeIntentWidth = 8;
+    private const double NavigationDockIconsWidth = 92;
+    private const double NavigationDockExpandedWidth = 244;
     private const double NavigationDockPanelIconsWidth = 58;
-    private const double NavigationDockPanelExpandedWidth = 208;
+    private const double NavigationDockPanelExpandedWidth = 188;
     private const double NavigationDockPanelRestingHeight = 132;
-    private const double NavigationDockPanelOpenHeight = 346;
-    private const double NavigationDockLabelExpandedWidth = 124;
+    private const double NavigationDockPanelOpenHeight = 392;
+    private const double NavigationDockLabelExpandedWidth = 112;
+    private const double NavigationDockMeasuredLabelWidthLimit = 118;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         2500
     );
@@ -90,8 +92,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly ISecureCredentialStore _credentialStore;
     private readonly IBuildInfo _buildInfo;
     private readonly IUpdateCheckService _updateCheckService;
+    private readonly IUpdateInstallerService _updateInstallerService;
+    private readonly IManagementPersistenceService _persistenceService;
     private readonly IManagementOverviewService _managementOverviewService;
     private readonly IManagementConfigurationService _managementConfigurationService;
+    private readonly IManagementAuthService _managementAuthService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
 
@@ -132,8 +137,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ISecureCredentialStore credentialStore,
         IBuildInfo buildInfo,
         IUpdateCheckService updateCheckService,
+        IUpdateInstallerService updateInstallerService,
+        IManagementPersistenceService persistenceService,
         IManagementOverviewService managementOverviewService,
         IManagementConfigurationService managementConfigurationService,
+        IManagementAuthService managementAuthService,
         WebUiAssetLocator webUiAssetLocator,
         ShellNotificationService notificationService
     )
@@ -147,8 +155,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _credentialStore = credentialStore;
         _buildInfo = buildInfo;
         _updateCheckService = updateCheckService;
+        _updateInstallerService = updateInstallerService;
+        _persistenceService = persistenceService;
         _managementOverviewService = managementOverviewService;
         _managementConfigurationService = managementConfigurationService;
+        _managementAuthService = managementAuthService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
 
@@ -204,8 +215,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
-    private void Window_Closed(object? sender, EventArgs e)
+    private async void Window_Closed(object? sender, EventArgs e)
     {
+        await SyncPersistenceBeforeExitAsync();
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -=
             ShellNotificationService_NotificationRequested;
@@ -268,6 +280,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             e.Cancel = true;
             HideToTray();
         }
+    }
+
+    private void Window_PlacementChanged(object? sender, EventArgs e)
+    {
+        PositionSettingsWindow();
+        RefreshNavigationDockPopupPlacement();
     }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
@@ -565,6 +583,102 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
+    private async void SettingsCheckUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsCheckUpdateButton.IsEnabled = false;
+        SettingsApplyUpdateButton.IsEnabled = false;
+        SettingsUpdateProgressBar.Visibility = Visibility.Collapsed;
+        SettingsUpdateStatusText.Text = "正在检查更新。";
+        try
+        {
+            var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
+            SettingsUpdateStatusText.Text = result.IsUpdateAvailable
+                ? $"发现新版本：{result.LatestVersion ?? "未知"}。"
+                : $"当前版本：{CurrentApplicationVersion}。{result.Status}";
+            SettingsApplyUpdateButton.Tag = result;
+            SettingsApplyUpdateButton.IsEnabled = _updateInstallerService.CanPrepareInstaller(
+                result
+            );
+            if (result.IsUpdateAvailable && !SettingsApplyUpdateButton.IsEnabled)
+            {
+                SettingsUpdateStatusText.Text = "发现新版本，但未找到可应用的离线更新包。";
+            }
+
+            _notificationService.ShowAuto(
+                result.IsUpdateAvailable ? "发现新版本。" : "当前已是最新版本。"
+            );
+        }
+        catch (Exception exception)
+        {
+            SettingsUpdateStatusText.Text = $"检查更新失败：{exception.Message}";
+            _notificationService.ShowManual("检查更新失败", exception.Message);
+        }
+        finally
+        {
+            SettingsCheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private async void SettingsApplyUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsApplyUpdateButton.IsEnabled = false;
+        SettingsCheckUpdateButton.IsEnabled = false;
+        SettingsUpdateProgressBar.Visibility = Visibility.Visible;
+        SettingsUpdateProgressBar.IsIndeterminate = true;
+
+        try
+        {
+            var result = SettingsApplyUpdateButton.Tag as UpdateCheckResult;
+            if (result is null || !_updateInstallerService.CanPrepareInstaller(result))
+            {
+                SettingsUpdateStatusText.Text = "正在重新检查更新。";
+                result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
+                SettingsApplyUpdateButton.Tag = result;
+            }
+
+            if (!_updateInstallerService.CanPrepareInstaller(result))
+            {
+                SettingsUpdateStatusText.Text = "没有可应用的更新包。";
+                _notificationService.ShowManual(
+                    "应用更新失败",
+                    "当前更新结果不包含可应用的离线更新包。"
+                );
+                return;
+            }
+
+            SettingsUpdateStatusText.Text = "正在下载并校验更新包。";
+            var preparedInstaller = await _updateInstallerService.DownloadInstallerAsync(result);
+            SettingsUpdateStatusText.Text = "正在启动独立更新程序。";
+            await SyncPersistenceBeforeExitAsync();
+            await _updateInstallerService.LaunchInstallerAsync(preparedInstaller);
+            _allowClose = true;
+            TrayIcon.Unregister();
+            await _backendProcessManager.StopAsync();
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception exception)
+        {
+            SettingsUpdateStatusText.Text = $"应用更新失败：{exception.Message}";
+            _notificationService.ShowManual("应用更新失败", exception.Message);
+        }
+        finally
+        {
+            SettingsUpdateProgressBar.Visibility = Visibility.Collapsed;
+            SettingsCheckUpdateButton.IsEnabled = true;
+            if (SettingsApplyUpdateButton.Tag is UpdateCheckResult result)
+            {
+                SettingsApplyUpdateButton.IsEnabled = _updateInstallerService.CanPrepareInstaller(
+                    result
+                );
+            }
+        }
+    }
+
+    private void SettingsClearUsageButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = ClearUsageStatsAsync();
+    }
+
     private void HideToTrayButton_Click(object sender, RoutedEventArgs e)
     {
         HideToTray();
@@ -627,8 +741,436 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         _allowClose = true;
         TrayIcon.Unregister();
+        await SyncPersistenceBeforeExitAsync();
         await _backendProcessManager.StopAsync();
         Close();
+    }
+
+    private async Task ClearUsageStatsAsync()
+    {
+        SettingsClearUsageButton.IsEnabled = false;
+        try
+        {
+            await _persistenceService.ClearUsageSnapshotAsync();
+            PostWebUiCommand(new { type = "clearUsageStats" });
+            _notificationService.ShowAuto("使用统计已清除。");
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("清除统计失败", exception.Message);
+        }
+        finally
+        {
+            SettingsClearUsageButton.IsEnabled = true;
+        }
+    }
+
+    private async Task ImportAccountConfigAsync(string? mode)
+    {
+        if (string.Equals(mode, "sac", StringComparison.OrdinalIgnoreCase))
+        {
+            await ImportSacPackageAsync();
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "导入账号配置",
+            Filter =
+                "账号配置|*.json;*.yaml;*.yml;*.sac|JSON 配置|*.json|YAML 配置|*.yaml;*.yml|安全包|*.sac",
+            Multiselect = false,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        var extension = Path.GetExtension(dialog.FileName);
+        if (string.Equals(extension, ".sac", StringComparison.OrdinalIgnoreCase))
+        {
+            await ImportSacPackageFromPathAsync(dialog.FileName);
+            return;
+        }
+
+        try
+        {
+            if (
+                string.Equals(extension, ".yaml", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".yml", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                if (!ConfirmAccountConfigImport())
+                {
+                    return;
+                }
+
+                var yaml = await File.ReadAllTextAsync(dialog.FileName);
+                await _managementConfigurationService.PutConfigYamlAsync(yaml);
+                _notificationService.ShowAuto("账号配置已导入。");
+                PostWebUiCommand(new { type = "refreshAll" });
+                return;
+            }
+
+            if (!ConfirmAccountConfigImport())
+            {
+                return;
+            }
+
+            var payload = await SecureAccountPackageService.ReadPlainPackageAsync(dialog.FileName);
+            await ApplyAccountPackagePayloadAsync(payload);
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("导入配置失败", exception.Message);
+        }
+    }
+
+    private async Task ExportAccountConfigAsync(string? mode)
+    {
+        if (string.Equals(mode, "sac", StringComparison.OrdinalIgnoreCase))
+        {
+            await ExportSacPackageAsync();
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "导出账号配置",
+            Filter = "JSON 配置|*.json",
+            FileName = $"CodexCliPlus.AccountConfig.{DateTimeOffset.Now:yyyyMMddHHmmss}.json",
+            AddExtension = true,
+            DefaultExt = ".json",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var payload = await BuildAccountPackagePayloadAsync();
+            await SecureAccountPackageService.WritePlainPackageAsync(payload, dialog.FileName);
+            _notificationService.ShowAuto("账号配置已导出。");
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("导出配置失败", exception.Message);
+        }
+    }
+
+    private async Task ImportSacPackageAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "导入安全包",
+            Filter = "安全包|*.sac",
+            Multiselect = false,
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        await ImportSacPackageFromPathAsync(dialog.FileName);
+    }
+
+    private async Task ImportSacPackageFromPathAsync(string packagePath)
+    {
+        var password = ShowPasswordPrompt(
+            "导入安全包",
+            "输入安全包密码以解密账号配置。",
+            confirmPassword: false
+        );
+        if (password is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!ConfirmAccountConfigImport())
+            {
+                return;
+            }
+
+            var payload = await SecureAccountPackageService.ReadEncryptedPackageAsync(
+                packagePath,
+                password
+            );
+            await ApplyAccountPackagePayloadAsync(payload);
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("导入安全包失败", exception.Message);
+        }
+    }
+
+    private async Task ExportSacPackageAsync()
+    {
+        var password = ShowPasswordPrompt(
+            "导出安全包",
+            "设置安全包密码。密码不会被保存，丢失后无法恢复。",
+            confirmPassword: true
+        );
+        if (password is null)
+        {
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "导出安全包",
+            Filter = "安全包|*.sac",
+            FileName = $"CodexCliPlus.AccountConfig.{DateTimeOffset.Now:yyyyMMddHHmmss}.sac",
+            AddExtension = true,
+            DefaultExt = ".sac",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var payload = await BuildAccountPackagePayloadAsync();
+            await SecureAccountPackageService.WriteEncryptedPackageAsync(
+                payload,
+                password,
+                dialog.FileName
+            );
+            _notificationService.ShowAuto("安全包已导出。");
+        }
+        catch (Exception exception)
+        {
+            _notificationService.ShowManual("导出安全包失败", exception.Message);
+        }
+    }
+
+    private async Task<SecureAccountPackagePayload> BuildAccountPackagePayloadAsync()
+    {
+        var configYaml = await _managementConfigurationService.GetConfigYamlAsync();
+        var authFiles = await _managementAuthService.GetAuthFilesAsync();
+        var excludedModels = await _managementAuthService.GetOAuthExcludedModelsAsync();
+        var modelAliases = await _managementAuthService.GetOAuthModelAliasesAsync();
+        var payload = new SecureAccountPackagePayload
+        {
+            ConfigYaml = configYaml.Value,
+            OAuthExcludedModels = excludedModels.Value.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ToList(),
+                StringComparer.OrdinalIgnoreCase
+            ),
+            OAuthModelAliases = modelAliases.Value.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ToList(),
+                StringComparer.OrdinalIgnoreCase
+            ),
+        };
+
+        foreach (var file in authFiles.Value)
+        {
+            if (string.IsNullOrWhiteSpace(file.Name) || file.RuntimeOnly || file.Unavailable)
+            {
+                continue;
+            }
+
+            var content = await _managementAuthService.DownloadAuthFileAsync(file.Name);
+            payload.AuthFiles.Add(
+                new SecureAccountPackageAuthFile { Name = file.Name, Content = content.Value }
+            );
+        }
+
+        return payload;
+    }
+
+    private async Task ApplyAccountPackagePayloadAsync(SecureAccountPackagePayload payload)
+    {
+        if (!string.IsNullOrWhiteSpace(payload.ConfigYaml))
+        {
+            await _managementConfigurationService.PutConfigYamlAsync(payload.ConfigYaml);
+        }
+
+        if (payload.AuthFiles.Count > 0)
+        {
+            var files = payload
+                .AuthFiles.Where(file =>
+                    !string.IsNullOrWhiteSpace(file.Name)
+                    && !string.IsNullOrWhiteSpace(file.Content)
+                )
+                .Select(file => new ManagementAuthFileUpload
+                {
+                    FileName = file.Name,
+                    Content = Encoding.UTF8.GetBytes(file.Content),
+                    ContentType = "application/json",
+                })
+                .ToArray();
+            await _managementAuthService.UploadAuthFilesAsync(files);
+        }
+
+        if (payload.OAuthExcludedModels.Count > 0)
+        {
+            await _managementAuthService.ReplaceOAuthExcludedModelsAsync(
+                payload.OAuthExcludedModels.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<string>)pair.Value,
+                    StringComparer.OrdinalIgnoreCase
+                )
+            );
+        }
+
+        if (payload.OAuthModelAliases.Count > 0)
+        {
+            await _managementAuthService.ReplaceOAuthModelAliasesAsync(
+                payload.OAuthModelAliases.ToDictionary(
+                    pair => pair.Key,
+                    pair => (IReadOnlyList<ManagementOAuthModelAliasEntry>)pair.Value,
+                    StringComparer.OrdinalIgnoreCase
+                )
+            );
+        }
+
+        PostWebUiCommand(new { type = "refreshAll" });
+        _notificationService.ShowAuto("账号配置已导入。");
+    }
+
+    private bool ConfirmAccountConfigImport()
+    {
+        return MessageBox.Show(
+                this,
+                "导入会覆盖当前账号配置，并写入认证文件与 OAuth 相关配置。是否继续？",
+                "导入账号配置",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning
+            ) == MessageBoxResult.OK;
+    }
+
+    private string? ShowPasswordPrompt(string title, string message, bool confirmPassword)
+    {
+        var passwordBox = new PasswordBox { MinWidth = 280 };
+        var confirmBox = new PasswordBox { MinWidth = 280 };
+        var errorText = new TextBlock
+        {
+            Foreground = System.Windows.Media.Brushes.Firebrick,
+            Margin = new Thickness(0, 8, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            Visibility = Visibility.Collapsed,
+        };
+        var okButton = new WpfButton
+        {
+            Content = "确认",
+            Width = 86,
+            Height = 32,
+            IsDefault = true,
+        };
+        var content = BuildPasswordPromptContent(
+            message,
+            passwordBox,
+            confirmBox,
+            errorText,
+            okButton,
+            confirmPassword
+        );
+        var window = new Window
+        {
+            Owner = this,
+            Title = title,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            Background = System.Windows.Media.Brushes.White,
+            Content = content,
+        };
+
+        okButton.Click += (_, _) =>
+        {
+            var password = passwordBox.Password;
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                errorText.Text = "密码不能为空。";
+                errorText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (
+                confirmPassword
+                && !string.Equals(password, confirmBox.Password, StringComparison.Ordinal)
+            )
+            {
+                errorText.Text = "两次输入的密码不一致。";
+                errorText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            window.DialogResult = true;
+        };
+
+        passwordBox.Focus();
+        return window.ShowDialog() == true ? passwordBox.Password : null;
+    }
+
+    private static StackPanel BuildPasswordPromptContent(
+        string message,
+        PasswordBox passwordBox,
+        PasswordBox confirmBox,
+        TextBlock errorText,
+        WpfButton okButton,
+        bool confirmPassword
+    )
+    {
+        var root = new StackPanel { Margin = new Thickness(22), Width = 360 };
+        root.Children.Add(
+            new TextBlock
+            {
+                Text = message,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 14),
+            }
+        );
+        root.Children.Add(new TextBlock { Text = "密码", Margin = new Thickness(0, 0, 0, 6) });
+        root.Children.Add(passwordBox);
+
+        if (confirmPassword)
+        {
+            root.Children.Add(
+                new TextBlock { Text = "确认密码", Margin = new Thickness(0, 12, 0, 6) }
+            );
+            root.Children.Add(confirmBox);
+        }
+
+        root.Children.Add(errorText);
+
+        var buttons = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0),
+        };
+        var cancelButton = new WpfButton
+        {
+            Content = "取消",
+            Width = 86,
+            Height = 32,
+            IsCancel = true,
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        buttons.Children.Add(cancelButton);
+        buttons.Children.Add(okButton);
+        root.Children.Add(buttons);
+        return root;
+    }
+
+    private async Task SyncPersistenceBeforeExitAsync()
+    {
+        try
+        {
+            await _persistenceService.SyncUsageSnapshotAsync();
+            await _persistenceService.SyncLogsSnapshotAsync();
+        }
+        catch { }
     }
 
     private void DragRegion_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -948,6 +1490,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowPreparationStep("核心启动", 72, "正在启动本地后端。", StartupState.Preparing);
             var connection = await _sessionService.GetConnectionAsync();
 
+            ShowPreparationStep("统计同步", 82, "正在同步本地统计快照。", StartupState.Preparing);
+            await _persistenceService.ImportNewerUsageSnapshotAsync();
+
             ShowPreparationStep("健康检查", 86, "本地后端健康检查已通过。", StartupState.Preparing);
             var payload = new DesktopBootstrapPayload
             {
@@ -972,6 +1517,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             await EnsureWebViewAsync(bundle, payload);
             await EnsureMinimumPreparationDisplayAsync();
             ShowWebView();
+            _ = _persistenceService.SyncUsageSnapshotAsync();
         }
         catch (WebView2RuntimeNotFoundException exception)
         {
@@ -1191,13 +1737,65 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                         && activeElement.ValueKind is JsonValueKind.True;
                     if (navigationHoverZoneActive)
                     {
-                        ExpandNavigationDock(showLabels: false);
+                        ShowNavigationDockIconsFromEdgeIntent();
                     }
                     else
                     {
                         CollapseNavigationDockWithDelay(shortDelay: false);
                     }
 
+                    break;
+
+                case "importAccountConfig":
+                    var importMode =
+                        root.TryGetProperty("mode", out var importModeElement)
+                        && importModeElement.ValueKind == JsonValueKind.String
+                            ? importModeElement.GetString()
+                            : "json";
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await ImportAccountConfigAsync(importMode)
+                    );
+                    break;
+
+                case "exportAccountConfig":
+                    var exportMode =
+                        root.TryGetProperty("mode", out var exportModeElement)
+                        && exportModeElement.ValueKind == JsonValueKind.String
+                            ? exportModeElement.GetString()
+                            : "json";
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await ExportAccountConfigAsync(exportMode)
+                    );
+                    break;
+
+                case "importSacPackage":
+                    _ = Dispatcher.InvokeAsync(async () => await ImportSacPackageAsync());
+                    break;
+
+                case "exportSacPackage":
+                    _ = Dispatcher.InvokeAsync(async () => await ExportSacPackageAsync());
+                    break;
+
+                case "clearUsageStats":
+                    _ = Dispatcher.InvokeAsync(async () => await ClearUsageStatsAsync());
+                    break;
+
+                case "checkDesktopUpdate":
+                    Dispatcher.InvokeAsync(() =>
+                        SettingsCheckUpdateButton_Click(
+                            SettingsCheckUpdateButton,
+                            new RoutedEventArgs()
+                        )
+                    );
+                    break;
+
+                case "applyDesktopUpdate":
+                    Dispatcher.InvokeAsync(() =>
+                        SettingsApplyUpdateButton_Click(
+                            SettingsApplyUpdateButton,
+                            new RoutedEventArgs()
+                        )
+                    );
                     break;
             }
         }
@@ -1420,6 +2018,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
+    private void RefreshNavigationDockPopupPlacement()
+    {
+        if (!ShellNavigationDockPopup.IsOpen)
+        {
+            return;
+        }
+
+        ShellNavigationDockPopup.IsOpen = false;
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (ManagementWebView.Visibility == Visibility.Visible && !_settingsOverlayOpen)
+                {
+                    ShellNavigationDockPopup.IsOpen = true;
+                }
+            },
+            DispatcherPriority.Background
+        );
+    }
+
     private void UpdateShellConnectionPresentation()
     {
         UpdateShellDockPresentation();
@@ -1564,12 +2182,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("ShellDockGlassBrush", "#D01E242D");
             SetBrushResource("ShellDockGlassBorderBrush", "#55FFFFFF");
             SetBrushResource("ShellDockGlassHighlightBrush", "#75FFFFFF");
-            SetBrushResource("NavigationDockPanelBrush", "#D01E242D");
-            SetBrushResource("NavigationDockBorderBrush", "#55FFFFFF");
-            SetBrushResource("NavigationDockInnerHighlightBrush", "#66FFFFFF");
-            SetBrushResource("NavigationDockRailBrush", "#F22DD4BF");
-            SetBrushResource("NavigationDockRailTrackBrush", "#2438BDF8");
-            SetBrushResource("NavigationDockButtonHoverBrush", "#2438BDF8");
+            SetBrushResource("NavigationDockPanelBrush", "#E61B2028");
+            SetBrushResource("NavigationDockBorderBrush", "#60707A86");
+            SetBrushResource("NavigationDockInnerHighlightBrush", "#3DFFFFFF");
+            SetBrushResource("NavigationDockRailBrush", "#E68A96A3");
+            SetBrushResource("NavigationDockRailTrackBrush", "#3039434F");
+            SetBrushResource("NavigationDockButtonHoverBrush", "#34343C46");
         }
         else
         {
@@ -1584,12 +2202,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             SetBrushResource("ShellDockGlassBrush", "#EAF8FAFC");
             SetBrushResource("ShellDockGlassBorderBrush", "#BFFFFFFF");
             SetBrushResource("ShellDockGlassHighlightBrush", "#FFFFFFFF");
-            SetBrushResource("NavigationDockPanelBrush", "#EAF8FAFC");
-            SetBrushResource("NavigationDockBorderBrush", "#BFFFFFFF");
+            SetBrushResource("NavigationDockPanelBrush", "#F2F8FAFC");
+            SetBrushResource("NavigationDockBorderBrush", "#A6CBD5E1");
             SetBrushResource("NavigationDockInnerHighlightBrush", "#FFFFFFFF");
-            SetBrushResource("NavigationDockRailBrush", "#EA14B8A6");
-            SetBrushResource("NavigationDockRailTrackBrush", "#320F766E");
-            SetBrushResource("NavigationDockButtonHoverBrush", "#2A14B8A6");
+            SetBrushResource("NavigationDockRailBrush", "#D9707884");
+            SetBrushResource("NavigationDockRailTrackBrush", "#35CBD5E1");
+            SetBrushResource("NavigationDockButtonHoverBrush", "#E6E9EEF5");
         }
     }
 
@@ -1649,7 +2267,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
-        ExpandNavigationDock(showLabels: false);
+        if (IsPointerInDockEdgeIntent(e))
+        {
+            ShowNavigationDockIconsFromEdgeIntent();
+        }
     }
 
     private void ShellNavigationDockHost_MouseMove(
@@ -1657,7 +2278,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         System.Windows.Input.MouseEventArgs e
     )
     {
-        ExpandNavigationDock(showLabels: ShellNavigationPanel.IsMouseOver);
+        if (_navigationDockState == NavigationDockVisualState.Expanded)
+        {
+            return;
+        }
+
+        if (_navigationDockState == NavigationDockVisualState.Icons || IsPointerInDockEdgeIntent(e))
+        {
+            ExpandNavigationDock(showLabels: ShellNavigationPanel.IsMouseOver);
+        }
     }
 
     private void ShellNavigationPanel_MouseEnter(
@@ -1707,6 +2336,36 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         );
     }
 
+    private void ShowNavigationDockIconsFromEdgeIntent()
+    {
+        if (_settingsOverlayOpen || ManagementWebView.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        ExpandNavigationDock(showLabels: false);
+    }
+
+    private static bool IsPointerInputActive()
+    {
+        return Mouse.LeftButton == MouseButtonState.Pressed
+            || Mouse.RightButton == MouseButtonState.Pressed
+            || Mouse.MiddleButton == MouseButtonState.Pressed
+            || Mouse.XButton1 == MouseButtonState.Pressed
+            || Mouse.XButton2 == MouseButtonState.Pressed;
+    }
+
+    private bool IsPointerInDockEdgeIntent(System.Windows.Input.MouseEventArgs e)
+    {
+        if (IsPointerInputActive())
+        {
+            return false;
+        }
+
+        var point = e.GetPosition(ShellNavigationDockHost);
+        return point.X >= 0 && point.X <= NavigationDockEdgeIntentWidth;
+    }
+
     private void CollapseNavigationDockWithDelay(bool shortDelay)
     {
         _navigationDockCollapseTimer.Stop();
@@ -1727,23 +2386,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         _navigationDockState = state;
+        var expandedLabelWidth = ResolveNavigationDockLabelExpandedWidth();
+        var panelExpandedWidth = NavigationDockPanelIconsWidth + expandedLabelWidth + 20;
+        var hostExpandedWidth = Math.Min(NavigationDockExpandedWidth, panelExpandedWidth + 54);
         var hostWidth = state switch
         {
-            NavigationDockVisualState.Expanded => NavigationDockExpandedWidth,
+            NavigationDockVisualState.Expanded => hostExpandedWidth,
             NavigationDockVisualState.Icons => NavigationDockIconsWidth,
             _ => NavigationDockRestingWidth,
         };
         var panelWidth =
             state == NavigationDockVisualState.Expanded
-                ? NavigationDockPanelExpandedWidth
+                ? Math.Min(NavigationDockPanelExpandedWidth, panelExpandedWidth)
                 : NavigationDockPanelIconsWidth;
         var panelHeight =
             state == NavigationDockVisualState.Resting
                 ? NavigationDockPanelRestingHeight
                 : NavigationDockPanelOpenHeight;
         var panelOpacity = state == NavigationDockVisualState.Resting ? 0 : 1;
-        var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0.38;
-        var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0.12;
+        var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0;
+        var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0;
         var panelOffset = state == NavigationDockVisualState.Resting ? -6 : 0;
         var duration = state == NavigationDockVisualState.Resting ? 130 : 240;
         var panelDuration = state == NavigationDockVisualState.Resting ? 110 : 210;
@@ -1814,6 +2476,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ApplyNavigationDockLabelState(bool expanded, int durationMilliseconds)
     {
+        var expandedLabelWidth = ResolveNavigationDockLabelExpandedWidth();
         foreach (var button in ShellNavigationItemsHost.Children.OfType<WpfButton>())
         {
             button.HorizontalContentAlignment = expanded
@@ -1828,7 +2491,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             {
                 label.BeginAnimation(FrameworkElement.WidthProperty, null);
                 label.BeginAnimation(UIElement.OpacityProperty, null);
-                label.Width = expanded ? NavigationDockLabelExpandedWidth : 0;
+                label.Width = expanded ? expandedLabelWidth : 0;
                 label.Opacity = expanded ? 1 : 0;
                 continue;
             }
@@ -1836,7 +2499,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             label.BeginAnimation(
                 FrameworkElement.WidthProperty,
                 new DoubleAnimation(
-                    expanded ? NavigationDockLabelExpandedWidth : 0,
+                    expanded ? expandedLabelWidth : 0,
                     new Duration(TimeSpan.FromMilliseconds(durationMilliseconds))
                 )
                 {
@@ -1856,12 +2519,35 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
+    private double ResolveNavigationDockLabelExpandedWidth()
+    {
+        var maxWidth = 0d;
+        foreach (var label in FindVisualChildren<TextBlock>(ShellNavigationItemsHost))
+        {
+            label.Measure(
+                new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity)
+            );
+            maxWidth = Math.Max(maxWidth, label.DesiredSize.Width);
+        }
+
+        if (maxWidth <= 0)
+        {
+            return NavigationDockLabelExpandedWidth;
+        }
+
+        return Math.Min(
+            NavigationDockMeasuredLabelWidthLimit,
+            Math.Max(NavigationDockLabelExpandedWidth, Math.Ceiling(maxWidth) + 4)
+        );
+    }
+
     private void UpdateNavigationActiveState()
     {
         foreach (
             var button in new[]
             {
                 ShellNavDashboardButton,
+                ShellNavConsoleButton,
                 ShellNavConfigButton,
                 ShellNavAccountButton,
                 ShellNavAuthFilesButton,
@@ -2222,6 +2908,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private void UpdateSettingsOverlayBaseline()
     {
         UpdateShellThemePresentation();
+        var persistence = _persistenceService.GetStatus();
+        var fallbackSuffix = persistence.UsesFallbackDirectory
+            ? "持久化目录已降级到可写应用数据目录。"
+            : "持久化目录使用安装目录。";
+        SettingsUpdateStatusText.Text = $"当前版本：{CurrentApplicationVersion}。{fallbackSuffix}";
     }
 
     private string ShellConnectionStatusLabel =>
@@ -2285,11 +2976,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private Border CreateNotificationCard(string message, string? title, bool showCloseButton)
     {
+        var accent = ResolveNotificationAccent(title, showCloseButton);
         var progress = new Border
         {
-            Height = 3,
+            Height = 2,
             HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
-            Background = new SolidColorBrush(WpfColor.FromRgb(37, 99, 235)),
+            Background = new SolidColorBrush(accent),
         };
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             progress,
@@ -2301,15 +2993,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var contentGrid = new Grid { Margin = new Thickness(14, 12, 14, 12) };
+        contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        contentGrid.ColumnDefinitions.Add(
+            new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+        );
         if (showCloseButton)
         {
-            contentGrid.ColumnDefinitions.Add(
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
-            );
             contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
 
+        var iconText = new TextBlock
+        {
+            Text = showCloseButton ? "!" : "✓",
+            Width = 26,
+            Height = 26,
+            Margin = new Thickness(0, 1, 10, 0),
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(accent),
+            Background = new SolidColorBrush(WpfColor.FromArgb(0x18, accent.R, accent.G, accent.B)),
+        };
+        contentGrid.Children.Add(iconText);
+
         var textStack = new StackPanel();
+        Grid.SetColumn(textStack, 1);
         if (!string.IsNullOrWhiteSpace(title))
         {
             textStack.Children.Add(
@@ -2345,15 +3054,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             var closeButton = new WpfButton
             {
-                Content = "\uE711",
-                Width = 30,
-                Height = 30,
+                Content = "×",
+                Width = 28,
+                Height = 28,
                 Padding = new Thickness(0),
                 Margin = new Thickness(10, -4, -6, 0),
-                FontFamily = new WpfFontFamily("Segoe MDL2 Assets"),
                 ToolTip = "关闭",
             };
-            Grid.SetColumn(closeButton, 1);
+            Grid.SetColumn(closeButton, 2);
             contentGrid.Children.Add(closeButton);
         }
 
@@ -2370,9 +3078,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             CornerRadius = new CornerRadius(10),
             Effect = new DropShadowEffect
             {
-                BlurRadius = 16,
+                BlurRadius = 18,
                 Direction = 270,
-                Color = WpfColor.FromArgb(0x10, 0, 0, 0),
+                Color = WpfColor.FromArgb(0x22, accent.R, accent.G, accent.B),
                 Opacity = 1,
                 ShadowDepth = 2,
             },
@@ -2403,6 +3111,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         return card;
+    }
+
+    private static WpfColor ResolveNotificationAccent(string? title, bool manual)
+    {
+        if (
+            manual
+            && (
+                title?.Contains("失败", StringComparison.Ordinal) == true
+                || title?.Contains("错误", StringComparison.Ordinal) == true
+                || title?.Contains("不可用", StringComparison.Ordinal) == true
+            )
+        )
+        {
+            return WpfColor.FromRgb(225, 29, 72);
+        }
+
+        return manual ? WpfColor.FromRgb(245, 158, 11) : WpfColor.FromRgb(20, 184, 166);
     }
 
     private static void AnimateNotificationIn(Border card)

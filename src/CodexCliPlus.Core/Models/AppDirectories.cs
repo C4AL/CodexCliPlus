@@ -12,7 +12,8 @@ public sealed record AppDirectories(
     string DiagnosticsDirectory,
     string RuntimeDirectory,
     string SettingsFilePath,
-    string BackendConfigFilePath
+    string BackendConfigFilePath,
+    string PersistenceDirectory = ""
 )
 {
     public AppDirectories(
@@ -34,8 +35,19 @@ public sealed record AppDirectories(
             Path.Combine(rootDirectory, "diagnostics"),
             Path.Combine(rootDirectory, "runtime"),
             settingsFilePath,
-            backendConfigFilePath
+            backendConfigFilePath,
+            Path.Combine(rootDirectory, "persistence")
         ) { }
 
     public string DesktopConfigFilePath => SettingsFilePath;
+
+    public bool UsesPersistenceFallback =>
+        !string.IsNullOrWhiteSpace(PersistenceDirectory)
+        && !Path.GetFullPath(PersistenceDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Equals(
+                Path.GetFullPath(Path.Combine(RootDirectory, "persistence"))
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase
+            );
 }

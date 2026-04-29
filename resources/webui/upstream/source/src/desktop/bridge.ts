@@ -24,7 +24,8 @@ export type DesktopShellCommand =
   | { type: 'refreshAll' }
   | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
   | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
-  | { type: 'navigate'; path: string };
+  | { type: 'navigate'; path: string }
+  | { type: 'clearUsageStats' };
 
 interface DesktopBridge {
   isDesktopMode?: () => boolean;
@@ -32,6 +33,13 @@ interface DesktopBridge {
   openExternal?: (url: string) => void;
   requestNativeLogin?: (message?: string) => void;
   shellStateChanged?: (state: DesktopShellState) => void;
+  importAccountConfig?: (mode?: string) => void;
+  exportAccountConfig?: (mode?: string) => void;
+  importSacPackage?: () => void;
+  exportSacPackage?: () => void;
+  clearUsageStats?: () => void;
+  checkDesktopUpdate?: () => void;
+  applyDesktopUpdate?: () => void;
 }
 
 declare global {
@@ -124,6 +132,10 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
       type: 'navigate',
       path: path || '/',
     };
+  }
+
+  if (record.type === 'clearUsageStats') {
+    return { type: 'clearUsageStats' };
   }
 
   return null;
@@ -230,6 +242,50 @@ export function sendShellStateChanged(state: DesktopShellState): boolean {
     console.warn('Failed to send desktop shell state.', error);
     return false;
   }
+}
+
+function invokeDesktopBridgeAction(name: keyof DesktopBridge, ...args: string[]): boolean {
+  const bridge = getBridge();
+  const action = bridge?.[name];
+  if (typeof action !== 'function') {
+    return false;
+  }
+
+  try {
+    (action as (...values: string[]) => void)(...args);
+    return true;
+  } catch (error) {
+    console.warn(`Failed to invoke desktop bridge action '${String(name)}'.`, error);
+    return false;
+  }
+}
+
+export function importAccountConfigInDesktopShell(mode: 'json' | 'cpa' = 'json'): boolean {
+  return invokeDesktopBridgeAction('importAccountConfig', mode);
+}
+
+export function exportAccountConfigInDesktopShell(mode: 'json' | 'sac' = 'json'): boolean {
+  return invokeDesktopBridgeAction('exportAccountConfig', mode);
+}
+
+export function importSacPackageInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('importSacPackage');
+}
+
+export function exportSacPackageInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('exportSacPackage');
+}
+
+export function clearUsageStatsInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('clearUsageStats');
+}
+
+export function checkDesktopUpdateInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('checkDesktopUpdate');
+}
+
+export function applyDesktopUpdateInDesktopShell(): boolean {
+  return invokeDesktopBridgeAction('applyDesktopUpdate');
 }
 
 export function subscribeDesktopShellCommand(

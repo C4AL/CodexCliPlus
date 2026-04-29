@@ -304,8 +304,8 @@ public sealed class SmokeTests
                           "published_at": "2026-04-23T00:00:00Z",
                           "assets": [
                             {
-                              "name": "CodexCliPlus.Setup.Online.1.2.3.exe",
-                              "browser_download_url": "https://example.test/CodexCliPlus.Setup.Online.1.2.3.exe",
+                              "name": "CodexCliPlus.Update.1.2.3.win-x64.zip",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Update.1.2.3.win-x64.zip",
                               "size": 4096,
                               "digest": "sha256:abc123"
                             },
@@ -334,12 +334,12 @@ public sealed class SmokeTests
         Assert.Equal("Update available", result.Status);
         Assert.True(result.HasInstallableAsset);
         Assert.NotNull(result.InstallableAsset);
-        Assert.Equal("CodexCliPlus.Setup.Online.1.2.3.exe", result.InstallableAsset!.Name);
+        Assert.Equal("CodexCliPlus.Update.1.2.3.win-x64.zip", result.InstallableAsset!.Name);
         Assert.Equal(2, result.Assets.Count);
     }
 
     [Fact]
-    public async Task InstallerArtifactSmokeValidatesOnlineAndOfflineInstallerOutputs()
+    public async Task InstallerArtifactSmokeValidatesOfflineInstallerAndUpdateOutputs()
     {
         using var scope = new SmokeEnvironmentScope();
         var outputRoot = Path.Combine(scope.OutputDirectory, "buildtool");
@@ -348,8 +348,8 @@ public sealed class SmokeTests
 
         Directory.CreateDirectory(packageRoot);
 
-        CreateInstallerSmokePackage(packageRoot, "Online", version);
         CreateInstallerSmokePackage(packageRoot, "Offline", version);
+        CreateUpdateSmokePackage(packageRoot, version);
 
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -397,6 +397,18 @@ public sealed class SmokeTests
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+            }
+        );
+    }
+
+    private static void CreateUpdateSmokePackage(string packageRoot, string version)
+    {
+        SmokeEnvironmentScope.CreateZipWithByteEntries(
+            Path.Combine(packageRoot, $"CodexCliPlus.Update.{version}.win-x64.zip"),
+            new Dictionary<string, byte[]>
+            {
+                ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["payload/CodexCliPlus.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
             }
         );
     }

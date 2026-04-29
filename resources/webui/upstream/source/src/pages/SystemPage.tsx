@@ -4,13 +4,20 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
 import {
+  applyDesktopUpdateInDesktopShell,
+  checkDesktopUpdateInDesktopShell,
+  clearUsageStatsInDesktopShell,
+  isDesktopMode,
+} from '@/desktop/bridge';
+import {
   useAuthStore,
   useConfigStore,
   useNotificationStore,
   useModelsStore,
   useThemeStore,
+  useUsageStatsStore,
 } from '@/stores';
-import { versionApi } from '@/services/api';
+import { usageApi, versionApi } from '@/services/api';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { classifyModels } from '@/utils/models';
 import { STORAGE_KEY_AUTH } from '@/utils/constants';
@@ -84,6 +91,9 @@ export function SystemPage() {
     message: string;
   }>();
   const [checkingVersion, setCheckingVersion] = useState(false);
+  const [desktopUpdateStatus, setDesktopUpdateStatus] = useState('');
+  const [applyingUpdate, setApplyingUpdate] = useState(false);
+  const clearUsageStats = useUsageStatsStore((state) => state.clearUsageStats);
 
   const apiKeysCache = useRef<string[]>([]);
 
@@ -241,6 +251,51 @@ export function SystemPage() {
     }
   }, [auth.serverVersion, showNotification, t]);
 
+  const handleDesktopUpdateCheck = useCallback(async () => {
+    if (isDesktopMode() && checkDesktopUpdateInDesktopShell()) {
+      setDesktopUpdateStatus(t('system_info.desktop_update_check_requested'));
+      showNotification(t('system_info.desktop_update_check_requested'), 'info');
+      return;
+    }
+
+    await handleVersionCheck();
+  }, [handleVersionCheck, showNotification, t]);
+
+  const handleApplyDesktopUpdate = useCallback(() => {
+    setApplyingUpdate(true);
+    if (isDesktopMode() && applyDesktopUpdateInDesktopShell()) {
+      setDesktopUpdateStatus(t('system_info.desktop_update_apply_requested'));
+      showNotification(t('system_info.desktop_update_apply_requested'), 'info');
+      setApplyingUpdate(false);
+      return;
+    }
+
+    setApplyingUpdate(false);
+    showNotification(t('system_info.desktop_update_unavailable'), 'warning');
+  }, [showNotification, t]);
+
+  const handleClearUsageStats = useCallback(() => {
+    showConfirmation({
+      title: t('system_info.clear_usage_title'),
+      message: t('system_info.clear_usage_confirm'),
+      variant: 'danger',
+      confirmText: t('common.confirm'),
+      onConfirm: async () => {
+        try {
+          if (isDesktopMode()) {
+            clearUsageStatsInDesktopShell();
+          }
+          await usageApi.importUsage({ version: 1, usage: {} });
+          clearUsageStats();
+          showNotification(t('system_info.clear_usage_success'), 'success');
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : '';
+          showNotification(`${t('system_info.clear_usage_failed')}${message ? `: ${message}` : ''}`, 'error');
+        }
+      },
+    });
+  }, [clearUsageStats, showConfirmation, showNotification, t]);
+
   useEffect(() => {
     fetchConfig().catch(() => {
       // ignore
@@ -259,6 +314,50 @@ export function SystemPage() {
     <div className={styles.container}>
       <h1 className={styles.pageTitle}>{t('system_info.title')}</h1>
       <div className={styles.content}>
+        <Card title={t('system_info.update_title')}>
+          <p className={styles.sectionDescription}>{t('system_info.update_desc')}</p>
+          <div className={styles.updatePanel}>
+            <div className={styles.updateVersionRow}>
+              <div>
+                <span>{t('system_info.version_current_label')}</span>
+                <strong>{appVersion}</strong>
+              </div>
+              <div>
+                <span>{t('footer.api_version')}</span>
+                <strong>{apiVersion}</strong>
+              </div>
+            </div>
+            <div className={styles.updateActions}>
+              <Button
+                variant="secondary"
+                onClick={() => void handleDesktopUpdateCheck()}
+                loading={checkingVersion}
+              >
+                {t('system_info.version_check_button')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleApplyDesktopUpdate}
+                loading={applyingUpdate}
+              >
+                {t('system_info.update_apply_button')}
+              </Button>
+            </div>
+            {desktopUpdateStatus && (
+              <div className="status-badge muted">{desktopUpdateStatus}</div>
+            )}
+          </div>
+        </Card>
+
+        <Card title={t('system_info.clear_usage_title')}>
+          <p className={styles.sectionDescription}>{t('system_info.clear_usage_desc')}</p>
+          <div className={styles.clearLoginActions}>
+            <Button variant="danger" onClick={handleClearUsageStats}>
+              {t('system_info.clear_usage_button')}
+            </Button>
+          </div>
+        </Card>
+
         <Card className={styles.aboutCard}>
           <div className={styles.aboutHeader}>
             <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus" className={styles.aboutLogo} />

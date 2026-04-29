@@ -22,8 +22,8 @@ public sealed class GitHubReleaseUpdateServiceTests
                           "published_at": "2026-04-23T00:00:00Z",
                           "assets": [
                             {
-                              "name": "CodexCliPlus.Setup.1.2.3.exe",
-                              "browser_download_url": "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                              "name": "CodexCliPlus.Update.1.2.3.win-x64.zip",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Update.1.2.3.win-x64.zip",
                               "size": 10485760,
                               "digest": "sha256:abc123"
                             }
@@ -58,8 +58,8 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.True(result.HasInstallableAsset);
         Assert.NotNull(result.InstallableAsset);
         Assert.Single(result.Assets);
-        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.Assets[0].Name);
-        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.InstallableAsset!.Name);
+        Assert.Equal("CodexCliPlus.Update.1.2.3.win-x64.zip", result.Assets[0].Name);
+        Assert.Equal("CodexCliPlus.Update.1.2.3.win-x64.zip", result.InstallableAsset!.Name);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class GitHubReleaseUpdateServiceTests
     }
 
     [Fact]
-    public async Task CheckAsyncDoesNotMarkZipArchiveAsDirectInstaller()
+    public async Task CheckAsyncDoesNotMarkUnrelatedZipArchiveAsInstallable()
     {
         using var factory = new FixedHttpClientFactory(_ =>
             Task.FromResult(
@@ -154,7 +154,7 @@ public sealed class GitHubReleaseUpdateServiceTests
     }
 
     [Fact]
-    public async Task CheckAsyncDoesNotMarkInstallerWithoutDownloadUrlAsDirectInstaller()
+    public async Task CheckAsyncDoesNotMarkUpdatePackageWithoutDownloadUrlAsInstallable()
     {
         using var factory = new FixedHttpClientFactory(_ =>
             Task.FromResult(
@@ -168,7 +168,7 @@ public sealed class GitHubReleaseUpdateServiceTests
                           "published_at": "2026-04-23T00:00:00Z",
                           "assets": [
                             {
-                              "name": "CodexCliPlus.Setup.1.2.3.exe",
+                              "name": "CodexCliPlus.Update.1.2.3.win-x64.zip",
                               "size": 2048
                             }
                           ]
@@ -189,7 +189,7 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.False(result.HasInstallableAsset);
         Assert.Null(result.InstallableAsset);
         Assert.Single(result.Assets);
-        Assert.Equal("CodexCliPlus.Setup.1.2.3.exe", result.Assets[0].Name);
+        Assert.Equal("CodexCliPlus.Update.1.2.3.win-x64.zip", result.Assets[0].Name);
     }
 
     private sealed class FixedHttpClientFactory : IHttpClientFactory, IDisposable

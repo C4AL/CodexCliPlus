@@ -13,12 +13,12 @@
   <SolidColorBrush x:Key="ShellDockGlassBrush" Color="#EFFFFFFF" />
   <SolidColorBrush x:Key="ShellDockGlassBorderBrush" Color="#BFFFFFFF" />
   <SolidColorBrush x:Key="ShellDockGlassHighlightBrush" Color="#E6FFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockPanelBrush" Color="#EFFFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockBorderBrush" Color="#70FFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockInnerHighlightBrush" Color="#DFFFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D914B8A6" />
-  <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#33FFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#22FFFFFF" />
+  <SolidColorBrush x:Key="NavigationDockPanelBrush" Color="#F2F8FAFC" />
+  <SolidColorBrush x:Key="NavigationDockBorderBrush" Color="#A6CBD5E1" />
+  <SolidColorBrush x:Key="NavigationDockInnerHighlightBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D9707884" />
+  <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#35CBD5E1" />
+  <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#E6E9EEF5" />
   <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
@@ -346,7 +346,7 @@
             Background="{TemplateBinding Background}"
             BorderBrush="{TemplateBinding BorderBrush}"
             BorderThickness="{TemplateBinding BorderThickness}"
-            CornerRadius="16"
+            CornerRadius="14"
             SnapsToDevicePixels="True"
             UseLayoutRounding="True"
           >

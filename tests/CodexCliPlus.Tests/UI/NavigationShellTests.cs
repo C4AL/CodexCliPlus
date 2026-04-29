@@ -250,7 +250,9 @@ public sealed class NavigationShellTests
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("event.clientX <= 64", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("event.clientX > 8", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("setTimeout", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("180", bridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"",
             hostSource,

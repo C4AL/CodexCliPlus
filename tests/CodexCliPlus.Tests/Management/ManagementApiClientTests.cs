@@ -1,11 +1,9 @@
 using System.Net;
 using System.Text;
-
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Management;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Tests.Management;
@@ -18,12 +16,15 @@ public sealed class ManagementApiClientTests
         using var factory = new FixedHttpClientFactory(async request =>
         {
             Assert.Equal("Bearer secret", request.Headers.Authorization?.ToString());
-            Assert.Equal("http://127.0.0.1:6060/v0/management/config", request.RequestUri?.ToString());
+            Assert.Equal(
+                "http://127.0.0.1:6060/v0/management/config",
+                request.RequestUri?.ToString()
+            );
 
             await Task.CompletedTask;
             var response = new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"debug\":true}", Encoding.UTF8, "application/json")
+                Content = new StringContent("{\"debug\":true}", Encoding.UTF8, "application/json"),
             };
             response.Headers.Add("X-CPA-VERSION", "v1.2.3");
             response.Headers.Add("X-CPA-COMMIT", "abc123");
@@ -31,9 +32,7 @@ public sealed class ManagementApiClientTests
             return response;
         });
 
-        var client = new ManagementApiClient(
-            new StaticConnectionProvider(),
-            factory);
+        var client = new ManagementApiClient(new StaticConnectionProvider(), factory);
 
         var response = await client.SendManagementAsync(HttpMethod.Get, "config");
 
@@ -51,20 +50,28 @@ public sealed class ManagementApiClientTests
         using var factory = new FixedHttpClientFactory(request =>
         {
             calls++;
-            return Task.FromResult(calls == 1
-                ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
-                {
-                    Content = new StringContent("{\"error\":\"starting\"}", Encoding.UTF8, "application/json")
-                }
-                : new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"status\":\"ok\"}", Encoding.UTF8, "application/json")
-                });
+            return Task.FromResult(
+                calls == 1
+                    ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                    {
+                        Content = new StringContent(
+                            "{\"error\":\"starting\"}",
+                            Encoding.UTF8,
+                            "application/json"
+                        ),
+                    }
+                    : new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(
+                            "{\"status\":\"ok\"}",
+                            Encoding.UTF8,
+                            "application/json"
+                        ),
+                    }
+            );
         });
 
-        var client = new ManagementApiClient(
-            new StaticConnectionProvider(),
-            factory);
+        var client = new ManagementApiClient(new StaticConnectionProvider(), factory);
 
         var response = await client.SendManagementAsync(HttpMethod.Get, "usage");
 
@@ -75,17 +82,24 @@ public sealed class ManagementApiClientTests
     [Fact]
     public async Task SendManagementAsyncThrowsStructuredApiException()
     {
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)
-        {
-            Content = new StringContent("{\"error\":\"invalid management key\",\"message\":\"denied\"}", Encoding.UTF8, "application/json")
-        }));
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.Unauthorized)
+                {
+                    Content = new StringContent(
+                        "{\"error\":\"invalid management key\",\"message\":\"denied\"}",
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+            )
+        );
 
-        var client = new ManagementApiClient(
-            new StaticConnectionProvider(),
-            factory);
+        var client = new ManagementApiClient(new StaticConnectionProvider(), factory);
 
-        var exception = await Assert.ThrowsAsync<ManagementApiException>(
-            () => client.SendManagementAsync(HttpMethod.Get, "config"));
+        var exception = await Assert.ThrowsAsync<ManagementApiException>(() =>
+            client.SendManagementAsync(HttpMethod.Get, "config")
+        );
 
         Assert.Equal(401, exception.StatusCode);
         Assert.Equal("invalid management key", exception.ErrorCode);
@@ -99,14 +113,27 @@ public sealed class ManagementApiClientTests
         using var factory = new FixedHttpClientFactory(async request =>
         {
             Assert.Equal("Bearer secret", request.Headers.Authorization?.ToString());
-            Assert.Equal("http://127.0.0.1:6060/v0/management/auth-files", request.RequestUri?.ToString());
+            Assert.Equal(
+                "http://127.0.0.1:6060/v0/management/auth-files",
+                request.RequestUri?.ToString()
+            );
 
             var multipart = Assert.IsType<MultipartFormDataContent>(request.Content);
             var parts = multipart.ToArray();
             Assert.Equal(2, parts.Length);
 
-            var filePart = Assert.Single(parts, part => part.Headers.ContentDisposition?.FileName?.Contains("alpha.json", StringComparison.Ordinal) == true);
-            var fieldPart = Assert.Single(parts, part => part.Headers.ContentDisposition?.FileName is null);
+            var filePart = Assert.Single(
+                parts,
+                part =>
+                    part.Headers.ContentDisposition?.FileName?.Contains(
+                        "alpha.json",
+                        StringComparison.Ordinal
+                    ) == true
+            );
+            var fieldPart = Assert.Single(
+                parts,
+                part => part.Headers.ContentDisposition?.FileName is null
+            );
 
             Assert.Equal("file", filePart.Headers.ContentDisposition?.Name?.Trim('"'));
             Assert.Equal("meta", fieldPart.Headers.ContentDisposition?.Name?.Trim('"'));
@@ -114,13 +141,15 @@ public sealed class ManagementApiClientTests
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"status\":\"ok\",\"uploaded\":1}", Encoding.UTF8, "application/json")
+                Content = new StringContent(
+                    "{\"status\":\"ok\",\"uploaded\":1}",
+                    Encoding.UTF8,
+                    "application/json"
+                ),
             };
         });
 
-        var client = new ManagementApiClient(
-            new StaticConnectionProvider(),
-            factory);
+        var client = new ManagementApiClient(new StaticConnectionProvider(), factory);
 
         var response = await client.SendManagementMultipartAsync(
             HttpMethod.Post,
@@ -131,13 +160,11 @@ public sealed class ManagementApiClientTests
                     FieldName = "file",
                     FileName = "alpha.json",
                     Content = Encoding.UTF8.GetBytes("{\"type\":\"codex\"}"),
-                    ContentType = "application/json"
-                }
+                    ContentType = "application/json",
+                },
             ],
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["meta"] = "demo"
-            });
+            new Dictionary<string, string>(StringComparer.Ordinal) { ["meta"] = "demo" }
+        );
 
         Assert.Contains("\"uploaded\":1", response.Value, StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -145,14 +172,18 @@ public sealed class ManagementApiClientTests
 
     private sealed class StaticConnectionProvider : IManagementConnectionProvider
     {
-        public Task<ManagementConnectionInfo> GetConnectionAsync(CancellationToken cancellationToken = default)
+        public Task<ManagementConnectionInfo> GetConnectionAsync(
+            CancellationToken cancellationToken = default
+        )
         {
-            return Task.FromResult(new ManagementConnectionInfo
-            {
-                BaseUrl = "http://127.0.0.1:6060",
-                ManagementApiBaseUrl = "http://127.0.0.1:6060/v0/management",
-                ManagementKey = "secret"
-            });
+            return Task.FromResult(
+                new ManagementConnectionInfo
+                {
+                    BaseUrl = "http://127.0.0.1:6060",
+                    ManagementApiBaseUrl = "http://127.0.0.1:6060/v0/management",
+                    ManagementKey = "secret",
+                }
+            );
         }
     }
 
@@ -184,7 +215,10 @@ public sealed class ManagementApiClientTests
                 _handler = handler;
             }
 
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken
+            )
             {
                 return _handler(request);
             }

@@ -10,7 +10,8 @@ public sealed class BackendAssetServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(
         Path.GetTempPath(),
-        $"codexcliplus-backend-assets-{Guid.NewGuid():N}");
+        $"codexcliplus-backend-assets-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task EnsureAssetsAsyncRemovesLegacyManagedUpstreamExecutableAfterManagedExecutableIsValid()
@@ -20,14 +21,20 @@ public sealed class BackendAssetServiceTests : IDisposable
 
         var managedPath = Path.Combine(
             pathService.Directories.BackendDirectory,
-            BackendExecutableNames.ManagedExecutableFileName);
+            BackendExecutableNames.ManagedExecutableFileName
+        );
         var legacyPath = Path.Combine(
             pathService.Directories.BackendDirectory,
-            BackendExecutableNames.UpstreamExecutableFileName);
+            BackendExecutableNames.UpstreamExecutableFileName
+        );
         File.Copy(FindRepositoryBackendExecutable(), managedPath);
         await File.WriteAllTextAsync(legacyPath, "legacy managed executable");
 
-        var service = new BackendAssetService(new HttpClient(), pathService, new NullAppLogger(_rootDirectory));
+        var service = new BackendAssetService(
+            new HttpClient(),
+            pathService,
+            new NullAppLogger(_rootDirectory)
+        );
 
         var layout = await service.EnsureAssetsAsync();
 
@@ -54,7 +61,8 @@ public sealed class BackendAssetServiceTests : IDisposable
                 "resources",
                 "backend",
                 "windows-x64",
-                BackendExecutableNames.ManagedExecutableFileName);
+                BackendExecutableNames.ManagedExecutableFileName
+            );
             if (File.Exists(candidate))
             {
                 return candidate;
@@ -64,7 +72,8 @@ public sealed class BackendAssetServiceTests : IDisposable
         }
 
         throw new FileNotFoundException(
-            $"Could not find repository backend executable {BackendExecutableNames.ManagedExecutableFileName}.");
+            $"Could not find repository backend executable {BackendExecutableNames.ManagedExecutableFileName}."
+        );
     }
 
     private sealed class TestPathService : IPathService
@@ -78,7 +87,8 @@ public sealed class BackendAssetServiceTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }
@@ -106,16 +116,10 @@ public sealed class BackendAssetServiceTests : IDisposable
 
         public string LogFilePath { get; }
 
-        public void Info(string message)
-        {
-        }
+        public void Info(string message) { }
 
-        public void Warn(string message)
-        {
-        }
+        public void Warn(string message) { }
 
-        public void LogError(string message, Exception? exception = null)
-        {
-        }
+        public void LogError(string message, Exception? exception = null) { }
     }
 }

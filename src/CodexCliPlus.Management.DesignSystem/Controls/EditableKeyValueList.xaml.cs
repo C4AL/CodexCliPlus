@@ -8,17 +8,33 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class EditableKeyValueList : UserControl
 {
-    public static readonly DependencyProperty ItemsSourceProperty =
-        DependencyProperty.Register(nameof(ItemsSource), typeof(IList), typeof(EditableKeyValueList), new PropertyMetadata(null, OnItemsSourceChanged));
+    public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
+        nameof(ItemsSource),
+        typeof(IList),
+        typeof(EditableKeyValueList),
+        new PropertyMetadata(null, OnItemsSourceChanged)
+    );
 
-    public static readonly DependencyProperty KeyHeaderProperty =
-        DependencyProperty.Register(nameof(KeyHeader), typeof(string), typeof(EditableKeyValueList), new PropertyMetadata("键"));
+    public static readonly DependencyProperty KeyHeaderProperty = DependencyProperty.Register(
+        nameof(KeyHeader),
+        typeof(string),
+        typeof(EditableKeyValueList),
+        new PropertyMetadata("键")
+    );
 
-    public static readonly DependencyProperty ValueHeaderProperty =
-        DependencyProperty.Register(nameof(ValueHeader), typeof(string), typeof(EditableKeyValueList), new PropertyMetadata("值"));
+    public static readonly DependencyProperty ValueHeaderProperty = DependencyProperty.Register(
+        nameof(ValueHeader),
+        typeof(string),
+        typeof(EditableKeyValueList),
+        new PropertyMetadata("值")
+    );
 
-    public static readonly DependencyProperty AddButtonTextProperty =
-        DependencyProperty.Register(nameof(AddButtonText), typeof(string), typeof(EditableKeyValueList), new PropertyMetadata("添加一行"));
+    public static readonly DependencyProperty AddButtonTextProperty = DependencyProperty.Register(
+        nameof(AddButtonText),
+        typeof(string),
+        typeof(EditableKeyValueList),
+        new PropertyMetadata("添加一行")
+    );
 
     private INotifyCollectionChanged? _collectionNotifier;
 
@@ -53,7 +69,10 @@ public partial class EditableKeyValueList : UserControl
         set => SetValue(AddButtonTextProperty, value);
     }
 
-    private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnItemsSourceChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         ((EditableKeyValueList)d).HandleItemsSourceChanged((IList?)e.OldValue, (IList?)e.NewValue);
     }

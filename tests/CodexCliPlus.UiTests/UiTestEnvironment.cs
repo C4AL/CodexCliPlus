@@ -8,16 +8,13 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-
 using CodexCliPlus.Core.Constants;
-
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
 using FlaUI.Core.Definitions;
+using FlaUI.Core.Input;
 using FlaUI.UIA3;
-
 using Microsoft.Web.WebView2.Core;
-
 using FlaUIApplication = FlaUI.Core.Application;
 
 namespace CodexCliPlus.UiTests;
@@ -27,7 +24,7 @@ internal sealed class UiTestRun : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        WriteIndented = true
+        WriteIndented = true,
     };
 
     private readonly List<string> _desktopFilesToDelete = [];
@@ -39,7 +36,12 @@ internal sealed class UiTestRun : IDisposable
         _temporaryRoot = Path.Combine(Path.GetTempPath(), $"codexcliplus-ui-{Guid.NewGuid():N}");
         RootDirectory = Path.Combine(_temporaryRoot, "app-root");
         WebViewUserDataDirectory = Path.Combine(_temporaryRoot, "webview2");
-        ArtifactDirectory = Path.Combine(FindRepositoryRoot(), "artifacts", "ui-tests", SanitizeFileName(testName));
+        ArtifactDirectory = Path.Combine(
+            FindRepositoryRoot(),
+            "artifacts",
+            "ui-tests",
+            SanitizeFileName(testName)
+        );
 
         Directory.CreateDirectory(RootDirectory);
         Directory.CreateDirectory(WebViewUserDataDirectory);
@@ -76,21 +78,25 @@ internal sealed class UiTestRun : IDisposable
         {
             FileName = ApplicationPath,
             WorkingDirectory = Path.GetDirectoryName(ApplicationPath)!,
-            UseShellExecute = false
+            UseShellExecute = false,
         };
         startInfo.Environment["CODEXCLIPLUS_APP_ROOT"] = run.RootDirectory;
         startInfo.Environment["CODEXCLIPLUS_UI_TEST_MODE"] = "1";
-        startInfo.Environment["CODEXCLIPLUS_WEBVIEW2_USER_DATA_FOLDER"] = run.WebViewUserDataDirectory;
-        startInfo.Environment["CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT"] = run.RemoteDebuggingPort.ToString(CultureInfo.InvariantCulture);
+        startInfo.Environment["CODEXCLIPLUS_WEBVIEW2_USER_DATA_FOLDER"] =
+            run.WebViewUserDataDirectory;
+        startInfo.Environment["CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT"] =
+            run.RemoteDebuggingPort.ToString(CultureInfo.InvariantCulture);
         startInfo.Environment["TEMP"] = Path.Combine(run._temporaryRoot, "tmp");
         startInfo.Environment["TMP"] = Path.Combine(run._temporaryRoot, "tmp");
         Directory.CreateDirectory(startInfo.Environment["TEMP"]!);
 
-        run.Process = Process.Start(startInfo)
+        run.Process =
+            Process.Start(startInfo)
             ?? throw new InvalidOperationException("CodexCliPlus.exe did not start.");
         run.ProcessId = run.Process.Id;
         run.Application = FlaUIApplication.Attach(run.Process);
-        run.MainWindow = run.Application.GetMainWindow(run.Automation, TimeSpan.FromSeconds(20))
+        run.MainWindow =
+            run.Application.GetMainWindow(run.Automation, TimeSpan.FromSeconds(20))
             ?? throw new InvalidOperationException("CodexCliPlus 主窗口没有出现。");
         return run;
     }
@@ -98,9 +104,11 @@ internal sealed class UiTestRun : IDisposable
     public AutomationElement WaitForAutomationId(string automationId, TimeSpan timeout)
     {
         return WaitFor(
-            () => MainWindow.FindFirstDescendant(condition => condition.ByAutomationId(automationId)),
+            () =>
+                MainWindow.FindFirstDescendant(condition => condition.ByAutomationId(automationId)),
             timeout,
-            $"UI element '{automationId}' was not found.");
+            $"UI element '{automationId}' was not found."
+        );
     }
 
     public AutomationElement? TryFindAutomationId(string automationId)
@@ -132,33 +140,55 @@ internal sealed class UiTestRun : IDisposable
     {
         var element = WaitForAutomationId(automationId, TimeSpan.FromSeconds(12));
         var point = element.GetClickablePoint();
-        System.Windows.Forms.Cursor.Position = new System.Drawing.Point(
+        var target = new System.Drawing.Point(
             (int)Math.Round(Convert.ToDouble(point.X, CultureInfo.InvariantCulture)),
-            (int)Math.Round(Convert.ToDouble(point.Y, CultureInfo.InvariantCulture)));
+            (int)Math.Round(Convert.ToDouble(point.Y, CultureInfo.InvariantCulture))
+        );
+        Mouse.MoveTo(target.X, target.Y);
+        Thread.Sleep(650);
     }
 
     public void CaptureWindow(string fileName)
     {
         var bounds = MainWindow.BoundingRectangle;
-        CaptureScreenRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height, fileName, padding: 0);
+        CaptureScreenRegion(
+            bounds.Left,
+            bounds.Top,
+            bounds.Width,
+            bounds.Height,
+            fileName,
+            padding: 0
+        );
     }
 
     public void CaptureElement(string automationId, string fileName, int padding = 8)
     {
         var element = WaitForAutomationId(automationId, TimeSpan.FromSeconds(12));
         var bounds = element.BoundingRectangle;
-        CaptureScreenRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height, fileName, padding);
+        CaptureScreenRegion(
+            bounds.Left,
+            bounds.Top,
+            bounds.Width,
+            bounds.Height,
+            fileName,
+            padding
+        );
     }
 
     public void CaptureElementsUnion(string fileName, int padding, params string[] automationIds)
     {
         var bounds = automationIds
-            .Select(automationId => WaitForAutomationId(automationId, TimeSpan.FromSeconds(12)).BoundingRectangle)
+            .Select(automationId =>
+                WaitForAutomationId(automationId, TimeSpan.FromSeconds(12)).BoundingRectangle
+            )
             .ToArray();
 
         if (bounds.Length == 0)
         {
-            throw new ArgumentException("At least one automation id is required.", nameof(automationIds));
+            throw new ArgumentException(
+                "At least one automation id is required.",
+                nameof(automationIds)
+            );
         }
 
         var left = bounds.Min(rectangle => rectangle.Left);
@@ -177,12 +207,26 @@ internal sealed class UiTestRun : IDisposable
     public void CaptureTooltip(string tooltipText, string fileName, int padding = 8)
     {
         var tooltip = WaitFor(
-            () => Automation.GetDesktop().FindFirstDescendant(condition =>
-                condition.ByControlType(ControlType.ToolTip).And(condition.ByName(tooltipText))),
+            () =>
+                Automation
+                    .GetDesktop()
+                    .FindFirstDescendant(condition =>
+                        condition
+                            .ByControlType(ControlType.ToolTip)
+                            .And(condition.ByName(tooltipText))
+                    ),
             TimeSpan.FromSeconds(3),
-            $"没有显示 Tooltip：{tooltipText}");
+            $"没有显示 Tooltip：{tooltipText}"
+        );
         var bounds = tooltip.BoundingRectangle;
-        CaptureScreenRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height, fileName, padding);
+        CaptureScreenRegion(
+            bounds.Left,
+            bounds.Top,
+            bounds.Width,
+            bounds.Height,
+            fileName,
+            padding
+        );
     }
 
     public void CaptureOptionalElement(string automationId, string fileName, int padding = 8)
@@ -194,7 +238,14 @@ internal sealed class UiTestRun : IDisposable
         }
 
         var bounds = element.BoundingRectangle;
-        CaptureScreenRegion(bounds.Left, bounds.Top, bounds.Width, bounds.Height, fileName, padding);
+        CaptureScreenRegion(
+            bounds.Left,
+            bounds.Top,
+            bounds.Width,
+            bounds.Height,
+            fileName,
+            padding
+        );
     }
 
     public void WriteUiaTree(string fileName)
@@ -209,7 +260,8 @@ internal sealed class UiTestRun : IDisposable
         File.WriteAllText(
             path,
             JsonSerializer.Serialize(value, JsonOptions),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 
     public void WriteReview(string fileName, string title, params string[] checklist)
@@ -227,7 +279,11 @@ internal sealed class UiTestRun : IDisposable
 
         builder.AppendLine();
         builder.AppendLine("## 产物");
-        foreach (var file in Directory.EnumerateFiles(ArtifactDirectory).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+        foreach (
+            var file in Directory
+                .EnumerateFiles(ArtifactDirectory)
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+        )
         {
             builder.Append("- ");
             builder.AppendLine(Path.GetFileName(file));
@@ -236,7 +292,8 @@ internal sealed class UiTestRun : IDisposable
         File.WriteAllText(
             Path.Combine(ArtifactDirectory, fileName),
             builder.ToString(),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 
     public void TrackDesktopSecurityKeyFiles()
@@ -250,9 +307,7 @@ internal sealed class UiTestRun : IDisposable
     public string[] GetNewDesktopSecurityKeyFiles()
     {
         var before = _desktopFilesToDelete.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return EnumerateDesktopSecurityKeyFiles()
-            .Where(path => !before.Contains(path))
-            .ToArray();
+        return EnumerateDesktopSecurityKeyFiles().Where(path => !before.Contains(path)).ToArray();
     }
 
     public T WaitFor<T>(Func<T?> probe, TimeSpan timeout, string failureMessage)
@@ -283,7 +338,9 @@ internal sealed class UiTestRun : IDisposable
             Thread.Sleep(150);
         }
 
-        throw new TimeoutException(lastError is null ? failureMessage : $"{failureMessage} Last error: {lastError.Message}");
+        throw new TimeoutException(
+            lastError is null ? failureMessage : $"{failureMessage} Last error: {lastError.Message}"
+        );
     }
 
     public void WaitForBackendPortAvailable(TimeSpan timeout)
@@ -292,7 +349,8 @@ internal sealed class UiTestRun : IDisposable
         WaitFor(
             () => IsLoopbackPortAvailable(port) ? string.Empty : null,
             timeout,
-            $"CodexCliPlus backend port {port.ToString(CultureInfo.InvariantCulture)} is still in use.");
+            $"CodexCliPlus backend port {port.ToString(CultureInfo.InvariantCulture)} is still in use."
+        );
     }
 
     public void Dispose()
@@ -320,9 +378,7 @@ internal sealed class UiTestRun : IDisposable
                 process.WaitForExit(5000);
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         Application?.Dispose();
         Automation?.Dispose();
@@ -334,14 +390,20 @@ internal sealed class UiTestRun : IDisposable
                 Directory.Delete(_temporaryRoot, recursive: true);
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
-    private static string ApplicationPath => Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
+    private static string ApplicationPath =>
+        Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
 
-    private void CaptureScreenRegion(double left, double top, double width, double height, string fileName, int padding)
+    private void CaptureScreenRegion(
+        double left,
+        double top,
+        double width,
+        double height,
+        string fileName,
+        int padding
+    )
     {
         var x = (int)Math.Floor(left) - padding;
         var y = (int)Math.Floor(top) - padding;
@@ -374,12 +436,14 @@ internal sealed class UiTestRun : IDisposable
 
     private static UiNode CreateUiaNode(AutomationElement element, int depth, int maxDepth)
     {
-        var children = depth >= maxDepth
-            ? []
-            : element.FindAllChildren()
-                .Take(80)
-                .Select(child => CreateUiaNode(child, depth + 1, maxDepth))
-                .ToArray();
+        var children =
+            depth >= maxDepth
+                ? []
+                : element
+                    .FindAllChildren()
+                    .Take(80)
+                    .Select(child => CreateUiaNode(child, depth + 1, maxDepth))
+                    .ToArray();
 
         var bounds = element.BoundingRectangle;
         return new UiNode(
@@ -389,7 +453,8 @@ internal sealed class UiTestRun : IDisposable
             element.Properties.ControlType.ValueOrDefault.ToString(),
             new UiBounds(bounds.Left, bounds.Top, bounds.Width, bounds.Height),
             element.Properties.IsOffscreen.ValueOrDefault,
-            children);
+            children
+        );
     }
 
     private bool HasProcessExited()
@@ -423,7 +488,9 @@ internal sealed class UiTestRun : IDisposable
 
         if (!IsCurrentProcessElevated())
         {
-            Assert.Skip("CodexCliPlus 桌面程序要求管理员权限，UI 自动化需要在管理员测试进程中运行。");
+            Assert.Skip(
+                "CodexCliPlus 桌面程序要求管理员权限，UI 自动化需要在管理员测试进程中运行。"
+            );
         }
 
         if (!File.Exists(ApplicationPath))
@@ -433,7 +500,11 @@ internal sealed class UiTestRun : IDisposable
 
         try
         {
-            if (string.IsNullOrWhiteSpace(CoreWebView2Environment.GetAvailableBrowserVersionString()))
+            if (
+                string.IsNullOrWhiteSpace(
+                    CoreWebView2Environment.GetAvailableBrowserVersionString()
+                )
+            )
             {
                 Assert.Skip("当前系统未安装 WebView2 Runtime。");
             }
@@ -474,10 +545,16 @@ internal sealed class UiTestRun : IDisposable
 
     private static IEnumerable<string> EnumerateDesktopSecurityKeyFiles()
     {
-        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        var desktopDirectory = Environment.GetFolderPath(
+            Environment.SpecialFolder.DesktopDirectory
+        );
         return string.IsNullOrWhiteSpace(desktopDirectory) || !Directory.Exists(desktopDirectory)
             ? []
-            : Directory.EnumerateFiles(desktopDirectory, "CodexCliPlus-安全密钥-*.txt", SearchOption.TopDirectoryOnly);
+            : Directory.EnumerateFiles(
+                desktopDirectory,
+                "CodexCliPlus-安全密钥-*.txt",
+                SearchOption.TopDirectoryOnly
+            );
     }
 
     private static void TryDeleteFile(string path)
@@ -489,14 +566,14 @@ internal sealed class UiTestRun : IDisposable
                 File.Delete(path);
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void CopyRunDiagnostics()
     {
-        CopyDiagnosticFile(Path.Combine(RootDirectory, "config", AppConstants.BackendConfigFileName));
+        CopyDiagnosticFile(
+            Path.Combine(RootDirectory, "config", AppConstants.BackendConfigFileName)
+        );
         CopyDiagnosticFile(Path.Combine(RootDirectory, "config", "appsettings.json"));
 
         var logsDirectory = Path.Combine(RootDirectory, "logs");
@@ -507,7 +584,9 @@ internal sealed class UiTestRun : IDisposable
 
         var targetDirectory = Path.Combine(ArtifactDirectory, "logs");
         Directory.CreateDirectory(targetDirectory);
-        foreach (var path in Directory.EnumerateFiles(logsDirectory, "*", SearchOption.TopDirectoryOnly))
+        foreach (
+            var path in Directory.EnumerateFiles(logsDirectory, "*", SearchOption.TopDirectoryOnly)
+        )
         {
             CopyDiagnosticFile(path, Path.Combine(targetDirectory, Path.GetFileName(path)));
         }
@@ -519,12 +598,14 @@ internal sealed class UiTestRun : IDisposable
         {
             if (File.Exists(sourcePath))
             {
-                File.Copy(sourcePath, targetPath ?? Path.Combine(ArtifactDirectory, Path.GetFileName(sourcePath)), overwrite: true);
+                File.Copy(
+                    sourcePath,
+                    targetPath ?? Path.Combine(ArtifactDirectory, Path.GetFileName(sourcePath)),
+                    overwrite: true
+                );
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private static string FindRepositoryRoot()
@@ -546,7 +627,9 @@ internal sealed class UiTestRun : IDisposable
     private static string SanitizeFileName(string value)
     {
         var invalid = Path.GetInvalidFileNameChars().ToHashSet();
-        return string.Concat(value.Select(character => invalid.Contains(character) ? '_' : character));
+        return string.Concat(
+            value.Select(character => invalid.Contains(character) ? '_' : character)
+        );
     }
 }
 
@@ -557,7 +640,8 @@ internal sealed record UiNode(
     string ControlType,
     UiBounds Bounds,
     bool IsOffscreen,
-    IReadOnlyList<UiNode> Children);
+    IReadOnlyList<UiNode> Children
+);
 
 internal sealed record UiBounds(double Left, double Top, double Width, double Height);
 
@@ -572,8 +656,8 @@ internal static class UiAutomationExtensions
 {
     public static bool IsVisibleEnough(this AutomationElement element)
     {
-        return !element.Properties.IsOffscreen.ValueOrDefault &&
-            element.BoundingRectangle.Width > 0 &&
-            element.BoundingRectangle.Height > 0;
+        return !element.Properties.IsOffscreen.ValueOrDefault
+            && element.BoundingRectangle.Width > 0
+            && element.BoundingRectangle.Height > 0;
     }
 }

@@ -4,14 +4,18 @@ namespace CodexCliPlus.Tests.Codex;
 
 public sealed class CodexLocatorTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-codex-locator-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-codex-locator-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task LocateAsyncReturnsFirstWhereResult()
     {
         var locator = new CodexLocator(
             _ => Task.FromResult((0, "C:\\tools\\codex.cmd\r\nC:\\other\\codex.cmd", string.Empty)),
-            () => Path.Combine(_rootDirectory, "missing.cmd"));
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
 
         var path = await locator.LocateAsync();
 
@@ -27,7 +31,8 @@ public sealed class CodexLocatorTests : IDisposable
 
         var locator = new CodexLocator(
             _ => Task.FromResult((1, string.Empty, "INFO: Could not find files")),
-            () => fallbackPath);
+            () => fallbackPath
+        );
 
         var path = await locator.LocateAsync();
 
@@ -39,7 +44,8 @@ public sealed class CodexLocatorTests : IDisposable
     {
         var locator = new CodexLocator(
             _ => Task.FromResult((1, string.Empty, "INFO: Could not find files")),
-            () => Path.Combine(_rootDirectory, "missing.cmd"));
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
 
         var path = await locator.LocateAsync();
 

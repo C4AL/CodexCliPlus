@@ -6,11 +6,19 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class StatusBadge : UserControl
 {
-    public static readonly DependencyProperty TextProperty =
-        DependencyProperty.Register(nameof(Text), typeof(string), typeof(StatusBadge), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
+        nameof(Text),
+        typeof(string),
+        typeof(StatusBadge),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty ToneProperty =
-        DependencyProperty.Register(nameof(Tone), typeof(BadgeTone), typeof(StatusBadge), new PropertyMetadata(BadgeTone.Neutral, OnToneChanged));
+    public static readonly DependencyProperty ToneProperty = DependencyProperty.Register(
+        nameof(Tone),
+        typeof(BadgeTone),
+        typeof(StatusBadge),
+        new PropertyMetadata(BadgeTone.Neutral, OnToneChanged)
+    );
 
     public StatusBadge()
     {
@@ -44,7 +52,7 @@ public partial class StatusBadge : UserControl
             BadgeTone.Success => ("ManagementSuccessSoftBrush", "ManagementSuccessBrush"),
             BadgeTone.Warning => ("ManagementWarningSoftBrush", "ManagementWarningBrush"),
             BadgeTone.Danger => ("ManagementDangerSoftBrush", "ManagementDangerBrush"),
-            _ => ("ManagementSurfaceSubtleBrush", "ManagementSecondaryTextBrush")
+            _ => ("ManagementSurfaceSubtleBrush", "ManagementSecondaryTextBrush"),
         };
 
         BadgeBorder.Background = (Brush)resources[backgroundKey];

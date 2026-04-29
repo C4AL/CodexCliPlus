@@ -1,15 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Net;
-
-using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Processes;
+using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Infrastructure.Configuration;
 using CodexCliPlus.Infrastructure.Logging;
 using CodexCliPlus.Infrastructure.Processes;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Tests.Backend;
@@ -17,7 +15,10 @@ namespace CodexCliPlus.Tests.Backend;
 [Collection("BackendProcessManager")]
 public sealed class BackendProcessManagerIntegrationTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-backend-run-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-backend-run-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task StartAsyncStartsOfficialBackendAndStopAsyncStopsIt()
@@ -37,7 +38,10 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
         var runtimeDirectory = Path.Combine(_rootDirectory, "runtime");
         Directory.CreateDirectory(Path.Combine(runtimeDirectory, "nested"));
         await File.WriteAllTextAsync(Path.Combine(runtimeDirectory, "stale.tmp"), "runtime");
-        await File.WriteAllTextAsync(Path.Combine(runtimeDirectory, "nested", "stale.txt"), "runtime");
+        await File.WriteAllTextAsync(
+            Path.Combine(runtimeDirectory, "nested", "stale.txt"),
+            "runtime"
+        );
 
         var stopped = await manager.StopAsync();
         Assert.Equal(Core.Enums.BackendStateKind.Stopped, stopped.State);
@@ -59,13 +63,20 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
         await process.WaitForExitAsync();
 
         var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (manager.CurrentStatus.State != Core.Enums.BackendStateKind.Error && DateTimeOffset.UtcNow < deadline)
+        while (
+            manager.CurrentStatus.State != Core.Enums.BackendStateKind.Error
+            && DateTimeOffset.UtcNow < deadline
+        )
         {
             await Task.Delay(200);
         }
 
         Assert.Equal(Core.Enums.BackendStateKind.Error, manager.CurrentStatus.State);
-        Assert.Contains("exited unexpectedly", manager.CurrentStatus.LastError ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "exited unexpectedly",
+            manager.CurrentStatus.LastError ?? string.Empty,
+            StringComparison.OrdinalIgnoreCase
+        );
         await manager.StopAsync();
     }
 
@@ -78,9 +89,7 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
         var assetService = new BackendAssetService(new HttpClient(), pathService, logger);
         await assetService.EnsureAssetsAsync();
 
-        var services = new ServiceCollection()
-            .AddHttpClient()
-            .BuildServiceProvider();
+        var services = new ServiceCollection().AddHttpClient().BuildServiceProvider();
 
         var manager = new BackendProcessManager(
             assetService,
@@ -88,31 +97,45 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             new BackendHealthChecker(services.GetRequiredService<IHttpClientFactory>()),
             configurationService,
             pathService,
-            new ThrowingProcessService(new FileNotFoundException("The system cannot find the file specified.")),
-            logger);
+            new ThrowingProcessService(
+                new FileNotFoundException("The system cannot find the file specified.")
+            ),
+            logger
+        );
 
         var status = await manager.StartAsync();
         var logText = await File.ReadAllTextAsync(logger.LogFilePath);
 
         Assert.Equal(Core.Enums.BackendStateKind.Error, status.State);
         Assert.Contains("Failed to start backend process.", logText, StringComparison.Ordinal);
-        Assert.Contains("The system cannot find the file specified.", logText, StringComparison.Ordinal);
+        Assert.Contains(
+            "The system cannot find the file specified.",
+            logText,
+            StringComparison.Ordinal
+        );
     }
 
     public void Dispose()
     {
-        foreach (var process in Process.GetProcessesByName(
-                     Path.GetFileNameWithoutExtension(BackendExecutableNames.ManagedExecutableFileName)))
+        foreach (
+            var process in Process.GetProcessesByName(
+                Path.GetFileNameWithoutExtension(BackendExecutableNames.ManagedExecutableFileName)
+            )
+        )
         {
             try
             {
-                if (string.Equals(
+                if (
+                    string.Equals(
                         process.MainModule?.FileName,
                         Path.Combine(
                             _rootDirectory,
                             "backend",
-                            BackendExecutableNames.ManagedExecutableFileName),
-                        StringComparison.OrdinalIgnoreCase))
+                            BackendExecutableNames.ManagedExecutableFileName
+                        ),
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
                 {
                     process.Kill(entireProcessTree: true);
                     process.WaitForExit(5000);
@@ -135,9 +158,7 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
         var pathService = new TestPathService(_rootDirectory);
         var configurationService = new JsonAppConfigurationService(pathService);
         var logger = new FileAppLogger(pathService);
-        var services = new ServiceCollection()
-            .AddHttpClient()
-            .BuildServiceProvider();
+        var services = new ServiceCollection().AddHttpClient().BuildServiceProvider();
         var httpClientFactory = services.GetRequiredService<IHttpClientFactory>();
 
         return new BackendProcessManager(
@@ -147,7 +168,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             configurationService,
             pathService,
             new SystemProcessService(),
-            logger);
+            logger
+        );
     }
 
     private sealed class ThrowingProcessService : IProcessService
@@ -163,7 +185,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             ManagedProcessStartInfo startInfo,
             Action<string>? standardOutput = null,
             Action<string>? standardError = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             throw _exception;
         }
@@ -180,7 +203,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

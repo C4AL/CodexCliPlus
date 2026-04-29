@@ -18,7 +18,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
         "LICENSE",
         "README.md",
         "README_CN.md",
-        "config.example.yaml"
+        "config.example.yaml",
     ];
 
     private readonly List<string> _cleanupPaths = [];
@@ -30,7 +30,11 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var pathService = new TestPathService(rootDirectory);
         SeedHealthyManagedState(pathService);
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
@@ -46,13 +50,20 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var pathService = new TestPathService(rootDirectory);
         Directory.CreateDirectory(pathService.Directories.BackendDirectory);
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.False(result.IsAvailable);
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -64,15 +75,24 @@ public sealed class DependencyHealthServiceTests : IDisposable
         await File.WriteAllTextAsync(
             Path.Combine(
                 pathService.Directories.BackendDirectory,
-                BackendExecutableNames.ManagedExecutableFileName),
-            "tampered");
+                BackendExecutableNames.ManagedExecutableFileName
+            ),
+            "tampered"
+        );
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        var issue = Assert.Single(result.Issues, issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal));
+        var issue = Assert.Single(
+            result.Issues,
+            issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal)
+        );
         Assert.Contains("integrity validation", issue.Title, StringComparison.Ordinal);
     }
 
@@ -87,12 +107,16 @@ public sealed class DependencyHealthServiceTests : IDisposable
             pathService,
             new InMemoryCredentialStore(),
             new ReservedUpdateCheckService(),
-            frameworkDescription: ".NET 8.0.4");
+            frameworkDescription: ".NET 8.0.4"
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "runtime-version", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "runtime-version", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -105,12 +129,16 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var service = CreateService(
             pathService,
             new ThrowingCredentialStore(),
-            new ReservedUpdateCheckService());
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "credential-store", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "credential-store", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -120,17 +148,28 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var pathService = new TestPathService(rootDirectory);
         SeedHealthyManagedState(pathService);
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
-        var result = await service.EvaluateAsync(new BackendStatusSnapshot
-        {
-            State = BackendStateKind.Error,
-            Message = "Backend failed to start.",
-            LastError = FormattableString.Invariant($"CodexCliPlus backend port {AppConstants.DefaultBackendPort} is already in use. Stop the process using 127.0.0.1:{AppConstants.DefaultBackendPort} and start CodexCliPlus again.")
-        });
+        var result = await service.EvaluateAsync(
+            new BackendStatusSnapshot
+            {
+                State = BackendStateKind.Error,
+                Message = "Backend failed to start.",
+                LastError = FormattableString.Invariant(
+                    $"CodexCliPlus backend port {AppConstants.DefaultBackendPort} is already in use. Stop the process using 127.0.0.1:{AppConstants.DefaultBackendPort} and start CodexCliPlus again."
+                ),
+            }
+        );
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "port-allocation", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "port-allocation", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -141,12 +180,19 @@ public sealed class DependencyHealthServiceTests : IDisposable
         SeedHealthyManagedState(pathService);
         File.Delete(pathService.Directories.SettingsFilePath);
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "initialization", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "initialization", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -156,12 +202,19 @@ public sealed class DependencyHealthServiceTests : IDisposable
         var pathService = new TestPathService(rootDirectory);
         SeedHealthyManagedState(pathService);
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new InvalidUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new InvalidUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "update-component", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "update-component", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -172,28 +225,45 @@ public sealed class DependencyHealthServiceTests : IDisposable
         SeedHealthyManagedState(pathService);
         File.Delete(Path.Combine(pathService.Directories.BackendDirectory, "README_CN.md"));
 
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "resource-pack", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "resource-pack", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public async Task EvaluateAsyncReturnsDirectoryAccessIssueWhenManagedPathsAreNotWritable()
     {
-        var blockedPath = Path.Combine(Path.GetTempPath(), $"codexcliplus-dependency-blocked-{Guid.NewGuid():N}.txt");
+        var blockedPath = Path.Combine(
+            Path.GetTempPath(),
+            $"codexcliplus-dependency-blocked-{Guid.NewGuid():N}.txt"
+        );
         File.WriteAllText(blockedPath, "occupied");
         _cleanupPaths.Add(blockedPath);
 
         var pathService = new TestPathService(blockedPath);
-        var service = CreateService(pathService, new InMemoryCredentialStore(), new ReservedUpdateCheckService());
+        var service = CreateService(
+            pathService,
+            new InMemoryCredentialStore(),
+            new ReservedUpdateCheckService()
+        );
 
         var result = await service.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.True(result.RequiresRepairMode);
-        Assert.Contains(result.Issues, issue => string.Equals(issue.Code, "directory-access", StringComparison.Ordinal));
+        Assert.Contains(
+            result.Issues,
+            issue => string.Equals(issue.Code, "directory-access", StringComparison.Ordinal)
+        );
     }
 
     public void Dispose()
@@ -211,9 +281,7 @@ public sealed class DependencyHealthServiceTests : IDisposable
                     File.Delete(path);
                 }
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 
@@ -236,13 +304,18 @@ public sealed class DependencyHealthServiceTests : IDisposable
         {
             var sourcePath = Path.Combine(expectedAssetRoot, fileName);
             WriteManagedBackendAsset(sourcePath, fileName);
-            File.Copy(sourcePath, Path.Combine(pathService.Directories.BackendDirectory, fileName), overwrite: true);
+            File.Copy(
+                sourcePath,
+                Path.Combine(pathService.Directories.BackendDirectory, fileName),
+                overwrite: true
+            );
         }
 
         File.WriteAllText(pathService.Directories.SettingsFilePath, "{ }");
         File.WriteAllText(
             pathService.Directories.BackendConfigFilePath,
-            FormattableString.Invariant($"port: {AppConstants.DefaultBackendPort}"));
+            FormattableString.Invariant($"port: {AppConstants.DefaultBackendPort}")
+        );
 
         var secretsDirectory = Path.Combine(pathService.Directories.ConfigDirectory, "secrets");
         Directory.CreateDirectory(secretsDirectory);
@@ -253,7 +326,8 @@ public sealed class DependencyHealthServiceTests : IDisposable
         TestPathService pathService,
         ISecureCredentialStore credentialStore,
         IUpdateCheckService updateCheckService,
-        string frameworkDescription = ".NET 10.0.0")
+        string frameworkDescription = ".NET 10.0.0"
+    )
     {
         var expectedAssetRoot = GetExpectedAssetRoot(pathService);
 
@@ -263,7 +337,8 @@ public sealed class DependencyHealthServiceTests : IDisposable
             credentialStore,
             updateCheckService,
             () => frameworkDescription,
-            () => Directory.Exists(expectedAssetRoot) ? expectedAssetRoot : null);
+            () => Directory.Exists(expectedAssetRoot) ? expectedAssetRoot : null
+        );
     }
 
     private static string GetExpectedAssetRoot(TestPathService pathService)
@@ -293,7 +368,8 @@ public sealed class DependencyHealthServiceTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }
@@ -316,21 +392,31 @@ public sealed class DependencyHealthServiceTests : IDisposable
     {
         private readonly Dictionary<string, string> _secrets = new(StringComparer.Ordinal);
 
-        public Task SaveSecretAsync(string reference, string value, CancellationToken cancellationToken = default)
+        public Task SaveSecretAsync(
+            string reference,
+            string value,
+            CancellationToken cancellationToken = default
+        )
         {
             cancellationToken.ThrowIfCancellationRequested();
             _secrets[reference] = value;
             return Task.CompletedTask;
         }
 
-        public Task<string?> LoadSecretAsync(string reference, CancellationToken cancellationToken = default)
+        public Task<string?> LoadSecretAsync(
+            string reference,
+            CancellationToken cancellationToken = default
+        )
         {
             cancellationToken.ThrowIfCancellationRequested();
             _secrets.TryGetValue(reference, out var value);
             return Task.FromResult<string?>(value);
         }
 
-        public Task DeleteSecretAsync(string reference, CancellationToken cancellationToken = default)
+        public Task DeleteSecretAsync(
+            string reference,
+            CancellationToken cancellationToken = default
+        )
         {
             cancellationToken.ThrowIfCancellationRequested();
             _secrets.Remove(reference);
@@ -340,17 +426,27 @@ public sealed class DependencyHealthServiceTests : IDisposable
 
     private sealed class ThrowingCredentialStore : ISecureCredentialStore
     {
-        public Task SaveSecretAsync(string reference, string value, CancellationToken cancellationToken = default)
+        public Task SaveSecretAsync(
+            string reference,
+            string value,
+            CancellationToken cancellationToken = default
+        )
         {
             throw new SecureCredentialStoreException("DPAPI probe failed.");
         }
 
-        public Task<string?> LoadSecretAsync(string reference, CancellationToken cancellationToken = default)
+        public Task<string?> LoadSecretAsync(
+            string reference,
+            CancellationToken cancellationToken = default
+        )
         {
             throw new SecureCredentialStoreException("DPAPI probe failed.");
         }
 
-        public Task DeleteSecretAsync(string reference, CancellationToken cancellationToken = default)
+        public Task DeleteSecretAsync(
+            string reference,
+            CancellationToken cancellationToken = default
+        )
         {
             return Task.CompletedTask;
         }
@@ -361,20 +457,23 @@ public sealed class DependencyHealthServiceTests : IDisposable
         public Task<UpdateCheckResult> CheckAsync(
             string currentVersion,
             UpdateChannel channel = UpdateChannel.Stable,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
-            return Task.FromResult(new UpdateCheckResult
-            {
-                Channel = channel,
-                Repository = "C4AL/CodexCliPlus",
-                ApiUrl = "https://api.github.com/repos/C4AL/CodexCliPlus/releases/latest",
-                CurrentVersion = currentVersion,
-                IsCheckSuccessful = true,
-                IsChannelReserved = true,
-                Status = "Beta reserved",
-                Detail = "Reserved for later packaging phases.",
-                ReleasePageUrl = "https://github.com/C4AL/CodexCliPlus/releases"
-            });
+            return Task.FromResult(
+                new UpdateCheckResult
+                {
+                    Channel = channel,
+                    Repository = "C4AL/CodexCliPlus",
+                    ApiUrl = "https://api.github.com/repos/C4AL/CodexCliPlus/releases/latest",
+                    CurrentVersion = currentVersion,
+                    IsCheckSuccessful = true,
+                    IsChannelReserved = true,
+                    Status = "Beta reserved",
+                    Detail = "Reserved for later packaging phases.",
+                    ReleasePageUrl = "https://github.com/C4AL/CodexCliPlus/releases",
+                }
+            );
         }
     }
 
@@ -383,18 +482,21 @@ public sealed class DependencyHealthServiceTests : IDisposable
         public Task<UpdateCheckResult> CheckAsync(
             string currentVersion,
             UpdateChannel channel = UpdateChannel.Stable,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
-            return Task.FromResult(new UpdateCheckResult
-            {
-                Channel = channel,
-                Repository = "C4AL/CodexCliPlus",
-                CurrentVersion = currentVersion,
-                IsCheckSuccessful = false,
-                IsChannelReserved = true,
-                Status = "Metadata missing",
-                Detail = "Release metadata was incomplete."
-            });
+            return Task.FromResult(
+                new UpdateCheckResult
+                {
+                    Channel = channel,
+                    Repository = "C4AL/CodexCliPlus",
+                    CurrentVersion = currentVersion,
+                    IsCheckSuccessful = false,
+                    IsChannelReserved = true,
+                    Status = "Metadata missing",
+                    Detail = "Release metadata was incomplete.",
+                }
+            );
         }
     }
 }

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
-
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Management;
@@ -13,8 +12,7 @@ public sealed class ManagementAuthServiceTests
     [Fact]
     public async Task ReplaceApiKeysAsyncNormalizesDistinctKeysAndUsesPutApiKeys()
     {
-        var client = new RecordingManagementApiClient(
-            CreateResponse("""{"status":"ok"}"""));
+        var client = new RecordingManagementApiClient(CreateResponse("""{"status":"ok"}"""));
         var service = new ManagementAuthService(client);
 
         var response = await service.ReplaceApiKeysAsync([" key-a ", "key-b", "key-a", " "]);
@@ -29,8 +27,7 @@ public sealed class ManagementAuthServiceTests
     [Fact]
     public async Task UploadAuthFileAsyncAppendsJsonExtensionAndUsesRawJsonUpload()
     {
-        var client = new RecordingManagementApiClient(
-            CreateResponse("""{"status":"ok"}"""));
+        var client = new RecordingManagementApiClient(CreateResponse("""{"status":"ok"}"""));
         var service = new ManagementAuthService(client);
         const string json = """{"type":"codex","metadata":{"cookie":"sid=1"}}""";
 
@@ -47,7 +44,8 @@ public sealed class ManagementAuthServiceTests
     public async Task GetOAuthStartAsyncUsesAuditedWebUiAndProjectQueryForGeminiCli()
     {
         var client = new RecordingManagementApiClient(
-            CreateResponse("""{"url":"https://example.test/oauth","state":"oauth-state"}"""));
+            CreateResponse("""{"url":"https://example.test/oauth","state":"oauth-state"}""")
+        );
         var service = new ManagementAuthService(client);
 
         var response = await service.GetOAuthStartAsync("gemini-cli", "project-42");
@@ -61,15 +59,20 @@ public sealed class ManagementAuthServiceTests
     [Fact]
     public async Task SubmitOAuthCallbackAsyncNormalizesGeminiCliProviderToGemini()
     {
-        var client = new RecordingManagementApiClient(
-            CreateResponse("""{"status":"ok"}"""));
+        var client = new RecordingManagementApiClient(CreateResponse("""{"status":"ok"}"""));
         var service = new ManagementAuthService(client);
 
-        var response = await service.SubmitOAuthCallbackAsync("gemini-cli", "http://127.0.0.1/callback?code=1");
+        var response = await service.SubmitOAuthCallbackAsync(
+            "gemini-cli",
+            "http://127.0.0.1/callback?code=1"
+        );
 
         Assert.Equal(HttpMethod.Post, client.LastMethod);
         Assert.Equal("oauth-callback", client.LastPath);
-        Assert.Equal("""{"provider":"gemini","redirect_url":"http://127.0.0.1/callback?code=1"}""", client.LastBody);
+        Assert.Equal(
+            """{"provider":"gemini","redirect_url":"http://127.0.0.1/callback?code=1"}""",
+            client.LastBody
+        );
         Assert.Equal("ok", response.Value.Status);
     }
 
@@ -77,7 +80,10 @@ public sealed class ManagementAuthServiceTests
     public async Task GetAuthFilesAsyncMapsReturnedAuthFileFields()
     {
         var client = new RecordingManagementApiClient(
-            CreateResponse("""{"files":[{"name":"alpha.json","type":"codex","email":"alpha@example.com","disabled":true,"path":"C:\\auths\\alpha.json","updated_at":"2026-04-23T01:02:03Z"}]}"""));
+            CreateResponse(
+                """{"files":[{"name":"alpha.json","type":"codex","email":"alpha@example.com","disabled":true,"path":"C:\\auths\\alpha.json","updated_at":"2026-04-23T01:02:03Z"}]}"""
+            )
+        );
         var service = new ManagementAuthService(client);
 
         var response = await service.GetAuthFilesAsync();
@@ -90,23 +96,26 @@ public sealed class ManagementAuthServiceTests
         Assert.Equal("alpha@example.com", authFile.Email);
         Assert.True(authFile.Disabled);
         Assert.Equal(@"C:\auths\alpha.json", authFile.Path);
-        Assert.Equal(DateTimeOffset.Parse("2026-04-23T01:02:03Z", CultureInfo.InvariantCulture), authFile.UpdatedAt);
+        Assert.Equal(
+            DateTimeOffset.Parse("2026-04-23T01:02:03Z", CultureInfo.InvariantCulture),
+            authFile.UpdatedAt
+        );
     }
 
     [Fact]
     public async Task UploadAuthFilesAsyncUsesMultipartEndpointAndNormalizesFileNames()
     {
         var client = new RecordingManagementApiClient(
-            CreateResponse("""{"status":"ok","uploaded":1}"""));
+            CreateResponse("""{"status":"ok","uploaded":1}""")
+        );
         var service = new ManagementAuthService(client);
 
-        var response = await service.UploadAuthFilesAsync(
-        [
+        var response = await service.UploadAuthFilesAsync([
             new ManagementAuthFileUpload
             {
                 FileName = @"nested\alpha-auth",
-                Content = Encoding.UTF8.GetBytes("""{"type":"codex"}""")
-            }
+                Content = Encoding.UTF8.GetBytes("""{"type":"codex"}"""),
+            },
         ]);
 
         Assert.Equal(HttpMethod.Post, client.LastMethod);
@@ -122,7 +131,7 @@ public sealed class ManagementAuthServiceTests
         {
             Value = body,
             Metadata = new ManagementServerMetadata(),
-            StatusCode = HttpStatusCode.OK
+            StatusCode = HttpStatusCode.OK,
         };
     }
 
@@ -152,7 +161,8 @@ public sealed class ManagementAuthServiceTests
             string contentType = "application/json",
             string? accept = "application/json",
             TimeSpan? timeout = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             LastMethod = method;
             LastPath = path;
@@ -169,7 +179,8 @@ public sealed class ManagementAuthServiceTests
             IReadOnlyDictionary<string, string>? fields = null,
             string? accept = "application/json",
             TimeSpan? timeout = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             LastMethod = method;
             LastPath = path;
@@ -184,7 +195,8 @@ public sealed class ManagementAuthServiceTests
             IReadOnlyDictionary<string, string>? headers = null,
             string? accept = "application/json",
             TimeSpan? timeout = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             throw new NotSupportedException();
         }

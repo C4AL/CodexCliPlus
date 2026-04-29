@@ -26,7 +26,8 @@ public sealed class ManagementApiKeyEntry
     public string? ProxyUrl { get; init; }
 
     [JsonPropertyName("headers")]
-    public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("auth-index")]
     public string? AuthIndex { get; init; }
@@ -65,7 +66,8 @@ public class ManagementProviderKeyConfiguration
     public string? ProxyUrl { get; init; }
 
     [JsonPropertyName("headers")]
-    public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("models")]
     public IReadOnlyList<ManagementModelAlias> Models { get; init; } = [];
@@ -97,7 +99,8 @@ public sealed class ManagementOpenAiCompatibilityEntry
     public IReadOnlyList<ManagementApiKeyEntry> ApiKeyEntries { get; init; } = [];
 
     [JsonPropertyName("headers")]
-    public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     [JsonPropertyName("models")]
     public IReadOnlyList<ManagementModelAlias> Models { get; init; } = [];

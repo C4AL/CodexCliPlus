@@ -17,7 +17,6 @@ using CodexCliPlus.Infrastructure.Platform;
 using CodexCliPlus.Infrastructure.Processes;
 using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Infrastructure.Updates;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Infrastructure.DependencyInjection;
@@ -46,10 +45,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ManagementAuthService>();
         services.AddSingleton<IManagementOverviewService, ManagementOverviewService>();
         services.AddSingleton<IManagementConfigurationService, ManagementConfigurationService>();
-        services.AddSingleton<IManagementProvidersService>(provider => provider.GetRequiredService<ManagementAuthService>());
-        services.AddSingleton<IManagementAuthFilesService>(provider => provider.GetRequiredService<ManagementAuthService>());
-        services.AddSingleton<IManagementOAuthService>(provider => provider.GetRequiredService<ManagementAuthService>());
-        services.AddSingleton<IManagementAuthService>(provider => provider.GetRequiredService<ManagementAuthService>());
+        services.AddSingleton<IManagementProvidersService>(provider =>
+            provider.GetRequiredService<ManagementAuthService>()
+        );
+        services.AddSingleton<IManagementAuthFilesService>(provider =>
+            provider.GetRequiredService<ManagementAuthService>()
+        );
+        services.AddSingleton<IManagementOAuthService>(provider =>
+            provider.GetRequiredService<ManagementAuthService>()
+        );
+        services.AddSingleton<IManagementAuthService>(provider =>
+            provider.GetRequiredService<ManagementAuthService>()
+        );
         services.AddSingleton<IManagementQuotaService, ManagementQuotaService>();
         services.AddSingleton<IManagementUsageService, ManagementUsageService>();
         services.AddSingleton<IManagementLogsService, ManagementLogsService>();

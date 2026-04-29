@@ -19,18 +19,22 @@ public sealed class DirectoryAccessService
 
     public string GetBackendDirectory() => _pathService.Directories.BackendDirectory;
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is resolved through dependency injection."
+    )]
     public void OpenDirectory(string path)
     {
         Directory.CreateDirectory(path);
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = path,
-            UseShellExecute = true
-        });
+        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is resolved through dependency injection."
+    )]
     public string? GetWriteAccessError(string path)
     {
         try

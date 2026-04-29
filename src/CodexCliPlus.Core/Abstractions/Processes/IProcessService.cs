@@ -6,5 +6,6 @@ public interface IProcessService
         ManagedProcessStartInfo startInfo,
         Action<string>? standardOutput = null,
         Action<string>? standardError = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

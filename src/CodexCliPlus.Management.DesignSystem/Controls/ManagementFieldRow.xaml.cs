@@ -5,14 +5,26 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class ManagementFieldRow : UserControl
 {
-    public static readonly DependencyProperty LabelProperty =
-        DependencyProperty.Register(nameof(Label), typeof(string), typeof(ManagementFieldRow), new PropertyMetadata(string.Empty, OnDisplayPropertyChanged));
+    public static readonly DependencyProperty LabelProperty = DependencyProperty.Register(
+        nameof(Label),
+        typeof(string),
+        typeof(ManagementFieldRow),
+        new PropertyMetadata(string.Empty, OnDisplayPropertyChanged)
+    );
 
-    public static readonly DependencyProperty HintProperty =
-        DependencyProperty.Register(nameof(Hint), typeof(string), typeof(ManagementFieldRow), new PropertyMetadata(string.Empty, OnDisplayPropertyChanged));
+    public static readonly DependencyProperty HintProperty = DependencyProperty.Register(
+        nameof(Hint),
+        typeof(string),
+        typeof(ManagementFieldRow),
+        new PropertyMetadata(string.Empty, OnDisplayPropertyChanged)
+    );
 
-    public static readonly DependencyProperty FieldContentProperty =
-        DependencyProperty.Register(nameof(FieldContent), typeof(object), typeof(ManagementFieldRow), new PropertyMetadata(null));
+    public static readonly DependencyProperty FieldContentProperty = DependencyProperty.Register(
+        nameof(FieldContent),
+        typeof(object),
+        typeof(ManagementFieldRow),
+        new PropertyMetadata(null)
+    );
 
     public ManagementFieldRow()
     {
@@ -38,14 +50,21 @@ public partial class ManagementFieldRow : UserControl
         set => SetValue(FieldContentProperty, value);
     }
 
-    private static void OnDisplayPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnDisplayPropertyChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         ((ManagementFieldRow)d).UpdateVisibility();
     }
 
     private void UpdateVisibility()
     {
-        LabelBlock.Visibility = string.IsNullOrWhiteSpace(Label) ? Visibility.Collapsed : Visibility.Visible;
-        HintBlock.Visibility = string.IsNullOrWhiteSpace(Hint) ? Visibility.Collapsed : Visibility.Visible;
+        LabelBlock.Visibility = string.IsNullOrWhiteSpace(Label)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        HintBlock.Visibility = string.IsNullOrWhiteSpace(Hint)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 }

@@ -9,7 +9,8 @@ internal static class ProcessCapture
         string fileName,
         string arguments,
         string? workingDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var startInfo = new ProcessStartInfo
         {
@@ -23,13 +24,10 @@ internal static class ProcessCapture
             RedirectStandardError = true,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
+            StandardErrorEncoding = Encoding.UTF8,
         };
 
-        using var process = new Process
-        {
-            StartInfo = startInfo
-        };
+        using var process = new Process { StartInfo = startInfo };
 
         if (!process.Start())
         {

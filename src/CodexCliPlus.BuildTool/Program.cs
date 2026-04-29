@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using CodexCliPlus.Core.Constants;
 
 namespace CodexCliPlus.BuildTool;
@@ -27,7 +26,7 @@ public static class BuildToolApp
         "publish",
         "package-online-installer",
         "package-offline-installer",
-        "verify-package"
+        "verify-package",
     ];
 
     public static async Task<int> ExecuteAsync(
@@ -35,7 +34,8 @@ public static class BuildToolApp
         TextWriter? standardOutput = null,
         TextWriter? standardError = null,
         IProcessRunner? processRunner = null,
-        ISigningService? signingService = null)
+        ISigningService? signingService = null
+    )
     {
         standardOutput ??= Console.Out;
         standardError ??= Console.Error;
@@ -71,17 +71,25 @@ public static class BuildToolApp
             logger.Info($"CodexCliPlus.BuildTool {options.Command}");
             logger.Info($"Repository: {options.RepositoryRoot}");
             logger.Info($"Output: {options.OutputRoot}");
-            logger.Info($"Configuration: {options.Configuration}; Runtime: {options.Runtime}; Version: {options.Version}");
+            logger.Info(
+                $"Configuration: {options.Configuration}; Runtime: {options.Runtime}; Version: {options.Version}"
+            );
 
             return options.Command.ToLowerInvariant() switch
             {
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
-                "package-online-installer" => await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Online),
-                "package-offline-installer" => await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Offline),
+                "package-online-installer" => await PackageCommands.PackageInstallerAsync(
+                    context,
+                    InstallerPackageKind.Online
+                ),
+                "package-offline-installer" => await PackageCommands.PackageInstallerAsync(
+                    context,
+                    InstallerPackageKind.Offline
+                ),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
-                _ => 1
+                _ => 1,
             };
         }
         catch (Exception exception)
@@ -120,7 +128,8 @@ public sealed record BuildOptions(
     string OutputRoot,
     string Configuration,
     string Runtime,
-    string Version)
+    string Version
+)
 {
     public static bool TryParse(string[] args, out BuildOptions? options, out string? error)
     {
@@ -185,7 +194,8 @@ public sealed record BuildOptions(
             Path.GetFullPath(outputRoot),
             configuration,
             runtime,
-            version);
+            version
+        );
         return true;
     }
 
@@ -210,7 +220,8 @@ public sealed class BuildContext(
     BuildOptions options,
     BuildLogger logger,
     IProcessRunner processRunner,
-    ISigningService signingService)
+    ISigningService signingService
+)
 {
     public BuildOptions Options { get; } = options;
 
@@ -232,9 +243,11 @@ public sealed class BuildContext(
 
     public string ToolsRoot => Path.Combine(Options.OutputRoot, "tools");
 
-    public string WebUiRoot => Path.Combine(Options.RepositoryRoot, "resources", "webui", "upstream");
+    public string WebUiRoot =>
+        Path.Combine(Options.RepositoryRoot, "resources", "webui", "upstream");
 
-    public string WebUiModulesRoot => Path.Combine(Options.RepositoryRoot, "resources", "webui", "modules");
+    public string WebUiModulesRoot =>
+        Path.Combine(Options.RepositoryRoot, "resources", "webui", "modules");
 
     public string WebUiOverlayModuleRoot => Path.Combine(WebUiModulesRoot, "cpa-uv-overlay");
 
@@ -288,7 +301,8 @@ public interface IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -298,7 +312,8 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var startInfo = new ProcessStartInfo
         {
@@ -306,7 +321,7 @@ public sealed class ProcessRunner : IProcessRunner
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
+            UseShellExecute = false,
         };
 
         foreach (var argument in arguments)
@@ -364,25 +379,34 @@ public sealed class ProcessRunner : IProcessRunner
 
 public interface ISigningService
 {
-    Task SignAsync(string artifactPath, BuildContext context, CancellationToken cancellationToken = default);
+    Task SignAsync(
+        string artifactPath,
+        BuildContext context,
+        CancellationToken cancellationToken = default
+    );
 }
 
 public sealed class NoOpSigningService : ISigningService
 {
-    public async Task SignAsync(string artifactPath, BuildContext context, CancellationToken cancellationToken = default)
+    public async Task SignAsync(
+        string artifactPath,
+        BuildContext context,
+        CancellationToken cancellationToken = default
+    )
     {
         var markerPath = $"{artifactPath}.unsigned.json";
         var marker = new
         {
             artifact = Path.GetFileName(artifactPath),
             signing = "skipped",
-            reason = "No signing certificate configured for the first BuildTool release chain."
+            reason = "No signing certificate configured for the first BuildTool release chain.",
         };
         await File.WriteAllTextAsync(
             markerPath,
             JsonSerializer.Serialize(marker, JsonDefaults.Options),
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            cancellationToken
+        );
     }
 }
 
@@ -391,22 +415,25 @@ public static class AssetCommands
     private sealed record BackendAssetFileMapping(
         string RepositoryFileName,
         string ArchiveEntryName,
-        string TargetFileName);
+        string TargetFileName
+    );
 
     private static readonly BackendAssetFileMapping[] RequiredBackendFiles =
     [
         new(
             BackendExecutableNames.ManagedExecutableFileName,
             BackendExecutableNames.UpstreamExecutableFileName,
-            BackendExecutableNames.ManagedExecutableFileName),
+            BackendExecutableNames.ManagedExecutableFileName
+        ),
         new("LICENSE", "LICENSE", "LICENSE"),
         new("README.md", "README.md", "README.md"),
         new("README_CN.md", "README_CN.md", "README_CN.md"),
-        new("config.example.yaml", "config.example.yaml", "config.example.yaml")
+        new("config.example.yaml", "config.example.yaml", "config.example.yaml"),
     ];
 
-    private static readonly string[] RequiredBackendFileNames =
-        RequiredBackendFiles.Select(file => file.TargetFileName).ToArray();
+    private static readonly string[] RequiredBackendFileNames = RequiredBackendFiles
+        .Select(file => file.TargetFileName)
+        .ToArray();
 
     public static async Task<int> FetchAssetsAsync(BuildContext context)
     {
@@ -414,24 +441,35 @@ public static class AssetCommands
             context.Options.RepositoryRoot,
             "resources",
             "backend",
-            "windows-x64");
+            "windows-x64"
+        );
         SafeFileSystem.CleanDirectory(context.AssetsRoot, context.Options.OutputRoot);
         var backendTarget = Path.Combine(context.AssetsRoot, "backend", "windows-x64");
 
-        if (Directory.Exists(sourceDirectory) &&
-            RequiredBackendFiles.All(file => File.Exists(Path.Combine(sourceDirectory, file.RepositoryFileName))))
+        if (
+            Directory.Exists(sourceDirectory)
+            && RequiredBackendFiles.All(file =>
+                File.Exists(Path.Combine(sourceDirectory, file.RepositoryFileName))
+            )
+        )
         {
             foreach (var file in RequiredBackendFiles)
             {
                 var sourcePath = Path.Combine(sourceDirectory, file.RepositoryFileName);
                 Directory.CreateDirectory(backendTarget);
-                File.Copy(sourcePath, Path.Combine(backendTarget, file.TargetFileName), overwrite: true);
+                File.Copy(
+                    sourcePath,
+                    Path.Combine(backendTarget, file.TargetFileName),
+                    overwrite: true
+                );
                 context.Logger.Info($"asset copied: backend/windows-x64/{file.TargetFileName}");
             }
         }
         else
         {
-            context.Logger.Info($"local backend resources are incomplete; downloading {BackendReleaseMetadata.ArchiveUrl}");
+            context.Logger.Info(
+                $"local backend resources are incomplete; downloading {BackendReleaseMetadata.ArchiveUrl}"
+            );
             await DownloadBackendArchiveAsync(backendTarget, context.Logger);
             sourceDirectory = BackendReleaseMetadata.ArchiveUrl;
         }
@@ -441,7 +479,8 @@ public static class AssetCommands
             context.Options.Runtime,
             sourceDirectory,
             context.AssetsRoot,
-            cancellationToken: default);
+            cancellationToken: default
+        );
         Directory.CreateDirectory(context.AssetsRoot);
         await manifest.WriteAsync(context.AssetManifestPath);
         context.Logger.Info($"asset manifest: {context.AssetManifestPath}");
@@ -452,7 +491,9 @@ public static class AssetCommands
     {
         if (!File.Exists(context.AssetManifestPath))
         {
-            context.Logger.Info($"asset manifest not found; fetching assets: {context.AssetManifestPath}");
+            context.Logger.Info(
+                $"asset manifest not found; fetching assets: {context.AssetManifestPath}"
+            );
             var fetchCode = await FetchAssetsAsync(context);
             if (fetchCode != 0)
             {
@@ -488,13 +529,17 @@ public static class AssetCommands
             try
             {
                 logger.Info($"backend archive download attempt {attempt}/3");
-                archiveBytes = await httpClient.GetByteArrayAsync(BackendReleaseMetadata.ArchiveUrl);
+                archiveBytes = await httpClient.GetByteArrayAsync(
+                    BackendReleaseMetadata.ArchiveUrl
+                );
                 break;
             }
             catch (Exception exception)
             {
                 lastError = exception;
-                logger.Error($"backend archive download attempt {attempt}/3 failed: {exception.Message}");
+                logger.Error(
+                    $"backend archive download attempt {attempt}/3 failed: {exception.Message}"
+                );
                 if (attempt < 3)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(attempt));
@@ -506,33 +551,55 @@ public static class AssetCommands
         {
             throw new InvalidOperationException(
                 $"Failed to download backend archive after 3 attempts: {lastError?.Message}",
-                lastError);
+                lastError
+            );
         }
 
         var actualSha256 = Convert.ToHexStringLower(SHA256.HashData(archiveBytes));
-        if (!string.Equals(actualSha256, BackendReleaseMetadata.ArchiveSha256, StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                actualSha256,
+                BackendReleaseMetadata.ArchiveSha256,
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             throw new InvalidDataException(
-                $"Downloaded backend archive hash mismatch. Expected {BackendReleaseMetadata.ArchiveSha256}, got {actualSha256}.");
+                $"Downloaded backend archive hash mismatch. Expected {BackendReleaseMetadata.ArchiveSha256}, got {actualSha256}."
+            );
         }
 
         using var archiveStream = new MemoryStream(archiveBytes);
         ExtractBackendArchive(archiveStream, backendTarget, logger);
     }
 
-    private static void ExtractBackendArchive(Stream archiveStream, string backendTarget, BuildLogger logger)
+    private static void ExtractBackendArchive(
+        Stream archiveStream,
+        string backendTarget,
+        BuildLogger logger
+    )
     {
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         foreach (var requiredFile in RequiredBackendFiles)
         {
             var entry = archive.Entries.FirstOrDefault(item =>
-                string.Equals(item.Name, requiredFile.ArchiveEntryName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(
+                    item.Name,
+                    requiredFile.ArchiveEntryName,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
             if (entry is null)
             {
-                throw new InvalidDataException($"Downloaded backend archive is missing {requiredFile.ArchiveEntryName}.");
+                throw new InvalidDataException(
+                    $"Downloaded backend archive is missing {requiredFile.ArchiveEntryName}."
+                );
             }
 
-            entry.ExtractToFile(Path.Combine(backendTarget, requiredFile.TargetFileName), overwrite: true);
+            entry.ExtractToFile(
+                Path.Combine(backendTarget, requiredFile.TargetFileName),
+                overwrite: true
+            );
             logger.Info($"asset downloaded: backend/windows-x64/{requiredFile.TargetFileName}");
         }
     }
@@ -551,7 +618,8 @@ public static class WebUiCommands
         SafeFileSystem.CopyDirectory(
             context.WebUiSourceRoot,
             context.WebUiBuildSourceRoot,
-            excludedRootDirectoryNames: ["node_modules", "dist"]);
+            excludedRootDirectoryNames: ["node_modules", "dist"]
+        );
         SafeFileSystem.CopyDirectory(context.WebUiOverlaySourceRoot, context.WebUiBuildSourceRoot);
 
         context.Logger.Info("installing vendored WebUI dependencies in temporary worktree");
@@ -559,7 +627,8 @@ public static class WebUiCommands
             ResolveNpmExecutable(),
             ["ci"],
             context.WebUiBuildSourceRoot,
-            context.Logger);
+            context.Logger
+        );
         if (installExitCode != 0)
         {
             context.Logger.Error($"npm ci failed with exit code {installExitCode}.");
@@ -571,7 +640,8 @@ public static class WebUiCommands
             ResolveNpmExecutable(),
             ["run", "build"],
             context.WebUiBuildSourceRoot,
-            context.Logger);
+            context.Logger
+        );
         if (buildExitCode != 0)
         {
             context.Logger.Error($"npm run build failed with exit code {buildExitCode}.");
@@ -585,7 +655,10 @@ public static class WebUiCommands
             return 1;
         }
 
-        SafeFileSystem.CleanDirectory(context.WebUiVendoredDistRoot, context.Options.RepositoryRoot);
+        SafeFileSystem.CleanDirectory(
+            context.WebUiVendoredDistRoot,
+            context.Options.RepositoryRoot
+        );
         SafeFileSystem.CopyDirectory(context.WebUiBuildDistRoot, context.WebUiVendoredDistRoot);
         context.Logger.Info($"vendored WebUI dist refreshed: {context.WebUiVendoredDistRoot}");
         return 0;
@@ -595,47 +668,55 @@ public static class WebUiCommands
     {
         if (!Directory.Exists(context.WebUiSourceRoot))
         {
-            throw new DirectoryNotFoundException($"Vendored WebUI source directory not found: {context.WebUiSourceRoot}");
+            throw new DirectoryNotFoundException(
+                $"Vendored WebUI source directory not found: {context.WebUiSourceRoot}"
+            );
         }
 
         if (!File.Exists(context.WebUiSourcePackageJsonPath))
         {
             throw new FileNotFoundException(
                 $"Vendored WebUI package.json not found: {context.WebUiSourcePackageJsonPath}",
-                context.WebUiSourcePackageJsonPath);
+                context.WebUiSourcePackageJsonPath
+            );
         }
 
         if (!File.Exists(context.WebUiSourcePackageLockPath))
         {
             throw new FileNotFoundException(
                 $"Vendored WebUI package-lock.json not found: {context.WebUiSourcePackageLockPath}",
-                context.WebUiSourcePackageLockPath);
+                context.WebUiSourcePackageLockPath
+            );
         }
 
         if (!File.Exists(context.WebUiSyncMetadataPath))
         {
             throw new FileNotFoundException(
                 $"Vendored WebUI sync metadata not found: {context.WebUiSyncMetadataPath}",
-                context.WebUiSyncMetadataPath);
+                context.WebUiSyncMetadataPath
+            );
         }
 
         if (!Directory.Exists(context.WebUiOverlayModuleRoot))
         {
             throw new DirectoryNotFoundException(
-                $"Vendored WebUI overlay directory not found: {context.WebUiOverlayModuleRoot}");
+                $"Vendored WebUI overlay directory not found: {context.WebUiOverlayModuleRoot}"
+            );
         }
 
         if (!File.Exists(context.WebUiOverlayManifestPath))
         {
             throw new FileNotFoundException(
                 $"Vendored WebUI overlay manifest not found: {context.WebUiOverlayManifestPath}",
-                context.WebUiOverlayManifestPath);
+                context.WebUiOverlayManifestPath
+            );
         }
 
         if (!Directory.Exists(context.WebUiOverlaySourceRoot))
         {
             throw new DirectoryNotFoundException(
-                $"Vendored WebUI overlay source directory not found: {context.WebUiOverlaySourceRoot}");
+                $"Vendored WebUI overlay source directory not found: {context.WebUiOverlaySourceRoot}"
+            );
         }
     }
 
@@ -665,7 +746,12 @@ public static class WebUiCommands
             return null;
         }
 
-        foreach (var segment in pathValue.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (
+            var segment in pathValue.Split(
+                Path.PathSeparator,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            )
+        )
         {
             var candidatePath = Path.Combine(segment.Trim('"'), fileName);
             if (File.Exists(candidatePath))
@@ -696,7 +782,12 @@ public static class PublishCommands
 
         SafeFileSystem.CleanDirectory(context.PublishRoot, context.Options.OutputRoot);
 
-        var appProject = Path.Combine(context.Options.RepositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj");
+        var appProject = Path.Combine(
+            context.Options.RepositoryRoot,
+            "src",
+            "CodexCliPlus.App",
+            "CodexCliPlus.App.csproj"
+        );
         var arguments = new[]
         {
             "publish",
@@ -709,13 +800,14 @@ public static class PublishCommands
             "true",
             "--output",
             context.PublishRoot,
-            "/p:PublishSingleFile=false"
+            "/p:PublishSingleFile=false",
         };
         var exitCode = await context.ProcessRunner.RunAsync(
             "dotnet",
             arguments,
             context.Options.RepositoryRoot,
-            context.Logger);
+            context.Logger
+        );
         if (exitCode != 0)
         {
             context.Logger.Error($"dotnet publish failed with exit code {exitCode}.");
@@ -724,7 +816,8 @@ public static class PublishCommands
 
         SafeFileSystem.CopyDirectory(
             Path.Combine(context.AssetsRoot, "backend"),
-            Path.Combine(context.PublishRoot, "assets", "backend"));
+            Path.Combine(context.PublishRoot, "assets", "backend")
+        );
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
         context.Logger.Info($"publish output: {context.PublishRoot}");
@@ -736,12 +829,19 @@ public static class PublishCommands
         var source = Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE");
         if (!File.Exists(source))
         {
-            throw new FileNotFoundException("Backend license missing from verified assets.", source);
+            throw new FileNotFoundException(
+                "Backend license missing from verified assets.",
+                source
+            );
         }
 
         var targetDirectory = Path.Combine(context.PublishRoot, "Licenses");
         Directory.CreateDirectory(targetDirectory);
-        File.Copy(source, Path.Combine(targetDirectory, "CLIProxyAPI.LICENSE.txt"), overwrite: true);
+        File.Copy(
+            source,
+            Path.Combine(targetDirectory, "CLIProxyAPI.LICENSE.txt"),
+            overwrite: true
+        );
     }
 
     private static async Task WritePublishManifestAsync(BuildContext context)
@@ -753,28 +853,34 @@ public static class PublishCommands
             Runtime = context.Options.Runtime,
             Configuration = context.Options.Configuration,
             Application = AppConstants.ExecutableName,
-            AssetsManifest = Path.GetRelativePath(context.PublishRoot, context.AssetManifestPath)
+            AssetsManifest = Path.GetRelativePath(context.PublishRoot, context.AssetManifestPath),
         };
         await File.WriteAllTextAsync(
             Path.Combine(context.PublishRoot, "publish-manifest.json"),
             JsonSerializer.Serialize(manifest, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 }
 
 public static class PackageCommands
 {
-    public static async Task<int> PackageInstallerAsync(BuildContext context, InstallerPackageKind packageKind)
+    public static async Task<int> PackageInstallerAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind
+    )
     {
         SafeFileSystem.RequirePublishRoot(context.PublishRoot);
         var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
-        var packageType = packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        var packageType =
+            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
         var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
         var appPackageRoot = Path.Combine(stageRoot, "app-package");
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
         var installerOutputPath = Path.Combine(
             context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe");
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe"
+        );
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
@@ -791,13 +897,18 @@ public static class PackageCommands
             InstallDirectoryHint = $"%ProgramFiles%\\{AppConstants.ProductKey}",
             LaunchAfterInstall = true,
             StableReleaseSource = "https://github.com/C4AL/CodexCliPlus/releases/latest",
-            BetaChannelReserved = true
+            BetaChannelReserved = true,
         };
         await WriteJsonAsync(Path.Combine(stageRoot, "mica-setup.json"), installerPlan);
         await InstallerMetadata.WriteAsync(context, appPackageRoot, stageRoot);
 
         var toolchain = await MicaSetupToolchain.AcquireAsync(context);
-        var archiveExitCode = await CreateMicaPayloadArchiveAsync(context, toolchain, appPackageRoot, payloadArchivePath);
+        var archiveExitCode = await CreateMicaPayloadArchiveAsync(
+            context,
+            toolchain,
+            appPackageRoot,
+            payloadArchivePath
+        );
         if (archiveExitCode != 0)
         {
             return archiveExitCode;
@@ -808,10 +919,16 @@ public static class PackageCommands
         await File.WriteAllTextAsync(
             micaConfigPath,
             JsonSerializer.Serialize(micaConfig, MicaSetupConfig.JsonOptions),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
 
         var builder = new MicaSetupInstallerBuilder(toolchain);
-        var buildExitCode = await builder.BuildAsync(context, micaConfigPath, payloadArchivePath, installerOutputPath);
+        var buildExitCode = await builder.BuildAsync(
+            context,
+            micaConfigPath,
+            payloadArchivePath,
+            installerOutputPath
+        );
         if (buildExitCode != 0)
         {
             return buildExitCode;
@@ -819,11 +936,16 @@ public static class PackageCommands
 
         await context.SigningService.SignAsync(installerOutputPath, context);
         Directory.CreateDirectory(Path.Combine(stageRoot, "output"));
-        File.Copy(installerOutputPath, Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath)), overwrite: true);
+        File.Copy(
+            installerOutputPath,
+            Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath)),
+            overwrite: true
+        );
 
         var stagingPackagePath = Path.Combine(
             context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip");
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
+        );
         await CreatePackageAsync(context, stageRoot, stagingPackagePath, packageType);
         context.Logger.Info($"installer executable: {installerOutputPath}");
         return 0;
@@ -851,7 +973,8 @@ public static class PackageCommands
         BuildContext context,
         string stageRoot,
         string packagePath,
-        string packageType)
+        string packageType
+    )
     {
         Directory.CreateDirectory(context.PackageRoot);
         if (File.Exists(packagePath))
@@ -865,14 +988,20 @@ public static class PackageCommands
             Version = context.Options.Version,
             Runtime = context.Options.Runtime,
             PackageType = packageType,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = DateTimeOffset.UtcNow,
         };
         await File.WriteAllTextAsync(
             Path.Combine(stageRoot, "package-manifest.json"),
             JsonSerializer.Serialize(manifest, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
 
-        ZipFile.CreateFromDirectory(stageRoot, packagePath, CompressionLevel.Optimal, includeBaseDirectory: false);
+        ZipFile.CreateFromDirectory(
+            stageRoot,
+            packagePath,
+            CompressionLevel.Optimal,
+            includeBaseDirectory: false
+        );
         await context.SigningService.SignAsync(packagePath, context);
         context.Logger.Info($"{packageType} package: {packagePath}");
     }
@@ -881,7 +1010,8 @@ public static class PackageCommands
         BuildContext context,
         MicaSetupToolchain toolchain,
         string appPackageRoot,
-        string archivePath)
+        string archivePath
+    )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(archivePath)!);
         if (File.Exists(archivePath))
@@ -893,20 +1023,30 @@ public static class PackageCommands
             toolchain.SevenZipPath,
             ["a", archivePath, ".\\*", "-t7z", "-mx=5", "-mf=BCJ2", "-r", "-y"],
             appPackageRoot,
-            context.Logger);
+            context.Logger
+        );
         if (exitCode == 0 && File.Exists(archivePath))
         {
             return 0;
         }
 
-        context.Logger.Error("7z did not create a MicaSetup payload archive; falling back to a zip container with the same payload.");
+        context.Logger.Error(
+            "7z did not create a MicaSetup payload archive; falling back to a zip container with the same payload."
+        );
         if (File.Exists(archivePath))
         {
             File.Delete(archivePath);
         }
 
-        ZipFile.CreateFromDirectory(appPackageRoot, archivePath, CompressionLevel.Optimal, includeBaseDirectory: false);
-        return File.Exists(archivePath) ? 0 : exitCode == 0 ? 1 : exitCode;
+        ZipFile.CreateFromDirectory(
+            appPackageRoot,
+            archivePath,
+            CompressionLevel.Optimal,
+            includeBaseDirectory: false
+        );
+        return File.Exists(archivePath) ? 0
+            : exitCode == 0 ? 1
+            : exitCode;
     }
 
     private static Task WriteJsonAsync(string path, object value)
@@ -915,14 +1055,15 @@ public static class PackageCommands
         return File.WriteAllTextAsync(
             path,
             JsonSerializer.Serialize(value, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 }
 
 public enum InstallerPackageKind
 {
     Online,
-    Offline
+    Offline,
 }
 
 public sealed class PackageVerifier(BuildContext context)
@@ -938,14 +1079,20 @@ public sealed class PackageVerifier(BuildContext context)
 
     private void VerifyInstallerPackage(string packageMoniker, List<string> failures)
     {
-        var installerName = $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe";
+        var installerName =
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe";
         var stagingPackagePath = Path.Combine(
             context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip");
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
+        );
 
         VerifyExecutable(Path.Combine(context.PackageRoot, installerName), failures);
         VerifyZip(stagingPackagePath, $"app-package/{AppConstants.ExecutableName}", failures);
-        VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/dist/index.html", failures);
+        VerifyZip(
+            stagingPackagePath,
+            "app-package/assets/webui/upstream/dist/index.html",
+            failures
+        );
         VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/sync.json", failures);
         VerifyZip(stagingPackagePath, "mica-setup.json", failures);
         VerifyZip(stagingPackagePath, "micasetup.json", failures);
@@ -967,7 +1114,12 @@ public sealed class PackageVerifier(BuildContext context)
         {
             using var archive = ZipFile.OpenRead(path);
             var found = archive.Entries.Any(entry =>
-                string.Equals(NormalizeEntryName(entry.FullName), requiredEntry, StringComparison.OrdinalIgnoreCase));
+                string.Equals(
+                    NormalizeEntryName(entry.FullName),
+                    requiredEntry,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
             if (!found)
             {
                 failures.Add($"Package '{path}' is missing entry '{requiredEntry}'.");
@@ -979,7 +1131,11 @@ public sealed class PackageVerifier(BuildContext context)
         }
     }
 
-    private static void VerifyZipExecutable(string path, string requiredEntry, List<string> failures)
+    private static void VerifyZipExecutable(
+        string path,
+        string requiredEntry,
+        List<string> failures
+    )
     {
         if (!File.Exists(path))
         {
@@ -991,7 +1147,12 @@ public sealed class PackageVerifier(BuildContext context)
         {
             using var archive = ZipFile.OpenRead(path);
             var entry = archive.Entries.FirstOrDefault(item =>
-                string.Equals(NormalizeEntryName(item.FullName), requiredEntry, StringComparison.OrdinalIgnoreCase));
+                string.Equals(
+                    NormalizeEntryName(item.FullName),
+                    requiredEntry,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
             if (entry is null)
             {
                 failures.Add($"Package '{path}' is missing entry '{requiredEntry}'.");
@@ -1000,12 +1161,17 @@ public sealed class PackageVerifier(BuildContext context)
 
             if (entry.Length < 64)
             {
-                failures.Add($"Installer executable is too small to be valid: {path}!{requiredEntry}");
+                failures.Add(
+                    $"Installer executable is too small to be valid: {path}!{requiredEntry}"
+                );
                 return;
             }
 
             using var stream = entry.Open();
-            var validationFailure = WindowsExecutableValidation.ValidateStream(stream, $"{path}!{requiredEntry}");
+            var validationFailure = WindowsExecutableValidation.ValidateStream(
+                stream,
+                $"{path}!{requiredEntry}"
+            );
             if (validationFailure is not null)
             {
                 failures.Add(validationFailure);
@@ -1043,10 +1209,14 @@ public static class InstallerMetadata
     private static readonly string[] RequiredWebUiFiles =
     [
         "assets/webui/upstream/dist/index.html",
-        "assets/webui/upstream/sync.json"
+        "assets/webui/upstream/sync.json",
     ];
 
-    public static async Task WriteAsync(BuildContext context, string appPackageRoot, string installerStageRoot)
+    public static async Task WriteAsync(
+        BuildContext context,
+        string appPackageRoot,
+        string installerStageRoot
+    )
     {
         var packagingRoot = Path.Combine(appPackageRoot, "packaging");
         Directory.CreateDirectory(packagingRoot);
@@ -1062,7 +1232,7 @@ public static class InstallerMetadata
                     detection = "CoreWebView2Environment.GetAvailableBrowserVersionString",
                     bundledFirst = false,
                     downloadPage = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
-                    note = "The desktop shell is a WebView2 host and cannot render the vendored official WebUI without the runtime."
+                    note = "The desktop shell is a WebView2 host and cannot render the vendored official WebUI without the runtime.",
                 },
                 runtime = new
                 {
@@ -1071,7 +1241,7 @@ public static class InstallerMetadata
                     bundledFirst = true,
                     requiredExecutable = AppConstants.ExecutableName,
                     onlineFallback = "https://dotnet.microsoft.com/download/dotnet/10.0",
-                    note = "The installed app is self-contained; online runtime repair is reserved for future framework-dependent payloads."
+                    note = "The installed app is self-contained; online runtime repair is reserved for future framework-dependent payloads.",
                 },
                 backend = new
                 {
@@ -1079,7 +1249,7 @@ public static class InstallerMetadata
                     requiredFiles = AssetCommands.RequiredFiles,
                     bundledFirst = true,
                     onlineFallback = "https://github.com/router-for-me/CLIProxyAPI/releases",
-                    verifyWithManifest = "assets/backend/windows-x64 + asset-manifest.json"
+                    verifyWithManifest = "assets/backend/windows-x64 + asset-manifest.json",
                 },
                 webUi = new
                 {
@@ -1087,14 +1257,15 @@ public static class InstallerMetadata
                     requiredFiles = RequiredWebUiFiles,
                     bundledFirst = true,
                     verifyWithFiles = "assets/webui/upstream/dist/index.html + assets/webui/upstream/sync.json",
-                    note = "The desktop shell serves the vendored official WebUI from local packaged files instead of a remote URL."
+                    note = "The desktop shell serves the vendored official WebUI from local packaged files instead of a remote URL.",
                 },
                 installer = new
                 {
                     precheck = "Setup payload contains dependency-precheck.json so the installer chain can validate WebView2, bundled backend files, and vendored WebUI assets before launch.",
-                    launchAfterInstall = true
-                }
-            });
+                    launchAfterInstall = true,
+                },
+            }
+        );
 
         await WriteJsonAsync(
             Path.Combine(packagingRoot, "update-policy.json"),
@@ -1105,14 +1276,11 @@ public static class InstallerMetadata
                     enabled = true,
                     source = "https://github.com/C4AL/CodexCliPlus/releases/latest",
                     expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe",
-                    installedBuildCanLaunchInstaller = true
+                    installedBuildCanLaunchInstaller = true,
                 },
-                beta = new
-                {
-                    reserved = true,
-                    enabled = false
-                }
-            });
+                beta = new { reserved = true, enabled = false },
+            }
+        );
 
         var cleanup = new InstallerCleanupManifest
         {
@@ -1127,13 +1295,13 @@ public static class InstallerMetadata
                 "%AppData%\\CodexCliPlus",
                 "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
                 "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
-                "%LocalAppData%\\CodexCliPlus"
+                "%LocalAppData%\\CodexCliPlus",
             ],
             AlwaysDelete =
             [
                 "%ProgramFiles%\\CodexCliPlus",
                 "%AppData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
-                "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus"
+                "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\CodexCliPlus",
             ],
             DeleteByDefault =
             [
@@ -1145,35 +1313,29 @@ public static class InstallerMetadata
                 "%ProgramFiles%\\CodexCliPlus\\backend",
                 "%ProgramFiles%\\CodexCliPlus\\diagnostics",
                 "%ProgramFiles%\\CodexCliPlus\\runtime",
-                "%AppData%\\CodexCliPlus"
+                "%AppData%\\CodexCliPlus",
             ],
             PreserveWhenKeepMyData =
             [
                 "%ProgramFiles%\\CodexCliPlus\\config",
                 "%ProgramFiles%\\CodexCliPlus\\config\\secrets",
                 "%ProgramFiles%\\CodexCliPlus\\logs",
-                "%ProgramFiles%\\CodexCliPlus\\diagnostics"
+                "%ProgramFiles%\\CodexCliPlus\\diagnostics",
             ],
             RegistryValues =
             [
                 "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\CodexCliPlus",
-                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CodexCliPlus"
+                "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CodexCliPlus",
             ],
-            FirewallRules =
-            [
-                "CodexCliPlus"
-            ],
-            ScheduledTasks =
-            [
-                "CodexCliPlus"
-            ],
+            FirewallRules = ["CodexCliPlus"],
+            ScheduledTasks = ["CodexCliPlus"],
             SafetyRules =
             [
                 "Only delete roots whose resolved final segment is CodexCliPlus.",
                 "Never follow a cleanup item outside Program Files, AppData, LocalAppData legacy data, the selected install directory, Start Menu, CodexCliPlus firewall rules, or CodexCliPlus scheduled tasks.",
                 "Default uninstall runs the full-clean profile and deletes CodexCliPlus user data.",
-                "KeepMyData preserves config, credential references, logs, and diagnostics while removing installed binaries and integration points."
-            ]
+                "KeepMyData preserves config, credential references, logs, and diagnostics while removing installed binaries and integration points.",
+            ],
         };
         await WriteJsonAsync(Path.Combine(packagingRoot, "uninstall-cleanup.json"), cleanup);
         await WriteJsonAsync(Path.Combine(installerStageRoot, "uninstall-cleanup.json"), cleanup);
@@ -1184,20 +1346,23 @@ public static class InstallerMetadata
         return File.WriteAllTextAsync(
             path,
             JsonSerializer.Serialize(value, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 }
 
 public sealed class MicaSetupToolchain
 {
-    private const string LatestReleaseApiUrl = "https://api.github.com/repos/lemutec/MicaSetup/releases/latest";
+    private const string LatestReleaseApiUrl =
+        "https://api.github.com/repos/lemutec/MicaSetup/releases/latest";
 
     private MicaSetupToolchain(
         string rootDirectory,
         string sevenZipPath,
         string makeMicaPath,
         string templatePath,
-        string version)
+        string version
+    )
     {
         RootDirectory = rootDirectory;
         SevenZipPath = sevenZipPath;
@@ -1218,7 +1383,12 @@ public sealed class MicaSetupToolchain
 
     public static async Task<MicaSetupToolchain> AcquireAsync(BuildContext context)
     {
-        var repoOwnedRoot = Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "toolchain");
+        var repoOwnedRoot = Path.Combine(
+            context.Options.RepositoryRoot,
+            "build",
+            "micasetup",
+            "toolchain"
+        );
         var repoOwnedToolchain = await TryCreateFromDirectoryAsync(repoOwnedRoot, "repo-owned");
         if (repoOwnedToolchain is not null)
         {
@@ -1241,10 +1411,14 @@ public sealed class MicaSetupToolchain
         var versionPath = Path.Combine(root, "micasetup-tools-version.txt");
 
         var release = await QueryLatestReleaseAsync();
-        var asset = release.Assets
-            .FirstOrDefault(item => item.Name.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase)
-                && item.Name.StartsWith("MicaSetup.Tools.", StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidDataException("Latest MicaSetup release does not contain a MicaSetup.Tools nupkg asset.");
+        var asset =
+            release.Assets.FirstOrDefault(item =>
+                item.Name.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase)
+                && item.Name.StartsWith("MicaSetup.Tools.", StringComparison.OrdinalIgnoreCase)
+            )
+            ?? throw new InvalidDataException(
+                "Latest MicaSetup release does not contain a MicaSetup.Tools nupkg asset."
+            );
 
         var downloadPath = Path.Combine(root, "download", asset.Name);
         Directory.CreateDirectory(Path.GetDirectoryName(downloadPath)!);
@@ -1253,15 +1427,24 @@ public sealed class MicaSetupToolchain
 
         if (!File.Exists(sevenZip) || !File.Exists(makeMica) || !File.Exists(template))
         {
-            throw new FileNotFoundException("Downloaded MicaSetup.Tools package is missing makemica.exe, 7z.exe, or template/default.7z.");
+            throw new FileNotFoundException(
+                "Downloaded MicaSetup.Tools package is missing makemica.exe, 7z.exe, or template/default.7z."
+            );
         }
 
-        await File.WriteAllTextAsync(versionPath, release.TagName, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        await File.WriteAllTextAsync(
+            versionPath,
+            release.TagName,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
         context.Logger.Info($"MicaSetup tools downloaded: {release.TagName}");
         return new MicaSetupToolchain(root, sevenZip, makeMica, template, release.TagName);
     }
 
-    private static async Task<MicaSetupToolchain?> TryCreateFromDirectoryAsync(string root, string fallbackVersion)
+    private static async Task<MicaSetupToolchain?> TryCreateFromDirectoryAsync(
+        string root,
+        string fallbackVersion
+    )
     {
         var sevenZip = Path.Combine(root, "build", "bin", "7z.exe");
         var makeMica = Path.Combine(root, "build", "makemica.exe");
@@ -1288,20 +1471,27 @@ public sealed class MicaSetupToolchain
         using var client = new HttpClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApiUrl);
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("CodexCliPlus-BuildTool", "1.0"));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        request.Headers.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/vnd.github+json")
+        );
         request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
 
         using var response = await client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"MicaSetup latest release query failed: HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {body}");
+            throw new InvalidOperationException(
+                $"MicaSetup latest release query failed: HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {body}"
+            );
         }
 
         using var document = JsonDocument.Parse(body);
         var root = document.RootElement;
         var assets = new List<MicaSetupReleaseAsset>();
-        if (root.TryGetProperty("assets", out var assetsElement) && assetsElement.ValueKind == JsonValueKind.Array)
+        if (
+            root.TryGetProperty("assets", out var assetsElement)
+            && assetsElement.ValueKind == JsonValueKind.Array
+        )
         {
             foreach (var asset in assetsElement.EnumerateArray())
             {
@@ -1316,10 +1506,15 @@ public sealed class MicaSetupToolchain
 
         return new MicaSetupRelease(
             GetString(root, "tag_name") ?? GetString(root, "name") ?? "latest",
-            assets);
+            assets
+        );
     }
 
-    private static async Task DownloadWithRetryAsync(string url, string targetPath, BuildLogger logger)
+    private static async Task DownloadWithRetryAsync(
+        string url,
+        string targetPath,
+        BuildLogger logger
+    )
     {
         using var client = new HttpClient();
         Exception? lastError = null;
@@ -1335,7 +1530,9 @@ public sealed class MicaSetupToolchain
             catch (Exception exception)
             {
                 lastError = exception;
-                logger.Error($"MicaSetup tools download attempt {attempt}/3 failed: {exception.Message}");
+                logger.Error(
+                    $"MicaSetup tools download attempt {attempt}/3 failed: {exception.Message}"
+                );
                 if (attempt < 3)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(attempt));
@@ -1343,17 +1540,25 @@ public sealed class MicaSetupToolchain
             }
         }
 
-        throw new InvalidOperationException($"Failed to download MicaSetup tools: {lastError?.Message}", lastError);
+        throw new InvalidOperationException(
+            $"Failed to download MicaSetup tools: {lastError?.Message}",
+            lastError
+        );
     }
 
     private static string? GetString(JsonElement element, string propertyName)
     {
-        return element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+        return
+            element.TryGetProperty(propertyName, out var property)
+            && property.ValueKind == JsonValueKind.String
             ? property.GetString()
             : null;
     }
 
-    private sealed record MicaSetupRelease(string TagName, IReadOnlyList<MicaSetupReleaseAsset> Assets);
+    private sealed record MicaSetupRelease(
+        string TagName,
+        IReadOnlyList<MicaSetupReleaseAsset> Assets
+    );
 
     private sealed record MicaSetupReleaseAsset(string Name, string DownloadUrl);
 }
@@ -1362,8 +1567,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 {
     private const string CleanupMethodMarker = "private static void CleanupCodexCliPlusUserData()";
 
-    private const string UninstallCleanupSource =
-        """
+    private const string UninstallCleanupSource = """
                 private static void CleanupCodexCliPlusUserData()
                 {
                     RegistyAutoRunHelper.Disable("CodexCliPlus");
@@ -1479,7 +1683,8 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
-        string installerOutputPath)
+        string installerOutputPath
+    )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(installerOutputPath)!);
         if (File.Exists(installerOutputPath))
@@ -1489,15 +1694,23 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
         if (!HasVisualStudioInstaller())
         {
-            context.Logger.Info("Visual Studio Installer not detected; using dotnet msbuild against the official MicaSetup template.");
-            return await BuildWithDotnetMsbuildAsync(context, micaConfigPath, payloadArchivePath, installerOutputPath);
+            context.Logger.Info(
+                "Visual Studio Installer not detected; using dotnet msbuild against the official MicaSetup template."
+            );
+            return await BuildWithDotnetMsbuildAsync(
+                context,
+                micaConfigPath,
+                payloadArchivePath,
+                installerOutputPath
+            );
         }
 
         var makeMicaExitCode = await context.ProcessRunner.RunAsync(
             toolchain.MakeMicaPath,
             [micaConfigPath],
             Path.GetDirectoryName(micaConfigPath)!,
-            context.Logger);
+            context.Logger
+        );
         if (makeMicaExitCode == 0 && File.Exists(installerOutputPath))
         {
             var validationFailure = WindowsExecutableValidation.ValidateFile(installerOutputPath);
@@ -1507,14 +1720,23 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 return 0;
             }
 
-            context.Logger.Error($"makemica.exe produced an invalid installer: {validationFailure}");
+            context.Logger.Error(
+                $"makemica.exe produced an invalid installer: {validationFailure}"
+            );
             File.Delete(installerOutputPath);
         }
 
-        context.Logger.Info(makeMicaExitCode == 0
-            ? "makemica.exe completed without a valid installer executable; falling back to dotnet msbuild against the official MicaSetup template."
-            : $"makemica.exe failed with exit code {makeMicaExitCode}; falling back to dotnet msbuild against the official MicaSetup template.");
-        return await BuildWithDotnetMsbuildAsync(context, micaConfigPath, payloadArchivePath, installerOutputPath);
+        context.Logger.Info(
+            makeMicaExitCode == 0
+                ? "makemica.exe completed without a valid installer executable; falling back to dotnet msbuild against the official MicaSetup template."
+                : $"makemica.exe failed with exit code {makeMicaExitCode}; falling back to dotnet msbuild against the official MicaSetup template."
+        );
+        return await BuildWithDotnetMsbuildAsync(
+            context,
+            micaConfigPath,
+            payloadArchivePath,
+            installerOutputPath
+        );
     }
 
     private static bool HasVisualStudioInstaller()
@@ -1526,9 +1748,15 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
         foreach (var programFilesRoot in GetProgramFilesRoots())
         {
-            var installerRoot = Path.Combine(programFilesRoot, "Microsoft Visual Studio", "Installer");
-            if (File.Exists(Path.Combine(installerRoot, "setup.exe"))
-                || File.Exists(Path.Combine(installerRoot, "vswhere.exe")))
+            var installerRoot = Path.Combine(
+                programFilesRoot,
+                "Microsoft Visual Studio",
+                "Installer"
+            );
+            if (
+                File.Exists(Path.Combine(installerRoot, "setup.exe"))
+                || File.Exists(Path.Combine(installerRoot, "vswhere.exe"))
+            )
             {
                 return true;
             }
@@ -1546,8 +1774,10 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         }
 
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (!string.IsNullOrWhiteSpace(programFiles)
-            && !string.Equals(programFiles, programFilesX86, StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.IsNullOrWhiteSpace(programFiles)
+            && !string.Equals(programFiles, programFilesX86, StringComparison.OrdinalIgnoreCase)
+        )
         {
             yield return programFiles;
         }
@@ -1557,7 +1787,8 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
-        string installerOutputPath)
+        string installerOutputPath
+    )
     {
         var stageRoot = Path.GetDirectoryName(micaConfigPath)!;
         var distRoot = Path.Combine(stageRoot, ".dist");
@@ -1567,10 +1798,13 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             toolchain.SevenZipPath,
             ["x", toolchain.TemplatePath, $"-o{distRoot}", "-y"],
             stageRoot,
-            context.Logger);
+            context.Logger
+        );
         if (extractExitCode != 0)
         {
-            context.Logger.Error($"MicaSetup template extraction failed with exit code {extractExitCode}.");
+            context.Logger.Error(
+                $"MicaSetup template extraction failed with exit code {extractExitCode}."
+            );
             return extractExitCode;
         }
 
@@ -1587,13 +1821,16 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 "/p:PublishProfile=FolderProfile",
                 "/p:ImportDirectoryBuildProps=false",
                 "/p:RestoreUseStaticGraphEvaluation=false",
-                "/restore"
+                "/restore",
             ],
             distRoot,
-            context.Logger);
+            context.Logger
+        );
         if (uninstExitCode != 0)
         {
-            context.Logger.Error($"MicaSetup uninstaller build failed with exit code {uninstExitCode}.");
+            context.Logger.Error(
+                $"MicaSetup uninstaller build failed with exit code {uninstExitCode}."
+            );
             return uninstExitCode;
         }
 
@@ -1619,10 +1856,11 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 "/p:PublishProfile=FolderProfile",
                 "/p:ImportDirectoryBuildProps=false",
                 "/p:RestoreUseStaticGraphEvaluation=false",
-                "/restore"
+                "/restore",
             ],
             distRoot,
-            context.Logger);
+            context.Logger
+        );
         if (setupExitCode != 0)
         {
             context.Logger.Error($"MicaSetup setup build failed with exit code {setupExitCode}.");
@@ -1648,19 +1886,27 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         return 0;
     }
 
-    private static void ApplyTemplateConfig(BuildContext context, string distRoot, string payloadArchivePath)
+    private static void ApplyTemplateConfig(
+        BuildContext context,
+        string distRoot,
+        string payloadArchivePath
+    )
     {
         var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
         Directory.CreateDirectory(Path.GetDirectoryName(setupResourcePath)!);
         File.Copy(payloadArchivePath, setupResourcePath, overwrite: true);
 
-        var cleanupManifestSource = Path.Combine(Path.GetDirectoryName(payloadArchivePath)!, "uninstall-cleanup.json");
+        var cleanupManifestSource = Path.Combine(
+            Path.GetDirectoryName(payloadArchivePath)!,
+            "uninstall-cleanup.json"
+        );
         if (File.Exists(cleanupManifestSource))
         {
             File.Copy(
                 cleanupManifestSource,
                 Path.Combine(distRoot, "Resources", "Setups", "uninstall-cleanup.json"),
-                overwrite: true);
+                overwrite: true
+            );
         }
 
         CopyLicenseDocuments(context, Path.Combine(distRoot, "Resources", "Licenses"));
@@ -1679,9 +1925,15 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         var documents = new (string Source, string Target)[]
         {
             (Path.Combine(repositoryRoot, "LICENSE.txt"), "CodexCliPlus.LICENSE.txt"),
-            (Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE"), "CLIProxyAPI.LICENSE.txt"),
-            (Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"), "BetterGI.GPL-3.0.txt"),
-            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt")
+            (
+                Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE"),
+                "CLIProxyAPI.LICENSE.txt"
+            ),
+            (
+                Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"),
+                "BetterGI.GPL-3.0.txt"
+            ),
+            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt"),
         };
 
         foreach (var (source, target) in documents)
@@ -1701,17 +1953,53 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         var source = File.ReadAllText(path);
         if (!source.Contains(".UseElevated()", StringComparison.Ordinal))
         {
-            source = source.Replace("Hosting.CreateBuilder()", "Hosting.CreateBuilder().UseElevated()", StringComparison.Ordinal);
+            source = source.Replace(
+                "Hosting.CreateBuilder()",
+                "Hosting.CreateBuilder().UseElevated()",
+                StringComparison.Ordinal
+            );
         }
 
-        source = ReplaceBetween(source, ".UseSingleInstance(\"", "\")", isUninstaller ? "BlackblockInc.CodexCliPlus.Uninstall" : "BlackblockInc.CodexCliPlus.Setup");
-        source = ReplaceBetween(source, "[assembly: Guid(\"", "\")]", "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d");
-        source = ReplaceBetween(source, "[assembly: AssemblyTitle(\"", "\")]", isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup");
+        source = ReplaceBetween(
+            source,
+            ".UseSingleInstance(\"",
+            "\")",
+            isUninstaller
+                ? "BlackblockInc.CodexCliPlus.Uninstall"
+                : "BlackblockInc.CodexCliPlus.Setup"
+        );
+        source = ReplaceBetween(
+            source,
+            "[assembly: Guid(\"",
+            "\")]",
+            "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d"
+        );
+        source = ReplaceBetween(
+            source,
+            "[assembly: AssemblyTitle(\"",
+            "\")]",
+            isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup"
+        );
         source = ReplaceBetween(source, "[assembly: AssemblyProduct(\"", "\")]", "CodexCliPlus");
-        source = ReplaceBetween(source, "[assembly: AssemblyDescription(\"", "\")]", isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup");
+        source = ReplaceBetween(
+            source,
+            "[assembly: AssemblyDescription(\"",
+            "\")]",
+            isUninstaller ? "CodexCliPlus Uninstall" : "CodexCliPlus Setup"
+        );
         source = ReplaceBetween(source, "[assembly: AssemblyCompany(\"", "\")]", "Blackblock Inc.");
-        source = ReplaceBetween(source, "[assembly: AssemblyVersion(\"", "\")]", NormalizeAssemblyVersion(version));
-        source = ReplaceBetween(source, "[assembly: AssemblyFileVersion(\"", "\")]", NormalizeAssemblyVersion(version));
+        source = ReplaceBetween(
+            source,
+            "[assembly: AssemblyVersion(\"",
+            "\")]",
+            NormalizeAssemblyVersion(version)
+        );
+        source = ReplaceBetween(
+            source,
+            "[assembly: AssemblyFileVersion(\"",
+            "\")]",
+            NormalizeAssemblyVersion(version)
+        );
         source = ReplaceBetween(source, "[assembly: RequestExecutionLevel(\"", "\")]", "admin");
 
         source = ReplaceAssignment(source, "option.IsCreateDesktopShortcut", "true");
@@ -1725,7 +2013,11 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         source = ReplaceAssignment(source, "option.IsCustomizeVisiableAutoRun", "true");
         source = ReplaceAssignment(source, "option.AutoRunLaunchCommand", "\"/autostart\"");
         source = ReplaceAssignment(source, "option.IsUseInstallPathPreferX86", "false");
-        source = ReplaceAssignment(source, "option.IsUseInstallPathPreferAppDataLocalPrograms", "false");
+        source = ReplaceAssignment(
+            source,
+            "option.IsUseInstallPathPreferAppDataLocalPrograms",
+            "false"
+        );
         source = ReplaceAssignment(source, "option.IsUseInstallPathPreferAppDataRoaming", "false");
         source = ReplaceAssignment(source, "option.IsAllowFullFolderSecurity", "true");
         source = ReplaceAssignment(source, "option.IsAllowFirewall", "false");
@@ -1739,8 +2031,16 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         source = ReplaceAssignment(source, "option.DisplayVersion", $"\"{version}\"");
         source = ReplaceAssignment(source, "option.Publisher", "\"Blackblock Inc.\"");
         source = ReplaceAssignment(source, "option.MessageOfPage1", "\"CodexCliPlus\"");
-        source = ReplaceAssignment(source, "option.MessageOfPage2", isUninstaller ? "\"正在卸载 CodexCliPlus\"" : "\"正在安装 CodexCliPlus\"");
-        source = ReplaceAssignment(source, "option.MessageOfPage3", isUninstaller ? "\"卸载完成\"" : "\"安装完成\"");
+        source = ReplaceAssignment(
+            source,
+            "option.MessageOfPage2",
+            isUninstaller ? "\"正在卸载 CodexCliPlus\"" : "\"正在安装 CodexCliPlus\""
+        );
+        source = ReplaceAssignment(
+            source,
+            "option.MessageOfPage3",
+            isUninstaller ? "\"卸载完成\"" : "\"安装完成\""
+        );
         if (isUninstaller)
         {
             source = EnsureOptionAssignment(source, "option.KeepMyData", "false", "option.ExeName");
@@ -1751,12 +2051,25 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
     private static void PatchForCurrentUserInstall(string distRoot)
     {
-        var uninstMainViewModel = Path.Combine(distRoot, "ViewModels", "Uninst", "MainViewModel.cs");
+        var uninstMainViewModel = Path.Combine(
+            distRoot,
+            "ViewModels",
+            "Uninst",
+            "MainViewModel.cs"
+        );
         if (File.Exists(uninstMainViewModel))
         {
             var source = File.ReadAllText(uninstMainViewModel)
-                .Replace("private bool isElevated = RuntimeHelper.IsElevated;", "private bool isElevated = true;", StringComparison.Ordinal);
-            File.WriteAllText(uninstMainViewModel, source, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                .Replace(
+                    "private bool isElevated = RuntimeHelper.IsElevated;",
+                    "private bool isElevated = true;",
+                    StringComparison.Ordinal
+                );
+            File.WriteAllText(
+                uninstMainViewModel,
+                source,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+            );
         }
     }
 
@@ -1769,11 +2082,16 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         }
 
         var source = File.ReadAllText(path);
-        source = source.Replace("using System.IO;", "using System.Diagnostics;\r\nusing System.IO;", StringComparison.Ordinal);
+        source = source.Replace(
+            "using System.IO;",
+            "using System.Diagnostics;\r\nusing System.IO;",
+            StringComparison.Ordinal
+        );
         source = source.Replace(
             "else { // For security reason, uninst should always keep data because of unundering admin. Option.Current.KeepMyData = true; uinfo = PrepareUninstallPathHelper.GetPrepareUninstallPath(); if (string.IsNullOrWhiteSpace(uinfo.UninstallData)) { MessageBox.Info(ApplicationDispatcherHelper.MainWindow, \"InstallationInfoLostHint\".Tr()); } }",
             "else { uinfo = PrepareUninstallPathHelper.GetPrepareUninstallPath(); if (string.IsNullOrWhiteSpace(uinfo.UninstallData)) { MessageBox.Info(ApplicationDispatcherHelper.MainWindow, \"InstallationInfoLostHint\".Tr()); } }",
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         source = source.Replace(
             """
                     else
@@ -1800,11 +2118,13 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                         }
                     }
             """,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         source = source.Replace(
             "try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }",
             "CleanupCodexCliPlusUserData(); try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }",
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         source = source.Replace(
             """
                     try
@@ -1820,20 +2140,28 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                         RegistyUninstallHelper.Delete(Option.Current.KeyName);
                     }
             """,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
 
         if (!source.Contains(CleanupMethodMarker, StringComparison.Ordinal))
         {
             source = source.Replace(
                 "public static void DeleteUninst()",
-                UninstallCleanupSource + "\r\n\r\n                public static void DeleteUninst()",
-                StringComparison.Ordinal);
+                UninstallCleanupSource
+                    + "\r\n\r\n                public static void DeleteUninst()",
+                StringComparison.Ordinal
+            );
         }
 
         File.WriteAllText(path, source, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    private static string EnsureOptionAssignment(string source, string assignmentTarget, string value, string insertAfterTarget)
+    private static string EnsureOptionAssignment(
+        string source,
+        string assignmentTarget,
+        string value,
+        string insertAfterTarget
+    )
     {
         if (source.Contains(assignmentTarget, StringComparison.Ordinal))
         {
@@ -1949,23 +2277,36 @@ public sealed class BuildAssetManifest
         string runtime,
         string sourceDirectory,
         string assetsRoot,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var files = new List<BuildAssetFile>();
-        foreach (var path in Directory.EnumerateFiles(assetsRoot, "*", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
+        foreach (
+            var path in Directory
+                .EnumerateFiles(assetsRoot, "*", SearchOption.AllDirectories)
+                .Order(StringComparer.OrdinalIgnoreCase)
+        )
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.Equals(Path.GetFileName(path), "asset-manifest.json", StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(
+                    Path.GetFileName(path),
+                    "asset-manifest.json",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 continue;
             }
 
-            files.Add(new BuildAssetFile
-            {
-                Path = ToManifestPath(Path.GetRelativePath(assetsRoot, path)),
-                Size = new FileInfo(path).Length,
-                Sha256 = await ComputeSha256Async(path, cancellationToken)
-            });
+            files.Add(
+                new BuildAssetFile
+                {
+                    Path = ToManifestPath(Path.GetRelativePath(assetsRoot, path)),
+                    Size = new FileInfo(path).Length,
+                    Sha256 = await ComputeSha256Async(path, cancellationToken),
+                }
+            );
         }
 
         return new BuildAssetManifest
@@ -1973,15 +2314,17 @@ public sealed class BuildAssetManifest
             Version = version,
             Runtime = runtime,
             Source = sourceDirectory,
-            Files = files
+            Files = files,
         };
     }
 
     public static async Task<BuildAssetManifest> ReadAsync(string manifestPath)
     {
         await using var stream = File.OpenRead(manifestPath);
-        return await JsonSerializer.DeserializeAsync<BuildAssetManifest>(stream, JsonDefaults.Options)
-            ?? throw new InvalidDataException($"Could not read asset manifest: {manifestPath}");
+        return await JsonSerializer.DeserializeAsync<BuildAssetManifest>(
+                stream,
+                JsonDefaults.Options
+            ) ?? throw new InvalidDataException($"Could not read asset manifest: {manifestPath}");
     }
 
     public async Task WriteAsync(string manifestPath)
@@ -1989,7 +2332,8 @@ public sealed class BuildAssetManifest
         await File.WriteAllTextAsync(
             manifestPath,
             JsonSerializer.Serialize(this, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
     }
 
     public IReadOnlyList<string> Verify(string assetsRoot)
@@ -1997,7 +2341,10 @@ public sealed class BuildAssetManifest
         var failures = new List<string>();
         foreach (var file in Files)
         {
-            var fullPath = Path.Combine(assetsRoot, file.Path.Replace('/', Path.DirectorySeparatorChar));
+            var fullPath = Path.Combine(
+                assetsRoot,
+                file.Path.Replace('/', Path.DirectorySeparatorChar)
+            );
             if (!File.Exists(fullPath))
             {
                 failures.Add($"Asset missing: {file.Path}");
@@ -2011,7 +2358,9 @@ public sealed class BuildAssetManifest
                 continue;
             }
 
-            var actualHash = ComputeSha256Async(fullPath, CancellationToken.None).GetAwaiter().GetResult();
+            var actualHash = ComputeSha256Async(fullPath, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
             if (!string.Equals(actualHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
             {
                 failures.Add($"Asset hash mismatch: {file.Path}");
@@ -2021,7 +2370,11 @@ public sealed class BuildAssetManifest
         foreach (var requiredFile in AssetCommands.RequiredFiles)
         {
             var manifestPath = $"backend/windows-x64/{requiredFile}";
-            if (!Files.Any(file => string.Equals(file.Path, manifestPath, StringComparison.OrdinalIgnoreCase)))
+            if (
+                !Files.Any(file =>
+                    string.Equals(file.Path, manifestPath, StringComparison.OrdinalIgnoreCase)
+                )
+            )
             {
                 failures.Add($"Required asset missing from manifest: {manifestPath}");
             }
@@ -2030,7 +2383,10 @@ public sealed class BuildAssetManifest
         return failures;
     }
 
-    private static async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken)
+    private static async Task<string> ComputeSha256Async(
+        string path,
+        CancellationToken cancellationToken
+    )
     {
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream, cancellationToken);
@@ -2140,7 +2496,7 @@ public sealed class MicaSetupConfig
     {
         WriteIndented = true,
         PropertyNamingPolicy = null,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
     public string Template { get; init; } = string.Empty;
@@ -2233,10 +2589,24 @@ public sealed class MicaSetupConfig
 
     public string? MessageOfPage3 { get; init; }
 
-    public static MicaSetupConfig Create(BuildContext context, string payloadArchivePath, string installerOutputPath)
+    public static MicaSetupConfig Create(
+        BuildContext context,
+        string payloadArchivePath,
+        string installerOutputPath
+    )
     {
-        var iconPath = Path.Combine(context.Options.RepositoryRoot, "resources", "icons", "codexcliplus.ico");
-        var noticePath = Path.Combine(context.Options.RepositoryRoot, "resources", "licenses", "NOTICE.txt");
+        var iconPath = Path.Combine(
+            context.Options.RepositoryRoot,
+            "resources",
+            "icons",
+            "codexcliplus.ico"
+        );
+        var noticePath = Path.Combine(
+            context.Options.RepositoryRoot,
+            "resources",
+            "licenses",
+            "NOTICE.txt"
+        );
         var licensePath = File.Exists(noticePath)
             ? noticePath
             : Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
@@ -2260,7 +2630,7 @@ public sealed class MicaSetupConfig
             SingleInstanceMutex = "BlackblockInc.CodexCliPlus.Setup",
             MessageOfPage1 = AppConstants.ProductName,
             MessageOfPage2 = "正在安装 CodexCliPlus",
-            MessageOfPage3 = "安装完成"
+            MessageOfPage3 = "安装完成",
         };
     }
 }
@@ -2273,7 +2643,9 @@ public static class SafeFileSystem
         var fullAllowedRoot = Path.GetFullPath(allowedRoot);
         if (!fullTarget.StartsWith(fullAllowedRoot, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException($"Refusing to clean outside BuildTool output root: {fullTarget}");
+            throw new InvalidOperationException(
+                $"Refusing to clean outside BuildTool output root: {fullTarget}"
+            );
         }
 
         if (Directory.Exists(fullTarget))
@@ -2287,7 +2659,8 @@ public static class SafeFileSystem
     public static void CopyDirectory(
         string sourceDirectory,
         string targetDirectory,
-        IReadOnlyCollection<string>? excludedRootDirectoryNames = null)
+        IReadOnlyCollection<string>? excludedRootDirectoryNames = null
+    )
     {
         if (!Directory.Exists(sourceDirectory))
         {
@@ -2304,7 +2677,8 @@ public static class SafeFileSystem
         string currentSourceDirectory,
         string currentTargetDirectory,
         string sourceRootDirectory,
-        HashSet<string>? excludedRootDirectoryNames)
+        HashSet<string>? excludedRootDirectoryNames
+    )
     {
         Directory.CreateDirectory(currentTargetDirectory);
 
@@ -2326,22 +2700,27 @@ public static class SafeFileSystem
                 directory,
                 Path.Combine(currentTargetDirectory, Path.GetFileName(directory)),
                 sourceRootDirectory,
-                excludedRootDirectoryNames);
+                excludedRootDirectoryNames
+            );
         }
     }
 
     private static bool IsExcludedRootDirectory(
         string relativePath,
-        HashSet<string>? excludedRootDirectoryNames)
+        HashSet<string>? excludedRootDirectoryNames
+    )
     {
         if (excludedRootDirectoryNames is null || excludedRootDirectoryNames.Count == 0)
         {
             return false;
         }
 
-        var firstSegment = relativePath.Split(
-            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-            StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var firstSegment = relativePath
+            .Split(
+                [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                StringSplitOptions.RemoveEmptyEntries
+            )
+            .FirstOrDefault();
         return firstSegment is not null && excludedRootDirectoryNames.Contains(firstSegment);
     }
 
@@ -2351,7 +2730,7 @@ public static class SafeFileSystem
         {
             AppConstants.ExecutableName,
             Path.Combine("assets", "webui", "upstream", "dist", "index.html"),
-            Path.Combine("assets", "webui", "upstream", "sync.json")
+            Path.Combine("assets", "webui", "upstream", "sync.json"),
         };
 
         foreach (var relativePath in requiredFiles)
@@ -2361,7 +2740,8 @@ public static class SafeFileSystem
             {
                 throw new FileNotFoundException(
                     $"Publish output is missing required file. Run publish first: {fullPath}",
-                    fullPath);
+                    fullPath
+                );
             }
         }
     }
@@ -2373,6 +2753,6 @@ public static class JsonDefaults
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 }

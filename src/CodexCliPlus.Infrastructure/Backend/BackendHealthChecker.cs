@@ -14,7 +14,8 @@ public sealed class BackendHealthChecker
     public async Task<bool> WaitUntilHealthyAsync(
         string healthUrl,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var client = _httpClientFactory.CreateClient();
         var deadline = DateTimeOffset.UtcNow.Add(timeout);

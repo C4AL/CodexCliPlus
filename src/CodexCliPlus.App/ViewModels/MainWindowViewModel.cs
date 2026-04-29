@@ -1,6 +1,6 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Constants;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CodexCliPlus.ViewModels;
 

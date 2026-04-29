@@ -9,10 +9,25 @@ public sealed class ConfigAndLogsPageTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var storageSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "services", "storage", "secureStorage.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "services",
+                "storage",
+                "secureStorage.ts"
+            ),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("isDesktopMode() && key === 'managementKey'", storageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "isDesktopMode() && key === 'managementKey'",
+            storageSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("localStorage.removeItem(key);", storageSource, StringComparison.Ordinal);
         Assert.Contains("return null;", storageSource, StringComparison.Ordinal);
     }
@@ -22,14 +37,36 @@ public sealed class ConfigAndLogsPageTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var authStoreSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useAuthStore.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "stores",
+                "useAuthStore.ts"
+            ),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("const desktopBootstrap = consumeDesktopBootstrap();", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "const desktopBootstrap = consumeDesktopBootstrap();",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("rememberPassword: false", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains("state.rememberPassword ? { managementKey: state.managementKey } : {}", authStoreSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("!isDesktopMode() && state.rememberPassword", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "state.rememberPassword ? { managementKey: state.managementKey } : {}",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "!isDesktopMode() && state.rememberPassword",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
     }
 
     private static string FindRepositoryRoot()

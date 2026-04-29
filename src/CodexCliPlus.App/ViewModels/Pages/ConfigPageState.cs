@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Views.Pages;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CodexCliPlus.ViewModels.Pages;
 
@@ -258,17 +258,20 @@ public sealed class ConfigPageState : ObservableObject
 
     public bool HasFieldChanges => _changedFields.Count > 0;
 
-    public bool HasYamlChanges => !string.Equals(ServerYaml, AdvancedYamlDraft, StringComparison.Ordinal);
+    public bool HasYamlChanges =>
+        !string.Equals(ServerYaml, AdvancedYamlDraft, StringComparison.Ordinal);
 
     public bool HasAnyChanges => HasFieldChanges || HasYamlChanges;
 
     public int ChangedFieldCount => _changedFields.Count;
 
-    public string ChangedFieldSummary => HasFieldChanges
-        ? string.Create(
-            CultureInfo.CurrentCulture,
-            $"已修改 {ChangedFieldCount.ToString(CultureInfo.CurrentCulture)} 项字段")
-        : "字段草稿已同步";
+    public string ChangedFieldSummary =>
+        HasFieldChanges
+            ? string.Create(
+                CultureInfo.CurrentCulture,
+                $"已修改 {ChangedFieldCount.ToString(CultureInfo.CurrentCulture)} 项字段"
+            )
+            : "字段草稿已同步";
 
     public string YamlSearchResultText
     {
@@ -282,7 +285,8 @@ public sealed class ConfigPageState : ObservableObject
             var count = ManagementPageSupport.CountOccurrences(AdvancedYamlDraft, YamlSearchQuery);
             return string.Create(
                 CultureInfo.CurrentCulture,
-                $"匹配次数：{count.ToString(CultureInfo.CurrentCulture)}");
+                $"匹配次数：{count.ToString(CultureInfo.CurrentCulture)}"
+            );
         }
     }
 
@@ -303,7 +307,8 @@ public sealed class ConfigPageState : ObservableObject
 
     public bool CanSaveYaml => HasYamlChanges && !HasFieldChanges;
 
-    public IReadOnlyCollection<string> ChangedFields => new ReadOnlyCollection<string>(_changedFields.ToArray());
+    public IReadOnlyCollection<string> ChangedFields =>
+        new ReadOnlyCollection<string>(_changedFields.ToArray());
 
     public void LoadFromSnapshot(ManagementConfigSnapshot snapshot, string serverYaml)
     {
@@ -385,10 +390,32 @@ public sealed class ConfigPageState : ObservableObject
             return false;
         }
 
-        if (!TryParseOptionalInteger(RequestRetry, "请求重试次数", out var requestRetry, out validationError) ||
-            !TryParseOptionalInteger(MaxRetryInterval, "最大重试间隔", out var maxRetryInterval, out validationError) ||
-            !TryParseOptionalInteger(LogsMaxTotalSizeMb, "日志总大小上限", out var logsMaxTotalSizeMb, out validationError) ||
-            !TryParseOptionalInteger(ErrorLogsMaxFiles, "错误日志文件上限", out var errorLogsMaxFiles, out validationError))
+        if (
+            !TryParseOptionalInteger(
+                RequestRetry,
+                "请求重试次数",
+                out var requestRetry,
+                out validationError
+            )
+            || !TryParseOptionalInteger(
+                MaxRetryInterval,
+                "最大重试间隔",
+                out var maxRetryInterval,
+                out validationError
+            )
+            || !TryParseOptionalInteger(
+                LogsMaxTotalSizeMb,
+                "日志总大小上限",
+                out var logsMaxTotalSizeMb,
+                out validationError
+            )
+            || !TryParseOptionalInteger(
+                ErrorLogsMaxFiles,
+                "错误日志文件上限",
+                out var errorLogsMaxFiles,
+                out validationError
+            )
+        )
         {
             return false;
         }
@@ -408,7 +435,8 @@ public sealed class ConfigPageState : ObservableObject
             errorLogsMaxFiles,
             SwitchProject,
             SwitchPreviewModel,
-            _changedFields.ToArray());
+            _changedFields.ToArray()
+        );
 
         return true;
     }
@@ -432,10 +460,22 @@ public sealed class ConfigPageState : ObservableObject
         Track("request-log", RequestLog, _baseline.RequestLog);
         Track("logging-to-file", LoggingToFile, _baseline.LoggingToFile);
         Track("usage-statistics-enabled", UsageStatisticsEnabled, _baseline.UsageStatisticsEnabled);
-        Track("logs-max-total-size-mb", NormalizeText(LogsMaxTotalSizeMb), _baseline.LogsMaxTotalSizeMb);
-        Track("error-logs-max-files", NormalizeText(ErrorLogsMaxFiles), _baseline.ErrorLogsMaxFiles);
+        Track(
+            "logs-max-total-size-mb",
+            NormalizeText(LogsMaxTotalSizeMb),
+            _baseline.LogsMaxTotalSizeMb
+        );
+        Track(
+            "error-logs-max-files",
+            NormalizeText(ErrorLogsMaxFiles),
+            _baseline.ErrorLogsMaxFiles
+        );
         Track("quota-exceeded/switch-project", SwitchProject, _baseline.SwitchProject);
-        Track("quota-exceeded/switch-preview-model", SwitchPreviewModel, _baseline.SwitchPreviewModel);
+        Track(
+            "quota-exceeded/switch-preview-model",
+            SwitchPreviewModel,
+            _baseline.SwitchPreviewModel
+        );
 
         OnPropertyChanged(nameof(ChangedFieldCount));
         OnPropertyChanged(nameof(ChangedFieldSummary));
@@ -465,7 +505,12 @@ public sealed class ConfigPageState : ObservableObject
         return value?.Trim() ?? string.Empty;
     }
 
-    private static bool TryParseOptionalInteger(string value, string label, out int? result, out string? validationError)
+    private static bool TryParseOptionalInteger(
+        string value,
+        string label,
+        out int? result,
+        out string? validationError
+    )
     {
         var trimmed = NormalizeText(value);
         if (string.IsNullOrWhiteSpace(trimmed))
@@ -475,7 +520,14 @@ public sealed class ConfigPageState : ObservableObject
             return true;
         }
 
-        if (!int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        if (
+            !int.TryParse(
+                trimmed,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsed
+            )
+        )
         {
             result = null;
             validationError = $"{label}必须是整数。";
@@ -502,7 +554,8 @@ public sealed class ConfigPageState : ObservableObject
         string ErrorLogsMaxFiles,
         bool SwitchProject,
         bool SwitchPreviewModel,
-        string AntigravityCreditsDisplay)
+        string AntigravityCreditsDisplay
+    )
     {
         public static readonly ConfigFieldSnapshot Empty = new(
             Debug: false,
@@ -519,7 +572,8 @@ public sealed class ConfigPageState : ObservableObject
             ErrorLogsMaxFiles: string.Empty,
             SwitchProject: false,
             SwitchPreviewModel: false,
-            AntigravityCreditsDisplay: "未设置");
+            AntigravityCreditsDisplay: "未设置"
+        );
 
         public static ConfigFieldSnapshot FromSnapshot(ManagementConfigSnapshot snapshot)
         {
@@ -538,7 +592,8 @@ public sealed class ConfigPageState : ObservableObject
                 snapshot.ErrorLogsMaxFiles?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 snapshot.QuotaExceeded?.SwitchProject ?? false,
                 snapshot.QuotaExceeded?.SwitchPreviewModel ?? false,
-                ManagementPageSupport.FormatBoolean(snapshot.QuotaExceeded?.AntigravityCredits));
+                ManagementPageSupport.FormatBoolean(snapshot.QuotaExceeded?.AntigravityCredits)
+            );
         }
     }
 }
@@ -558,4 +613,5 @@ public readonly record struct ConfigPageSavePayload(
     int? ErrorLogsMaxFiles,
     bool SwitchProject,
     bool SwitchPreviewModel,
-    IReadOnlyList<string> ChangedFields);
+    IReadOnlyList<string> ChangedFields
+);

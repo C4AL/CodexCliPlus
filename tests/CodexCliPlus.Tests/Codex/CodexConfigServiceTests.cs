@@ -6,7 +6,10 @@ namespace CodexCliPlus.Tests.Codex;
 [Collection("CodexConfigService")]
 public sealed class CodexConfigServiceTests : IDisposable
 {
-    private readonly string _codexHome = Path.Combine(Path.GetTempPath(), $"codexcliplus-codex-home-{Guid.NewGuid():N}");
+    private readonly string _codexHome = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-codex-home-{Guid.NewGuid():N}"
+    );
     private readonly string? _originalCodexHome = Environment.GetEnvironmentVariable("CODEX_HOME");
 
     [Fact]
@@ -18,7 +21,8 @@ public sealed class CodexConfigServiceTests : IDisposable
         var configPath = Path.Combine(_codexHome, "config.toml");
         await File.WriteAllTextAsync(
             configPath,
-            "model = \"gpt-5.4\"\n[notice]\nhide_full_access_warning = true\n");
+            "model = \"gpt-5.4\"\n[notice]\nhide_full_access_warning = true\n"
+        );
 
         var service = new CodexConfigService();
         await service.ApplyProfilesAsync(9318, CodexSourceKind.Cpa);
@@ -30,7 +34,11 @@ public sealed class CodexConfigServiceTests : IDisposable
         Assert.Contains("model = \"gpt-5.4\"", content, StringComparison.Ordinal);
         Assert.Contains("[profiles.official]", content, StringComparison.Ordinal);
         Assert.Contains("[profiles.cpa]", content, StringComparison.Ordinal);
-        Assert.Contains("base_url = \"http://127.0.0.1:9318/v1\"", content, StringComparison.Ordinal);
+        Assert.Contains(
+            "base_url = \"http://127.0.0.1:9318/v1\"",
+            content,
+            StringComparison.Ordinal
+        );
         Assert.Single(backups);
     }
 
@@ -58,12 +66,17 @@ public sealed class CodexConfigServiceTests : IDisposable
         await File.WriteAllTextAsync(configPath, invalidToml);
 
         var service = new CodexConfigService();
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.ApplyProfilesAsync(9318, CodexSourceKind.Official));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ApplyProfilesAsync(9318, CodexSourceKind.Official)
+        );
 
         var finalContent = await File.ReadAllTextAsync(configPath);
 
-        Assert.Contains("Codex configuration validation failed", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "Codex configuration validation failed",
+            exception.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(invalidToml, finalContent);
     }
 
@@ -77,12 +90,18 @@ public sealed class CodexConfigServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(repositoryPath, ".codex"));
         await File.WriteAllTextAsync(
             Path.Combine(repositoryPath, ".codex", "config.toml"),
-            "model = \"gpt-5.4\"\n");
+            "model = \"gpt-5.4\"\n"
+        );
 
         var service = new CodexConfigService();
         await service.ApplyDesktopModeAsync(9318, CodexSourceKind.Cpa);
 
-        var status = await service.InspectAsync(repositoryPath, @"C:\tools\codex.cmd", "1.2.3", "signed-in");
+        var status = await service.InspectAsync(
+            repositoryPath,
+            @"C:\tools\codex.cmd",
+            "1.2.3",
+            "signed-in"
+        );
 
         Assert.True(status.IsInstalled);
         Assert.True(status.HasUserConfig);

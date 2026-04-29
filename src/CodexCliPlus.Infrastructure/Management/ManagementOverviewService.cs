@@ -16,7 +16,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         IManagementConfigurationService configurationService,
         IManagementAuthService authService,
         IManagementUsageService usageService,
-        IManagementSystemService systemService)
+        IManagementSystemService systemService
+    )
     {
         _connectionProvider = connectionProvider;
         _configurationService = configurationService;
@@ -25,7 +26,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         _systemService = systemService;
     }
 
-    public async Task<ManagementApiResponse<ManagementOverviewSnapshot>> GetOverviewAsync(CancellationToken cancellationToken = default)
+    public async Task<ManagementApiResponse<ManagementOverviewSnapshot>> GetOverviewAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         var connectionTask = _connectionProvider.GetConnectionAsync(cancellationToken);
         var configTask = _configurationService.GetConfigAsync(cancellationToken);
@@ -48,7 +51,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
             codexTask,
             claudeTask,
             vertexTask,
-            openAiTask);
+            openAiTask
+        );
 
         var connection = await connectionTask;
         var config = await configTask;
@@ -65,7 +69,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         string? latestVersionError = null;
         try
         {
-            var latestVersionResponse = await _systemService.GetLatestVersionAsync(cancellationToken);
+            var latestVersionResponse = await _systemService.GetLatestVersionAsync(
+                cancellationToken
+            );
             latestVersion = latestVersionResponse.Value.LatestVersion;
         }
         catch (Exception exception)
@@ -75,17 +81,19 @@ public sealed class ManagementOverviewService : IManagementOverviewService
 
         int? availableModelCount = null;
         string? availableModelsError = null;
-        var primaryApiKey = config.Value.ApiKeys.Count > 0
-            ? config.Value.ApiKeys[0]
-            : apiKeys.Value.Count > 0
-                ? apiKeys.Value[0]
-                : null;
+        var primaryApiKey =
+            config.Value.ApiKeys.Count > 0 ? config.Value.ApiKeys[0]
+            : apiKeys.Value.Count > 0 ? apiKeys.Value[0]
+            : null;
 
         if (!string.IsNullOrWhiteSpace(primaryApiKey))
         {
             try
             {
-                var models = await _systemService.GetAvailableModelsAsync(primaryApiKey, cancellationToken: cancellationToken);
+                var models = await _systemService.GetAvailableModelsAsync(
+                    primaryApiKey,
+                    cancellationToken: cancellationToken
+                );
                 availableModelCount = models.Value.Count;
             }
             catch (Exception exception)
@@ -112,7 +120,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                 AvailableModelCount = availableModelCount,
                 AvailableModelsError = availableModelsError,
                 Config = config.Value,
-                Usage = usage.Value
-            });
+                Usage = usage.Value,
+            }
+        );
     }
 }

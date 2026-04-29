@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
@@ -17,24 +16,36 @@ public sealed class UpdateInstallerServiceTests
     {
         var installerBytes = Encoding.UTF8.GetBytes("installer-payload");
         using var pathService = new TestPathService();
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new ByteArrayContent(installerBytes)
-        }));
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(installerBytes),
+                }
+            )
+        );
 
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => Process.GetCurrentProcess());
+            _ => Process.GetCurrentProcess()
+        );
 
         var result = await service.DownloadInstallerAsync(
-            CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(installerBytes)));
+            CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(installerBytes))
+        );
 
         Assert.False(result.UsedCachedFile);
         Assert.True(result.DigestValidated);
         Assert.Equal(AppDataMode.Installed, result.DataMode);
-        Assert.Equal(Path.Combine(pathService.Directories.CacheDirectory, "updates"), result.CacheDirectory);
-        Assert.Equal(Path.Combine(result.CacheDirectory, "CodexCliPlus.Setup.1.2.3.exe"), result.InstallerPath);
+        Assert.Equal(
+            Path.Combine(pathService.Directories.CacheDirectory, "updates"),
+            result.CacheDirectory
+        );
+        Assert.Equal(
+            Path.Combine(result.CacheDirectory, "CodexCliPlus.Setup.1.2.3.exe"),
+            result.InstallerPath
+        );
         Assert.True(File.Exists(result.InstallerPath));
         Assert.Equal(installerBytes, await File.ReadAllBytesAsync(result.InstallerPath));
     }
@@ -55,19 +66,23 @@ public sealed class UpdateInstallerServiceTests
         using var factory = new FixedHttpClientFactory(_ =>
         {
             calls++;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new ByteArrayContent(installerBytes)
-            });
+            return Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(installerBytes),
+                }
+            );
         });
 
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => Process.GetCurrentProcess());
+            _ => Process.GetCurrentProcess()
+        );
 
         var result = await service.DownloadInstallerAsync(
-            CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(installerBytes)));
+            CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(installerBytes))
+        );
 
         Assert.True(result.UsedCachedFile);
         Assert.True(result.DigestValidated);
@@ -80,22 +95,50 @@ public sealed class UpdateInstallerServiceTests
     {
         var installerBytes = Encoding.UTF8.GetBytes("downloaded-installer");
         using var pathService = new TestPathService();
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new ByteArrayContent(installerBytes)
-        }));
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(installerBytes),
+                }
+            )
+        );
 
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => Process.GetCurrentProcess());
+            _ => Process.GetCurrentProcess()
+        );
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.DownloadInstallerAsync(
-            CreateUpdateResult("1.2.3", installerBytes.Length, ComputeDigest(Encoding.UTF8.GetBytes("different-installer")))));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.DownloadInstallerAsync(
+                CreateUpdateResult(
+                    "1.2.3",
+                    installerBytes.Length,
+                    ComputeDigest(Encoding.UTF8.GetBytes("different-installer"))
+                )
+            )
+        );
 
         Assert.Contains("digest mismatch", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CodexCliPlus.Setup.1.2.3.exe")));
-        Assert.False(File.Exists(Path.Combine(pathService.Directories.CacheDirectory, "updates", "CodexCliPlus.Setup.1.2.3.exe.download")));
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    pathService.Directories.CacheDirectory,
+                    "updates",
+                    "CodexCliPlus.Setup.1.2.3.exe"
+                )
+            )
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    pathService.Directories.CacheDirectory,
+                    "updates",
+                    "CodexCliPlus.Setup.1.2.3.exe.download"
+                )
+            )
+        );
     }
 
     [Fact]
@@ -112,7 +155,8 @@ public sealed class UpdateInstallerServiceTests
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => throw new InvalidOperationException("Process should not be started."));
+            _ => throw new InvalidOperationException("Process should not be started.")
+        );
 
         var updateResult = CreateUpdateResult(
             version: "1.2.3",
@@ -120,10 +164,12 @@ public sealed class UpdateInstallerServiceTests
             digest: null,
             channel: UpdateChannel.Beta,
             isChannelReserved: true,
-            isUpdateAvailable: false);
+            isUpdateAvailable: false
+        );
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DownloadInstallerAsync(updateResult));
+            service.DownloadInstallerAsync(updateResult)
+        );
 
         Assert.Contains("Beta is reserved", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(service.CanPrepareInstaller(updateResult));
@@ -145,11 +191,13 @@ public sealed class UpdateInstallerServiceTests
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => throw new InvalidOperationException("Process should not be started."));
+            _ => throw new InvalidOperationException("Process should not be started.")
+        );
         var updateResult = CreateUpdateResult("1.2.3", 0, null);
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DownloadInstallerAsync(updateResult));
+            service.DownloadInstallerAsync(updateResult)
+        );
 
         Assert.Contains("Installed mode", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(service.CanPrepareInstaller(updateResult));
@@ -161,19 +209,24 @@ public sealed class UpdateInstallerServiceTests
     public async Task DownloadInstallerAsyncRejectsStableResultWhenNoNewerVersionIsAvailable()
     {
         using var pathService = new TestPathService();
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK))
+        );
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => throw new InvalidOperationException("Process should not be started."));
+            _ => throw new InvalidOperationException("Process should not be started.")
+        );
         var updateResult = CreateUpdateResult(
             version: "1.2.3",
             size: 0,
             digest: null,
-            isUpdateAvailable: false);
+            isUpdateAvailable: false
+        );
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DownloadInstallerAsync(updateResult));
+            service.DownloadInstallerAsync(updateResult)
+        );
 
         Assert.Contains("newer", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(service.CanPrepareInstaller(updateResult));
@@ -194,15 +247,18 @@ public sealed class UpdateInstallerServiceTests
         var service = new UpdateInstallerService(
             pathService,
             factory,
-            _ => throw new InvalidOperationException("Process should not be started."));
+            _ => throw new InvalidOperationException("Process should not be started.")
+        );
         var updateResult = CreateUpdateResult(
             version: "1.2.3",
             size: 0,
             digest: null,
-            downloadUrl: string.Empty);
+            downloadUrl: string.Empty
+        );
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DownloadInstallerAsync(updateResult));
+            service.DownloadInstallerAsync(updateResult)
+        );
 
         Assert.Contains("installable", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(service.CanPrepareInstaller(updateResult));
@@ -217,26 +273,35 @@ public sealed class UpdateInstallerServiceTests
         var processStartCalls = 0;
         var service = new UpdateInstallerService(
             pathService,
-            new FixedHttpClientFactory(_ => throw new InvalidOperationException("HTTP should not be used during launch.")),
+            new FixedHttpClientFactory(_ =>
+                throw new InvalidOperationException("HTTP should not be used during launch.")
+            ),
             _ =>
             {
                 processStartCalls++;
                 return Process.GetCurrentProcess();
-            });
+            }
+        );
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.LaunchInstallerAsync(new PreparedUpdateInstaller
-            {
-                DataMode = AppDataMode.Development,
-                InstallerPath = Path.Combine(pathService.Directories.RootDirectory, "CodexCliPlus.Setup.1.2.3.exe"),
-                CacheDirectory = pathService.Directories.CacheDirectory,
-                Version = "1.2.3",
-                Asset = new UpdateReleaseAsset
+            service.LaunchInstallerAsync(
+                new PreparedUpdateInstaller
                 {
-                    Name = "CodexCliPlus.Setup.1.2.3.exe",
-                    DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe"
+                    DataMode = AppDataMode.Development,
+                    InstallerPath = Path.Combine(
+                        pathService.Directories.RootDirectory,
+                        "CodexCliPlus.Setup.1.2.3.exe"
+                    ),
+                    CacheDirectory = pathService.Directories.CacheDirectory,
+                    Version = "1.2.3",
+                    Asset = new UpdateReleaseAsset
+                    {
+                        Name = "CodexCliPlus.Setup.1.2.3.exe",
+                        DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                    },
                 }
-            }));
+            )
+        );
 
         Assert.Contains("Installed mode", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, processStartCalls);
@@ -256,25 +321,30 @@ public sealed class UpdateInstallerServiceTests
         ProcessStartInfo? capturedStartInfo = null;
         var service = new UpdateInstallerService(
             pathService,
-            new FixedHttpClientFactory(_ => throw new InvalidOperationException("HTTP should not be used during launch.")),
+            new FixedHttpClientFactory(_ =>
+                throw new InvalidOperationException("HTTP should not be used during launch.")
+            ),
             startInfo =>
             {
                 capturedStartInfo = startInfo;
                 return Process.GetCurrentProcess();
-            });
-
-        await service.LaunchInstallerAsync(new PreparedUpdateInstaller
-        {
-            InstallerPath = installerPath,
-            CacheDirectory = updatesDirectory,
-            Version = "1.2.3",
-            DataMode = AppDataMode.Installed,
-            Asset = new UpdateReleaseAsset
-            {
-                Name = "CodexCliPlus.Setup.1.2.3.exe",
-                DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe"
             }
-        });
+        );
+
+        await service.LaunchInstallerAsync(
+            new PreparedUpdateInstaller
+            {
+                InstallerPath = installerPath,
+                CacheDirectory = updatesDirectory,
+                Version = "1.2.3",
+                DataMode = AppDataMode.Installed,
+                Asset = new UpdateReleaseAsset
+                {
+                    Name = "CodexCliPlus.Setup.1.2.3.exe",
+                    DownloadUrl = "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                },
+            }
+        );
 
         Assert.NotNull(capturedStartInfo);
         Assert.True(capturedStartInfo!.UseShellExecute);
@@ -289,14 +359,15 @@ public sealed class UpdateInstallerServiceTests
         UpdateChannel channel = UpdateChannel.Stable,
         bool isChannelReserved = false,
         bool isUpdateAvailable = true,
-        string? downloadUrl = null)
+        string? downloadUrl = null
+    )
     {
         var asset = new UpdateReleaseAsset
         {
             Name = $"CodexCliPlus.Setup.{version}.exe",
             DownloadUrl = downloadUrl ?? $"https://example.test/CodexCliPlus.Setup.{version}.exe",
             Size = size,
-            Digest = digest
+            Digest = digest,
         };
 
         return new UpdateCheckResult
@@ -308,7 +379,7 @@ public sealed class UpdateInstallerServiceTests
             IsUpdateAvailable = isUpdateAvailable,
             HasInstallableAsset = true,
             InstallableAsset = asset,
-            Assets = [asset]
+            Assets = [asset],
         };
     }
 
@@ -323,7 +394,8 @@ public sealed class UpdateInstallerServiceTests
         {
             var rootDirectory = Path.Combine(
                 Path.GetTempPath(),
-                $"codexcliplus-update-installer-{Guid.NewGuid():N}");
+                $"codexcliplus-update-installer-{Guid.NewGuid():N}"
+            );
 
             Directories = new AppDirectories(
                 dataMode,
@@ -335,7 +407,8 @@ public sealed class UpdateInstallerServiceTests
                 Path.Combine(rootDirectory, "diagnostics"),
                 Path.Combine(rootDirectory, "runtime"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }
@@ -362,9 +435,7 @@ public sealed class UpdateInstallerServiceTests
                     Directory.Delete(Directories.RootDirectory, recursive: true);
                 }
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 
@@ -398,7 +469,8 @@ public sealed class UpdateInstallerServiceTests
 
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request,
-                CancellationToken cancellationToken)
+                CancellationToken cancellationToken
+            )
             {
                 return _handler(request);
             }

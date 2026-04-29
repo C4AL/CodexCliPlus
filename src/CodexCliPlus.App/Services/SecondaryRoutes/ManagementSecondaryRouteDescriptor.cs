@@ -8,4 +8,5 @@ public sealed record ManagementSecondaryRouteDescriptor(
     UIElement BodyContent,
     UIElement? HeaderActions = null,
     UIElement? FooterContent = null,
-    string BackLabel = "返回列表");
+    string BackLabel = "返回列表"
+);

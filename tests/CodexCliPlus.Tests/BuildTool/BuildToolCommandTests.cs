@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
-
 using CodexCliPlus.BuildTool;
 using CodexCliPlus.Core.Constants;
 
@@ -9,7 +8,10 @@ namespace CodexCliPlus.Tests.BuildTool;
 
 public sealed class BuildToolCommandTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-buildtool-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-buildtool-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task HelpListsBuildToolCommands()
@@ -17,7 +19,12 @@ public sealed class BuildToolCommandTests : IDisposable
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await BuildToolApp.ExecuteAsync(["--help"], output, error, new RecordingProcessRunner());
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            ["--help"],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(0, exitCode);
         Assert.Contains("fetch-assets", output.ToString(), StringComparison.Ordinal);
@@ -31,7 +38,12 @@ public sealed class BuildToolCommandTests : IDisposable
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await BuildToolApp.ExecuteAsync(["unknown"], output, error, new RecordingProcessRunner());
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            ["unknown"],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(1, exitCode);
         Assert.Contains("Unknown command", error.ToString(), StringComparison.Ordinal);
@@ -46,35 +58,71 @@ public sealed class BuildToolCommandTests : IDisposable
         using var error = new StringWriter();
 
         var fetchCode = await BuildToolApp.ExecuteAsync(
-            ["fetch-assets", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "fetch-assets",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
         var verifyCode = await BuildToolApp.ExecuteAsync(
-            ["verify-assets", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-assets",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(0, fetchCode);
         Assert.Equal(0, verifyCode);
         var manifestPath = Path.Combine(outputRoot, "assets", "asset-manifest.json");
         Assert.True(File.Exists(manifestPath));
         var manifestText = await File.ReadAllTextAsync(manifestPath);
-        Assert.Contains(BackendExecutableNames.ManagedExecutableFileName, manifestText, StringComparison.Ordinal);
-        Assert.DoesNotContain(BackendExecutableNames.UpstreamExecutableFileName, manifestText, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(
-            outputRoot,
-            "assets",
-            "backend",
-            "windows-x64",
-            BackendExecutableNames.ManagedExecutableFileName)));
-        Assert.False(File.Exists(Path.Combine(
-            outputRoot,
-            "assets",
-            "backend",
-            "windows-x64",
-            BackendExecutableNames.UpstreamExecutableFileName)));
+        Assert.Contains(
+            BackendExecutableNames.ManagedExecutableFileName,
+            manifestText,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            BackendExecutableNames.UpstreamExecutableFileName,
+            manifestText,
+            StringComparison.Ordinal
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    outputRoot,
+                    "assets",
+                    "backend",
+                    "windows-x64",
+                    BackendExecutableNames.ManagedExecutableFileName
+                )
+            )
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    outputRoot,
+                    "assets",
+                    "backend",
+                    "windows-x64",
+                    BackendExecutableNames.UpstreamExecutableFileName
+                )
+            )
+        );
         Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -88,14 +136,27 @@ public sealed class BuildToolCommandTests : IDisposable
         using var error = new StringWriter();
 
         var verifyCode = await BuildToolApp.ExecuteAsync(
-            ["verify-assets", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-assets",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(0, verifyCode);
         Assert.True(File.Exists(Path.Combine(outputRoot, "assets", "asset-manifest.json")));
-        Assert.Contains("asset manifest not found; fetching assets", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "asset manifest not found; fetching assets",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -103,8 +164,14 @@ public sealed class BuildToolCommandTests : IDisposable
     [Fact]
     public void RequiredBackendFilesUseManagedExecutableName()
     {
-        Assert.Contains(BackendExecutableNames.ManagedExecutableFileName, AssetCommands.RequiredFiles);
-        Assert.DoesNotContain(BackendExecutableNames.UpstreamExecutableFileName, AssetCommands.RequiredFiles);
+        Assert.Contains(
+            BackendExecutableNames.ManagedExecutableFileName,
+            AssetCommands.RequiredFiles
+        );
+        Assert.DoesNotContain(
+            BackendExecutableNames.UpstreamExecutableFileName,
+            AssetCommands.RequiredFiles
+        );
     }
 
     [Fact]
@@ -115,7 +182,11 @@ public sealed class BuildToolCommandTests : IDisposable
         using var archiveStream = new MemoryStream();
         using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Create, leaveOpen: true))
         {
-            WriteZipEntry(archive, BackendExecutableNames.UpstreamExecutableFileName, "upstream binary");
+            WriteZipEntry(
+                archive,
+                BackendExecutableNames.UpstreamExecutableFileName,
+                "upstream binary"
+            );
             WriteZipEntry(archive, "LICENSE", "license");
             WriteZipEntry(archive, "README.md", "readme");
             WriteZipEntry(archive, "README_CN.md", "readme cn");
@@ -128,11 +199,22 @@ public sealed class BuildToolCommandTests : IDisposable
 
         InvokeExtractBackendArchive(archiveStream, backendTarget, new BuildLogger(output, error));
 
-        Assert.True(File.Exists(Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)));
-        Assert.False(File.Exists(Path.Combine(backendTarget, BackendExecutableNames.UpstreamExecutableFileName)));
+        Assert.True(
+            File.Exists(
+                Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)
+            )
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(backendTarget, BackendExecutableNames.UpstreamExecutableFileName)
+            )
+        );
         Assert.Equal(
             "upstream binary",
-            File.ReadAllText(Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)));
+            File.ReadAllText(
+                Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)
+            )
+        );
     }
 
     [Fact]
@@ -144,10 +226,19 @@ public sealed class BuildToolCommandTests : IDisposable
         using var error = new StringWriter();
 
         var exitCode = await BuildToolApp.ExecuteAsync(
-            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-package",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(1, exitCode);
         Assert.Contains("Package missing", error.ToString(), StringComparison.Ordinal);
@@ -160,16 +251,35 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateInstallerPackage(packageRoot, "Online", CreateStubExecutableBytes(), CreateStubExecutableBytes());
-        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
+        CreateInstallerPackage(
+            packageRoot,
+            "Online",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
+        CreateInstallerPackage(
+            packageRoot,
+            "Offline",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         using var output = new StringWriter();
         using var error = new StringWriter();
 
         var exitCode = await BuildToolApp.ExecuteAsync(
-            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-package",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(0, exitCode);
         Assert.Contains("package verification passed", output.ToString(), StringComparison.Ordinal);
@@ -184,15 +294,29 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         CreateInstallerPackage(packageRoot, "Online", new byte[80], CreateStubExecutableBytes());
-        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
+        CreateInstallerPackage(
+            packageRoot,
+            "Offline",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         using var output = new StringWriter();
         using var error = new StringWriter();
 
         var exitCode = await BuildToolApp.ExecuteAsync(
-            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-package",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(1, exitCode);
         Assert.Contains("Windows PE header", error.ToString(), StringComparison.Ordinal);
@@ -205,33 +329,54 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
-        CreateInstallerPackage(packageRoot, "Offline", CreateStubExecutableBytes(), CreateStubExecutableBytes());
+        CreateInstallerPackage(
+            packageRoot,
+            "Offline",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"));
         CreateZipWithExecutableEntries(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
                 ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
+                    "<html></html>"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["output/CodexCliPlus.Setup.Online.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
-            });
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+            }
+        );
         using var output = new StringWriter();
         using var error = new StringWriter();
 
         var exitCode = await BuildToolApp.ExecuteAsync(
-            ["verify-package", "--repo-root", repositoryRoot, "--output", outputRoot, "--version", "9.9.9"],
+            [
+                "verify-package",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
             output,
             error,
-            new RecordingProcessRunner());
+            new RecordingProcessRunner()
+        );
 
         Assert.Equal(1, exitCode);
-        Assert.Contains("output/CodexCliPlus.Setup.Online.9.9.9.exe", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "output/CodexCliPlus.Setup.Online.9.9.9.exe",
+            error.ToString(),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -247,18 +392,41 @@ public sealed class BuildToolCommandTests : IDisposable
             new BuildOptions("publish", repositoryRoot, outputRoot, "Release", "win-x64", "9.9.9"),
             logger,
             runner,
-            new NoOpSigningService());
+            new NoOpSigningService()
+        );
 
         var exitCode = await WebUiCommands.BuildVendoredAsync(context);
 
         Assert.Equal(0, exitCode);
         Assert.Equal(2, runner.Calls.Count);
-        Assert.All(runner.Calls, call => Assert.Equal(context.WebUiBuildSourceRoot, call.WorkingDirectory));
-        Assert.DoesNotContain(runner.Calls, call => string.Equals(call.WorkingDirectory, context.WebUiSourceRoot, StringComparison.OrdinalIgnoreCase));
-        Assert.Equal("overlay", File.ReadAllText(Path.Combine(context.WebUiBuildSourceRoot, "src", "message.txt")));
-        Assert.Equal("overlay", File.ReadAllText(Path.Combine(context.WebUiVendoredDistRoot, "index.html")));
-        Assert.Equal("upstream", File.ReadAllText(Path.Combine(context.WebUiSourceRoot, "src", "message.txt")));
-        Assert.True(File.Exists(Path.Combine(context.WebUiBuildSourceRoot, "node_modules", ".installed")));
+        Assert.All(
+            runner.Calls,
+            call => Assert.Equal(context.WebUiBuildSourceRoot, call.WorkingDirectory)
+        );
+        Assert.DoesNotContain(
+            runner.Calls,
+            call =>
+                string.Equals(
+                    call.WorkingDirectory,
+                    context.WebUiSourceRoot,
+                    StringComparison.OrdinalIgnoreCase
+                )
+        );
+        Assert.Equal(
+            "overlay",
+            File.ReadAllText(Path.Combine(context.WebUiBuildSourceRoot, "src", "message.txt"))
+        );
+        Assert.Equal(
+            "overlay",
+            File.ReadAllText(Path.Combine(context.WebUiVendoredDistRoot, "index.html"))
+        );
+        Assert.Equal(
+            "upstream",
+            File.ReadAllText(Path.Combine(context.WebUiSourceRoot, "src", "message.txt"))
+        );
+        Assert.True(
+            File.Exists(Path.Combine(context.WebUiBuildSourceRoot, "node_modules", ".installed"))
+        );
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -274,7 +442,8 @@ public sealed class BuildToolCommandTests : IDisposable
             [Console]::Error.WriteLine('stderr-line')
             exit 0
             """,
-            Encoding.UTF8);
+            Encoding.UTF8
+        );
         using var output = new StringWriter();
         using var error = new StringWriter();
         var logger = new BuildLogger(output, error);
@@ -283,7 +452,8 @@ public sealed class BuildToolCommandTests : IDisposable
             "powershell",
             ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
             _rootDirectory,
-            logger);
+            logger
+        );
 
         Assert.Equal(0, exitCode);
         Assert.Contains("[info] stdout-line", output.ToString(), StringComparison.Ordinal);
@@ -303,7 +473,8 @@ public sealed class BuildToolCommandTests : IDisposable
             [Console]::Error.WriteLine('fatal-line')
             exit 7
             """,
-            Encoding.UTF8);
+            Encoding.UTF8
+        );
         using var output = new StringWriter();
         using var error = new StringWriter();
         var logger = new BuildLogger(output, error);
@@ -312,7 +483,8 @@ public sealed class BuildToolCommandTests : IDisposable
             "powershell",
             ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
             _rootDirectory,
-            logger);
+            logger
+        );
 
         Assert.Equal(7, exitCode);
         Assert.DoesNotContain("[warn] fatal-line", output.ToString(), StringComparison.Ordinal);
@@ -334,9 +506,15 @@ public sealed class BuildToolCommandTests : IDisposable
         Directory.CreateDirectory(publishRoot);
         File.WriteAllText(Path.Combine(publishRoot, "CodexCliPlus.exe"), "codexcliplus");
 
-        var exception = Assert.Throws<FileNotFoundException>(() => SafeFileSystem.RequirePublishRoot(publishRoot));
+        var exception = Assert.Throws<FileNotFoundException>(() =>
+            SafeFileSystem.RequirePublishRoot(publishRoot)
+        );
 
-        Assert.Contains(Path.Combine("assets", "webui", "upstream"), exception.FileName ?? exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            Path.Combine("assets", "webui", "upstream"),
+            exception.FileName ?? exception.Message,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     private string CreateRepositoryWithBackendAssets()
@@ -363,12 +541,24 @@ public sealed class BuildToolCommandTests : IDisposable
         var upstreamRoot = Path.Combine(repositoryRoot, "resources", "webui", "upstream");
         var sourceRoot = Path.Combine(upstreamRoot, "source");
         Directory.CreateDirectory(Path.Combine(sourceRoot, "src"));
-        File.WriteAllText(Path.Combine(sourceRoot, "package.json"), "{\"name\":\"test-webui\",\"private\":true}");
-        File.WriteAllText(Path.Combine(sourceRoot, "package-lock.json"), "{\"name\":\"test-webui\",\"lockfileVersion\":3}");
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "package.json"),
+            "{\"name\":\"test-webui\",\"private\":true}"
+        );
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "package-lock.json"),
+            "{\"name\":\"test-webui\",\"lockfileVersion\":3}"
+        );
         File.WriteAllText(Path.Combine(sourceRoot, "src", "message.txt"), "upstream");
         File.WriteAllText(Path.Combine(upstreamRoot, "sync.json"), "{}");
 
-        var overlayRoot = Path.Combine(repositoryRoot, "resources", "webui", "modules", "cpa-uv-overlay");
+        var overlayRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "modules",
+            "cpa-uv-overlay"
+        );
         Directory.CreateDirectory(Path.Combine(overlayRoot, "source", "src"));
         File.WriteAllText(Path.Combine(overlayRoot, "module.json"), "{\"id\":\"cpa-uv-overlay\"}");
         File.WriteAllText(Path.Combine(overlayRoot, "source", "src", "message.txt"), "overlay");
@@ -381,11 +571,16 @@ public sealed class BuildToolCommandTests : IDisposable
         CreateZipWithEntries(packagePath, entryName);
     }
 
-    private static void InvokeExtractBackendArchive(Stream archiveStream, string backendTarget, BuildLogger logger)
+    private static void InvokeExtractBackendArchive(
+        Stream archiveStream,
+        string backendTarget,
+        BuildLogger logger
+    )
     {
         var method = typeof(AssetCommands).GetMethod(
             "ExtractBackendArchive",
-            BindingFlags.Static | BindingFlags.NonPublic);
+            BindingFlags.Static | BindingFlags.NonPublic
+        );
         Assert.NotNull(method);
         method!.Invoke(null, [archiveStream, backendTarget, logger]);
     }
@@ -410,7 +605,10 @@ public sealed class BuildToolCommandTests : IDisposable
         }
     }
 
-    private static void CreateZipWithExecutableEntries(string packagePath, IReadOnlyDictionary<string, byte[]> entries)
+    private static void CreateZipWithExecutableEntries(
+        string packagePath,
+        IReadOnlyDictionary<string, byte[]> entries
+    )
     {
         using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
         foreach (var entryPair in entries)
@@ -421,32 +619,45 @@ public sealed class BuildToolCommandTests : IDisposable
         }
     }
 
-    private static void CreateInstallerPackage(string packageRoot, string packageMoniker, byte[] installerBytes, byte[] stagingInstallerBytes)
+    private static void CreateInstallerPackage(
+        string packageRoot,
+        string packageMoniker,
+        byte[] installerBytes,
+        byte[] stagingInstallerBytes
+    )
     {
         var installerName = $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.exe";
         File.WriteAllBytes(Path.Combine(packageRoot, installerName), installerBytes);
         CreateInstallerStagingZip(
             Path.Combine(packageRoot, $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.win-x64.zip"),
             installerName,
-            stagingInstallerBytes);
+            stagingInstallerBytes
+        );
     }
 
-    private static void CreateInstallerStagingZip(string packagePath, string installerName, byte[] installerBytes)
+    private static void CreateInstallerStagingZip(
+        string packagePath,
+        string installerName,
+        byte[] installerBytes
+    )
     {
         CreateZipWithExecutableEntries(
             packagePath,
             new Dictionary<string, byte[]>
             {
                 ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
+                    "<html></html>"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 [$"output/{installerName}"] = installerBytes,
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
-            });
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+            }
+        );
     }
 
     private static void CreateStubExecutable(string path)
@@ -469,14 +680,19 @@ public sealed class BuildToolCommandTests : IDisposable
             IReadOnlyList<string> arguments,
             string workingDirectory,
             BuildLogger logger,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
             return Task.FromResult(0);
         }
     }
 
-    private sealed record ProcessCall(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory);
+    private sealed record ProcessCall(
+        string FileName,
+        IReadOnlyList<string> Arguments,
+        string WorkingDirectory
+    );
 
     private sealed class OverlayRecordingProcessRunner : IProcessRunner
     {
@@ -487,7 +703,8 @@ public sealed class BuildToolCommandTests : IDisposable
             IReadOnlyList<string> arguments,
             string workingDirectory,
             BuildLogger logger,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default
+        )
         {
             Calls.Add(new ProcessCall(fileName, arguments.ToArray(), workingDirectory));
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
@@ -503,11 +720,15 @@ public sealed class BuildToolCommandTests : IDisposable
             if (arguments.SequenceEqual(["run", "build"], StringComparer.Ordinal))
             {
                 var mergedMarkerPath = Path.Combine(workingDirectory, "src", "message.txt");
-                var distRoot = Path.Combine(Directory.GetParent(workingDirectory)!.FullName, "dist");
+                var distRoot = Path.Combine(
+                    Directory.GetParent(workingDirectory)!.FullName,
+                    "dist"
+                );
                 Directory.CreateDirectory(distRoot);
                 File.WriteAllText(
                     Path.Combine(distRoot, "index.html"),
-                    File.ReadAllText(mergedMarkerPath));
+                    File.ReadAllText(mergedMarkerPath)
+                );
                 return Task.FromResult(0);
             }
 

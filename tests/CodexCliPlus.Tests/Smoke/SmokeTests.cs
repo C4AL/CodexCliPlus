@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-
 using CodexCliPlus.BuildTool;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
@@ -27,7 +26,7 @@ public sealed class SmokeTests
         "LICENSE",
         "README.md",
         "README_CN.md",
-        "config.example.yaml"
+        "config.example.yaml",
     ];
 
     [Fact]
@@ -35,7 +34,10 @@ public sealed class SmokeTests
     {
         using var scope = new SmokeEnvironmentScope();
 
-        Assert.True(File.Exists(SmokeEnvironmentScope.ApplicationPath), $"Expected desktop executable at '{SmokeEnvironmentScope.ApplicationPath}'.");
+        Assert.True(
+            File.Exists(SmokeEnvironmentScope.ApplicationPath),
+            $"Expected desktop executable at '{SmokeEnvironmentScope.ApplicationPath}'."
+        );
 
         using var process = new Process
         {
@@ -43,8 +45,8 @@ public sealed class SmokeTests
             {
                 FileName = SmokeEnvironmentScope.ApplicationPath,
                 WorkingDirectory = Path.GetDirectoryName(SmokeEnvironmentScope.ApplicationPath)!,
-                UseShellExecute = false
-            }
+                UseShellExecute = false,
+            },
         };
 
         process.StartInfo.Environment["CODEXCLIPLUS_APP_ROOT"] = scope.RootDirectory;
@@ -61,14 +63,15 @@ public sealed class SmokeTests
         {
             await SmokeEnvironmentScope.WaitForAsync(
                 () =>
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "config")) &&
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "logs")) &&
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "backend")) &&
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "cache")) &&
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "diagnostics")) &&
-                    Directory.Exists(Path.Combine(scope.RootDirectory, "runtime")),
+                    Directory.Exists(Path.Combine(scope.RootDirectory, "config"))
+                    && Directory.Exists(Path.Combine(scope.RootDirectory, "logs"))
+                    && Directory.Exists(Path.Combine(scope.RootDirectory, "backend"))
+                    && Directory.Exists(Path.Combine(scope.RootDirectory, "cache"))
+                    && Directory.Exists(Path.Combine(scope.RootDirectory, "diagnostics"))
+                    && Directory.Exists(Path.Combine(scope.RootDirectory, "runtime")),
                 TimeSpan.FromSeconds(12),
-                "CodexCliPlus.exe did not initialize the isolated app root in time.");
+                "CodexCliPlus.exe did not initialize the isolated app root in time."
+            );
 
             if (process.HasExited)
             {
@@ -78,7 +81,8 @@ public sealed class SmokeTests
             var ownedBackendPids = scope.GetOwnedBackendProcessIds();
             Assert.All(
                 ownedBackendPids,
-                pid => Assert.True(pid > 0, "Owned backend PID should be a positive integer."));
+                pid => Assert.True(pid > 0, "Owned backend PID should be a positive integer.")
+            );
         }
         finally
         {
@@ -97,10 +101,26 @@ public sealed class SmokeTests
 
         Assert.Equal(AppDataMode.Development, pathService.Directories.DataMode);
         Assert.Equal(scope.RootDirectory, pathService.Directories.RootDirectory);
-        Assert.StartsWith(scope.RootDirectory, pathService.Directories.ConfigDirectory, StringComparison.OrdinalIgnoreCase);
-        Assert.StartsWith(scope.RootDirectory, pathService.Directories.CacheDirectory, StringComparison.OrdinalIgnoreCase);
-        Assert.StartsWith(scope.RootDirectory, pathService.Directories.DiagnosticsDirectory, StringComparison.OrdinalIgnoreCase);
-        Assert.StartsWith(scope.RootDirectory, pathService.Directories.RuntimeDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(
+            scope.RootDirectory,
+            pathService.Directories.ConfigDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.StartsWith(
+            scope.RootDirectory,
+            pathService.Directories.CacheDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.StartsWith(
+            scope.RootDirectory,
+            pathService.Directories.DiagnosticsDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.StartsWith(
+            scope.RootDirectory,
+            pathService.Directories.RuntimeDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
 
         var configurationService = new JsonAppConfigurationService(pathService);
         var settings = await configurationService.LoadAsync();
@@ -112,7 +132,8 @@ public sealed class SmokeTests
         var secretPath = Path.Combine(
             pathService.Directories.ConfigDirectory,
             AppConstants.SecretsDirectoryName,
-            "smoke-management.bin");
+            "smoke-management.bin"
+        );
         var loaded = await store.LoadSecretAsync("smoke-management");
         var rawBytes = await File.ReadAllBytesAsync(secretPath);
 
@@ -136,7 +157,11 @@ public sealed class SmokeTests
         var configPath = scope.WriteBackendConfig(port);
 
         Assert.Equal(scope.GetBackendExecutablePath(), layout.ExecutablePath);
-        Assert.StartsWith(scope.RootDirectory, layout.WorkingDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(
+            scope.RootDirectory,
+            layout.WorkingDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
 
         using var process = new Process
         {
@@ -145,8 +170,8 @@ public sealed class SmokeTests
                 FileName = layout.ExecutablePath,
                 WorkingDirectory = layout.WorkingDirectory,
                 UseShellExecute = false,
-                CreateNoWindow = true
-            }
+                CreateNoWindow = true,
+            },
         };
         process.StartInfo.ArgumentList.Add("-config");
         process.StartInfo.ArgumentList.Add(configPath);
@@ -158,15 +183,22 @@ public sealed class SmokeTests
         process.StartInfo.Environment["TEMP"] = scope.TempDirectory;
         process.StartInfo.Environment["TMP"] = scope.TempDirectory;
 
-        Assert.True(process.Start(), $"{BackendExecutableNames.ManagedExecutableFileName} did not start.");
+        Assert.True(
+            process.Start(),
+            $"{BackendExecutableNames.ManagedExecutableFileName} did not start."
+        );
 
         try
         {
-            await SmokeEnvironmentScope.WaitForHttpOkAsync($"http://127.0.0.1:{port}/healthz", TimeSpan.FromSeconds(20));
+            await SmokeEnvironmentScope.WaitForHttpOkAsync(
+                $"http://127.0.0.1:{port}/healthz",
+                TimeSpan.FromSeconds(20)
+            );
             if (process.HasExited)
             {
                 Assert.Fail(
-                    $"{BackendExecutableNames.ManagedExecutableFileName} exited early with code {process.ExitCode}.");
+                    $"{BackendExecutableNames.ManagedExecutableFileName} exited early with code {process.ExitCode}."
+                );
             }
             Assert.Contains(process.Id, scope.GetOwnedBackendProcessIds());
         }
@@ -187,14 +219,18 @@ public sealed class SmokeTests
         var configurationService = new JsonAppConfigurationService(pathService);
         var credentialStore = new DpapiCredentialStore(pathService);
         var layout = await assetService.EnsureAssetsAsync();
-        var expectedAssetRoot = CreateExpectedBackendAssetRoot(pathService, layout.WorkingDirectory);
+        var expectedAssetRoot = CreateExpectedBackendAssetRoot(
+            pathService,
+            layout.WorkingDirectory
+        );
         var dependencyService = new DependencyHealthService(
             pathService,
             new DirectoryAccessService(pathService),
             credentialStore,
             new GitHubReleaseUpdateService(new ThrowingHttpClientFactory()),
             () => ".NET 10.0.0",
-            () => expectedAssetRoot);
+            () => expectedAssetRoot
+        );
 
         var settings = await configurationService.LoadAsync();
         settings.ManagementKey = "smoke-management";
@@ -202,7 +238,8 @@ public sealed class SmokeTests
         await File.WriteAllTextAsync(
             pathService.Directories.BackendConfigFilePath,
             FormattableString.Invariant($"port: {AppConstants.DefaultBackendPort}"),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
 
         var healthy = await dependencyService.EvaluateAsync(new BackendStatusSnapshot());
         Assert.True(healthy.IsAvailable);
@@ -212,20 +249,31 @@ public sealed class SmokeTests
         await File.WriteAllTextAsync(
             Path.Combine(
                 pathService.Directories.BackendDirectory,
-                BackendExecutableNames.ManagedExecutableFileName),
+                BackendExecutableNames.ManagedExecutableFileName
+            ),
             "tampered",
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
 
         var repair = await dependencyService.EvaluateAsync(new BackendStatusSnapshot());
 
         Assert.False(repair.IsAvailable);
         Assert.True(repair.RequiresRepairMode);
-        Assert.Contains(repair.Issues, issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal));
+        Assert.Contains(
+            repair.Issues,
+            issue => string.Equals(issue.Code, "backend-runtime", StringComparison.Ordinal)
+        );
     }
 
-    private static string CreateExpectedBackendAssetRoot(AppPathService pathService, string sourceDirectory)
+    private static string CreateExpectedBackendAssetRoot(
+        AppPathService pathService,
+        string sourceDirectory
+    )
     {
-        var expectedAssetRoot = Path.Combine(pathService.Directories.CacheDirectory, "expected-backend-assets");
+        var expectedAssetRoot = Path.Combine(
+            pathService.Directories.CacheDirectory,
+            "expected-backend-assets"
+        );
         Directory.CreateDirectory(expectedAssetRoot);
 
         foreach (var fileName in BackendAssetFiles)
@@ -233,7 +281,8 @@ public sealed class SmokeTests
             File.Copy(
                 Path.Combine(sourceDirectory, fileName),
                 Path.Combine(expectedAssetRoot, fileName),
-                overwrite: true);
+                overwrite: true
+            );
         }
 
         return expectedAssetRoot;
@@ -243,32 +292,37 @@ public sealed class SmokeTests
     public async Task UpdateCheckSmokeParsesStableInstallerMetadataWithoutNetworkSideEffects()
     {
         using var scope = new SmokeEnvironmentScope();
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(
-                """
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                  "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
-                  "published_at": "2026-04-23T00:00:00Z",
-                  "assets": [
-                    {
-                      "name": "CodexCliPlus.Setup.Online.1.2.3.exe",
-                      "browser_download_url": "https://example.test/CodexCliPlus.Setup.Online.1.2.3.exe",
-                      "size": 4096,
-                      "digest": "sha256:abc123"
-                    },
-                    {
-                      "name": "CodexCliPlus.Setup.Offline.1.2.3.exe",
-                      "browser_download_url": "https://example.test/CodexCliPlus.Setup.Offline.1.2.3.exe",
-                      "size": 2048
-                    }
-                  ]
+                    Content = new StringContent(
+                        """
+                        {
+                          "tag_name": "v1.2.3",
+                          "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
+                          "published_at": "2026-04-23T00:00:00Z",
+                          "assets": [
+                            {
+                              "name": "CodexCliPlus.Setup.Online.1.2.3.exe",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Setup.Online.1.2.3.exe",
+                              "size": 4096,
+                              "digest": "sha256:abc123"
+                            },
+                            {
+                              "name": "CodexCliPlus.Setup.Offline.1.2.3.exe",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Setup.Offline.1.2.3.exe",
+                              "size": 2048
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
                 }
-                """,
-                Encoding.UTF8,
-                "application/json")
-        }));
+            )
+        );
 
         var service = new GitHubReleaseUpdateService(factory);
 
@@ -301,17 +355,30 @@ public sealed class SmokeTests
         using var error = new StringWriter();
 
         var exitCode = await BuildToolApp.ExecuteAsync(
-            ["verify-package", "--repo-root", scope.RepositoryRoot, "--output", outputRoot, "--version", version],
+            [
+                "verify-package",
+                "--repo-root",
+                scope.RepositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                version,
+            ],
             output,
             error,
-            new ThrowingProcessRunner());
+            new ThrowingProcessRunner()
+        );
 
         Assert.Equal(0, exitCode);
         Assert.Contains("package verification passed", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
-    private static void CreateInstallerSmokePackage(string packageRoot, string moniker, string version)
+    private static void CreateInstallerSmokePackage(
+        string packageRoot,
+        string moniker,
+        string version
+    )
     {
         var installerName = $"CodexCliPlus.Setup.{moniker}.{version}.exe";
         SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, installerName));
@@ -320,14 +387,17 @@ public sealed class SmokeTests
             new Dictionary<string, byte[]>
             {
                 ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes("<html></html>"),
+                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
+                    "<html></html>"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 [$"output/{installerName}"] = SmokeEnvironmentScope.CreatePeStubBytes(),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}")
-            });
+                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+            }
+        );
     }
 }

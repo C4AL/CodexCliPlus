@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
@@ -23,7 +22,9 @@ public sealed class BackendAssetService
         _logger = logger;
     }
 
-    public async Task<BackendAssetLayout> EnsureAssetsAsync(CancellationToken cancellationToken = default)
+    public async Task<BackendAssetLayout> EnsureAssetsAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
@@ -32,8 +33,10 @@ public sealed class BackendAssetService
 
         Directory.CreateDirectory(workingDirectory);
 
-        if (File.Exists(executablePath) &&
-            await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
+        if (
+            File.Exists(executablePath)
+            && await IsExecutableVersionCurrentAsync(executablePath, cancellationToken)
+        )
         {
             CleanupLegacyManagedExecutable(workingDirectory);
             return CreateLayout(workingDirectory, executablePath);
@@ -42,7 +45,9 @@ public sealed class BackendAssetService
         return await RepairAssetsAsync(cancellationToken);
     }
 
-    public async Task<BackendAssetLayout> RepairAssetsAsync(CancellationToken cancellationToken = default)
+    public async Task<BackendAssetLayout> RepairAssetsAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
@@ -59,7 +64,9 @@ public sealed class BackendAssetService
                 return CreateLayout(workingDirectory, executablePath);
             }
 
-            _logger.Warn("Bundled backend assets are not the pinned CLIProxyAPI version; continuing repair.");
+            _logger.Warn(
+                "Bundled backend assets are not the pinned CLIProxyAPI version; continuing repair."
+            );
         }
 
         if (TryCopyFromRepositoryAssets(workingDirectory, executablePath))
@@ -71,7 +78,9 @@ public sealed class BackendAssetService
                 return CreateLayout(workingDirectory, executablePath);
             }
 
-            _logger.Warn("Repository backend assets are not the pinned CLIProxyAPI version; continuing repair.");
+            _logger.Warn(
+                "Repository backend assets are not the pinned CLIProxyAPI version; continuing repair."
+            );
         }
 
         _logger.Info("Downloading CLIProxyAPI backend assets.");
@@ -79,7 +88,8 @@ public sealed class BackendAssetService
         if (!await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
         {
             throw new InvalidOperationException(
-                $"Downloaded CLIProxyAPI backend did not match the pinned version {BackendReleaseMetadata.Version}.");
+                $"Downloaded CLIProxyAPI backend did not match the pinned version {BackendReleaseMetadata.Version}."
+            );
         }
 
         CleanupLegacyManagedExecutable(workingDirectory);
@@ -89,7 +99,8 @@ public sealed class BackendAssetService
 
     private async Task<bool> IsExecutableVersionCurrentAsync(
         string executablePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var version = await TryReadExecutableVersionAsync(executablePath, cancellationToken);
         if (IsExpectedBackendVersion(version))
@@ -104,7 +115,8 @@ public sealed class BackendAssetService
         else
         {
             _logger.Warn(
-                $"CLIProxyAPI backend at '{executablePath}' is version {version}; expected {BackendReleaseMetadata.Version}.");
+                $"CLIProxyAPI backend at '{executablePath}' is version {version}; expected {BackendReleaseMetadata.Version}."
+            );
         }
 
         return false;
@@ -112,7 +124,8 @@ public sealed class BackendAssetService
 
     private async Task<string?> TryReadExecutableVersionAsync(
         string executablePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -123,18 +136,22 @@ public sealed class BackendAssetService
                 executablePath,
                 "--version",
                 Path.GetDirectoryName(executablePath),
-                timeout.Token);
+                timeout.Token
+            );
 
             if (result.ExitCode != 0)
             {
                 _logger.Warn(
-                    $"CLIProxyAPI version probe exited with code {result.ExitCode}: {result.StandardError}");
+                    $"CLIProxyAPI version probe exited with code {result.ExitCode}: {result.StandardError}"
+                );
             }
 
             var output = string.Join(
                 Environment.NewLine,
-                new[] { result.StandardOutput, result.StandardError }
-                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+                new[] { result.StandardOutput, result.StandardError }.Where(value =>
+                    !string.IsNullOrWhiteSpace(value)
+                )
+            );
             return TryParseCliProxyApiVersion(output);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -144,7 +161,9 @@ public sealed class BackendAssetService
         }
         catch (Exception exception)
         {
-            _logger.Warn($"CLIProxyAPI version probe failed for '{executablePath}': {exception.Message}");
+            _logger.Warn(
+                $"CLIProxyAPI version probe failed for '{executablePath}': {exception.Message}"
+            );
             return null;
         }
     }
@@ -159,7 +178,8 @@ public sealed class BackendAssetService
         var labeledMatch = Regex.Match(
             output,
             @"(?im)\b(?:CLIProxyAPI\s+Version|Version)\s*:\s*v?(?<version>\d+(?:\.\d+){1,3})(?:\b|$)",
-            RegexOptions.CultureInvariant);
+            RegexOptions.CultureInvariant
+        );
         if (labeledMatch.Success)
         {
             return labeledMatch.Groups["version"].Value;
@@ -168,7 +188,8 @@ public sealed class BackendAssetService
         var fallbackMatch = Regex.Match(
             output,
             @"(?im)\bv?(?<version>\d+\.\d+\.\d+(?:\.\d+)?)\b",
-            RegexOptions.CultureInvariant);
+            RegexOptions.CultureInvariant
+        );
         return fallbackMatch.Success ? fallbackMatch.Groups["version"].Value : null;
     }
 
@@ -177,12 +198,11 @@ public sealed class BackendAssetService
         return string.Equals(
             version?.Trim().TrimStart('v', 'V'),
             BackendReleaseMetadata.Version,
-            StringComparison.OrdinalIgnoreCase);
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
-    private static BackendAssetLayout CreateLayout(
-        string workingDirectory,
-        string executablePath)
+    private static BackendAssetLayout CreateLayout(string workingDirectory, string executablePath)
     {
         return new BackendAssetLayout(workingDirectory, executablePath);
     }
@@ -198,7 +218,8 @@ public sealed class BackendAssetService
         var bundledBackendDirectory = Path.Combine(assetsRoot, "backend", "windows-x64");
         var bundledExecutable = Path.Combine(
             bundledBackendDirectory,
-            BackendExecutableNames.ManagedExecutableFileName);
+            BackendExecutableNames.ManagedExecutableFileName
+        );
 
         if (!File.Exists(bundledExecutable))
         {
@@ -210,9 +231,7 @@ public sealed class BackendAssetService
         return true;
     }
 
-    private static bool TryCopyFromRepositoryAssets(
-        string workingDirectory,
-        string executablePath)
+    private static bool TryCopyFromRepositoryAssets(string workingDirectory, string executablePath)
     {
         var repositoryRoot = TryFindRepositoryRoot();
         if (repositoryRoot is null)
@@ -224,7 +243,8 @@ public sealed class BackendAssetService
         var repositoryBackendDirectory = Path.Combine(resourcesRoot, "backend", "windows-x64");
         var repositoryExecutable = Path.Combine(
             repositoryBackendDirectory,
-            BackendExecutableNames.ManagedExecutableFileName);
+            BackendExecutableNames.ManagedExecutableFileName
+        );
 
         if (!File.Exists(repositoryExecutable))
         {
@@ -240,31 +260,39 @@ public sealed class BackendAssetService
     private async Task DownloadBackendArchiveAsync(
         string workingDirectory,
         string executablePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var archiveBytes = await DownloadAndValidateAsync(
             BackendReleaseMetadata.ArchiveUrl,
             BackendReleaseMetadata.ArchiveSha256,
-            cancellationToken);
+            cancellationToken
+        );
 
         using var archiveStream = new MemoryStream(archiveBytes);
         using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
-        var executableEntry = archive.Entries.FirstOrDefault(
-            entry => string.Equals(
+        var executableEntry = archive.Entries.FirstOrDefault(entry =>
+            string.Equals(
                 entry.Name,
                 BackendExecutableNames.UpstreamExecutableFileName,
-                StringComparison.OrdinalIgnoreCase));
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
 
         if (executableEntry is null)
         {
             throw new InvalidOperationException(
-                $"The downloaded CLIProxyAPI archive does not contain {BackendExecutableNames.UpstreamExecutableFileName}.");
+                $"The downloaded CLIProxyAPI archive does not contain {BackendExecutableNames.UpstreamExecutableFileName}."
+            );
         }
 
         ExtractEntry(executableEntry, executablePath);
 
-        foreach (var entry in archive.Entries.Where(
-            item => item.Name is "LICENSE" or "README.md" or "README_CN.md" or "config.example.yaml"))
+        foreach (
+            var entry in archive.Entries.Where(item =>
+                item.Name is "LICENSE" or "README.md" or "README_CN.md" or "config.example.yaml"
+            )
+        )
         {
             ExtractEntry(entry, Path.Combine(workingDirectory, entry.Name));
         }
@@ -274,7 +302,8 @@ public sealed class BackendAssetService
     {
         var legacyExecutablePath = Path.Combine(
             workingDirectory,
-            BackendExecutableNames.UpstreamExecutableFileName);
+            BackendExecutableNames.UpstreamExecutableFileName
+        );
         if (!File.Exists(legacyExecutablePath))
         {
             return;
@@ -288,13 +317,16 @@ public sealed class BackendAssetService
         catch (Exception exception)
         {
             _logger.Warn(
-                $"Failed to remove legacy managed backend executable '{legacyExecutablePath}': {exception.Message}");
+                $"Failed to remove legacy managed backend executable '{legacyExecutablePath}': {exception.Message}"
+            );
         }
     }
 
     private static void CopyDocumentationFiles(string sourceDirectory, string workingDirectory)
     {
-        foreach (var fileName in new[] { "LICENSE", "README.md", "README_CN.md", "config.example.yaml" })
+        foreach (
+            var fileName in new[] { "LICENSE", "README.md", "README_CN.md", "config.example.yaml" }
+        )
         {
             var sourcePath = Path.Combine(sourceDirectory, fileName);
             if (File.Exists(sourcePath))
@@ -307,7 +339,8 @@ public sealed class BackendAssetService
     private async Task<byte[]> DownloadAndValidateAsync(
         string url,
         string expectedSha256,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var bytes = await _httpClient.GetByteArrayAsync(url, cancellationToken);
         var actualSha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
@@ -315,7 +348,8 @@ public sealed class BackendAssetService
         if (!string.Equals(actualSha256, expectedSha256, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                $"Downloaded asset hash mismatch for '{url}'. Expected '{expectedSha256}', got '{actualSha256}'.");
+                $"Downloaded asset hash mismatch for '{url}'. Expected '{expectedSha256}', got '{actualSha256}'."
+            );
         }
 
         return bytes;

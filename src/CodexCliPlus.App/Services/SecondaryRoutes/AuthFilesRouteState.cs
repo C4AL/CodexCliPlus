@@ -43,7 +43,11 @@ public sealed class AuthFilesRouteState
         SelectedModels = models;
     }
 
-    public void SetDraftFields(string? prefix, string? proxyUrl, IReadOnlyDictionary<string, string> headers)
+    public void SetDraftFields(
+        string? prefix,
+        string? proxyUrl,
+        IReadOnlyDictionary<string, string> headers
+    )
     {
         SelectedPrefix = prefix;
         SelectedProxyUrl = proxyUrl;

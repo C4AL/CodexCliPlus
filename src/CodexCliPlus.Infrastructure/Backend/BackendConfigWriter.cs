@@ -4,7 +4,6 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
@@ -20,7 +19,8 @@ public sealed class BackendConfigWriter
 
     public BackendConfigWriter(
         IAppConfigurationService configurationService,
-        IPathService pathService)
+        IPathService pathService
+    )
     {
         _configurationService = configurationService;
         _pathService = pathService;
@@ -28,7 +28,8 @@ public sealed class BackendConfigWriter
 
     public Task<BackendRuntimeInfo> WriteAsync(
         AppSettings settings,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return WriteAsync(settings, new BackendConfigWriteOptions(), cancellationToken);
     }
@@ -36,7 +37,8 @@ public sealed class BackendConfigWriter
     public async Task<BackendRuntimeInfo> WriteAsync(
         AppSettings settings,
         BackendConfigWriteOptions options,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(options);
@@ -47,7 +49,9 @@ public sealed class BackendConfigWriter
         {
             if (settings.SecurityKeyOnboardingCompleted)
             {
-                throw new InvalidOperationException("请先输入现有安全密钥。普通登录不会生成或重置安全密钥。");
+                throw new InvalidOperationException(
+                    "请先输入现有安全密钥。普通登录不会生成或重置安全密钥。"
+                );
             }
 
             settings.ManagementKey = GenerateManagementKey();
@@ -64,17 +68,16 @@ public sealed class BackendConfigWriter
         Directory.CreateDirectory(authDirectory);
         var managementKeyHash = ResolveManagementKeyHash(
             settings.ManagementKey,
-            options.AllowManagementKeyRotation || !settings.SecurityKeyOnboardingCompleted);
+            options.AllowManagementKeyRotation || !settings.SecurityKeyOnboardingCompleted
+        );
 
-        var yaml = BuildYaml(
-            settings.BackendPort,
-            managementKeyHash,
-            authDirectory);
+        var yaml = BuildYaml(settings.BackendPort, managementKeyHash, authDirectory);
         await File.WriteAllTextAsync(
             _pathService.Directories.BackendConfigFilePath,
             yaml,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            cancellationToken
+        );
 
         await _configurationService.SaveAsync(settings, cancellationToken);
 
@@ -83,10 +86,15 @@ public sealed class BackendConfigWriter
             throw new InvalidOperationException(
                 string.Create(
                     CultureInfo.InvariantCulture,
-                    $"CodexCliPlus backend port {settings.BackendPort} is already in use. Stop the process using 127.0.0.1:{settings.BackendPort} and start CodexCliPlus again."));
+                    $"CodexCliPlus backend port {settings.BackendPort} is already in use. Stop the process using 127.0.0.1:{settings.BackendPort} and start CodexCliPlus again."
+                )
+            );
         }
 
-        var loopbackBaseUrl = string.Create(CultureInfo.InvariantCulture, $"http://127.0.0.1:{settings.BackendPort}");
+        var loopbackBaseUrl = string.Create(
+            CultureInfo.InvariantCulture,
+            $"http://127.0.0.1:{settings.BackendPort}"
+        );
         return new BackendRuntimeInfo
         {
             RequestedPort = requestedPort,
@@ -97,7 +105,7 @@ public sealed class BackendConfigWriter
             ConfigPath = _pathService.Directories.BackendConfigFilePath,
             BaseUrl = loopbackBaseUrl,
             HealthUrl = $"{loopbackBaseUrl}/healthz",
-            ManagementApiBaseUrl = $"{loopbackBaseUrl}/v0/management"
+            ManagementApiBaseUrl = $"{loopbackBaseUrl}/v0/management",
         };
     }
 
@@ -122,17 +130,17 @@ public sealed class BackendConfigWriter
         return VerifyManagementKeyHash(managementKey.Trim(), existingHash);
     }
 
-    private static string BuildYaml(
-        int port,
-        string managementKey,
-        string authDirectory)
+    private static string BuildYaml(int port, string managementKey, string authDirectory)
     {
         var builder = new StringBuilder();
         AppendInvariant(builder, $"host: \"127.0.0.1\"{Environment.NewLine}");
         AppendInvariant(builder, $"port: {port}{Environment.NewLine}");
         builder.Append("remote-management:" + Environment.NewLine);
         builder.Append("  allow-remote: false" + Environment.NewLine);
-        AppendInvariant(builder, $"  secret-key: \"{EscapeYaml(managementKey)}\"{Environment.NewLine}");
+        AppendInvariant(
+            builder,
+            $"  secret-key: \"{EscapeYaml(managementKey)}\"{Environment.NewLine}"
+        );
         builder.Append("  disable-control-panel: true" + Environment.NewLine);
         builder.Append("  disable-auto-update-panel: true" + Environment.NewLine);
         AppendInvariant(builder, $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}");
@@ -150,7 +158,9 @@ public sealed class BackendConfigWriter
 
     private static string EscapeYaml(string value)
     {
-        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     private string ResolveManagementKeyHash(string managementKey, bool allowManagementKeyRotation)
@@ -160,7 +170,9 @@ public sealed class BackendConfigWriter
         {
             if (!allowManagementKeyRotation)
             {
-                throw new InvalidOperationException("未找到现有后端安全密钥配置。普通登录不会生成或重置安全密钥。");
+                throw new InvalidOperationException(
+                    "未找到现有后端安全密钥配置。普通登录不会生成或重置安全密钥。"
+                );
             }
 
             return ManagementKeyHasher.Hash(managementKey);

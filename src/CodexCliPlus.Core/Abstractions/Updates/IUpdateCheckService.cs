@@ -8,5 +8,6 @@ public interface IUpdateCheckService
     Task<UpdateCheckResult> CheckAsync(
         string currentVersion,
         UpdateChannel channel = UpdateChannel.Stable,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

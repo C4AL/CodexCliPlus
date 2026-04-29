@@ -6,7 +6,10 @@ namespace CodexCliPlus.Tests.Platform;
 
 public sealed class DirectoryAccessServiceTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-dir-test-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-dir-test-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public void GetWriteAccessErrorReturnsNullForWritableDirectory()
@@ -59,7 +62,8 @@ public sealed class DirectoryAccessServiceTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

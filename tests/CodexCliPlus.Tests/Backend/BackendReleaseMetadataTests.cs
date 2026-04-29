@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Text;
-
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Infrastructure.Backend;
 
@@ -16,13 +15,16 @@ public sealed class BackendReleaseMetadataTests
         Assert.Equal("CLIProxyAPI_6.9.40_windows_amd64.zip", BackendReleaseMetadata.AssetName);
         Assert.Equal(
             "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.9.40",
-            BackendReleaseMetadata.ReleaseUrl);
+            BackendReleaseMetadata.ReleaseUrl
+        );
         Assert.Equal(
             "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.40/CLIProxyAPI_6.9.40_windows_amd64.zip",
-            BackendReleaseMetadata.ArchiveUrl);
+            BackendReleaseMetadata.ArchiveUrl
+        );
         Assert.Equal(
             "b21eb12a819f49fc43affc29a3996810be85c090ba0c523b7704ce90070ae760",
-            BackendReleaseMetadata.ArchiveSha256);
+            BackendReleaseMetadata.ArchiveSha256
+        );
     }
 
     [Fact]
@@ -37,21 +39,61 @@ public sealed class BackendReleaseMetadataTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var runtimeSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.Infrastructure", "Backend", "BackendAssetService.cs"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.Infrastructure",
+                "Backend",
+                "BackendAssetService.cs"
+            ),
+            Encoding.UTF8
+        );
         var buildToolSource = File.ReadAllText(
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"),
-            Encoding.UTF8);
+            Encoding.UTF8
+        );
 
         Assert.Contains("BackendReleaseMetadata.Version", runtimeSource, StringComparison.Ordinal);
-        Assert.Contains("BackendReleaseMetadata.ArchiveUrl", runtimeSource, StringComparison.Ordinal);
-        Assert.Contains("BackendReleaseMetadata.ArchiveSha256", runtimeSource, StringComparison.Ordinal);
-        Assert.Contains("BackendReleaseMetadata.ArchiveUrl", buildToolSource, StringComparison.Ordinal);
-        Assert.Contains("BackendReleaseMetadata.ArchiveSha256", buildToolSource, StringComparison.Ordinal);
-        Assert.Contains("BackendExecutableNames.ManagedExecutableFileName", runtimeSource, StringComparison.Ordinal);
-        Assert.Contains("BackendExecutableNames.UpstreamExecutableFileName", runtimeSource, StringComparison.Ordinal);
-        Assert.Contains("BackendExecutableNames.ManagedExecutableFileName", buildToolSource, StringComparison.Ordinal);
-        Assert.Contains("BackendExecutableNames.UpstreamExecutableFileName", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "BackendReleaseMetadata.ArchiveUrl",
+            runtimeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendReleaseMetadata.ArchiveSha256",
+            runtimeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendReleaseMetadata.ArchiveUrl",
+            buildToolSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendReleaseMetadata.ArchiveSha256",
+            buildToolSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendExecutableNames.ManagedExecutableFileName",
+            runtimeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendExecutableNames.UpstreamExecutableFileName",
+            runtimeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendExecutableNames.ManagedExecutableFileName",
+            buildToolSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendExecutableNames.UpstreamExecutableFileName",
+            buildToolSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("6.9.34", runtimeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("6.9.34", buildToolSource, StringComparison.Ordinal);
     }
@@ -59,18 +101,13 @@ public sealed class BackendReleaseMetadataTests
     [Fact]
     public void BackendAssetServiceParsesAndRejectsCliProxyApiVersions()
     {
+        Assert.Equal("6.9.40", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.40"));
         Assert.Equal(
             "6.9.40",
-            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.40"));
-        Assert.Equal(
-            "6.9.40",
-            InvokeParseBackendVersion("CLIProxyAPI Version: v6.9.40\r\nBuild Date: 2026-04-01"));
-        Assert.Equal(
-            "6.9.36",
-            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.36"));
-        Assert.Equal(
-            "6.9.34",
-            InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.34"));
+            InvokeParseBackendVersion("CLIProxyAPI Version: v6.9.40\r\nBuild Date: 2026-04-01")
+        );
+        Assert.Equal("6.9.36", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.36"));
+        Assert.Equal("6.9.34", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.34"));
 
         Assert.True(InvokeIsExpectedBackendVersion("6.9.40"));
         Assert.True(InvokeIsExpectedBackendVersion("v6.9.40"));
@@ -99,7 +136,8 @@ public sealed class BackendReleaseMetadataTests
     {
         var method = typeof(BackendAssetService).GetMethod(
             "TryParseCliProxyApiVersion",
-            BindingFlags.Static | BindingFlags.NonPublic);
+            BindingFlags.Static | BindingFlags.NonPublic
+        );
         Assert.NotNull(method);
         return (string?)method!.Invoke(null, [output]);
     }
@@ -108,7 +146,8 @@ public sealed class BackendReleaseMetadataTests
     {
         var method = typeof(BackendAssetService).GetMethod(
             "IsExpectedBackendVersion",
-            BindingFlags.Static | BindingFlags.NonPublic);
+            BindingFlags.Static | BindingFlags.NonPublic
+        );
         Assert.NotNull(method);
         return Assert.IsType<bool>(method!.Invoke(null, [version]));
     }

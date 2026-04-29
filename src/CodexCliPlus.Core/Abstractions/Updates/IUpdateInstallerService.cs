@@ -8,9 +8,11 @@ public interface IUpdateInstallerService
 
     Task<PreparedUpdateInstaller> DownloadInstallerAsync(
         UpdateCheckResult updateCheckResult,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task LaunchInstallerAsync(
         PreparedUpdateInstaller installer,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

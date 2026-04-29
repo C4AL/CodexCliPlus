@@ -6,7 +6,10 @@ namespace CodexCliPlus.Tests.Security;
 
 public sealed class DpapiCredentialStoreTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-secure-store-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-secure-store-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task SaveLoadAndDeleteAsyncRoundTripsSecretWithoutPlaintextFile()
@@ -16,7 +19,11 @@ public sealed class DpapiCredentialStoreTests : IDisposable
 
         await store.SaveSecretAsync("phase6-test", "super-secret");
         var loaded = await store.LoadSecretAsync("phase6-test");
-        var secretPath = Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "phase6-test.bin");
+        var secretPath = Path.Combine(
+            pathService.Directories.ConfigDirectory,
+            "secrets",
+            "phase6-test.bin"
+        );
         var rawBytes = await File.ReadAllBytesAsync(secretPath);
 
         Assert.Equal("super-secret", loaded);
@@ -46,7 +53,8 @@ public sealed class DpapiCredentialStoreTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

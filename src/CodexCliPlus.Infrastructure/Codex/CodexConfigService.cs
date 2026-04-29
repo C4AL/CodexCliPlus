@@ -1,10 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
-
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -18,7 +16,11 @@ public sealed class CodexConfigService
     private const string ManagedTablesEnd = "# END CODEXCLIPLUS MANAGED TABLES";
     private const string CpaDummyAuthJson = "{\n  \"OPENAI_API_KEY\": \"sk-dummy\"\n}\n";
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is part of the dependency-injected Codex configuration service."
+    )]
     public string GetUserConfigDirectory()
     {
         var codexHome = Environment.GetEnvironmentVariable("CODEX_HOME");
@@ -29,7 +31,8 @@ public sealed class CodexConfigService
 
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".codex");
+            ".codex"
+        );
     }
 
     public string GetUserConfigPath()
@@ -47,7 +50,11 @@ public sealed class CodexConfigService
         return Path.Combine(GetUserConfigDirectory(), "codexcliplus-auth", "official-auth.json");
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is part of the dependency-injected Codex configuration service."
+    )]
     public string? GetProjectConfigPath(string? repositoryPath)
     {
         if (string.IsNullOrWhiteSpace(repositoryPath))
@@ -63,7 +70,8 @@ public sealed class CodexConfigService
         string? executablePath,
         string? version,
         string authenticationState,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var configPath = GetUserConfigPath();
         var hasUserConfig = File.Exists(configPath);
@@ -99,14 +107,15 @@ public sealed class CodexConfigService
             HasProjectConfig = hasProjectConfig,
             AuthenticationState = authenticationState,
             EffectiveSource = effectiveSource,
-            ErrorMessage = errorMessage
+            ErrorMessage = errorMessage,
         };
     }
 
     public async Task ApplyProfilesAsync(
         int backendPort,
         CodexSourceKind defaultSource,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var configDirectory = GetUserConfigDirectory();
         var configPath = GetUserConfigPath();
@@ -126,7 +135,8 @@ public sealed class CodexConfigService
         if (!TryParseTomlTable(mergedContent, out _, out var validationError))
         {
             throw new InvalidOperationException(
-                $"Codex configuration validation failed before write: {validationError}");
+                $"Codex configuration validation failed before write: {validationError}"
+            );
         }
 
         try
@@ -135,7 +145,8 @@ public sealed class CodexConfigService
                 configPath,
                 mergedContent,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken);
+                cancellationToken
+            );
         }
         catch
         {
@@ -151,13 +162,18 @@ public sealed class CodexConfigService
     public async Task ApplyDesktopModeAsync(
         int backendPort,
         CodexSourceKind defaultSource,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         await ApplyProfilesAsync(backendPort, defaultSource, cancellationToken);
         await ApplyAuthAsync(defaultSource, cancellationToken);
     }
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is part of the dependency-injected Codex configuration service.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is part of the dependency-injected Codex configuration service."
+    )]
     public string BuildLaunchCommand(CodexSourceKind source, string? repositoryPath)
     {
         var builder = new StringBuilder();
@@ -191,7 +207,8 @@ public sealed class CodexConfigService
                 GetUserAuthPath(),
                 CpaDummyAuthJson,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken);
+                cancellationToken
+            );
             return;
         }
 
@@ -213,12 +230,17 @@ public sealed class CodexConfigService
                 currentAuthPath,
                 content,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken);
+                cancellationToken
+            );
             return;
         }
     }
 
-    private static string MergeManagedBlocks(string content, int backendPort, CodexSourceKind defaultSource)
+    private static string MergeManagedBlocks(
+        string content,
+        int backendPort,
+        CodexSourceKind defaultSource
+    )
     {
         var cleaned = StripManagedBlocks(content);
         var rootBlock = BuildRootBlock(defaultSource);
@@ -248,45 +270,60 @@ public sealed class CodexConfigService
         var withoutRoot = Regex.Replace(
             withoutBom,
             $"{Regex.Escape(ManagedRootStart)}[\\s\\S]*?{Regex.Escape(ManagedRootEnd)}\\s*",
-            string.Empty);
+            string.Empty
+        );
 
-        return Regex.Replace(
-            withoutRoot,
-            $"{Regex.Escape(ManagedTablesStart)}[\\s\\S]*?{Regex.Escape(ManagedTablesEnd)}\\s*",
-            string.Empty).Trim();
+        return Regex
+            .Replace(
+                withoutRoot,
+                $"{Regex.Escape(ManagedTablesStart)}[\\s\\S]*?{Regex.Escape(ManagedTablesEnd)}\\s*",
+                string.Empty
+            )
+            .Trim();
     }
 
     private static string BuildRootBlock(CodexSourceKind defaultSource)
     {
         var profile = GetSourceName(defaultSource);
-        return
-            $"{ManagedRootStart}{Environment.NewLine}" +
-            $"profile = \"{profile}\"{Environment.NewLine}" +
-            $"{ManagedRootEnd}";
+        return $"{ManagedRootStart}{Environment.NewLine}"
+            + $"profile = \"{profile}\"{Environment.NewLine}"
+            + $"{ManagedRootEnd}";
     }
 
     private static string BuildTablesBlock(int backendPort)
     {
         var cpaBaseUrl = $"http://127.0.0.1:{backendPort}";
 
-        return
-            $"{ManagedTablesStart}{Environment.NewLine}" +
-            "[profiles.official]" + Environment.NewLine +
-            "model_provider = \"openai\"" + Environment.NewLine +
-            "chatgpt_base_url = \"https://chatgpt.com/backend-api\"" + Environment.NewLine +
-            "cli_auth_credentials_store = \"file\"" + Environment.NewLine +
-            Environment.NewLine +
-            "[profiles.cpa]" + Environment.NewLine +
-            "model_provider = \"cpa\"" + Environment.NewLine +
-            $"chatgpt_base_url = \"{cpaBaseUrl}/backend-api\"" + Environment.NewLine +
-            "cli_auth_credentials_store = \"file\"" + Environment.NewLine +
-            Environment.NewLine +
-            "[model_providers.cpa]" + Environment.NewLine +
-            "name = \"cpa\"" + Environment.NewLine +
-            $"base_url = \"{cpaBaseUrl}/v1\"" + Environment.NewLine +
-            "wire_api = \"responses\"" + Environment.NewLine +
-            "requires_openai_auth = true" + Environment.NewLine +
-            $"{ManagedTablesEnd}";
+        return $"{ManagedTablesStart}{Environment.NewLine}"
+            + "[profiles.official]"
+            + Environment.NewLine
+            + "model_provider = \"openai\""
+            + Environment.NewLine
+            + "chatgpt_base_url = \"https://chatgpt.com/backend-api\""
+            + Environment.NewLine
+            + "cli_auth_credentials_store = \"file\""
+            + Environment.NewLine
+            + Environment.NewLine
+            + "[profiles.cpa]"
+            + Environment.NewLine
+            + "model_provider = \"cpa\""
+            + Environment.NewLine
+            + $"chatgpt_base_url = \"{cpaBaseUrl}/backend-api\""
+            + Environment.NewLine
+            + "cli_auth_credentials_store = \"file\""
+            + Environment.NewLine
+            + Environment.NewLine
+            + "[model_providers.cpa]"
+            + Environment.NewLine
+            + "name = \"cpa\""
+            + Environment.NewLine
+            + $"base_url = \"{cpaBaseUrl}/v1\""
+            + Environment.NewLine
+            + "wire_api = \"responses\""
+            + Environment.NewLine
+            + "requires_openai_auth = true"
+            + Environment.NewLine
+            + $"{ManagedTablesEnd}";
     }
 
     private static bool TryReadProfile(string content, out string profile)
@@ -297,7 +334,11 @@ public sealed class CodexConfigService
             return false;
         }
 
-        if (model.TryGetValue("profile", out var value) && value is string text && !string.IsNullOrWhiteSpace(text))
+        if (
+            model.TryGetValue("profile", out var value)
+            && value is string text
+            && !string.IsNullOrWhiteSpace(text)
+        )
         {
             profile = text.Trim();
             return true;
@@ -306,7 +347,11 @@ public sealed class CodexConfigService
         return false;
     }
 
-    private static bool TryParseTomlTable(string content, out TomlTable? model, out string errorMessage)
+    private static bool TryParseTomlTable(
+        string content,
+        out TomlTable? model,
+        out string errorMessage
+    )
     {
         try
         {
@@ -331,16 +376,19 @@ public sealed class CodexConfigService
     private static async Task<string> BackupAsync(
         string existingContent,
         string configDirectory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var backupPath = Path.Combine(
             configDirectory,
-            $"config.codexcliplus-backup-{DateTimeOffset.Now:yyyyMMddHHmmss}.toml");
+            $"config.codexcliplus-backup-{DateTimeOffset.Now:yyyyMMddHHmmss}.toml"
+        );
         await File.WriteAllTextAsync(
             backupPath,
             existingContent,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            cancellationToken
+        );
         return backupPath;
     }
 
@@ -364,13 +412,19 @@ public sealed class CodexConfigService
             backupPath,
             content,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private IEnumerable<string> GetOfficialAuthCandidates()
     {
         yield return GetDesktopAuthBackupPath();
-        yield return Path.Combine(GetUserConfigDirectory(), "switch-presets", "official", "auth.json");
+        yield return Path.Combine(
+            GetUserConfigDirectory(),
+            "switch-presets",
+            "official",
+            "auth.json"
+        );
         yield return Path.Combine(GetUserConfigDirectory(), "bridge-chatgpt-auth.json");
     }
 

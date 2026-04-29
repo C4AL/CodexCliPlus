@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
-
 using CodexCliPlus.BuildTool;
 using CodexCliPlus.Core.Abstractions.Processes;
 using CodexCliPlus.Core.Constants;
@@ -22,7 +21,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         "HOME",
         "CODEX_HOME",
         "TEMP",
-        "TMP"
+        "TMP",
     ];
 
     private readonly Dictionary<string, string?> _originalValues = new(StringComparer.Ordinal);
@@ -73,7 +72,8 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public string OutputDirectory { get; }
 
-    public static string ApplicationPath => Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
+    public static string ApplicationPath =>
+        Path.Combine(AppContext.BaseDirectory, AppConstants.ExecutableName);
 
     public static AppPathService CreatePathService()
     {
@@ -82,7 +82,11 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public string GetBackendExecutablePath()
     {
-        return Path.Combine(RootDirectory, "backend", BackendExecutableNames.ManagedExecutableFileName);
+        return Path.Combine(
+            RootDirectory,
+            "backend",
+            BackendExecutableNames.ManagedExecutableFileName
+        );
     }
 
     public static int FindAvailablePort()
@@ -101,28 +105,49 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         Directory.CreateDirectory(authDirectory);
 
         var yaml =
-            $"host: \"127.0.0.1\"{Environment.NewLine}" +
-            $"port: {port}{Environment.NewLine}" +
-            "remote-management:" + Environment.NewLine +
-            "  allow-remote: false" + Environment.NewLine +
-            "  secret-key: \"smoke-only\"" + Environment.NewLine +
-            "  disable-control-panel: true" + Environment.NewLine +
-            "  disable-auto-update-panel: true" + Environment.NewLine +
-            $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}" +
-            "api-keys:" + Environment.NewLine +
-            "  - \"sk-smoke\"" + Environment.NewLine +
-            "logging-to-file: true" + Environment.NewLine +
-            "oauth-model-alias:" + Environment.NewLine +
-            "  codex:" + Environment.NewLine +
-            "    - name: \"gpt-5.4\"" + Environment.NewLine +
-            "      alias: \"gpt-5-codex\"" + Environment.NewLine +
-            "      fork: true" + Environment.NewLine;
+            $"host: \"127.0.0.1\"{Environment.NewLine}"
+            + $"port: {port}{Environment.NewLine}"
+            + "remote-management:"
+            + Environment.NewLine
+            + "  allow-remote: false"
+            + Environment.NewLine
+            + "  secret-key: \"smoke-only\""
+            + Environment.NewLine
+            + "  disable-control-panel: true"
+            + Environment.NewLine
+            + "  disable-auto-update-panel: true"
+            + Environment.NewLine
+            + $"auth-dir: \"{EscapeYaml(authDirectory)}\"{Environment.NewLine}"
+            + "api-keys:"
+            + Environment.NewLine
+            + "  - \"sk-smoke\""
+            + Environment.NewLine
+            + "logging-to-file: true"
+            + Environment.NewLine
+            + "oauth-model-alias:"
+            + Environment.NewLine
+            + "  codex:"
+            + Environment.NewLine
+            + "    - name: \"gpt-5.4\""
+            + Environment.NewLine
+            + "      alias: \"gpt-5-codex\""
+            + Environment.NewLine
+            + "      fork: true"
+            + Environment.NewLine;
 
-        File.WriteAllText(configPath, yaml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        File.WriteAllText(
+            configPath,
+            yaml,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
         return configPath;
     }
 
-    public static async Task WaitForAsync(Func<bool> predicate, TimeSpan timeout, string failureMessage)
+    public static async Task WaitForAsync(
+        Func<bool> predicate,
+        TimeSpan timeout,
+        string failureMessage
+    )
     {
         var deadline = DateTimeOffset.UtcNow.Add(timeout);
         while (DateTimeOffset.UtcNow < deadline)
@@ -140,10 +165,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
 
     public static async Task WaitForHttpOkAsync(string url, TimeSpan timeout)
     {
-        using var client = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(2)
-        };
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
 
         var deadline = DateTimeOffset.UtcNow.Add(timeout);
         Exception? lastError = null;
@@ -168,13 +190,15 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         throw new TimeoutException(
             lastError is null
                 ? $"Timed out waiting for HTTP 200 from '{url}'."
-                : $"Timed out waiting for HTTP 200 from '{url}': {lastError.Message}");
+                : $"Timed out waiting for HTTP 200 from '{url}': {lastError.Message}"
+        );
     }
 
     public IReadOnlyList<int> GetOwnedBackendProcessIds()
     {
         var backendPath = GetBackendExecutablePath();
-        return Process.GetProcessesByName(GetManagedBackendProcessName())
+        return Process
+            .GetProcessesByName(GetManagedBackendProcessName())
             .Where(process => MatchesProcessPath(process, backendPath))
             .Select(process => process.Id)
             .Order()
@@ -235,9 +259,7 @@ internal sealed class SmokeEnvironmentScope : IDisposable
             process.Kill();
             process.WaitForExit(5000);
         }
-        catch (InvalidOperationException)
-        {
-        }
+        catch (InvalidOperationException) { }
     }
 
     public static void CreateZipWithEntries(string packagePath, params string[] entryNames)
@@ -248,12 +270,20 @@ internal sealed class SmokeEnvironmentScope : IDisposable
         {
             var entry = archive.CreateEntry(entryName);
             using var stream = entry.Open();
-            using var writer = new StreamWriter(stream, new UTF8Encoding(false), 1024, leaveOpen: false);
+            using var writer = new StreamWriter(
+                stream,
+                new UTF8Encoding(false),
+                1024,
+                leaveOpen: false
+            );
             writer.Write("smoke");
         }
     }
 
-    public static void CreateZipWithByteEntries(string packagePath, IReadOnlyDictionary<string, byte[]> entries)
+    public static void CreateZipWithByteEntries(
+        string packagePath,
+        IReadOnlyDictionary<string, byte[]> entries
+    )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(packagePath)!);
         using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
@@ -297,12 +327,16 @@ internal sealed class SmokeEnvironmentScope : IDisposable
             current = current.Parent;
         }
 
-        throw new DirectoryNotFoundException("Could not locate CodexCliPlus.sln from the test output directory.");
+        throw new DirectoryNotFoundException(
+            "Could not locate CodexCliPlus.sln from the test output directory."
+        );
     }
 
     private static string EscapeYaml(string value)
     {
-        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     private static bool MatchesProcessPath(Process process, string expectedPath)
@@ -312,7 +346,8 @@ internal sealed class SmokeEnvironmentScope : IDisposable
             return string.Equals(
                 process.MainModule?.FileName,
                 expectedPath,
-                StringComparison.OrdinalIgnoreCase);
+                StringComparison.OrdinalIgnoreCase
+            );
         }
         catch
         {
@@ -330,7 +365,9 @@ internal sealed class ThrowingHttpClientFactory : IHttpClientFactory
 {
     public HttpClient CreateClient(string name)
     {
-        throw new InvalidOperationException($"Unexpected outbound HTTP client request for '{name}'.");
+        throw new InvalidOperationException(
+            $"Unexpected outbound HTTP client request for '{name}'."
+        );
     }
 }
 
@@ -362,7 +399,10 @@ internal sealed class FixedHttpClientFactory : IHttpClientFactory, IDisposable
             _handler = handler;
         }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             return _handler(request);
         }
@@ -376,9 +416,11 @@ internal sealed class ThrowingProcessRunner : IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         throw new InvalidOperationException(
-            $"Smoke verification should not spawn '{fileName} {string.Join(" ", arguments)}'.");
+            $"Smoke verification should not spawn '{fileName} {string.Join(" ", arguments)}'."
+        );
     }
 }

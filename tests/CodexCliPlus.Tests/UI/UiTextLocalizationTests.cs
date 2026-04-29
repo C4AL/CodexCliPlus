@@ -8,13 +8,16 @@ public sealed class UiTextLocalizationTests
     public void DesktopShellDoesNotReintroduceLegacyEnglishTrayLabels()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var mainWindowXaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
+        var mainWindowXaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
         var forbiddenPhrases = new[]
         {
             "Open Main Interface",
             "Restart Backend",
             "Check Updates",
-            "Exit and Stop Backend"
+            "Exit and Stop Backend",
         };
 
         foreach (var phrase in forbiddenPhrases)
@@ -27,7 +30,16 @@ public sealed class UiTextLocalizationTests
     public void DesktopShellTitleUsesChineseDisplayText()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var viewModelSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "ViewModels", "MainWindowViewModel.cs"), Encoding.UTF8);
+        var viewModelSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "ViewModels",
+                "MainWindowViewModel.cs"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("AppConstants.DisplayName", viewModelSource, StringComparison.Ordinal);
         Assert.Contains("\u684c\u9762\u7248", viewModelSource, StringComparison.Ordinal);
@@ -37,22 +49,85 @@ public sealed class UiTextLocalizationTests
     public void DesktopWebUiChineseBrandingUsesCodexCliPlusAndHidesWebLoginConnectionHints()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var zhCn = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "i18n", "locales", "zh-CN.json"), Encoding.UTF8);
-        var loginPage = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "LoginPage.tsx"), Encoding.UTF8);
-        var mainLayout = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "components", "layout", "MainLayout.tsx"), Encoding.UTF8);
-        var systemPage = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "SystemPage.tsx"), Encoding.UTF8);
-        var splashScreen = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "components", "common", "SplashScreen.tsx"), Encoding.UTF8);
-        var mainEntry = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "main.tsx"), Encoding.UTF8);
-        var htmlEntry = File.ReadAllText(Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "index.html"), Encoding.UTF8);
+        var zhCn = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "i18n",
+                "locales",
+                "zh-CN.json"
+            ),
+            Encoding.UTF8
+        );
+        var loginPage = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "LoginPage.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var mainLayout = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "components",
+                "layout",
+                "MainLayout.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var systemPage = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "SystemPage.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var mainEntry = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "main.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var htmlEntry = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "index.html"),
+            Encoding.UTF8
+        );
         var visibleText = string.Join(
             Environment.NewLine,
             zhCn,
             loginPage,
             mainLayout,
             systemPage,
-            splashScreen,
             mainEntry,
-            htmlEntry);
+            htmlEntry
+        );
 
         Assert.Contains("\"main\": \"CodexCliPlus\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("CodexCliPlus", visibleText, StringComparison.Ordinal);
@@ -67,7 +142,7 @@ public sealed class UiTextLocalizationTests
             "CPA-UV",
             "CPA 版本",
             "CPA（CLI Proxy API）",
-            "WebUI 仓库"
+            "WebUI 仓库",
         };
 
         foreach (var phrase in forbiddenPhrases)
@@ -80,14 +155,34 @@ public sealed class UiTextLocalizationTests
     public void DesktopWebUiKeepsOnlySimplifiedChineseLanguageSurface()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var sourceRoot = Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src");
-        var commonTypes = File.ReadAllText(Path.Combine(sourceRoot, "types", "common.ts"), Encoding.UTF8);
-        var constants = File.ReadAllText(Path.Combine(sourceRoot, "utils", "constants.ts"), Encoding.UTF8);
+        var sourceRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "source",
+            "src"
+        );
+        var commonTypes = File.ReadAllText(
+            Path.Combine(sourceRoot, "types", "common.ts"),
+            Encoding.UTF8
+        );
+        var constants = File.ReadAllText(
+            Path.Combine(sourceRoot, "utils", "constants.ts"),
+            Encoding.UTF8
+        );
         var i18n = File.ReadAllText(Path.Combine(sourceRoot, "i18n", "index.ts"), Encoding.UTF8);
-        var mainLayout = File.ReadAllText(Path.Combine(sourceRoot, "components", "layout", "MainLayout.tsx"), Encoding.UTF8);
+        var mainLayout = File.ReadAllText(
+            Path.Combine(sourceRoot, "components", "layout", "MainLayout.tsx"),
+            Encoding.UTF8
+        );
 
         Assert.Contains("export type Language = 'zh-CN';", commonTypes, StringComparison.Ordinal);
-        Assert.Contains("defineLanguageOrder(['zh-CN'] as const)", constants, StringComparison.Ordinal);
+        Assert.Contains(
+            "defineLanguageOrder(['zh-CN'] as const)",
+            constants,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("zh-TW", i18n, StringComparison.Ordinal);
         Assert.DoesNotContain("from './locales/en.json'", i18n, StringComparison.Ordinal);
         Assert.DoesNotContain("language-menu", mainLayout, StringComparison.Ordinal);
@@ -100,13 +195,38 @@ public sealed class UiTextLocalizationTests
     public void DesktopWebUiVisibleProviderSurfaceIsCodexOnly()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var sourceRoot = Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src");
-        var routeSource = File.ReadAllText(Path.Combine(sourceRoot, "router", "MainRoutes.tsx"), Encoding.UTF8);
-        var providersPage = File.ReadAllText(Path.Combine(sourceRoot, "pages", "AiProvidersPage.tsx"), Encoding.UTF8);
-        var providerNav = File.ReadAllText(Path.Combine(sourceRoot, "components", "providers", "ProviderNav", "ProviderNav.tsx"), Encoding.UTF8);
-        var oauthPage = File.ReadAllText(Path.Combine(sourceRoot, "pages", "OAuthPage.tsx"), Encoding.UTF8);
-        var quotaPage = File.ReadAllText(Path.Combine(sourceRoot, "pages", "QuotaPage.tsx"), Encoding.UTF8);
-        var authFilesPage = File.ReadAllText(Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx"), Encoding.UTF8);
+        var sourceRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "source",
+            "src"
+        );
+        var routeSource = File.ReadAllText(
+            Path.Combine(sourceRoot, "router", "MainRoutes.tsx"),
+            Encoding.UTF8
+        );
+        var providersPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "AiProvidersPage.tsx"),
+            Encoding.UTF8
+        );
+        var providerNav = File.ReadAllText(
+            Path.Combine(sourceRoot, "components", "providers", "ProviderNav", "ProviderNav.tsx"),
+            Encoding.UTF8
+        );
+        var oauthPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "OAuthPage.tsx"),
+            Encoding.UTF8
+        );
+        var quotaPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "QuotaPage.tsx"),
+            Encoding.UTF8
+        );
+        var authFilesPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx"),
+            Encoding.UTF8
+        );
 
         Assert.Contains("AiProvidersCodexEditPage", routeSource, StringComparison.Ordinal);
         Assert.Contains("Navigate to=\"/ai-providers\"", routeSource, StringComparison.Ordinal);

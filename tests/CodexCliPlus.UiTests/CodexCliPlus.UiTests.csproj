@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0-windows7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -13,7 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="Microsoft.Playwright" Version="1.59.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3912.50" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
@@ -28,5 +27,4 @@
     <ProjectReference Include="..\..\src\CodexCliPlus.App\CodexCliPlus.App.csproj" />
     <ProjectReference Include="..\..\src\CodexCliPlus.Core\CodexCliPlus.Core.csproj" />
   </ItemGroup>
-
 </Project>

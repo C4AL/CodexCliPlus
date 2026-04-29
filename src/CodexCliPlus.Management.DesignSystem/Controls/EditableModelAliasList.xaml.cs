@@ -8,20 +8,40 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class EditableModelAliasList : UserControl
 {
-    public static readonly DependencyProperty ItemsSourceProperty =
-        DependencyProperty.Register(nameof(ItemsSource), typeof(IList), typeof(EditableModelAliasList), new PropertyMetadata(null, OnItemsSourceChanged));
+    public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
+        nameof(ItemsSource),
+        typeof(IList),
+        typeof(EditableModelAliasList),
+        new PropertyMetadata(null, OnItemsSourceChanged)
+    );
 
-    public static readonly DependencyProperty AddButtonTextProperty =
-        DependencyProperty.Register(nameof(AddButtonText), typeof(string), typeof(EditableModelAliasList), new PropertyMetadata("添加别名"));
+    public static readonly DependencyProperty AddButtonTextProperty = DependencyProperty.Register(
+        nameof(AddButtonText),
+        typeof(string),
+        typeof(EditableModelAliasList),
+        new PropertyMetadata("添加别名")
+    );
 
-    public static readonly DependencyProperty ShowPriorityProperty =
-        DependencyProperty.Register(nameof(ShowPriority), typeof(bool), typeof(EditableModelAliasList), new PropertyMetadata(false));
+    public static readonly DependencyProperty ShowPriorityProperty = DependencyProperty.Register(
+        nameof(ShowPriority),
+        typeof(bool),
+        typeof(EditableModelAliasList),
+        new PropertyMetadata(false)
+    );
 
-    public static readonly DependencyProperty ShowTestModelProperty =
-        DependencyProperty.Register(nameof(ShowTestModel), typeof(bool), typeof(EditableModelAliasList), new PropertyMetadata(false));
+    public static readonly DependencyProperty ShowTestModelProperty = DependencyProperty.Register(
+        nameof(ShowTestModel),
+        typeof(bool),
+        typeof(EditableModelAliasList),
+        new PropertyMetadata(false)
+    );
 
-    public static readonly DependencyProperty ShowForkProperty =
-        DependencyProperty.Register(nameof(ShowFork), typeof(bool), typeof(EditableModelAliasList), new PropertyMetadata(false));
+    public static readonly DependencyProperty ShowForkProperty = DependencyProperty.Register(
+        nameof(ShowFork),
+        typeof(bool),
+        typeof(EditableModelAliasList),
+        new PropertyMetadata(false)
+    );
 
     private INotifyCollectionChanged? _collectionNotifier;
 
@@ -62,9 +82,15 @@ public partial class EditableModelAliasList : UserControl
         set => SetValue(ShowForkProperty, value);
     }
 
-    private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnItemsSourceChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
-        ((EditableModelAliasList)d).HandleItemsSourceChanged((IList?)e.OldValue, (IList?)e.NewValue);
+        ((EditableModelAliasList)d).HandleItemsSourceChanged(
+            (IList?)e.OldValue,
+            (IList?)e.NewValue
+        );
     }
 
     private void HandleItemsSourceChanged(IList? oldValue, IList? newValue)

@@ -71,7 +71,8 @@ public sealed class LogsPageState : ObservableObject
         }
     }
 
-    public bool HasRequestLogContent => RequestLogFound && !string.IsNullOrWhiteSpace(RequestLogContent);
+    public bool HasRequestLogContent =>
+        RequestLogFound && !string.IsNullOrWhiteSpace(RequestLogContent);
 
     public bool HasRequestLogError => !string.IsNullOrWhiteSpace(RequestLogError);
 
@@ -154,13 +155,14 @@ public enum RequestLogLookupState
 {
     Found,
     NotFound,
-    Failed
+    Failed,
 }
 
 public sealed record RequestLogLookupResult(
     RequestLogLookupState State,
     string Content = "",
-    string ErrorMessage = "")
+    string ErrorMessage = ""
+)
 {
     public static RequestLogLookupResult Found(string content)
     {

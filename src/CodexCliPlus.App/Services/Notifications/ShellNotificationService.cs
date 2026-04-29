@@ -8,13 +8,23 @@ public sealed class ShellNotificationService
     {
         NotificationRequested?.Invoke(
             this,
-            new ShellNotificationRequest(ShellNotificationPlacement.BottomCenterAuto, string.Empty, message));
+            new ShellNotificationRequest(
+                ShellNotificationPlacement.BottomCenterAuto,
+                string.Empty,
+                message
+            )
+        );
     }
 
     public void ShowManual(string title, string message)
     {
         NotificationRequested?.Invoke(
             this,
-            new ShellNotificationRequest(ShellNotificationPlacement.BottomRightManual, title, message));
+            new ShellNotificationRequest(
+                ShellNotificationPlacement.BottomRightManual,
+                title,
+                message
+            )
+        );
     }
 }

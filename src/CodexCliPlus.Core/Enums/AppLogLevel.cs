@@ -4,5 +4,5 @@ public enum AppLogLevel
 {
     Information,
     Warning,
-    Error
+    Error,
 }

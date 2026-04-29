@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.ViewModels.Pages;
 
 namespace CodexCliPlus.Views.Pages;
@@ -28,14 +27,25 @@ public partial class QuotaPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         var quota = _viewModel.Config?.QuotaExceeded;
         QuotaItems.ItemsSource = new[]
         {
-            new ManagementKeyValueItem("切换项目", ManagementPageSupport.FormatBoolean(quota?.SwitchProject)),
-            new ManagementKeyValueItem("切换预览模型", ManagementPageSupport.FormatBoolean(quota?.SwitchPreviewModel)),
-            new ManagementKeyValueItem("Antigravity Credits", ManagementPageSupport.FormatBoolean(quota?.AntigravityCredits))
+            new ManagementKeyValueItem(
+                "切换项目",
+                ManagementPageSupport.FormatBoolean(quota?.SwitchProject)
+            ),
+            new ManagementKeyValueItem(
+                "切换预览模型",
+                ManagementPageSupport.FormatBoolean(quota?.SwitchPreviewModel)
+            ),
+            new ManagementKeyValueItem(
+                "Antigravity Credits",
+                ManagementPageSupport.FormatBoolean(quota?.AntigravityCredits)
+            ),
         };
     }
 

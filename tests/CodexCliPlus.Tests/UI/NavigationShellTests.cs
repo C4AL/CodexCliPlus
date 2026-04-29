@@ -10,26 +10,60 @@ public sealed class NavigationShellTests
     public void MainWindowHostsSingleWebViewAndTrayMenuContract()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
+        var xaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var shellResources = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Resources",
+                "ShellResources.xaml"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
-        Assert.Contains("MouseLeftButtonDown=\"DragRegion_MouseLeftButtonDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Source=\"Views/Resources/ShellResources.xaml\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "MouseLeftButtonDown=\"DragRegion_MouseLeftButtonDown\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"LoginPanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"UpgradeNoticePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunKeyPanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ManagementKeyPasswordBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"RememberManagementKeyCheckBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("MinimizeWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("CloseWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("复制密钥", xaml, StringComparison.Ordinal);
         Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
         Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
         Assert.Contains("忘记安全密钥/重置", xaml, StringComparison.Ordinal);
-        Assert.Contains("当前步骤：", File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8), StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"TitleBarButtonStyle\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "当前步骤：",
+            File.ReadAllText(
+                Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+                Encoding.UTF8
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains("x:Key=\"TitleBarButtonStyle\"", shellResources, StringComparison.Ordinal);
+        Assert.Contains("BorderThickness\" Value=\"0\"", shellResources, StringComparison.Ordinal);
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
         Assert.Contains("x:Name=\"ShellSidebarButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"Collapsed\"", xaml, StringComparison.Ordinal);
@@ -42,22 +76,47 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"ShellDockCoreVersionText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellDockConnectionStatusText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellDockBackendAddressText\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ShellDockCopyBackendAddressButton\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("AutomationProperties.AutomationId=\"ShellConnectionStatusPill\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ShellDockCopyBackendAddressButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "AutomationProperties.AutomationId=\"ShellConnectionStatusPill\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Text=\"桌面宿主\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellRefreshButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellThemeButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("PackIconLucide Kind=\"SunMoon\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("iconPacks:PackIconLucide", xaml, StringComparison.Ordinal);
+        Assert.Contains("Kind=\"SunMoon\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("M12,3 C7.029,3 3,7.029 3,12", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellSettingsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsOverlay\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsFollowSystemCheckBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CornerRadius=\"18,18,0,0\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"SettingsOverlayCloseButton\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"SettingsRequestLogButton\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"SettingsRefreshInfoButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"SettingsOverlayCloseButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"SettingsRequestLogButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"SettingsRefreshInfoButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("x:Name=\"SettingsAppVersionText\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"SettingsBackendVersionText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"SettingsBackendVersionText\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("x:Name=\"SettingsConnectionText\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<ui:NavigationView", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayOpenMenuItem_Click", xaml, StringComparison.Ordinal);
@@ -70,7 +129,10 @@ public sealed class NavigationShellTests
     public void AppRegistersMinimalShellInsteadOfRuntimeManagementPages()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var source = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml.cs"), Encoding.UTF8);
+        var source = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml.cs"),
+            Encoding.UTF8
+        );
 
         Assert.Contains("AddSingleton<WebUiAssetLocator>()", source, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<MainWindow>()", source, StringComparison.Ordinal);
@@ -83,13 +145,33 @@ public sealed class NavigationShellTests
     public void DesktopHostInjectsBootstrapAndRedirectsExternalLinks()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var hostSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
-        var bridgeSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "DesktopBridgeScriptFactory.cs"), Encoding.UTF8);
+        var hostSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+            Encoding.UTF8
+        );
+        var bridgeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "DesktopBridgeScriptFactory.cs"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("http://{AppHostName}/index.html", hostSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("https://{AppHostName}/index.html", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "https://{AppHostName}/index.html",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("SetVirtualHostNameToFolderMapping", hostSource, StringComparison.Ordinal);
-        Assert.Contains("AddScriptToExecuteOnDocumentCreatedAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "AddScriptToExecuteOnDocumentCreatedAsync",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("WebMessageReceived", hostSource, StringComparison.Ordinal);
         Assert.Contains("openExternal", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
@@ -102,7 +184,11 @@ public sealed class NavigationShellTests
         Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("window.innerWidth * 0.25", bridgeSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("StartupState", hostSource, StringComparison.Ordinal);
         Assert.Contains("UpgradeNotice", hostSource, StringComparison.Ordinal);
@@ -116,15 +202,17 @@ public sealed class NavigationShellTests
     [Fact]
     public void DesktopBridgePayloadUsesWebUiCamelCaseContract()
     {
-        var script = DesktopBridgeScriptFactory.CreateInitializationScript(new DesktopBootstrapPayload
-        {
-            DesktopMode = true,
-            ApiBase = "http://127.0.0.1:15345",
-            ManagementKey = "secret-key",
-            Theme = "white",
-            ResolvedTheme = "light",
-            SidebarCollapsed = true
-        });
+        var script = DesktopBridgeScriptFactory.CreateInitializationScript(
+            new DesktopBootstrapPayload
+            {
+                DesktopMode = true,
+                ApiBase = "http://127.0.0.1:15345",
+                ManagementKey = "secret-key",
+                Theme = "white",
+                ResolvedTheme = "light",
+                SidebarCollapsed = true,
+            }
+        );
 
         Assert.Contains("\"desktopMode\":true", script, StringComparison.Ordinal);
         Assert.Contains("\"apiBase\":\"http://127.0.0.1:15345\"", script, StringComparison.Ordinal);
@@ -141,62 +229,152 @@ public sealed class NavigationShellTests
     public void FirstRunOnboardingUsesIconActionsSingleLineKeyAndCountdownConfirm()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
-        var source = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
-        var appProject = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"), Encoding.UTF8);
+        var xaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var source = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+            Encoding.UTF8
+        );
+        var shellResources = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Resources",
+                "ShellResources.xaml"
+            ),
+            Encoding.UTF8
+        );
+        var appProject = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("x:Key=\"ShellRaisedPanelStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Source=\"Views/Resources/ShellResources.xaml\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Key=\"ShellRaisedPanelStyle\"",
+            shellResources,
+            StringComparison.Ordinal
+        );
         Assert.Contains("MahApps.Metro.IconPacks.Lucide", appProject, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource ShellRaisedPanelStyle}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Style=\"{StaticResource ShellRaisedPanelStyle}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"FirstRunSaveToDesktopButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"保存到桌面\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"复制密钥\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"静默登录\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"本机记住安全密钥\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunSilentLoginRiskIndicator\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"FirstRunSilentLoginRiskIndicator\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"LoginSilentLoginRiskIndicator\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Kind=\"CircleAlert\"", xaml, StringComparison.Ordinal);
         Assert.Contains("仅在受信任的个人设备上使用", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"ShellInlineIconButtonStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Key=\"ShellInlineIconButtonStyle\"",
+            shellResources,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Padding=\"10,8,48,8\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"ShellIconViewboxStyle\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Stretch\" Value=\"Uniform\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Key=\"ShellIconViewboxStyle\"",
+            shellResources,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Stretch\" Value=\"Uniform\"", shellResources, StringComparison.Ordinal);
         Assert.Contains("M12,5 L18,11 L12,17", xaml, StringComparison.Ordinal);
         Assert.Contains("M8,8 L18,8 L18,18 L8,18 Z", xaml, StringComparison.Ordinal);
         Assert.Contains("StrokeThickness=\"1.8\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"ShellTextToolTipStyle\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Key=\"ShellTextToolTipStyle\"",
+            shellResources,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Segoe MDL2 Assets", xaml, StringComparison.Ordinal);
-        Assert.True(xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal) <
-            xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal));
-        Assert.True(xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal) <
-            xaml.IndexOf("x:Name=\"FirstRunRememberSecurityKeyCheckBox\"", StringComparison.Ordinal));
+        Assert.True(
+            xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal)
+                < xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal)
+        );
+        Assert.True(
+            xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal)
+                < xaml.IndexOf(
+                    "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
+                    StringComparison.Ordinal
+                )
+        );
         Assert.Contains("<ColumnDefinition Width=\"360\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("<ColumnDefinition Width=\"Auto\" />", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<ColumnDefinition Width=\"76\" />", xaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
         Assert.Contains("HorizontalScrollBarVisibility=\"Hidden\"", xaml, StringComparison.Ordinal);
         Assert.Contains("VerticalScrollBarVisibility=\"Disabled\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("FirstRunSecurityKeyTextBox.ScrollToHome()", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "FirstRunSecurityKeyTextBox.ScrollToHome()",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunConfirmCloseButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Style=\"{StaticResource DialogCloseButtonStyle}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("CornerRadius=\"0,16,0,8\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"FirstRunConfirmCancelButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Style=\"{StaticResource DialogCloseButtonStyle}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("CornerRadius=\"0,16,0,8\"", shellResources, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"FirstRunConfirmCancelButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("Content=\"返回\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"确认进入\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("FirstRunConfirmContinueButton.Content = $\"确认 ({seconds})\"", source, StringComparison.Ordinal);
-        Assert.Contains("_settings.ManagementKey = string.Empty;", source, StringComparison.Ordinal);
-        Assert.Contains("ShowLogin(\"初始化已完成，请输入安全密钥登录。\")", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "FirstRunConfirmContinueButton.Content = $\"确认 ({seconds})\"",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "_settings.ManagementKey = string.Empty;",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ShowLogin(\"初始化已完成，请输入安全密钥登录。\")",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("FirstRunActionStatusText", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ShowFirstRunStatus", source, StringComparison.Ordinal);
         Assert.DoesNotContain("可以继续。", source, StringComparison.Ordinal);
-        Assert.Contains("MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500)", source, StringComparison.Ordinal);
+        Assert.Contains("MinimumPreparationDisplayDuration", source, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds", source, StringComparison.Ordinal);
+        Assert.Contains("2500", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
         Assert.Contains("codexcliplus-display.png", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Source=\"pack://application:,,,/Resources/Icons/codexcliplus.ico\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Source=\"pack://application:,,,/Resources/Icons/codexcliplus.ico\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"PreparationProgressTrack\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ClipToBounds=\"True\"", xaml, StringComparison.Ordinal);
     }
@@ -205,10 +383,36 @@ public sealed class NavigationShellTests
     public void ShellNotificationsProvideAutoAndManualPlacementContracts()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var xaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"), Encoding.UTF8);
-        var hostSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
-        var serviceSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "Notifications", "ShellNotificationService.cs"), Encoding.UTF8);
-        var requestSource = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "Notifications", "ShellNotificationRequest.cs"), Encoding.UTF8);
+        var xaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var hostSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+            Encoding.UTF8
+        );
+        var serviceSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "Notifications",
+                "ShellNotificationService.cs"
+            ),
+            Encoding.UTF8
+        );
+        var requestSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "Notifications",
+                "ShellNotificationRequest.cs"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("x:Name=\"AutoNotificationStack\"", xaml, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment=\"Center\"", xaml, StringComparison.Ordinal);
@@ -229,32 +433,51 @@ public sealed class NavigationShellTests
     public void FirstRunDesktopSavePathUsesOnlySystemDesktopDirectory()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var source = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"), Encoding.UTF8);
+        var source = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("Environment.SpecialFolder.DesktopDirectory", source, StringComparison.Ordinal);
-        Assert.Contains("Directory.Exists(normalizedDesktopDirectory)", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "Environment.SpecialFolder.DesktopDirectory",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Directory.Exists(normalizedDesktopDirectory)",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("SpecialFolder.UserProfile", source, StringComparison.Ordinal);
         Assert.DoesNotContain("USERPROFILE", source, StringComparison.Ordinal);
 
         var method = typeof(CodexCliPlus.MainWindow).GetMethod(
             "BuildDesktopSecurityKeyFilePath",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static
+        );
         Assert.NotNull(method);
 
-        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        var desktopDirectory = Environment.GetFolderPath(
+            Environment.SpecialFolder.DesktopDirectory
+        );
         if (string.IsNullOrWhiteSpace(desktopDirectory) || !Directory.Exists(desktopDirectory))
         {
-            var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => method.Invoke(null, null));
+            var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
+                method.Invoke(null, null)
+            );
             Assert.IsType<InvalidOperationException>(exception.InnerException);
             return;
         }
 
         var filePath = Assert.IsType<string>(method.Invoke(null, null));
-        var expectedDirectory = Path.GetFullPath(desktopDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var actualDirectory = Path.GetDirectoryName(Path.GetFullPath(filePath))!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var expectedDirectory = Path.GetFullPath(desktopDirectory)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var actualDirectory = Path.GetDirectoryName(Path.GetFullPath(filePath))!
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         Assert.True(
             string.Equals(expectedDirectory, actualDirectory, StringComparison.OrdinalIgnoreCase),
-            $"Expected '{actualDirectory}' to match the system desktop '{expectedDirectory}'.");
+            $"Expected '{actualDirectory}' to match the system desktop '{expectedDirectory}'."
+        );
     }
 
     [Fact]
@@ -262,38 +485,142 @@ public sealed class NavigationShellTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var appSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "App.tsx"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "App.tsx"
+            ),
+            Encoding.UTF8
+        );
         var protectedRouteSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "router", "ProtectedRoute.tsx"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "ProtectedRoute.tsx"
+            ),
+            Encoding.UTF8
+        );
         var bridgeSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "desktop", "bridge.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "desktop",
+                "bridge.ts"
+            ),
+            Encoding.UTF8
+        );
         var authStoreSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useAuthStore.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "stores",
+                "useAuthStore.ts"
+            ),
+            Encoding.UTF8
+        );
         var constantsSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "utils", "constants.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "utils",
+                "constants.ts"
+            ),
+            Encoding.UTF8
+        );
         var mainLayoutSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "components", "layout", "MainLayout.tsx"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "components",
+                "layout",
+                "MainLayout.tsx"
+            ),
+            Encoding.UTF8
+        );
         var logsPageSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "LogsPage.tsx"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "LogsPage.tsx"
+            ),
+            Encoding.UTF8
+        );
         var systemPageSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "SystemPage.tsx"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "SystemPage.tsx"
+            ),
+            Encoding.UTF8
+        );
         var themeStoreSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useThemeStore.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "stores",
+                "useThemeStore.ts"
+            ),
+            Encoding.UTF8
+        );
         var commonTypesSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "types", "common.ts"),
-            Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "types",
+                "common.ts"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("desktopMode", appSource, StringComparison.Ordinal);
-        Assert.Contains("element: <Navigate to=\"/\" replace />", appSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "element: <Navigate to=\"/\" replace />",
+            appSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("restoreSession", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
@@ -315,17 +642,41 @@ public sealed class NavigationShellTests
         Assert.Contains("configApi.updateRequestLog", logsPageSource, StringComparison.Ordinal);
         Assert.DoesNotContain("request-log-modal", systemPageSource, StringComparison.Ordinal);
         Assert.DoesNotContain("key: 'light'", mainLayoutSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("export type Theme = 'light'", commonTypesSource, StringComparison.Ordinal);
-        Assert.Contains("const order: Theme[] = ['auto', 'white', 'dark']", themeStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "export type Theme = 'light'",
+            commonTypesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "const order: Theme[] = ['auto', 'white', 'dark']",
+            themeStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("if (theme === 'light')", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains("normalizeApiBase(desktopBootstrap.apiBase)", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "normalizeApiBase(desktopBootstrap.apiBase)",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("currentState.apiBase", authStoreSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("desktopBootstrap?.apiBase ||", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains("STORAGE_KEY_AUTH = 'codexcliplus-auth'", constantsSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("STORAGE_KEY_AUTH = 'cli-proxy-auth'", constantsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "desktopBootstrap?.apiBase ||",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "STORAGE_KEY_AUTH = 'codexcliplus-auth'",
+            constantsSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "STORAGE_KEY_AUTH = 'cli-proxy-auth'",
+            constantsSource,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -334,7 +685,8 @@ public sealed class NavigationShellTests
         var repositoryRoot = FindRepositoryRoot();
         var distIndex = File.ReadAllText(
             Path.Combine(repositoryRoot, "resources", "webui", "upstream", "dist", "index.html"),
-            Encoding.UTF8);
+            Encoding.UTF8
+        );
 
         Assert.Contains("requestNativeLogin", distIndex, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged", distIndex, StringComparison.Ordinal);
@@ -348,11 +700,25 @@ public sealed class NavigationShellTests
     public void VendoredWebUiMetadataPinsUpstreamCommit()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var metadataPath = Path.Combine(repositoryRoot, "resources", "webui", "upstream", "sync.json");
+        var metadataPath = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "sync.json"
+        );
         var metadata = File.ReadAllText(metadataPath, Encoding.UTF8);
 
-        Assert.Contains("router-for-me/Cli-Proxy-API-Management-Center.git", metadata, StringComparison.Ordinal);
-        Assert.Contains("b45639aa0169de8441bc964fb765f2405c10ccf4", metadata, StringComparison.Ordinal);
+        Assert.Contains(
+            "router-for-me/Cli-Proxy-API-Management-Center.git",
+            metadata,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "b45639aa0169de8441bc964fb765f2405c10ccf4",
+            metadata,
+            StringComparison.Ordinal
+        );
     }
 
     private static string FindRepositoryRoot()

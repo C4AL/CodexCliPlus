@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Infrastructure.Updates;
 
@@ -11,27 +10,32 @@ public sealed class GitHubReleaseUpdateServiceTests
     [Fact]
     public async Task CheckAsyncReturnsUpdateAvailableWhenLatestStableReleaseIsNewer()
     {
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(
-                """
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                  "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
-                  "published_at": "2026-04-23T00:00:00Z",
-                  "assets": [
-                    {
-                      "name": "CodexCliPlus.Setup.1.2.3.exe",
-                      "browser_download_url": "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
-                      "size": 10485760,
-                      "digest": "sha256:abc123"
-                    }
-                  ]
+                    Content = new StringContent(
+                        """
+                        {
+                          "tag_name": "v1.2.3",
+                          "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
+                          "published_at": "2026-04-23T00:00:00Z",
+                          "assets": [
+                            {
+                              "name": "CodexCliPlus.Setup.1.2.3.exe",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Setup.1.2.3.exe",
+                              "size": 10485760,
+                              "digest": "sha256:abc123"
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
                 }
-                """,
-                Encoding.UTF8,
-                "application/json")
-        }));
+            )
+        );
 
         var service = new GitHubReleaseUpdateService(factory);
 
@@ -43,8 +47,14 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.Equal("1.2.3", result.LatestVersion);
         Assert.Equal("Update available", result.Status);
         Assert.Equal("C4AL/CodexCliPlus", result.Repository);
-        Assert.Equal("https://api.github.com/repos/C4AL/CodexCliPlus/releases/latest", result.ApiUrl);
-        Assert.Equal("https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3", result.ReleasePageUrl);
+        Assert.Equal(
+            "https://api.github.com/repos/C4AL/CodexCliPlus/releases/latest",
+            result.ApiUrl
+        );
+        Assert.Equal(
+            "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
+            result.ReleasePageUrl
+        );
         Assert.True(result.HasInstallableAsset);
         Assert.NotNull(result.InstallableAsset);
         Assert.Single(result.Assets);
@@ -55,10 +65,18 @@ public sealed class GitHubReleaseUpdateServiceTests
     [Fact]
     public async Task CheckAsyncTreatsGithub404AsNoStableRelease()
     {
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
-        {
-            Content = new StringContent("{\"message\":\"Not Found\"}", Encoding.UTF8, "application/json")
-        }));
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent(
+                        "{\"message\":\"Not Found\"}",
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+            )
+        );
 
         var service = new GitHubReleaseUpdateService(factory);
 
@@ -99,26 +117,31 @@ public sealed class GitHubReleaseUpdateServiceTests
     [Fact]
     public async Task CheckAsyncDoesNotMarkZipArchiveAsDirectInstaller()
     {
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(
-                """
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                  "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
-                  "published_at": "2026-04-23T00:00:00Z",
-                  "assets": [
-                    {
-                      "name": "CodexCliPlus.Source.1.2.3.zip",
-                      "browser_download_url": "https://example.test/CodexCliPlus.Source.1.2.3.zip",
-                      "size": 2048
-                    }
-                  ]
+                    Content = new StringContent(
+                        """
+                        {
+                          "tag_name": "v1.2.3",
+                          "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
+                          "published_at": "2026-04-23T00:00:00Z",
+                          "assets": [
+                            {
+                              "name": "CodexCliPlus.Source.1.2.3.zip",
+                              "browser_download_url": "https://example.test/CodexCliPlus.Source.1.2.3.zip",
+                              "size": 2048
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
                 }
-                """,
-                Encoding.UTF8,
-                "application/json")
-        }));
+            )
+        );
 
         var service = new GitHubReleaseUpdateService(factory);
 
@@ -133,25 +156,30 @@ public sealed class GitHubReleaseUpdateServiceTests
     [Fact]
     public async Task CheckAsyncDoesNotMarkInstallerWithoutDownloadUrlAsDirectInstaller()
     {
-        using var factory = new FixedHttpClientFactory(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(
-                """
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                  "tag_name": "v1.2.3",
-                  "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
-                  "published_at": "2026-04-23T00:00:00Z",
-                  "assets": [
-                    {
-                      "name": "CodexCliPlus.Setup.1.2.3.exe",
-                      "size": 2048
-                    }
-                  ]
+                    Content = new StringContent(
+                        """
+                        {
+                          "tag_name": "v1.2.3",
+                          "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/v1.2.3",
+                          "published_at": "2026-04-23T00:00:00Z",
+                          "assets": [
+                            {
+                              "name": "CodexCliPlus.Setup.1.2.3.exe",
+                              "size": 2048
+                            }
+                          ]
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
                 }
-                """,
-                Encoding.UTF8,
-                "application/json")
-        }));
+            )
+        );
 
         var service = new GitHubReleaseUpdateService(factory);
 
@@ -192,7 +220,10 @@ public sealed class GitHubReleaseUpdateServiceTests
                 _handler = handler;
             }
 
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken
+            )
             {
                 return _handler(request);
             }

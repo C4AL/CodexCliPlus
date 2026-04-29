@@ -21,7 +21,8 @@ public sealed class ManagementNavigationService : IManagementNavigationService
 
     public IReadOnlyList<ManagementRouteDefinition> PrimaryRoutes { get; }
 
-    public ManagementRouteDefinition? CurrentRoute => _selectedSecondaryRoute ?? _selectedPrimaryRoute;
+    public ManagementRouteDefinition? CurrentRoute =>
+        _selectedSecondaryRoute ?? _selectedPrimaryRoute;
 
     public string? SelectedPrimaryRouteKey => _selectedPrimaryRoute?.Key;
 
@@ -46,11 +47,23 @@ public sealed class ManagementNavigationService : IManagementNavigationService
             return true;
         }
 
-        if (!string.Equals(route.ParentKey, _selectedPrimaryRoute?.Key, StringComparison.OrdinalIgnoreCase))
+        if (
+            !string.Equals(
+                route.ParentKey,
+                _selectedPrimaryRoute?.Key,
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return false;
         }
-        if (string.Equals(_selectedSecondaryRoute?.Key, route.Key, StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                _selectedSecondaryRoute?.Key,
+                route.Key,
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             return true;
         }

@@ -6,7 +6,10 @@ namespace CodexCliPlus.Tests.Codex;
 [Collection("CodexConfigService")]
 public sealed class CodexAuthSwitchTests : IDisposable
 {
-    private readonly string _codexHome = Path.Combine(Path.GetTempPath(), $"codexcliplus-codex-auth-{Guid.NewGuid():N}");
+    private readonly string _codexHome = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-codex-auth-{Guid.NewGuid():N}"
+    );
     private readonly string? _originalCodexHome = Environment.GetEnvironmentVariable("CODEX_HOME");
 
     [Fact]
@@ -54,7 +57,10 @@ public sealed class CodexAuthSwitchTests : IDisposable
         Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
 
         var authPath = Path.Combine(_codexHome, "auth.json");
-        await File.WriteAllTextAsync(authPath, "{\n  \"auth_mode\": \"chatgpt\",\n  \"token\": \"official\"\n}\n");
+        await File.WriteAllTextAsync(
+            authPath,
+            "{\n  \"auth_mode\": \"chatgpt\",\n  \"token\": \"official\"\n}\n"
+        );
 
         var service = new CodexConfigService();
         await service.ApplyDesktopModeAsync(9318, CodexSourceKind.Cpa);
@@ -66,7 +72,11 @@ public sealed class CodexAuthSwitchTests : IDisposable
         Assert.Contains("profile = \"official\"", config, StringComparison.Ordinal);
         Assert.Contains("[profiles.cpa]", config, StringComparison.Ordinal);
         Assert.Contains("\"token\": \"official\"", currentAuth, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"OPENAI_API_KEY\": \"sk-dummy\"", currentAuth, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "\"OPENAI_API_KEY\": \"sk-dummy\"",
+            currentAuth,
+            StringComparison.Ordinal
+        );
     }
 
     public void Dispose()

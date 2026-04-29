@@ -15,15 +15,42 @@ public sealed class AppPathServiceTests
 
         Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
         Assert.Equal(
-            Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(service.Directories.RootDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            ignoreCase: true);
-        Assert.EndsWith(AppConstants.AppSettingsFileName, service.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(AppConstants.BackendConfigFileName, service.Directories.BackendConfigFilePath, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(Path.Combine("config", "appsettings.json"), service.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith(Path.Combine("config", "backend.yaml"), service.Directories.BackendConfigFilePath, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("logs", service.Directories.LogsDirectory, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("diagnostics", service.Directories.DiagnosticsDirectory, StringComparison.OrdinalIgnoreCase);
+            Path.GetFullPath(AppContext.BaseDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(service.Directories.RootDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            ignoreCase: true
+        );
+        Assert.EndsWith(
+            AppConstants.AppSettingsFileName,
+            service.Directories.SettingsFilePath,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.EndsWith(
+            AppConstants.BackendConfigFileName,
+            service.Directories.BackendConfigFilePath,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.EndsWith(
+            Path.Combine("config", "appsettings.json"),
+            service.Directories.SettingsFilePath,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.EndsWith(
+            Path.Combine("config", "backend.yaml"),
+            service.Directories.BackendConfigFilePath,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.Contains(
+            "logs",
+            service.Directories.LogsDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
+        Assert.Contains(
+            "diagnostics",
+            service.Directories.DiagnosticsDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
@@ -37,22 +64,30 @@ public sealed class AppPathServiceTests
 
         Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
         Assert.Equal(Path.GetFullPath(overrideRoot), service.Directories.RootDirectory);
-        Assert.Equal(Path.Combine(Path.GetFullPath(overrideRoot), "logs"), service.Directories.LogsDirectory);
+        Assert.Equal(
+            Path.Combine(Path.GetFullPath(overrideRoot), "logs"),
+            service.Directories.LogsDirectory
+        );
     }
 
     [Fact]
     public void DirectoriesUseApplicationDirectoryWhenPackageMarkersExist()
     {
         using var scope = new AppPathServiceEnvironmentScope();
-        AppPathServiceEnvironmentScope.SetMarker(AppPathServiceEnvironmentScope.DevelopmentMarkerFileName);
+        AppPathServiceEnvironmentScope.SetMarker(
+            AppPathServiceEnvironmentScope.DevelopmentMarkerFileName
+        );
 
         var service = new AppPathService();
 
         Assert.Equal(AppDataMode.Installed, service.Directories.DataMode);
         Assert.Equal(
-            Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(service.Directories.RootDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            ignoreCase: true);
+            Path.GetFullPath(AppContext.BaseDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(service.Directories.RootDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            ignoreCase: true
+        );
     }
 
     [Fact]
@@ -64,7 +99,11 @@ public sealed class AppPathServiceTests
         var service = new AppPathService();
 
         Assert.Equal(AppDataMode.Development, service.Directories.DataMode);
-        Assert.Contains(Path.Combine("artifacts", "dev-data"), service.Directories.RootDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            Path.Combine("artifacts", "dev-data"),
+            service.Directories.RootDirectory,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     [Fact]
@@ -83,9 +122,20 @@ public sealed class AppPathServiceTests
     {
         var repositoryRoot = AppPathServiceEnvironmentScope.FindRepositoryRoot();
         var source = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.Infrastructure", "Paths", "AppPathService.cs"));
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.Infrastructure",
+                "Paths",
+                "AppPathService.cs"
+            )
+        );
 
-        Assert.Contains("TryMigrateLegacyLocalAppDataConfiguration", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "TryMigrateLegacyLocalAppDataConfiguration",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.Contains("LegacyAppSettingsFileName", source, StringComparison.Ordinal);
         Assert.Contains("LegacyBackendConfigFileName", source, StringComparison.Ordinal);
     }
@@ -115,10 +165,7 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
 {
     public const string DevelopmentMarkerFileName = "dev-mode.json";
 
-    private static readonly string[] MarkerFileNames =
-    [
-        DevelopmentMarkerFileName
-    ];
+    private static readonly string[] MarkerFileNames = [DevelopmentMarkerFileName];
 
     private readonly string? _originalMode;
     private readonly string? _originalRoot;
@@ -132,7 +179,8 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
         _markerSnapshots = MarkerFileNames.ToDictionary(
             markerFileName => markerFileName,
             CaptureMarkerContent,
-            StringComparer.OrdinalIgnoreCase);
+            StringComparer.OrdinalIgnoreCase
+        );
 
         SetModeOverride(null);
         SetRootOverride(null);
@@ -211,9 +259,7 @@ internal sealed class AppPathServiceEnvironmentScope : IDisposable
     private static string? CaptureMarkerContent(string markerFileName)
     {
         var markerPath = Path.Combine(AppContext.BaseDirectory, markerFileName);
-        return File.Exists(markerPath)
-            ? File.ReadAllText(markerPath)
-            : null;
+        return File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
     }
 
     public static string FindRepositoryRoot()

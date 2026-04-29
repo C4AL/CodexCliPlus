@@ -3,10 +3,11 @@ namespace CodexCliPlus.Services.Notifications;
 public enum ShellNotificationPlacement
 {
     BottomCenterAuto,
-    BottomRightManual
+    BottomRightManual,
 }
 
 public sealed record ShellNotificationRequest(
     ShellNotificationPlacement Placement,
     string Title,
-    string Message);
+    string Message
+);

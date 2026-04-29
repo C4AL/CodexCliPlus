@@ -14,7 +14,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
     [InlineData("development", AppDataMode.Development)]
     public async Task SaveAndLoadAsyncRoundTripsSettingsWhenModeIsResolved(
         string? modeOverride,
-        AppDataMode expectedMode)
+        AppDataMode expectedMode
+    )
     {
         using var scope = new AppPathServiceEnvironmentScope();
         var overrideRoot = scope.CreateTemporaryRoot("codexcliplus-config-path");
@@ -34,7 +35,7 @@ public sealed class JsonAppConfigurationServicePathModeTests
             CheckForUpdatesOnStartup = false,
             UseBetaChannel = true,
             SecurityKeyOnboardingCompleted = true,
-            LastSeenApplicationVersion = "2.0.0"
+            LastSeenApplicationVersion = "2.0.0",
         };
 
         await service.SaveAsync(expected);
@@ -43,7 +44,10 @@ public sealed class JsonAppConfigurationServicePathModeTests
 
         Assert.Equal(expectedMode, pathService.Directories.DataMode);
         Assert.Equal(Path.GetFullPath(overrideRoot), pathService.Directories.RootDirectory);
-        Assert.Equal(CodexCliPlus.Core.Constants.AppConstants.DefaultBackendPort, actual.BackendPort);
+        Assert.Equal(
+            CodexCliPlus.Core.Constants.AppConstants.DefaultBackendPort,
+            actual.BackendPort
+        );
         Assert.Equal(expected.ManagementKey, actual.ManagementKey);
         Assert.Equal(expected.ManagementKeyReference, actual.ManagementKeyReference);
         Assert.Equal(expected.PreferredCodexSource, actual.PreferredCodexSource);
@@ -52,11 +56,23 @@ public sealed class JsonAppConfigurationServicePathModeTests
         Assert.True(actual.UseBetaChannel);
         Assert.True(actual.SecurityKeyOnboardingCompleted);
         Assert.Equal("2.0.0", actual.LastSeenApplicationVersion);
-        Assert.StartsWith(Path.GetFullPath(overrideRoot), pathService.Directories.SettingsFilePath, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(
+            Path.GetFullPath(overrideRoot),
+            pathService.Directories.SettingsFilePath,
+            StringComparison.OrdinalIgnoreCase
+        );
         Assert.DoesNotContain(expected.ManagementKey, persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("8517", persistedJson, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "managed-by-marker.bin")));
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    pathService.Directories.ConfigDirectory,
+                    "secrets",
+                    "managed-by-marker.bin"
+                )
+            )
+        );
     }
 
     [Fact]
@@ -72,11 +88,15 @@ public sealed class JsonAppConfigurationServicePathModeTests
         {
             ManagementKey = "remembered-key",
             ManagementKeyReference = "remember-test",
-            RememberManagementKey = true
+            RememberManagementKey = true,
         };
 
         await service.SaveAsync(settings);
-        var secretPath = Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "remember-test.bin");
+        var secretPath = Path.Combine(
+            pathService.Directories.ConfigDirectory,
+            "secrets",
+            "remember-test.bin"
+        );
         Assert.True(File.Exists(secretPath));
 
         settings.ManagementKey = "session-only-key";
@@ -90,7 +110,11 @@ public sealed class JsonAppConfigurationServicePathModeTests
         Assert.False(File.Exists(secretPath));
         Assert.Equal("session-only-key", loadedInProcess.ManagementKey);
         Assert.Empty(loadedAfterRestart.ManagementKey);
-        Assert.Contains("\"rememberManagementKey\": false", persistedJson, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"rememberManagementKey\": false",
+            persistedJson,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("session-only-key", persistedJson, StringComparison.Ordinal);
     }
 
@@ -112,7 +136,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
               "backendPort": 8317,
               "managementKeyReference": "legacy-key"
             }
-            """);
+            """
+        );
 
         var settings = await new JsonAppConfigurationService(pathService).LoadAsync();
         var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);

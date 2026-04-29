@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models.Management;
@@ -47,22 +46,22 @@ public sealed class ManagementConfigAndLogsViewModelTests
                 "ws-auth",
                 "force-model-prefix",
                 "quota-exceeded/switch-project",
-                "quota-exceeded/switch-preview-model"
+                "quota-exceeded/switch-preview-model",
             ],
-            service.BooleanUpdates.Select(update => update.Path));
+            service.BooleanUpdates.Select(update => update.Path)
+        );
 
         Assert.Equal(
             [
                 "request-retry",
                 "max-retry-interval",
                 "logs-max-total-size-mb",
-                "error-logs-max-files"
+                "error-logs-max-files",
             ],
-            service.IntegerUpdates.Select(update => update.Path));
+            service.IntegerUpdates.Select(update => update.Path)
+        );
 
-        Assert.Equal(
-            ["routing/strategy"],
-            service.StringUpdates.Select(update => update.Path));
+        Assert.Equal(["routing/strategy"], service.StringUpdates.Select(update => update.Path));
 
         Assert.Equal(["proxy-url"], service.DeletedPaths);
         Assert.Empty(service.YamlPuts);
@@ -150,31 +149,51 @@ public sealed class ManagementConfigAndLogsViewModelTests
 
         public List<string> YamlPuts { get; } = [];
 
-        public Task<ManagementApiResponse<ManagementConfigSnapshot>> GetConfigAsync(CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementConfigSnapshot>> GetConfigAsync(
+            CancellationToken cancellationToken = default
+        )
         {
             return Task.FromResult(Response(BuildSnapshot()));
         }
 
-        public Task<ManagementApiResponse<string>> GetConfigYamlAsync(CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<string>> GetConfigYamlAsync(
+            CancellationToken cancellationToken = default
+        )
         {
             return Task.FromResult(Response(_yaml));
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> PutConfigYamlAsync(string yamlContent, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> PutConfigYamlAsync(
+            string yamlContent,
+            CancellationToken cancellationToken = default
+        )
         {
             YamlPuts.Add(yamlContent);
             _yaml = yamlContent;
 
-            var requestRetryMatch = Regex.Match(yamlContent, @"request-retry:\s*(\d+)", RegexOptions.CultureInvariant);
+            var requestRetryMatch = Regex.Match(
+                yamlContent,
+                @"request-retry:\s*(\d+)",
+                RegexOptions.CultureInvariant
+            );
             if (requestRetryMatch.Success)
             {
-                _requestRetry = int.Parse(requestRetryMatch.Groups[1].Value, CultureInfo.InvariantCulture);
+                _requestRetry = int.Parse(
+                    requestRetryMatch.Groups[1].Value,
+                    CultureInfo.InvariantCulture
+                );
             }
 
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateBooleanSettingAsync(string path, bool value, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateBooleanSettingAsync(
+            string path,
+            bool value,
+            CancellationToken cancellationToken = default
+        )
         {
             BooleanUpdates.Add((path, value));
 
@@ -206,10 +225,16 @@ public sealed class ManagementConfigAndLogsViewModelTests
                     break;
             }
 
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateIntegerSettingAsync(string path, int value, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateIntegerSettingAsync(
+            string path,
+            int value,
+            CancellationToken cancellationToken = default
+        )
         {
             IntegerUpdates.Add((path, value));
 
@@ -229,10 +254,16 @@ public sealed class ManagementConfigAndLogsViewModelTests
                     break;
             }
 
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateStringSettingAsync(string path, string value, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateStringSettingAsync(
+            string path,
+            string value,
+            CancellationToken cancellationToken = default
+        )
         {
             StringUpdates.Add((path, value));
 
@@ -246,10 +277,15 @@ public sealed class ManagementConfigAndLogsViewModelTests
                     break;
             }
 
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> DeleteSettingAsync(string path, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> DeleteSettingAsync(
+            string path,
+            CancellationToken cancellationToken = default
+        )
         {
             DeletedPaths.Add(path);
 
@@ -275,7 +311,9 @@ public sealed class ManagementConfigAndLogsViewModelTests
                     break;
             }
 
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
         private ManagementConfigSnapshot BuildSnapshot()
@@ -298,8 +336,8 @@ public sealed class ManagementConfigAndLogsViewModelTests
                 {
                     SwitchProject = _switchProject,
                     SwitchPreviewModel = _switchPreviewModel,
-                    AntigravityCredits = true
-                }
+                    AntigravityCredits = true,
+                },
             };
         }
     }
@@ -312,25 +350,39 @@ public sealed class ManagementConfigAndLogsViewModelTests
 
         public int ClearCalls { get; private set; }
 
-        public Task<ManagementApiResponse<ManagementLogsSnapshot>> GetLogsAsync(long after = 0, int limit = 0, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementLogsSnapshot>> GetLogsAsync(
+            long after = 0,
+            int limit = 0,
+            CancellationToken cancellationToken = default
+        )
         {
             GetLogsCalls.Add((after, limit));
 
-            return Task.FromResult(Response(new ManagementLogsSnapshot
-            {
-                Lines = ["line-a", "line-b"],
-                LineCount = 2,
-                LatestTimestamp = after > 0 ? after + 1 : 1700000000
-            }));
+            return Task.FromResult(
+                Response(
+                    new ManagementLogsSnapshot
+                    {
+                        Lines = ["line-a", "line-b"],
+                        LineCount = 2,
+                        LatestTimestamp = after > 0 ? after + 1 : 1700000000,
+                    }
+                )
+            );
         }
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> ClearLogsAsync(CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<ManagementOperationResult>> ClearLogsAsync(
+            CancellationToken cancellationToken = default
+        )
         {
             ClearCalls++;
-            return Task.FromResult(Response(new ManagementOperationResult { Success = true, Status = "ok" }));
+            return Task.FromResult(
+                Response(new ManagementOperationResult { Success = true, Status = "ok" })
+            );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementErrorLogFile>>> GetRequestErrorLogsAsync(CancellationToken cancellationToken = default)
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementErrorLogFile>>
+        > GetRequestErrorLogsAsync(CancellationToken cancellationToken = default)
         {
             ErrorLogCalls++;
             IReadOnlyList<ManagementErrorLogFile> payload =
@@ -339,14 +391,17 @@ public sealed class ManagementConfigAndLogsViewModelTests
                 {
                     Name = "request-error.log",
                     Size = 1024,
-                    Modified = 1700000000
-                }
+                    Modified = 1700000000,
+                },
             ];
 
             return Task.FromResult(Response(payload));
         }
 
-        public Task<ManagementApiResponse<string>> GetRequestLogByIdAsync(string id, CancellationToken cancellationToken = default)
+        public Task<ManagementApiResponse<string>> GetRequestLogByIdAsync(
+            string id,
+            CancellationToken cancellationToken = default
+        )
         {
             if (string.Equals(id, "missing-request", StringComparison.Ordinal))
             {
@@ -394,11 +449,8 @@ public sealed class ManagementConfigAndLogsViewModelTests
         return new ManagementApiResponse<T>
         {
             Value = value,
-            Metadata = new ManagementServerMetadata
-            {
-                Version = "test"
-            },
-            StatusCode = HttpStatusCode.OK
+            Metadata = new ManagementServerMetadata { Version = "test" },
+            StatusCode = HttpStatusCode.OK,
         };
     }
 }

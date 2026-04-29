@@ -5,11 +5,19 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class BatchActionBar : UserControl
 {
-    public static readonly DependencyProperty SummaryProperty =
-        DependencyProperty.Register(nameof(Summary), typeof(string), typeof(BatchActionBar), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty SummaryProperty = DependencyProperty.Register(
+        nameof(Summary),
+        typeof(string),
+        typeof(BatchActionBar),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty ActionsProperty =
-        DependencyProperty.Register(nameof(Actions), typeof(object), typeof(BatchActionBar), new PropertyMetadata(null));
+    public static readonly DependencyProperty ActionsProperty = DependencyProperty.Register(
+        nameof(Actions),
+        typeof(object),
+        typeof(BatchActionBar),
+        new PropertyMetadata(null)
+    );
 
     public BatchActionBar()
     {

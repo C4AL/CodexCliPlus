@@ -4,7 +4,6 @@ using CodexCliPlus.Infrastructure.DependencyInjection;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
-
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus;
@@ -35,11 +34,13 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            _serviceProvider?.GetService<BackendProcessManager>()?.StopAsync().GetAwaiter().GetResult();
+            _serviceProvider
+                ?.GetService<BackendProcessManager>()
+                ?.StopAsync()
+                .GetAwaiter()
+                .GetResult();
         }
-        catch
-        {
-        }
+        catch { }
 
         _serviceProvider?.Dispose();
         base.OnExit(e);

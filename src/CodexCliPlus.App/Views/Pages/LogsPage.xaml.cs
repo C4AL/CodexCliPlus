@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.ViewModels.Pages;
 
 namespace CodexCliPlus.Views.Pages;
@@ -39,11 +38,14 @@ public partial class LogsPage : Page
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(LogsPageViewModel.Status) or
-            nameof(LogsPageViewModel.Error) or
-            nameof(LogsPageViewModel.IsBusy) or
-            nameof(LogsPageViewModel.Snapshot) or
-            nameof(LogsPageViewModel.ErrorLogs))
+        if (
+            e.PropertyName
+            is nameof(LogsPageViewModel.Status)
+                or nameof(LogsPageViewModel.Error)
+                or nameof(LogsPageViewModel.IsBusy)
+                or nameof(LogsPageViewModel.Snapshot)
+                or nameof(LogsPageViewModel.ErrorLogs)
+        )
         {
             Render();
         }
@@ -51,11 +53,14 @@ public partial class LogsPage : Page
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(LogsPageState.RequestId) or
-            nameof(LogsPageState.RequestLogContent) or
-            nameof(LogsPageState.RequestLogError) or
-            nameof(LogsPageState.RequestLogFound) or
-            nameof(LogsPageState.IsIncrementalResult))
+        if (
+            e.PropertyName
+            is nameof(LogsPageState.RequestId)
+                or nameof(LogsPageState.RequestLogContent)
+                or nameof(LogsPageState.RequestLogError)
+                or nameof(LogsPageState.RequestLogFound)
+                or nameof(LogsPageState.IsIncrementalResult)
+        )
         {
             Render();
         }
@@ -66,7 +71,9 @@ public partial class LogsPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         var snapshot = _viewModel.Snapshot;
         var visibleLineCount = snapshot?.Lines.Count ?? 0;
@@ -80,16 +87,19 @@ public partial class LogsPage : Page
 
         LogFeedViewer.Text = string.Join(Environment.NewLine, snapshot?.Lines ?? []);
 
-        var errorLogItems = _viewModel.ErrorLogs
-            .Select(file => new ErrorLogViewItem(
+        var errorLogItems = _viewModel
+            .ErrorLogs.Select(file => new ErrorLogViewItem(
                 file.Name,
                 ManagementPageSupport.FormatFileSize(file.Size),
-                ManagementPageSupport.FormatUnixTimestamp(file.Modified)))
+                ManagementPageSupport.FormatUnixTimestamp(file.Modified)
+            ))
             .ToArray();
 
         ErrorLogItems.ItemsSource = errorLogItems;
-        ErrorLogItems.Visibility = errorLogItems.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        ErrorLogsEmptyState.Visibility = errorLogItems.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ErrorLogItems.Visibility =
+            errorLogItems.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ErrorLogsEmptyState.Visibility =
+            errorLogItems.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         RequestLogSummaryText.Text = GetRequestLogSummary();
         LoadRequestLogButton.IsEnabled = !_viewModel.IsBusy;
@@ -156,7 +166,10 @@ public partial class LogsPage : Page
         var requestId = _viewModel.State.RequestId.Trim();
         if (string.IsNullOrWhiteSpace(requestId))
         {
-            _viewModel.State.ApplyRequestLogResult(string.Empty, RequestLogLookupResult.Failed("请输入请求编号。"));
+            _viewModel.State.ApplyRequestLogResult(
+                string.Empty,
+                RequestLogLookupResult.Failed("请输入请求编号。")
+            );
             Render();
             return;
         }

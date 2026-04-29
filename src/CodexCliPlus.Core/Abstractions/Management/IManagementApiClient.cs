@@ -11,7 +11,8 @@ public interface IManagementApiClient
         string contentType = "application/json",
         string? accept = "application/json",
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task<ManagementApiResponse<string>> SendManagementMultipartAsync(
         HttpMethod method,
@@ -20,12 +21,14 @@ public interface IManagementApiClient
         IReadOnlyDictionary<string, string>? fields = null,
         string? accept = "application/json",
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 
     Task<ManagementApiResponse<string>> GetBackendAsync(
         string path,
         IReadOnlyDictionary<string, string>? headers = null,
         string? accept = "application/json",
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default
+    );
 }

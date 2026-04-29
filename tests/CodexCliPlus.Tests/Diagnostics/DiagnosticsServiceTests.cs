@@ -1,5 +1,4 @@
 ﻿using System.IO.Compression;
-
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Models;
@@ -9,7 +8,10 @@ namespace CodexCliPlus.Tests.Diagnostics;
 
 public sealed class DiagnosticsServiceTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-diagnostics-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-diagnostics-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public void CreateErrorSnapshotWritesSnapshotFile()
@@ -21,24 +23,20 @@ public sealed class DiagnosticsServiceTests : IDisposable
             "Desktop startup failed",
             "The backend binary could not be launched during bootstrap. token=abc123",
             new InvalidOperationException("boom secret-key=phase6-secret"),
-            new BackendStatusSnapshot
-            {
-                Message = "Backend failed to start."
-            },
-            new CodexStatusSnapshot
-            {
-                AuthenticationState = "unknown"
-            },
-            new DependencyCheckResult
-            {
-                Summary = "Desktop dependency check passed."
-            });
+            new BackendStatusSnapshot { Message = "Backend failed to start." },
+            new CodexStatusSnapshot { AuthenticationState = "unknown" },
+            new DependencyCheckResult { Summary = "Desktop dependency check passed." }
+        );
 
         var content = File.ReadAllText(snapshotPath);
 
         Assert.True(File.Exists(snapshotPath));
         Assert.Contains("Desktop startup failed", content, StringComparison.Ordinal);
-        Assert.Contains("The backend binary could not be launched during bootstrap.", content, StringComparison.Ordinal);
+        Assert.Contains(
+            "The backend binary could not be launched during bootstrap.",
+            content,
+            StringComparison.Ordinal
+        );
         Assert.Contains("boom", content, StringComparison.Ordinal);
         Assert.DoesNotContain("abc123", content, StringComparison.Ordinal);
         Assert.DoesNotContain("phase6-secret", content, StringComparison.Ordinal);
@@ -53,13 +51,16 @@ public sealed class DiagnosticsServiceTests : IDisposable
 
         File.WriteAllText(
             Path.Combine(pathService.Directories.LogsDirectory, "desktop.log"),
-            "authorization: Bearer test-token");
+            "authorization: Bearer test-token"
+        );
         File.WriteAllText(
             pathService.Directories.SettingsFilePath,
-            "{ \"managementKeyReference\": \"management-key\" }");
+            "{ \"managementKeyReference\": \"management-key\" }"
+        );
         File.WriteAllText(
             pathService.Directories.BackendConfigFilePath,
-            "remote-management:\n  secret-key: \"phase6-secret\"");
+            "remote-management:\n  secret-key: \"phase6-secret\""
+        );
 
         var service = new DiagnosticsService(pathService, new TestBuildInfo());
         var packagePath = service.ExportPackage(
@@ -76,10 +77,11 @@ public sealed class DiagnosticsServiceTests : IDisposable
                         Code = "backend-runtime",
                         Title = "Backend runtime files are missing.",
                         Detail = "Expected executable was not found.",
-                        CanRepairNow = true
-                    }
-                ]
-            });
+                        CanRepairNow = true,
+                    },
+                ],
+            }
+        );
 
         Assert.True(File.Exists(packagePath));
 
@@ -125,7 +127,8 @@ public sealed class DiagnosticsServiceTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

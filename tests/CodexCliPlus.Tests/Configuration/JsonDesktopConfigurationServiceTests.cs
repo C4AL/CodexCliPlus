@@ -8,7 +8,10 @@ namespace CodexCliPlus.Tests.Configuration;
 
 public sealed class JsonAppConfigurationServiceTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-config-test-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-config-test-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task SaveAndLoadAsyncStoresManagementKeyOutsideDesktopJson()
@@ -26,7 +29,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
             EnableDebugTools = true,
             LastRepositoryPath = @"C:\repo",
             SecurityKeyOnboardingCompleted = true,
-            LastSeenApplicationVersion = "1.2.3"
+            LastSeenApplicationVersion = "1.2.3",
         };
 
         await service.SaveAsync(expected);
@@ -47,8 +50,16 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9417", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
-        Assert.Contains("\"securityKeyOnboardingCompleted\": true", persistedJson, StringComparison.Ordinal);
-        Assert.Contains("\"lastSeenApplicationVersion\": \"1.2.3\"", persistedJson, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"securityKeyOnboardingCompleted\": true",
+            persistedJson,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\"lastSeenApplicationVersion\": \"1.2.3\"",
+            persistedJson,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -65,7 +76,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
               "managementKey": "legacy-secret",
               "themeMode": "Light"
             }
-            """);
+            """
+        );
 
         var service = new JsonAppConfigurationService(pathService);
         var settings = await service.LoadAsync();
@@ -80,7 +92,15 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9527", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(pathService.Directories.ConfigDirectory, "secrets", "management-key.bin")));
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    pathService.Directories.ConfigDirectory,
+                    "secrets",
+                    "management-key.bin"
+                )
+            )
+        );
     }
 
     [Fact]
@@ -98,7 +118,7 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
             UseBetaChannel = true,
             ThemeMode = AppThemeMode.White,
             MinimumLogLevel = AppLogLevel.Error,
-            EnableDebugTools = true
+            EnableDebugTools = true,
         };
 
         await service.SaveAsync(expected);
@@ -140,7 +160,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
               "backendPort": 1327,
               "themeMode": "Light"
             }
-            """);
+            """
+        );
 
         var service = new JsonAppConfigurationService(pathService);
         var settings = await service.LoadAsync();
@@ -162,7 +183,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
               "backendPort": 1328,
               "themeMode": "Light"
             }
-            """);
+            """
+        );
 
         var service = new JsonAppConfigurationService(pathService);
         var settings = await service.LoadAsync();
@@ -195,7 +217,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

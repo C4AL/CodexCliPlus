@@ -3,13 +3,11 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Management.DesignSystem.Controls;
 using CodexCliPlus.Services.SecondaryRoutes;
 using CodexCliPlus.ViewModels.Pages;
-
 using Application = System.Windows.Application;
 using Brush = System.Windows.Media.Brush;
 using Brushes = System.Windows.Media.Brushes;
@@ -40,7 +38,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         Page owner,
         AiProvidersRouteState routeState,
         Func<Task> refreshAsync,
-        Func<string, string, bool> navigate)
+        Func<string, string, bool> navigate
+    )
     {
         _viewModel = viewModel;
         _authService = authService;
@@ -61,20 +60,79 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
     {
         return routeKey switch
         {
-            "ai-providers-gemini-new" => CreateProviderEntryDescriptor("gemini", "Gemini", supportsCloak: false, supportsModels: false, isGemini: true, isNew: true),
-            "ai-providers-gemini-edit" => CreateProviderEntryDescriptor("gemini", "Gemini", supportsCloak: false, supportsModels: false, isGemini: true, isNew: false),
-            "ai-providers-codex-new" => CreateProviderEntryDescriptor("codex", "Codex", supportsCloak: false, supportsModels: false, isGemini: false, isNew: true),
-            "ai-providers-codex-edit" => CreateProviderEntryDescriptor("codex", "Codex", supportsCloak: false, supportsModels: false, isGemini: false, isNew: false),
-            "ai-providers-claude-new" => CreateProviderEntryDescriptor("claude", "Claude", supportsCloak: true, supportsModels: true, isGemini: false, isNew: true),
-            "ai-providers-claude-edit" => CreateProviderEntryDescriptor("claude", "Claude", supportsCloak: true, supportsModels: true, isGemini: false, isNew: false),
+            "ai-providers-gemini-new" => CreateProviderEntryDescriptor(
+                "gemini",
+                "Gemini",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: true,
+                isNew: true
+            ),
+            "ai-providers-gemini-edit" => CreateProviderEntryDescriptor(
+                "gemini",
+                "Gemini",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: true,
+                isNew: false
+            ),
+            "ai-providers-codex-new" => CreateProviderEntryDescriptor(
+                "codex",
+                "Codex",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: false,
+                isNew: true
+            ),
+            "ai-providers-codex-edit" => CreateProviderEntryDescriptor(
+                "codex",
+                "Codex",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: false,
+                isNew: false
+            ),
+            "ai-providers-claude-new" => CreateProviderEntryDescriptor(
+                "claude",
+                "Claude",
+                supportsCloak: true,
+                supportsModels: true,
+                isGemini: false,
+                isNew: true
+            ),
+            "ai-providers-claude-edit" => CreateProviderEntryDescriptor(
+                "claude",
+                "Claude",
+                supportsCloak: true,
+                supportsModels: true,
+                isGemini: false,
+                isNew: false
+            ),
             "ai-providers-claude-models" => CreateModelDefinitionsDescriptor("claude", "Claude"),
-            "ai-providers-vertex-new" => CreateProviderEntryDescriptor("vertex", "Vertex", supportsCloak: false, supportsModels: false, isGemini: false, isNew: true),
-            "ai-providers-vertex-edit" => CreateProviderEntryDescriptor("vertex", "Vertex", supportsCloak: false, supportsModels: false, isGemini: false, isNew: false),
+            "ai-providers-vertex-new" => CreateProviderEntryDescriptor(
+                "vertex",
+                "Vertex",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: false,
+                isNew: true
+            ),
+            "ai-providers-vertex-edit" => CreateProviderEntryDescriptor(
+                "vertex",
+                "Vertex",
+                supportsCloak: false,
+                supportsModels: false,
+                isGemini: false,
+                isNew: false
+            ),
             "ai-providers-openai-new" => CreateOpenAiDescriptor(isNew: true),
             "ai-providers-openai-edit" => CreateOpenAiDescriptor(isNew: false),
-            "ai-providers-openai-models" => CreateModelDefinitionsDescriptor("openai", "OpenAI Compatibility"),
+            "ai-providers-openai-models" => CreateModelDefinitionsDescriptor(
+                "openai",
+                "OpenAI Compatibility"
+            ),
             "ai-providers-ampcode" => CreateAmpCodeDescriptor(),
-            _ => CreateOverviewDescriptor()
+            _ => CreateOverviewDescriptor(),
         };
     }
 
@@ -84,13 +142,14 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         var body = new ManagementEmptyState
         {
             Title = "Select a provider route",
-            Description = "Choose a provider card on the left to enter the native secondary page."
+            Description = "Choose a provider card on the left to enter the native secondary page.",
         };
 
         return new ManagementSecondaryRouteDescriptor(
             "Provider route host",
             "Secondary routes are rendered natively instead of inline JSON editors.",
-            body);
+            body
+        );
     }
 
     private ManagementSecondaryRouteDescriptor CreateProviderEntryDescriptor(
@@ -99,13 +158,17 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         bool supportsCloak,
         bool supportsModels,
         bool isGemini,
-        bool isNew)
+        bool isNew
+    )
     {
         var entries = GetProviderEntries(providerKey);
-        var selectedIndex = isNew ? entries.Count : _routeState.GetSelectedIndex(providerKey, entries.Count);
-        var currentEntry = !isNew && entries.Count > 0 && selectedIndex < entries.Count
-            ? entries[selectedIndex]
-            : null;
+        var selectedIndex = isNew
+            ? entries.Count
+            : _routeState.GetSelectedIndex(providerKey, entries.Count);
+        var currentEntry =
+            !isNew && entries.Count > 0 && selectedIndex < entries.Count
+                ? entries[selectedIndex]
+                : null;
 
         _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew), selectedIndex);
         _routeState.MarkClean();
@@ -115,7 +178,11 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             return CreateProviderEmptyDescriptor(providerKey, displayName, supportsModels);
         }
 
-        var editor = new ProviderEntryEditorView(currentEntry, supportsCloak, _routeState.MarkDirty);
+        var editor = new ProviderEntryEditorView(
+            currentEntry,
+            supportsCloak,
+            _routeState.MarkDirty
+        );
 
         return new ManagementSecondaryRouteDescriptor(
             isNew ? $"Add {displayName}" : $"{displayName} Entry #{selectedIndex + 1}",
@@ -123,18 +190,37 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 ? $"Create a new {displayName} entry using field-level controls."
                 : $"Edit entry #{selectedIndex + 1} of {entries.Count} with entry-level save and delete.",
             editor,
-            BuildProviderHeaderActions(providerKey, displayName, entries, selectedIndex, supportsModels),
-            BuildProviderFooter(providerKey, displayName, entries.Count, selectedIndex, isNew, isGemini, editor),
-            "Back to providers");
+            BuildProviderHeaderActions(
+                providerKey,
+                displayName,
+                entries,
+                selectedIndex,
+                supportsModels
+            ),
+            BuildProviderFooter(
+                providerKey,
+                displayName,
+                entries.Count,
+                selectedIndex,
+                isNew,
+                isGemini,
+                editor
+            ),
+            "Back to providers"
+        );
     }
 
-    private ManagementSecondaryRouteDescriptor CreateProviderEmptyDescriptor(string providerKey, string displayName, bool supportsModels)
+    private ManagementSecondaryRouteDescriptor CreateProviderEmptyDescriptor(
+        string providerKey,
+        string displayName,
+        bool supportsModels
+    )
     {
         var addButton = new Button
         {
             Content = $"Create {displayName} entry",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         addButton.Click += (_, _) =>
         {
@@ -145,8 +231,9 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         var body = new ManagementEmptyState
         {
             Title = $"No {displayName} entries yet",
-            Description = "This route no longer falls back to a JSON editor. Create an entry directly from the native form.",
-            ActionContent = addButton
+            Description =
+                "This route no longer falls back to a JSON editor. Create an entry directly from the native form.",
+            ActionContent = addButton,
         };
 
         return new ManagementSecondaryRouteDescriptor(
@@ -154,7 +241,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "The secondary route is present, but there is no saved entry to render yet.",
             body,
             BuildProviderHeaderActions(providerKey, displayName, [], 0, supportsModels),
-            BackLabel: "Back to providers");
+            BackLabel: "Back to providers"
+        );
     }
 
     private StackPanel BuildProviderHeaderActions(
@@ -162,35 +250,38 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         string displayName,
         IReadOnlyList<ManagementProviderKeyConfiguration> entries,
         int selectedIndex,
-        bool supportsModels)
+        bool supportsModels
+    )
     {
-        var panel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
-        panel.Children.Add(new StatusBadge
-        {
-            Text = entries.Count == 0
-                ? "No saved entries"
-                : $"Entry {Math.Min(selectedIndex + 1, entries.Count)}/{entries.Count}",
-            Tone = BadgeTone.Neutral
-        });
+        panel.Children.Add(
+            new StatusBadge
+            {
+                Text =
+                    entries.Count == 0
+                        ? "No saved entries"
+                        : $"Entry {Math.Min(selectedIndex + 1, entries.Count)}/{entries.Count}",
+                Tone = BadgeTone.Neutral,
+            }
+        );
 
         var entrySelector = new ComboBox
         {
             Width = 220,
             Margin = new Thickness(12, 0, 0, 0),
-            IsEnabled = entries.Count > 0
+            IsEnabled = entries.Count > 0,
         };
 
         for (var index = 0; index < entries.Count; index++)
         {
-            entrySelector.Items.Add(new ComboBoxItem
-            {
-                Content = $"{displayName} #{index + 1} · {MaskSecret(entries[index].ApiKey)}",
-                Tag = index
-            });
+            entrySelector.Items.Add(
+                new ComboBoxItem
+                {
+                    Content = $"{displayName} #{index + 1} · {MaskSecret(entries[index].ApiKey)}",
+                    Tag = index,
+                }
+            );
         }
 
         if (entries.Count > 0)
@@ -203,21 +294,28 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                     return;
                 }
 
-                _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew: false), index);
-                _navigate(GetProviderRouteKey(providerKey, isNew: false), $"{displayName} entry #{index + 1}");
+                _routeState.SetRoute(
+                    providerKey,
+                    GetProviderRouteKey(providerKey, isNew: false),
+                    index
+                );
+                _navigate(
+                    GetProviderRouteKey(providerKey, isNew: false),
+                    $"{displayName} entry #{index + 1}"
+                );
             };
         }
 
         panel.Children.Add(entrySelector);
 
-        var newButton = new Button
-        {
-            Margin = new Thickness(12, 0, 0, 0),
-            Content = "New entry"
-        };
+        var newButton = new Button { Margin = new Thickness(12, 0, 0, 0), Content = "New entry" };
         newButton.Click += (_, _) =>
         {
-            _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew: true), entries.Count);
+            _routeState.SetRoute(
+                providerKey,
+                GetProviderRouteKey(providerKey, isNew: true),
+                entries.Count
+            );
             _navigate(GetProviderRouteKey(providerKey, isNew: true), $"Create {displayName}");
         };
         panel.Children.Add(newButton);
@@ -227,7 +325,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             var modelsButton = new Button
             {
                 Margin = new Thickness(12, 0, 0, 0),
-                Content = "Model definitions"
+                Content = "Model definitions",
             };
             modelsButton.Click += (_, _) =>
             {
@@ -247,30 +345,31 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         int selectedIndex,
         bool isNew,
         bool isGemini,
-        ProviderEntryEditorView editor)
+        ProviderEntryEditorView editor
+    )
     {
         var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var reloadButton = new Button
-        {
-            Content = "Reload"
-        };
+        var reloadButton = new Button { Content = "Reload" };
         reloadButton.Click += async (_, _) => await _refreshAsync();
         panel.Children.Add(reloadButton);
 
         if (!isNew && existingCount > 0)
         {
-            var deleteButton = new Button
-            {
-                Content = "Delete"
-            };
+            var deleteButton = new Button { Content = "Delete" };
             deleteButton.Click += async (_, _) =>
             {
-                if (!ManagementConfirmDialog.Confirm(Window.GetWindow(_owner), $"Delete {displayName}", $"Delete {displayName} entry #{selectedIndex + 1}?"))
+                if (
+                    !ManagementConfirmDialog.Confirm(
+                        Window.GetWindow(_owner),
+                        $"Delete {displayName}",
+                        $"Delete {displayName} entry #{selectedIndex + 1}?"
+                    )
+                )
                 {
                     return;
                 }
@@ -283,11 +382,19 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                     var remainingCount = Math.Max(existingCount - 1, 0);
                     if (remainingCount == 0)
                     {
-                        _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew: true), 0);
+                        _routeState.SetRoute(
+                            providerKey,
+                            GetProviderRouteKey(providerKey, isNew: true),
+                            0
+                        );
                     }
                     else
                     {
-                        _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew: false), Math.Min(selectedIndex, remainingCount - 1));
+                        _routeState.SetRoute(
+                            providerKey,
+                            GetProviderRouteKey(providerKey, isNew: false),
+                            Math.Min(selectedIndex, remainingCount - 1)
+                        );
                     }
 
                     await _refreshAsync();
@@ -304,7 +411,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         {
             Content = isNew ? "Create" : "Save",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -313,11 +420,18 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 var targetIndex = isNew ? existingCount : selectedIndex;
                 await SaveProviderEntryAsync(providerKey, targetIndex, isGemini, editor);
                 _routeState.MarkClean();
-                _routeState.SetRoute(providerKey, GetProviderRouteKey(providerKey, isNew: false), targetIndex);
+                _routeState.SetRoute(
+                    providerKey,
+                    GetProviderRouteKey(providerKey, isNew: false),
+                    targetIndex
+                );
                 await _refreshAsync();
                 if (isNew)
                 {
-                    _navigate(GetProviderRouteKey(providerKey, isNew: false), $"{displayName} entry #{targetIndex + 1}");
+                    _navigate(
+                        GetProviderRouteKey(providerKey, isNew: false),
+                        $"{displayName} entry #{targetIndex + 1}"
+                    );
                 }
             }
             catch (Exception exception)
@@ -330,7 +444,12 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return panel;
     }
 
-    private async Task SaveProviderEntryAsync(string providerKey, int targetIndex, bool isGemini, ProviderEntryEditorView editor)
+    private async Task SaveProviderEntryAsync(
+        string providerKey,
+        int targetIndex,
+        bool isGemini,
+        ProviderEntryEditorView editor
+    )
     {
         if (isGemini)
         {
@@ -353,21 +472,33 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         }
     }
 
-    private async Task DeleteProviderEntryAsync(string providerKey, ManagementProviderKeyConfiguration configuration)
+    private async Task DeleteProviderEntryAsync(
+        string providerKey,
+        ManagementProviderKeyConfiguration configuration
+    )
     {
         switch (providerKey)
         {
             case "gemini":
-                await _authService.DeleteGeminiKeyAsync(configuration.ApiKey, configuration.BaseUrl);
+                await _authService.DeleteGeminiKeyAsync(
+                    configuration.ApiKey,
+                    configuration.BaseUrl
+                );
                 break;
             case "codex":
                 await _authService.DeleteCodexKeyAsync(configuration.ApiKey, configuration.BaseUrl);
                 break;
             case "claude":
-                await _authService.DeleteClaudeKeyAsync(configuration.ApiKey, configuration.BaseUrl);
+                await _authService.DeleteClaudeKeyAsync(
+                    configuration.ApiKey,
+                    configuration.BaseUrl
+                );
                 break;
             case "vertex":
-                await _authService.DeleteVertexKeyAsync(configuration.ApiKey, configuration.BaseUrl);
+                await _authService.DeleteVertexKeyAsync(
+                    configuration.ApiKey,
+                    configuration.BaseUrl
+                );
                 break;
         }
     }
@@ -375,12 +506,19 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
     private ManagementSecondaryRouteDescriptor CreateOpenAiDescriptor(bool isNew)
     {
         var entries = _viewModel.OpenAi;
-        var selectedIndex = isNew ? entries.Count : _routeState.GetSelectedIndex("openai", entries.Count);
-        var currentEntry = !isNew && entries.Count > 0 && selectedIndex < entries.Count
-            ? entries[selectedIndex]
-            : null;
+        var selectedIndex = isNew
+            ? entries.Count
+            : _routeState.GetSelectedIndex("openai", entries.Count);
+        var currentEntry =
+            !isNew && entries.Count > 0 && selectedIndex < entries.Count
+                ? entries[selectedIndex]
+                : null;
 
-        _routeState.SetRoute("openai", isNew ? "ai-providers-openai-new" : "ai-providers-openai-edit", selectedIndex);
+        _routeState.SetRoute(
+            "openai",
+            isNew ? "ai-providers-openai-new" : "ai-providers-openai-edit",
+            selectedIndex
+        );
         _routeState.MarkClean();
 
         if (!isNew && currentEntry is null)
@@ -389,7 +527,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             {
                 Content = "Create OpenAI compatibility entry",
                 Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-                Foreground = Brushes.White
+                Foreground = Brushes.White,
             };
             action.Click += (_, _) =>
             {
@@ -398,16 +536,18 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             };
 
             return new ManagementSecondaryRouteDescriptor(
-                    "OpenAI compatibility",
-                    "No saved compatibility entry is available yet.",
-                    new ManagementEmptyState
-                    {
-                        Title = "No OpenAI compatibility entries",
-                        Description = "Create an entry directly from the native form instead of editing raw JSON.",
-                        ActionContent = action
-                    },
-                    BuildOpenAiHeader(entries, selectedIndex),
-                    BackLabel: "Back to providers");
+                "OpenAI compatibility",
+                "No saved compatibility entry is available yet.",
+                new ManagementEmptyState
+                {
+                    Title = "No OpenAI compatibility entries",
+                    Description =
+                        "Create an entry directly from the native form instead of editing raw JSON.",
+                    ActionContent = action,
+                },
+                BuildOpenAiHeader(entries, selectedIndex),
+                BackLabel: "Back to providers"
+            );
         }
 
         var editor = new OpenAiCompatibilityEditorView(currentEntry, _routeState.MarkDirty);
@@ -420,38 +560,44 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             editor,
             BuildOpenAiHeader(entries, selectedIndex),
             BuildOpenAiFooter(entries.Count, selectedIndex, isNew, editor),
-            "Back to providers");
+            "Back to providers"
+        );
     }
 
-    private StackPanel BuildOpenAiHeader(IReadOnlyList<ManagementOpenAiCompatibilityEntry> entries, int selectedIndex)
+    private StackPanel BuildOpenAiHeader(
+        IReadOnlyList<ManagementOpenAiCompatibilityEntry> entries,
+        int selectedIndex
+    )
     {
-        var panel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
-        panel.Children.Add(new StatusBadge
-        {
-            Text = entries.Count == 0
-                ? "No saved entries"
-                : $"Entry {Math.Min(selectedIndex + 1, entries.Count)}/{entries.Count}",
-            Tone = BadgeTone.Neutral
-        });
+        panel.Children.Add(
+            new StatusBadge
+            {
+                Text =
+                    entries.Count == 0
+                        ? "No saved entries"
+                        : $"Entry {Math.Min(selectedIndex + 1, entries.Count)}/{entries.Count}",
+                Tone = BadgeTone.Neutral,
+            }
+        );
 
         var selector = new ComboBox
         {
             Width = 220,
             Margin = new Thickness(12, 0, 0, 0),
-            IsEnabled = entries.Count > 0
+            IsEnabled = entries.Count > 0,
         };
 
         for (var index = 0; index < entries.Count; index++)
         {
-            selector.Items.Add(new ComboBoxItem
-            {
-                Content = $"{entries[index].Name} · {entries[index].BaseUrl}",
-                Tag = index
-            });
+            selector.Items.Add(
+                new ComboBoxItem
+                {
+                    Content = $"{entries[index].Name} · {entries[index].BaseUrl}",
+                    Tag = index,
+                }
+            );
         }
 
         if (entries.Count > 0)
@@ -471,11 +617,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
         panel.Children.Add(selector);
 
-        var newButton = new Button
-        {
-            Margin = new Thickness(12, 0, 0, 0),
-            Content = "New entry"
-        };
+        var newButton = new Button { Margin = new Thickness(12, 0, 0, 0), Content = "New entry" };
         newButton.Click += (_, _) =>
         {
             _routeState.SetRoute("openai", "ai-providers-openai-new", entries.Count);
@@ -486,7 +628,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         var modelsButton = new Button
         {
             Margin = new Thickness(12, 0, 0, 0),
-            Content = "Model definitions"
+            Content = "Model definitions",
         };
         modelsButton.Click += (_, _) =>
         {
@@ -498,37 +640,44 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return panel;
     }
 
-    private StackPanel BuildOpenAiFooter(int existingCount, int selectedIndex, bool isNew, OpenAiCompatibilityEditorView editor)
+    private StackPanel BuildOpenAiFooter(
+        int existingCount,
+        int selectedIndex,
+        bool isNew,
+        OpenAiCompatibilityEditorView editor
+    )
     {
         var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var reloadButton = new Button
-        {
-            Content = "Reload"
-        };
+        var reloadButton = new Button { Content = "Reload" };
         reloadButton.Click += async (_, _) => await _refreshAsync();
         panel.Children.Add(reloadButton);
 
         if (!isNew && existingCount > 0)
         {
-            var deleteButton = new Button
-            {
-                Content = "Delete"
-            };
+            var deleteButton = new Button { Content = "Delete" };
             deleteButton.Click += async (_, _) =>
             {
-                if (!ManagementConfirmDialog.Confirm(Window.GetWindow(_owner), "Delete OpenAI compatibility", $"Delete entry #{selectedIndex + 1}?"))
+                if (
+                    !ManagementConfirmDialog.Confirm(
+                        Window.GetWindow(_owner),
+                        "Delete OpenAI compatibility",
+                        $"Delete entry #{selectedIndex + 1}?"
+                    )
+                )
                 {
                     return;
                 }
 
                 try
                 {
-                    await _authService.DeleteOpenAiCompatibilityAsync(_viewModel.OpenAi[selectedIndex].Name);
+                    await _authService.DeleteOpenAiCompatibilityAsync(
+                        _viewModel.OpenAi[selectedIndex].Name
+                    );
                     _routeState.MarkClean();
                     var remainingCount = Math.Max(existingCount - 1, 0);
                     if (remainingCount == 0)
@@ -537,7 +686,11 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                     }
                     else
                     {
-                        _routeState.SetRoute("openai", "ai-providers-openai-edit", Math.Min(selectedIndex, remainingCount - 1));
+                        _routeState.SetRoute(
+                            "openai",
+                            "ai-providers-openai-edit",
+                            Math.Min(selectedIndex, remainingCount - 1)
+                        );
                     }
 
                     await _refreshAsync();
@@ -554,7 +707,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         {
             Content = isNew ? "Create" : "Save",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -567,7 +720,10 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 await _refreshAsync();
                 if (isNew)
                 {
-                    _navigate("ai-providers-openai-edit", $"OpenAI compatibility #{targetIndex + 1}");
+                    _navigate(
+                        "ai-providers-openai-edit",
+                        $"OpenAI compatibility #{targetIndex + 1}"
+                    );
                 }
             }
             catch (Exception exception)
@@ -580,31 +736,33 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return panel;
     }
 
-    private ManagementSecondaryRouteDescriptor CreateModelDefinitionsDescriptor(string channel, string displayName)
+    private ManagementSecondaryRouteDescriptor CreateModelDefinitionsDescriptor(
+        string channel,
+        string displayName
+    )
     {
         _routeState.MarkClean();
 
         var view = new ModelDefinitionsRouteView(_authService, channel);
-        var header = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
 
-        header.Children.Add(new StatusBadge
-        {
-            Text = "Source: GetModelDefinitionsAsync",
-            Tone = BadgeTone.Neutral
-        });
+        header.Children.Add(
+            new StatusBadge { Text = "Source: GetModelDefinitionsAsync", Tone = BadgeTone.Neutral }
+        );
 
         var editButton = new Button
         {
             Margin = new Thickness(12, 0, 0, 0),
-            Content = "Back to entries"
+            Content = "Back to entries",
         };
         editButton.Click += (_, _) =>
         {
             var routeKey = GetEditableRouteKey(channel);
-            _routeState.SetRoute(channel, routeKey, _routeState.GetSelectedIndex(channel, Math.Max(GetProviderEntryCount(channel), 1)));
+            _routeState.SetRoute(
+                channel,
+                routeKey,
+                _routeState.GetSelectedIndex(channel, Math.Max(GetProviderEntryCount(channel), 1))
+            );
             _navigate(routeKey, $"{displayName} entries");
         };
         header.Children.Add(editButton);
@@ -614,35 +772,36 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "Definitions come from GetModelDefinitionsAsync(channel). Empty results stay as an empty state.",
             view,
             header,
-            BackLabel: "Back to providers");
+            BackLabel: "Back to providers"
+        );
     }
 
     private ManagementSecondaryRouteDescriptor CreateAmpCodeDescriptor()
     {
-        var editor = new AmpCodeEditorView(_viewModel.AmpCode ?? new ManagementAmpCodeConfiguration(), _routeState.MarkDirty);
+        var editor = new AmpCodeEditorView(
+            _viewModel.AmpCode ?? new ManagementAmpCodeConfiguration(),
+            _routeState.MarkDirty
+        );
         _routeState.SetRoute("ampcode", "ai-providers-ampcode", 0);
         _routeState.MarkClean();
 
-        var header = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
-        header.Children.Add(new StatusBadge
-        {
-            Text = $"{editor.ModelMappingCount} model mappings · {editor.UpstreamMappingCount} upstream mappings",
-            Tone = BadgeTone.Neutral
-        });
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        header.Children.Add(
+            new StatusBadge
+            {
+                Text =
+                    $"{editor.ModelMappingCount} model mappings · {editor.UpstreamMappingCount} upstream mappings",
+                Tone = BadgeTone.Neutral,
+            }
+        );
 
         var footer = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var reloadButton = new Button
-        {
-            Content = "Reload"
-        };
+        var reloadButton = new Button { Content = "Reload" };
         reloadButton.Click += async (_, _) => await _refreshAsync();
         footer.Children.Add(reloadButton);
 
@@ -650,7 +809,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         {
             Content = "Save",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -678,7 +837,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             editor,
             header,
             footer,
-            "Back to providers");
+            "Back to providers"
+        );
     }
 
     private IReadOnlyList<ManagementProviderKeyConfiguration> GetProviderEntries(string providerKey)
@@ -689,7 +849,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "codex" => _viewModel.Codex,
             "claude" => _viewModel.Claude,
             "vertex" => _viewModel.Vertex,
-            _ => []
+            _ => [],
         };
     }
 
@@ -702,7 +862,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "claude" => _viewModel.Claude.Count,
             "vertex" => _viewModel.Vertex.Count,
             "openai" => _viewModel.OpenAi.Count,
-            _ => 0
+            _ => 0,
         };
     }
 
@@ -714,7 +874,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             "codex" => isNew ? "ai-providers-codex-new" : "ai-providers-codex-edit",
             "claude" => isNew ? "ai-providers-claude-new" : "ai-providers-claude-edit",
             "vertex" => isNew ? "ai-providers-vertex-new" : "ai-providers-vertex-edit",
-            _ => "ai-providers"
+            _ => "ai-providers",
         };
     }
 
@@ -723,7 +883,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         return providerKey switch
         {
             "openai" => "ai-providers-openai-edit",
-            _ => GetProviderRouteKey(providerKey, isNew: false)
+            _ => GetProviderRouteKey(providerKey, isNew: false),
         };
     }
 
@@ -733,7 +893,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         {
             "claude" => "ai-providers-claude-models",
             "openai" => "ai-providers-openai-models",
-            _ => "ai-providers"
+            _ => "ai-providers",
         };
     }
 
@@ -744,18 +904,20 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             return "empty";
         }
 
-        return value.Length <= 8
-            ? value
-            : $"{value[..4]}...{value[^4..]}";
+        return value.Length <= 8 ? value : $"{value[..4]}...{value[^4..]}";
     }
 
-    private static ManagementFieldRow CreateFieldRow(string label, Control control, string? hint = null)
+    private static ManagementFieldRow CreateFieldRow(
+        string label,
+        Control control,
+        string? hint = null
+    )
     {
         return new ManagementFieldRow
         {
             Label = label,
             Hint = hint ?? string.Empty,
-            FieldContent = control
+            FieldContent = control,
         };
     }
 
@@ -775,7 +937,11 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         private readonly CheckBox? _cloakStrictModeCheckBox;
         private readonly ObservableCollection<EditableStringItem>? _cloakSensitiveWords;
 
-        public ProviderEntryEditorView(ManagementProviderKeyConfiguration? configuration, bool supportsCloak, Action onDirty)
+        public ProviderEntryEditorView(
+            ManagementProviderKeyConfiguration? configuration,
+            bool supportsCloak,
+            Action onDirty
+        )
         {
             if (supportsCloak)
             {
@@ -791,9 +957,12 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
         public ManagementProviderKeyConfiguration BuildProviderConfiguration()
         {
-            var cloak = _cloakModeTextBox is null || _cloakSensitiveWords is null || _cloakStrictModeCheckBox is null
-                ? null
-                : BuildCloak();
+            var cloak =
+                _cloakModeTextBox is null
+                || _cloakSensitiveWords is null
+                || _cloakStrictModeCheckBox is null
+                    ? null
+                    : BuildCloak();
 
             return new ManagementProviderKeyConfiguration
             {
@@ -807,7 +976,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 Models = BuildModelAliases(_models),
                 ExcludedModels = BuildStrings(_excludedModels),
                 Cloak = cloak,
-                AuthIndex = NormalizeText(_authIndexTextBox.Text)
+                AuthIndex = NormalizeText(_authIndexTextBox.Text),
             };
         }
 
@@ -826,7 +995,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 Models = provider.Models,
                 ExcludedModels = provider.ExcludedModels,
                 Cloak = provider.Cloak,
-                AuthIndex = provider.AuthIndex
+                AuthIndex = provider.AuthIndex,
             };
         }
 
@@ -835,77 +1004,97 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             var root = new StackPanel();
             var connection = new StackPanel();
             connection.Children.Add(CreateFieldRow("API key", _apiKeyTextBox));
-            connection.Children.Add(CreateFieldRow("Priority", _priorityTextBox, "Optional integer."));
+            connection.Children.Add(
+                CreateFieldRow("Priority", _priorityTextBox, "Optional integer.")
+            );
             connection.Children.Add(CreateFieldRow("Prefix", _prefixTextBox));
             connection.Children.Add(CreateFieldRow("Base URL", _baseUrlTextBox));
             connection.Children.Add(CreateFieldRow("WebSockets", _webSocketsCheckBox));
             connection.Children.Add(CreateFieldRow("Proxy URL", _proxyUrlTextBox));
             connection.Children.Add(CreateFieldRow("Auth index", _authIndexTextBox));
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Connection",
-                Description = "Field-level edits are saved through Update*KeyAsync instead of Replace*.",
-                SectionContent = connection
-            });
-
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Headers",
-                Description = "Additional request headers sent with this provider entry.",
-                SectionContent = new EditableKeyValueList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _headers,
-                    KeyHeader = "Header",
-                    ValueHeader = "Value",
-                    AddButtonText = "Add header"
+                    Title = "Connection",
+                    Description =
+                        "Field-level edits are saved through Update*KeyAsync instead of Replace*.",
+                    SectionContent = connection,
                 }
-            });
+            );
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Model aliases",
-                Description = "Optional aliases, priorities and test models.",
-                SectionContent = new EditableModelAliasList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _models,
-                    ShowPriority = true,
-                    ShowTestModel = true,
-                    AddButtonText = "Add alias"
+                    Title = "Headers",
+                    Description = "Additional request headers sent with this provider entry.",
+                    SectionContent = new EditableKeyValueList
+                    {
+                        ItemsSource = _headers,
+                        KeyHeader = "Header",
+                        ValueHeader = "Value",
+                        AddButtonText = "Add header",
+                    },
                 }
-            });
+            );
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Excluded models",
-                Description = "Model ids excluded for this provider entry.",
-                SectionContent = new EditableStringList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _excludedModels,
-                    AddButtonText = "Add excluded model"
+                    Title = "Model aliases",
+                    Description = "Optional aliases, priorities and test models.",
+                    SectionContent = new EditableModelAliasList
+                    {
+                        ItemsSource = _models,
+                        ShowPriority = true,
+                        ShowTestModel = true,
+                        AddButtonText = "Add alias",
+                    },
                 }
-            });
+            );
 
-            if (supportsCloak && _cloakModeTextBox is not null && _cloakStrictModeCheckBox is not null && _cloakSensitiveWords is not null)
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Excluded models",
+                    Description = "Model ids excluded for this provider entry.",
+                    SectionContent = new EditableStringList
+                    {
+                        ItemsSource = _excludedModels,
+                        AddButtonText = "Add excluded model",
+                    },
+                }
+            );
+
+            if (
+                supportsCloak
+                && _cloakModeTextBox is not null
+                && _cloakStrictModeCheckBox is not null
+                && _cloakSensitiveWords is not null
+            )
             {
                 var cloak = new StackPanel();
                 cloak.Children.Add(CreateFieldRow("Mode", _cloakModeTextBox));
                 cloak.Children.Add(CreateFieldRow("Strict mode", _cloakStrictModeCheckBox));
-                cloak.Children.Add(new ManagementFieldRow
-                {
-                    Label = "Sensitive words",
-                    FieldContent = new EditableStringList
+                cloak.Children.Add(
+                    new ManagementFieldRow
                     {
-                        ItemsSource = _cloakSensitiveWords,
-                        AddButtonText = "Add sensitive word"
+                        Label = "Sensitive words",
+                        FieldContent = new EditableStringList
+                        {
+                            ItemsSource = _cloakSensitiveWords,
+                            AddButtonText = "Add sensitive word",
+                        },
                     }
-                });
+                );
 
-                root.Children.Add(new ManagementFormSection
-                {
-                    Title = "Cloak",
-                    Description = "Claude-specific cloak controls stay on the native route.",
-                    SectionContent = cloak
-                });
+                root.Children.Add(
+                    new ManagementFormSection
+                    {
+                        Title = "Cloak",
+                        Description = "Claude-specific cloak controls stay on the native route.",
+                        SectionContent = cloak,
+                    }
+                );
             }
 
             return root;
@@ -919,7 +1108,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             }
 
             _apiKeyTextBox.Text = configuration.ApiKey;
-            _priorityTextBox.Text = configuration.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            _priorityTextBox.Text =
+                configuration.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
             _prefixTextBox.Text = configuration.Prefix ?? string.Empty;
             _baseUrlTextBox.Text = configuration.BaseUrl ?? string.Empty;
             _webSocketsCheckBox.IsChecked = configuration.WebSockets == true;
@@ -933,13 +1123,16 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
             foreach (var model in configuration.Models)
             {
-                _models.Add(new EditableModelAliasItem
-                {
-                    Name = model.Name,
-                    Alias = model.Alias ?? string.Empty,
-                    Priority = model.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                    TestModel = model.TestModel ?? string.Empty
-                });
+                _models.Add(
+                    new EditableModelAliasItem
+                    {
+                        Name = model.Name,
+                        Alias = model.Alias ?? string.Empty,
+                        Priority =
+                            model.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        TestModel = model.TestModel ?? string.Empty,
+                    }
+                );
             }
 
             foreach (var model in configuration.ExcludedModels)
@@ -947,7 +1140,11 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 _excludedModels.Add(new EditableStringItem { Value = model });
             }
 
-            if (_cloakModeTextBox is not null && _cloakStrictModeCheckBox is not null && _cloakSensitiveWords is not null)
+            if (
+                _cloakModeTextBox is not null
+                && _cloakStrictModeCheckBox is not null
+                && _cloakSensitiveWords is not null
+            )
             {
                 _cloakModeTextBox.Text = configuration.Cloak?.Mode ?? string.Empty;
                 _cloakStrictModeCheckBox.IsChecked = configuration.Cloak?.StrictMode == true;
@@ -984,7 +1181,9 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         {
             var mode = NormalizeText(_cloakModeTextBox?.Text);
             var strictMode = _cloakStrictModeCheckBox?.IsChecked == true;
-            var sensitiveWords = _cloakSensitiveWords is null ? [] : BuildStrings(_cloakSensitiveWords);
+            var sensitiveWords = _cloakSensitiveWords is null
+                ? []
+                : BuildStrings(_cloakSensitiveWords);
 
             if (mode is null && !strictMode && sensitiveWords.Length == 0)
             {
@@ -995,7 +1194,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             {
                 Mode = mode,
                 StrictMode = strictMode,
-                SensitiveWords = sensitiveWords
+                SensitiveWords = sensitiveWords,
             };
         }
     }
@@ -1013,7 +1212,10 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         private readonly ObservableCollection<OpenAiApiKeyEntryDraft> _apiKeyEntries = [];
         private readonly ItemsControl _apiKeyEntriesHost = new();
 
-        public OpenAiCompatibilityEditorView(ManagementOpenAiCompatibilityEntry? entry, Action onDirty)
+        public OpenAiCompatibilityEditorView(
+            ManagementOpenAiCompatibilityEntry? entry,
+            Action onDirty
+        )
         {
             Content = BuildLayout();
             Apply(entry);
@@ -1039,9 +1241,9 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                         ApiKey = item.ApiKey.Trim(),
                         ProxyUrl = NormalizeText(item.ProxyUrl),
                         Headers = BuildHeaders(item.Headers),
-                        AuthIndex = NormalizeText(item.AuthIndex)
+                        AuthIndex = NormalizeText(item.AuthIndex),
                     })
-                    .ToArray()
+                    .ToArray(),
             };
         }
 
@@ -1055,38 +1257,45 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             basic.Children.Add(CreateFieldRow("Priority", _priorityTextBox));
             basic.Children.Add(CreateFieldRow("Test model", _testModelTextBox));
             basic.Children.Add(CreateFieldRow("Auth index", _authIndexTextBox));
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Provider",
-                Description = "OpenAI compatibility providers are edited entry by entry.",
-                SectionContent = basic
-            });
-
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Headers",
-                Description = "Headers applied to the compatibility provider itself.",
-                SectionContent = new EditableKeyValueList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _headers,
-                    KeyHeader = "Header",
-                    ValueHeader = "Value",
-                    AddButtonText = "Add header"
+                    Title = "Provider",
+                    Description = "OpenAI compatibility providers are edited entry by entry.",
+                    SectionContent = basic,
                 }
-            });
+            );
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Model aliases",
-                Description = "Compatibility aliases and optional priority/test-model metadata.",
-                SectionContent = new EditableModelAliasList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _models,
-                    ShowPriority = true,
-                    ShowTestModel = true,
-                    AddButtonText = "Add alias"
+                    Title = "Headers",
+                    Description = "Headers applied to the compatibility provider itself.",
+                    SectionContent = new EditableKeyValueList
+                    {
+                        ItemsSource = _headers,
+                        KeyHeader = "Header",
+                        ValueHeader = "Value",
+                        AddButtonText = "Add header",
+                    },
                 }
-            });
+            );
+
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Model aliases",
+                    Description =
+                        "Compatibility aliases and optional priority/test-model metadata.",
+                    SectionContent = new EditableModelAliasList
+                    {
+                        ItemsSource = _models,
+                        ShowPriority = true,
+                        ShowTestModel = true,
+                        AddButtonText = "Add alias",
+                    },
+                }
+            );
 
             _apiKeyEntriesHost.ItemTemplate = BuildOpenAiApiKeyEntryTemplate();
             _apiKeyEntriesHost.ItemsSource = _apiKeyEntries;
@@ -1096,17 +1305,19 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             var addButton = new Button
             {
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Content = "Add API key entry"
+                Content = "Add API key entry",
             };
             addButton.Click += (_, _) => _apiKeyEntries.Add(new OpenAiApiKeyEntryDraft());
             apiKeyEntriesPanel.Children.Add(addButton);
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "API key entries",
-                Description = "Each entry can carry its own proxy, auth index and headers.",
-                SectionContent = apiKeyEntriesPanel
-            });
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "API key entries",
+                    Description = "Each entry can carry its own proxy, auth index and headers.",
+                    SectionContent = apiKeyEntriesPanel,
+                }
+            );
 
             return root;
         }
@@ -1159,7 +1370,8 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             _nameTextBox.Text = entry.Name;
             _prefixTextBox.Text = entry.Prefix ?? string.Empty;
             _baseUrlTextBox.Text = entry.BaseUrl;
-            _priorityTextBox.Text = entry.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+            _priorityTextBox.Text =
+                entry.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
             _testModelTextBox.Text = entry.TestModel ?? string.Empty;
             _authIndexTextBox.Text = entry.AuthIndex ?? string.Empty;
 
@@ -1170,13 +1382,16 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
             foreach (var model in entry.Models)
             {
-                _models.Add(new EditableModelAliasItem
-                {
-                    Name = model.Name,
-                    Alias = model.Alias ?? string.Empty,
-                    Priority = model.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                    TestModel = model.TestModel ?? string.Empty
-                });
+                _models.Add(
+                    new EditableModelAliasItem
+                    {
+                        Name = model.Name,
+                        Alias = model.Alias ?? string.Empty,
+                        Priority =
+                            model.Priority?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        TestModel = model.TestModel ?? string.Empty,
+                    }
+                );
             }
 
             foreach (var apiKeyEntry in entry.ApiKeyEntries)
@@ -1185,12 +1400,14 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 {
                     ApiKey = apiKeyEntry.ApiKey,
                     ProxyUrl = apiKeyEntry.ProxyUrl ?? string.Empty,
-                    AuthIndex = apiKeyEntry.AuthIndex ?? string.Empty
+                    AuthIndex = apiKeyEntry.AuthIndex ?? string.Empty,
                 };
 
                 foreach (var header in apiKeyEntry.Headers)
                 {
-                    draft.Headers.Add(new EditableKeyValueItem { Key = header.Key, Value = header.Value });
+                    draft.Headers.Add(
+                        new EditableKeyValueItem { Key = header.Key, Value = header.Value }
+                    );
                 }
 
                 _apiKeyEntries.Add(draft);
@@ -1248,7 +1465,10 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
         private readonly StackPanel _root = new();
         private bool _loaded;
 
-        public ModelDefinitionsRouteView(IManagementAuthFilesService authFilesService, string channel)
+        public ModelDefinitionsRouteView(
+            IManagementAuthFilesService authFilesService,
+            string channel
+        )
         {
             _authFilesService = authFilesService;
             _channel = channel;
@@ -1265,24 +1485,32 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
             _loaded = true;
             _root.Children.Clear();
-            _root.Children.Add(new TextBlock
-            {
-                Text = "Loading model definitions...",
-                Foreground = (Brush)Application.Current.Resources["ManagementSecondaryTextBrush"]
-            });
+            _root.Children.Add(
+                new TextBlock
+                {
+                    Text = "Loading model definitions...",
+                    Foreground = (Brush)
+                        Application.Current.Resources["ManagementSecondaryTextBrush"],
+                }
+            );
 
             try
             {
-                var definitions = (await _authFilesService.GetModelDefinitionsAsync(_channel)).Value;
+                var definitions = (
+                    await _authFilesService.GetModelDefinitionsAsync(_channel)
+                ).Value;
                 _root.Children.Clear();
 
                 if (definitions.Count == 0)
                 {
-                    _root.Children.Add(new ManagementEmptyState
-                    {
-                        Title = "No model definitions",
-                        Description = "GetModelDefinitionsAsync(channel) returned an empty collection."
-                    });
+                    _root.Children.Add(
+                        new ManagementEmptyState
+                        {
+                            Title = "No model definitions",
+                            Description =
+                                "GetModelDefinitionsAsync(channel) returned an empty collection.",
+                        }
+                    );
                     return;
                 }
 
@@ -1294,11 +1522,13 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             catch (Exception exception)
             {
                 _root.Children.Clear();
-                _root.Children.Add(new TextBlock
-                {
-                    Text = exception.Message,
-                    Foreground = (Brush)Application.Current.Resources["ManagementDangerBrush"]
-                });
+                _root.Children.Add(
+                    new TextBlock
+                    {
+                        Text = exception.Message,
+                        Foreground = (Brush)Application.Current.Resources["ManagementDangerBrush"],
+                    }
+                );
             }
         }
     }
@@ -1330,11 +1560,14 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 UpstreamApiKey = NormalizeText(_upstreamApiKeyTextBox.Text),
                 ForceModelMappings = _forceModelMappingsCheckBox.IsChecked == true,
                 ModelMappings = _modelMappings
-                    .Where(item => !string.IsNullOrWhiteSpace(item.Key) && !string.IsNullOrWhiteSpace(item.Value))
+                    .Where(item =>
+                        !string.IsNullOrWhiteSpace(item.Key)
+                        && !string.IsNullOrWhiteSpace(item.Value)
+                    )
                     .Select(item => new ManagementAmpCodeModelMapping
                     {
                         From = item.Key.Trim(),
-                        To = item.Value.Trim()
+                        To = item.Value.Trim(),
                     })
                     .ToArray(),
                 UpstreamApiKeys = _upstreamKeyMappings
@@ -1342,13 +1575,17 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                     .Select(item => new ManagementAmpCodeUpstreamApiKeyMapping
                     {
                         UpstreamApiKey = item.Key.Trim(),
-                        ApiKeys = item.Value
-                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        ApiKeys = item
+                            .Value.Split(
+                                ',',
+                                StringSplitOptions.RemoveEmptyEntries
+                                    | StringSplitOptions.TrimEntries
+                            )
                             .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .ToArray()
+                            .ToArray(),
                     })
                     .Where(item => item.ApiKeys.Count > 0)
-                    .ToArray()
+                    .ToArray(),
             };
         }
 
@@ -1359,38 +1596,44 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             basic.Children.Add(CreateFieldRow("Upstream URL", _upstreamUrlTextBox));
             basic.Children.Add(CreateFieldRow("Upstream API key", _upstreamApiKeyTextBox));
             basic.Children.Add(CreateFieldRow("Force model mappings", _forceModelMappingsCheckBox));
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Base settings",
-                Description = "Saved through UpdateAmp* and SetAmpForceModelMappingsAsync.",
-                SectionContent = basic
-            });
-
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Model mappings",
-                Description = "Saved through ReplaceAmpModelMappingsAsync.",
-                SectionContent = new EditableKeyValueList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _modelMappings,
-                    KeyHeader = "From",
-                    ValueHeader = "To",
-                    AddButtonText = "Add mapping"
+                    Title = "Base settings",
+                    Description = "Saved through UpdateAmp* and SetAmpForceModelMappingsAsync.",
+                    SectionContent = basic,
                 }
-            });
+            );
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Upstream key mappings",
-                Description = "Value accepts comma-separated local API keys.",
-                SectionContent = new EditableKeyValueList
+            root.Children.Add(
+                new ManagementFormSection
                 {
-                    ItemsSource = _upstreamKeyMappings,
-                    KeyHeader = "Upstream API key",
-                    ValueHeader = "API keys",
-                    AddButtonText = "Add upstream mapping"
+                    Title = "Model mappings",
+                    Description = "Saved through ReplaceAmpModelMappingsAsync.",
+                    SectionContent = new EditableKeyValueList
+                    {
+                        ItemsSource = _modelMappings,
+                        KeyHeader = "From",
+                        ValueHeader = "To",
+                        AddButtonText = "Add mapping",
+                    },
                 }
-            });
+            );
+
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Upstream key mappings",
+                    Description = "Value accepts comma-separated local API keys.",
+                    SectionContent = new EditableKeyValueList
+                    {
+                        ItemsSource = _upstreamKeyMappings,
+                        KeyHeader = "Upstream API key",
+                        ValueHeader = "API keys",
+                        AddButtonText = "Add upstream mapping",
+                    },
+                }
+            );
 
             return root;
         }
@@ -1403,16 +1646,20 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
             foreach (var mapping in configuration.ModelMappings)
             {
-                _modelMappings.Add(new EditableKeyValueItem { Key = mapping.From, Value = mapping.To });
+                _modelMappings.Add(
+                    new EditableKeyValueItem { Key = mapping.From, Value = mapping.To }
+                );
             }
 
             foreach (var mapping in configuration.UpstreamApiKeys)
             {
-                _upstreamKeyMappings.Add(new EditableKeyValueItem
-                {
-                    Key = mapping.UpstreamApiKey,
-                    Value = string.Join(", ", mapping.ApiKeys)
-                });
+                _upstreamKeyMappings.Add(
+                    new EditableKeyValueItem
+                    {
+                        Key = mapping.UpstreamApiKey,
+                        Value = string.Join(", ", mapping.ApiKeys),
+                    }
+                );
             }
         }
 
@@ -1456,13 +1703,15 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
     private static Border CreateModelDescriptorCard(ManagementModelDescriptor definition)
     {
         var stack = new StackPanel();
-        stack.Children.Add(new TextBlock
-        {
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
-            Text = definition.Id
-        });
+        stack.Children.Add(
+            new TextBlock
+            {
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
+                Text = definition.Id,
+            }
+        );
 
         var meta = string.Join(
             " · ",
@@ -1471,28 +1720,33 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 definition.DisplayName,
                 definition.Type,
                 definition.OwnedBy,
-                definition.Alias
-            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                definition.Alias,
+            }.Where(value => !string.IsNullOrWhiteSpace(value))
+        );
 
         if (!string.IsNullOrWhiteSpace(meta))
         {
-            stack.Children.Add(new TextBlock
-            {
-                Margin = new Thickness(0, 8, 0, 0),
-                Style = (Style)Application.Current.Resources["ManagementHintTextStyle"],
-                Text = meta
-            });
+            stack.Children.Add(
+                new TextBlock
+                {
+                    Margin = new Thickness(0, 8, 0, 0),
+                    Style = (Style)Application.Current.Resources["ManagementHintTextStyle"],
+                    Text = meta,
+                }
+            );
         }
 
         if (!string.IsNullOrWhiteSpace(definition.Description))
         {
-            stack.Children.Add(new TextBlock
-            {
-                Margin = new Thickness(0, 10, 0, 0),
-                Text = definition.Description,
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"]
-            });
+            stack.Children.Add(
+                new TextBlock
+                {
+                    Margin = new Thickness(0, 10, 0, 0),
+                    Text = definition.Description,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
+                }
+            );
         }
 
         return new Border
@@ -1503,7 +1757,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             BorderBrush = (Brush)Application.Current.Resources["ManagementBorderBrush"],
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(16),
-            Child = stack
+            Child = stack,
         };
     }
 
@@ -1515,10 +1769,13 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
             .ToDictionary(
                 group => group.Key,
                 group => group.Last().Value.Trim(),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.OrdinalIgnoreCase
+            );
     }
 
-    private static ManagementModelAlias[] BuildModelAliases(IEnumerable<EditableModelAliasItem> items)
+    private static ManagementModelAlias[] BuildModelAliases(
+        IEnumerable<EditableModelAliasItem> items
+    )
     {
         return items
             .Where(item => !string.IsNullOrWhiteSpace(item.Name))
@@ -1527,7 +1784,7 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
                 Name = item.Name.Trim(),
                 Alias = NormalizeText(item.Alias),
                 Priority = ParseNullableInt(item.Priority),
-                TestModel = NormalizeText(item.TestModel)
+                TestModel = NormalizeText(item.TestModel),
             })
             .ToArray();
     }
@@ -1543,7 +1800,9 @@ internal sealed class AiProvidersSecondaryRouteViewFactory : IManagementSecondar
 
     private static int? ParseNullableInt(string? text)
     {
-        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
     }
 
     private static string? NormalizeText(string? text)

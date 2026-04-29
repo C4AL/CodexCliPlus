@@ -4,12 +4,12 @@ using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Management.DesignSystem.Controls;
 using CodexCliPlus.Services.SecondaryRoutes;
 using CodexCliPlus.ViewModels.Pages;
+using CommunityToolkit.Mvvm.ComponentModel;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace CodexCliPlus.Views.Pages;
@@ -27,7 +27,8 @@ public partial class AuthFilesPage : Page
         IManagementAuthService authService,
         IManagementNavigationService navigationService,
         IUnsavedChangesGuard unsavedChangesGuard,
-        AuthFilesRouteState routeState)
+        AuthFilesRouteState routeState
+    )
     {
         _viewModel = viewModel;
         _navigationService = navigationService;
@@ -44,13 +45,15 @@ public partial class AuthFilesPage : Page
             this,
             _routeState,
             RefreshAndRenderAsync,
-            (routeKey, description) => routeHost?.TryNavigate(routeKey, description) ?? false);
+            (routeKey, description) => routeHost?.TryNavigate(routeKey, description) ?? false
+        );
         _routeHost = routeHost = new ManagementSecondaryRouteHost(
             DetailShell,
             "auth-files",
             _navigationService,
             unsavedChangesGuard,
-            routeFactory);
+            routeFactory
+        );
 
         Loaded += async (_, _) => await RefreshAndRenderAsync();
         _navigationService.RouteChanged += NavigationService_RouteChanged;
@@ -58,7 +61,13 @@ public partial class AuthFilesPage : Page
 
     private void NavigationService_RouteChanged(object? sender, EventArgs e)
     {
-        if (string.Equals(_navigationService.SelectedPrimaryRouteKey, "auth-files", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                _navigationService.SelectedPrimaryRouteKey,
+                "auth-files",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             Render();
         }
@@ -90,7 +99,13 @@ public partial class AuthFilesPage : Page
 
     private void SyncSelection()
     {
-        var selectedItem = _items.FirstOrDefault(item => string.Equals(item.Source.Name, _routeState.SelectedFileName, StringComparison.OrdinalIgnoreCase));
+        var selectedItem = _items.FirstOrDefault(item =>
+            string.Equals(
+                item.Source.Name,
+                _routeState.SelectedFileName,
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
         AuthFilesListBox.SelectedItem = selectedItem;
         foreach (var item in _items)
         {
@@ -101,7 +116,11 @@ public partial class AuthFilesPage : Page
         {
             _routeState.SetSelectedFile(null);
             _routeState.SetSelectedModels([]);
-            _routeState.SetDraftFields(null, null, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            _routeState.SetDraftFields(
+                null,
+                null,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            );
         }
     }
 
@@ -118,10 +137,13 @@ public partial class AuthFilesPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
-        RouteTextBlock.Text = _navigationService.CurrentRoute?.ParentKey == "auth-files"
-            ? _navigationService.CurrentRoute.Path
-            : "/auth-files";
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        RouteTextBlock.Text =
+            _navigationService.CurrentRoute?.ParentKey == "auth-files"
+                ? _navigationService.CurrentRoute.Path
+                : "/auth-files";
         UpdateBatchBar();
         _routeHost.Refresh();
     }
@@ -129,9 +151,8 @@ public partial class AuthFilesPage : Page
     private void UpdateBatchBar()
     {
         var selectedCount = _items.Count(item => item.IsChecked);
-        BatchActionBar.Summary = selectedCount == 0
-            ? string.Empty
-            : $"Selected {selectedCount} auth files";
+        BatchActionBar.Summary =
+            selectedCount == 0 ? string.Empty : $"Selected {selectedCount} auth files";
         BatchActionBar.Visibility = selectedCount == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
@@ -142,22 +163,18 @@ public partial class AuthFilesPage : Page
 
     private async void UploadButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
-        {
-            Filter = "JSON files|*.json",
-            Multiselect = true
-        };
+        var dialog = new OpenFileDialog { Filter = "JSON files|*.json", Multiselect = true };
 
         if (dialog.ShowDialog(Window.GetWindow(this)) != true)
         {
             return;
         }
 
-        var uploads = dialog.FileNames
-            .Select(file => new ManagementAuthFileUpload
+        var uploads = dialog
+            .FileNames.Select(file => new ManagementAuthFileUpload
             {
                 FileName = Path.GetFileName(file),
-                Content = File.ReadAllBytes(file)
+                Content = File.ReadAllBytes(file),
             })
             .ToArray();
 
@@ -188,7 +205,11 @@ public partial class AuthFilesPage : Page
         {
             _routeState.SetSelectedFile(null);
             _routeState.SetSelectedModels([]);
-            _routeState.SetDraftFields(null, null, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            _routeState.SetDraftFields(
+                null,
+                null,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            );
             _routeState.MarkClean();
             Render();
             return;
@@ -219,7 +240,11 @@ public partial class AuthFilesPage : Page
         }
         catch
         {
-            _routeState.SetDraftFields(null, null, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            _routeState.SetDraftFields(
+                null,
+                null,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            );
         }
     }
 
@@ -232,13 +257,17 @@ public partial class AuthFilesPage : Page
         var proxyUrl = GetOptionalString(root, "proxy-url", "proxy_url", "proxyUrl");
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        if (TryGetProperty(root, out var headersElement, "headers") && headersElement.ValueKind == JsonValueKind.Object)
+        if (
+            TryGetProperty(root, out var headersElement, "headers")
+            && headersElement.ValueKind == JsonValueKind.Object
+        )
         {
             foreach (var property in headersElement.EnumerateObject())
             {
-                headers[property.Name] = property.Value.ValueKind == JsonValueKind.String
-                    ? property.Value.GetString() ?? string.Empty
-                    : property.Value.ToString();
+                headers[property.Name] =
+                    property.Value.ValueKind == JsonValueKind.String
+                        ? property.Value.GetString() ?? string.Empty
+                        : property.Value.ToString();
             }
         }
 
@@ -247,12 +276,17 @@ public partial class AuthFilesPage : Page
 
     private static string? GetOptionalString(JsonElement element, params string[] names)
     {
-        return TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.String
+        return
+            TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
     }
 
-    private static bool TryGetProperty(JsonElement element, out JsonElement value, params string[] names)
+    private static bool TryGetProperty(
+        JsonElement element,
+        out JsonElement value,
+        params string[] names
+    )
     {
         foreach (var name in names)
         {
@@ -269,7 +303,8 @@ public partial class AuthFilesPage : Page
     private sealed record AuthFileEditableFields(
         string? Prefix,
         string? ProxyUrl,
-        IReadOnlyDictionary<string, string> Headers);
+        IReadOnlyDictionary<string, string> Headers
+    );
 
     private sealed partial class AuthFileEntryItem : ObservableObject
     {
@@ -288,10 +323,13 @@ public partial class AuthFilesPage : Page
 
         public string Title => Source.Label ?? Source.Name;
 
-        public string Subtitle => $"{ManagementPageSupport.FormatValue(Source.Email, "No email")} · {ManagementPageSupport.FormatValue(Source.AccountType, "Unknown type")}";
+        public string Subtitle =>
+            $"{ManagementPageSupport.FormatValue(Source.Email, "No email")} · {ManagementPageSupport.FormatValue(Source.AccountType, "Unknown type")}";
 
-        public string MetaText => $"{ManagementPageSupport.FormatValue(Source.Provider, "Unknown provider")} · {ManagementPageSupport.FormatFileSize(Source.Size)}";
+        public string MetaText =>
+            $"{ManagementPageSupport.FormatValue(Source.Provider, "Unknown provider")} · {ManagementPageSupport.FormatFileSize(Source.Size)}";
 
-        public string StatusText => Source.Disabled ? "Disabled" : (Source.StatusMessage ?? Source.Status ?? "Available");
+        public string StatusText =>
+            Source.Disabled ? "Disabled" : (Source.StatusMessage ?? Source.Status ?? "Available");
     }
 }

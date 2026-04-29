@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Abstractions.Updates;
@@ -21,7 +20,7 @@ public sealed class DependencyHealthService
         "LICENSE",
         "README.md",
         "README_CN.md",
-        "config.example.yaml"
+        "config.example.yaml",
     ];
 
     private readonly IPathService _pathService;
@@ -37,19 +36,23 @@ public sealed class DependencyHealthService
         ISecureCredentialStore credentialStore,
         IUpdateCheckService updateCheckService,
         Func<string>? frameworkDescriptionProvider = null,
-        Func<string?>? expectedBackendAssetRootResolver = null)
+        Func<string?>? expectedBackendAssetRootResolver = null
+    )
     {
         _pathService = pathService;
         _directoryAccessService = directoryAccessService;
         _credentialStore = credentialStore;
         _updateCheckService = updateCheckService;
-        _frameworkDescriptionProvider = frameworkDescriptionProvider ?? (() => RuntimeInformation.FrameworkDescription);
-        _expectedBackendAssetRootResolver = expectedBackendAssetRootResolver ?? ResolveExpectedBackendAssetRoot;
+        _frameworkDescriptionProvider =
+            frameworkDescriptionProvider ?? (() => RuntimeInformation.FrameworkDescription);
+        _expectedBackendAssetRootResolver =
+            expectedBackendAssetRootResolver ?? ResolveExpectedBackendAssetRoot;
     }
 
     public async Task<DependencyCheckResult> EvaluateAsync(
         BackendStatusSnapshot backendStatus,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var issues = new List<DependencyCheckIssue>();
 
@@ -71,7 +74,8 @@ public sealed class DependencyHealthService
                 Summary = "Desktop dependencies are ready for full functionality.",
                 Detail = Path.Combine(
                     _pathService.Directories.BackendDirectory,
-                    BackendExecutableNames.ManagedExecutableFileName)
+                    BackendExecutableNames.ManagedExecutableFileName
+                ),
             };
         }
 
@@ -79,9 +83,13 @@ public sealed class DependencyHealthService
         {
             IsAvailable = false,
             RequiresRepairMode = true,
-            Summary = $"Dependency repair mode is active because {issues.Count} blocking checks failed.",
-            Detail = string.Join(Environment.NewLine, issues.Select(issue => $"- {issue.Title}: {issue.Detail}")),
-            Issues = issues
+            Summary =
+                $"Dependency repair mode is active because {issues.Count} blocking checks failed.",
+            Detail = string.Join(
+                Environment.NewLine,
+                issues.Select(issue => $"- {issue.Title}: {issue.Detail}")
+            ),
+            Issues = issues,
         };
     }
 
@@ -99,13 +107,16 @@ public sealed class DependencyHealthService
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "runtime-version",
-            Title = "Runtime version is below the desktop requirement.",
-            Detail = $"Current runtime '{frameworkDescription}' does not meet the required .NET {RequiredRuntimeMajorVersion} desktop baseline.",
-            CanRepairNow = false
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "runtime-version",
+                Title = "Runtime version is below the desktop requirement.",
+                Detail =
+                    $"Current runtime '{frameworkDescription}' does not meet the required .NET {RequiredRuntimeMajorVersion} desktop baseline.",
+                CanRepairNow = false,
+            }
+        );
     }
 
     private void CheckDirectoryAccess(List<DependencyCheckIssue> issues)
@@ -122,42 +133,50 @@ public sealed class DependencyHealthService
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "directory-access",
-            Title = "Managed desktop directories are not writable.",
-            Detail = string.Join(" | ", failures),
-            CanRepairNow = false
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "directory-access",
+                Title = "Managed desktop directories are not writable.",
+                Detail = string.Join(" | ", failures),
+                CanRepairNow = false,
+            }
+        );
     }
 
     private void CheckBackendRuntime(List<DependencyCheckIssue> issues)
     {
         var executablePath = Path.Combine(
             _pathService.Directories.BackendDirectory,
-            BackendExecutableNames.ManagedExecutableFileName);
+            BackendExecutableNames.ManagedExecutableFileName
+        );
         if (!File.Exists(executablePath))
         {
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "backend-runtime",
-                Title = "Go backend runtime files are missing.",
-                Detail = $"Expected executable was not found at '{executablePath}'.",
-                CanRepairNow = true
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "backend-runtime",
+                    Title = "Go backend runtime files are missing.",
+                    Detail = $"Expected executable was not found at '{executablePath}'.",
+                    CanRepairNow = true,
+                }
+            );
             return;
         }
 
         var fileInfo = new FileInfo(executablePath);
         if (fileInfo.Length <= 0)
         {
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "backend-runtime",
-                Title = "Go backend runtime files are damaged.",
-                Detail = $"Managed executable '{executablePath}' is empty and cannot be launched.",
-                CanRepairNow = true
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "backend-runtime",
+                    Title = "Go backend runtime files are damaged.",
+                    Detail =
+                        $"Managed executable '{executablePath}' is empty and cannot be launched.",
+                    CanRepairNow = true,
+                }
+            );
             return;
         }
 
@@ -169,19 +188,23 @@ public sealed class DependencyHealthService
 
         var expectedExecutable = Path.Combine(
             expectedRoot,
-            BackendExecutableNames.ManagedExecutableFileName);
+            BackendExecutableNames.ManagedExecutableFileName
+        );
         if (!File.Exists(expectedExecutable) || FilesMatch(executablePath, expectedExecutable))
         {
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "backend-runtime",
-            Title = "Go backend runtime files failed integrity validation.",
-            Detail = $"Managed executable '{executablePath}' does not match the bundled backend asset source.",
-            CanRepairNow = true
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "backend-runtime",
+                Title = "Go backend runtime files failed integrity validation.",
+                Detail =
+                    $"Managed executable '{executablePath}' does not match the bundled backend asset source.",
+                CanRepairNow = true,
+            }
+        );
     }
 
     private void CheckInitializationState(List<DependencyCheckIssue> issues)
@@ -200,19 +223,22 @@ public sealed class DependencyHealthService
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "initialization",
-            Title = "First-run initialization is incomplete.",
-            Detail =
-                $"Detected a partial desktop state: settings={settingsExists}, backendConfig={backendConfigExists}, secrets={secretFilesExist}.",
-            CanRepairNow = false
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "initialization",
+                Title = "First-run initialization is incomplete.",
+                Detail =
+                    $"Detected a partial desktop state: settings={settingsExists}, backendConfig={backendConfigExists}, secrets={secretFilesExist}.",
+                CanRepairNow = false,
+            }
+        );
     }
 
     private async Task CheckCredentialStoreAsync(
         List<DependencyCheckIssue> issues,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var probeReference = $"dependency-health-{Guid.NewGuid():N}";
         var probeValue = Guid.NewGuid().ToString("N");
@@ -220,29 +246,37 @@ public sealed class DependencyHealthService
         try
         {
             await _credentialStore.SaveSecretAsync(probeReference, probeValue, cancellationToken);
-            var storedValue = await _credentialStore.LoadSecretAsync(probeReference, cancellationToken);
+            var storedValue = await _credentialStore.LoadSecretAsync(
+                probeReference,
+                cancellationToken
+            );
             if (string.Equals(storedValue, probeValue, StringComparison.Ordinal))
             {
                 return;
             }
 
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "credential-store",
-                Title = "Credential Manager or DPAPI is unavailable.",
-                Detail = "Secure credential storage returned an unexpected value during the probe round-trip.",
-                CanRepairNow = false
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "credential-store",
+                    Title = "Credential Manager or DPAPI is unavailable.",
+                    Detail =
+                        "Secure credential storage returned an unexpected value during the probe round-trip.",
+                    CanRepairNow = false,
+                }
+            );
         }
         catch (SecureCredentialStoreException exception)
         {
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "credential-store",
-                Title = "Credential Manager or DPAPI is unavailable.",
-                Detail = exception.Message,
-                CanRepairNow = false
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "credential-store",
+                    Title = "Credential Manager or DPAPI is unavailable.",
+                    Detail = exception.Message,
+                    CanRepairNow = false,
+                }
+            );
         }
         finally
         {
@@ -250,51 +284,61 @@ public sealed class DependencyHealthService
             {
                 await _credentialStore.DeleteSecretAsync(probeReference, cancellationToken);
             }
-            catch
-            {
-            }
+            catch { }
         }
     }
 
     private async Task CheckUpdateComponentAsync(
         List<DependencyCheckIssue> issues,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            var result = await _updateCheckService.CheckAsync("0.0.0", UpdateChannel.Beta, cancellationToken);
-            if (result.IsCheckSuccessful &&
-                result.IsChannelReserved &&
-                !string.IsNullOrWhiteSpace(result.ApiUrl) &&
-                !string.IsNullOrWhiteSpace(result.ReleasePageUrl))
+            var result = await _updateCheckService.CheckAsync(
+                "0.0.0",
+                UpdateChannel.Beta,
+                cancellationToken
+            );
+            if (
+                result.IsCheckSuccessful
+                && result.IsChannelReserved
+                && !string.IsNullOrWhiteSpace(result.ApiUrl)
+                && !string.IsNullOrWhiteSpace(result.ReleasePageUrl)
+            )
             {
                 return;
             }
 
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "update-component",
-                Title = "Update component metadata is missing or damaged.",
-                Detail =
-                    $"Reserved update probe returned status '{result.Status}' with repository '{result.Repository}' and release page '{result.ReleasePageUrl ?? "(missing)"}'.",
-                CanRepairNow = false
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "update-component",
+                    Title = "Update component metadata is missing or damaged.",
+                    Detail =
+                        $"Reserved update probe returned status '{result.Status}' with repository '{result.Repository}' and release page '{result.ReleasePageUrl ?? "(missing)"}'.",
+                    CanRepairNow = false,
+                }
+            );
         }
         catch (Exception exception)
         {
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "update-component",
-                Title = "Update component metadata is missing or damaged.",
-                Detail = exception.Message,
-                CanRepairNow = false
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "update-component",
+                    Title = "Update component metadata is missing or damaged.",
+                    Detail = exception.Message,
+                    CanRepairNow = false,
+                }
+            );
         }
     }
 
     private static void CheckPortAllocation(
         List<DependencyCheckIssue> issues,
-        BackendStatusSnapshot backendStatus)
+        BackendStatusSnapshot backendStatus
+    )
     {
         if (backendStatus.State != BackendStateKind.Error)
         {
@@ -302,37 +346,47 @@ public sealed class DependencyHealthService
         }
 
         var detail = backendStatus.LastError ?? backendStatus.Message;
-        if (!detail.Contains("No available loopback port was found", StringComparison.OrdinalIgnoreCase) &&
-            !detail.Contains("CodexCliPlus backend port", StringComparison.OrdinalIgnoreCase))
+        if (
+            !detail.Contains(
+                "No available loopback port was found",
+                StringComparison.OrdinalIgnoreCase
+            ) && !detail.Contains("CodexCliPlus backend port", StringComparison.OrdinalIgnoreCase)
+        )
         {
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "port-allocation",
-            Title = "Critical backend port allocation failed.",
-            Detail = detail,
-            CanRepairNow = false
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "port-allocation",
+                Title = "Critical backend port allocation failed.",
+                Detail = detail,
+                CanRepairNow = false,
+            }
+        );
     }
 
     private void CheckResourcePack(List<DependencyCheckIssue> issues)
     {
         var expectedRoot = _expectedBackendAssetRootResolver();
         var missingFiles = RequiredResourceFiles
-            .Where(fileName => !File.Exists(Path.Combine(_pathService.Directories.BackendDirectory, fileName)))
+            .Where(fileName =>
+                !File.Exists(Path.Combine(_pathService.Directories.BackendDirectory, fileName))
+            )
             .ToArray();
 
         if (missingFiles.Length > 0)
         {
-            issues.Add(new DependencyCheckIssue
-            {
-                Code = "resource-pack",
-                Title = "Required backend resource pack is missing.",
-                Detail = $"Missing files: {string.Join(", ", missingFiles)}.",
-                CanRepairNow = true
-            });
+            issues.Add(
+                new DependencyCheckIssue
+                {
+                    Code = "resource-pack",
+                    Title = "Required backend resource pack is missing.",
+                    Detail = $"Missing files: {string.Join(", ", missingFiles)}.",
+                    CanRepairNow = true,
+                }
+            );
             return;
         }
 
@@ -355,13 +409,15 @@ public sealed class DependencyHealthService
             return;
         }
 
-        issues.Add(new DependencyCheckIssue
-        {
-            Code = "resource-pack",
-            Title = "Required backend resource pack version does not match the bundled source.",
-            Detail = $"Mismatched files: {string.Join(", ", mismatchedFiles)}.",
-            CanRepairNow = true
-        });
+        issues.Add(
+            new DependencyCheckIssue
+            {
+                Code = "resource-pack",
+                Title = "Required backend resource pack version does not match the bundled source.",
+                Detail = $"Mismatched files: {string.Join(", ", mismatchedFiles)}.",
+                CanRepairNow = true,
+            }
+        );
     }
 
     private void AddDirectoryFailure(List<string> failures, string label, string path)
@@ -375,8 +431,12 @@ public sealed class DependencyHealthService
 
     private bool HasSecretFiles()
     {
-        var secretDirectory = Path.Combine(_pathService.Directories.ConfigDirectory, AppConstants.SecretsDirectoryName);
-        return Directory.Exists(secretDirectory) && Directory.EnumerateFiles(secretDirectory, "*.bin").Any();
+        var secretDirectory = Path.Combine(
+            _pathService.Directories.ConfigDirectory,
+            AppConstants.SecretsDirectoryName
+        );
+        return Directory.Exists(secretDirectory)
+            && Directory.EnumerateFiles(secretDirectory, "*.bin").Any();
     }
 
     private static bool FilesMatch(string leftPath, string rightPath)
@@ -388,7 +448,11 @@ public sealed class DependencyHealthService
             return false;
         }
 
-        return string.Equals(ComputeHash(leftPath), ComputeHash(rightPath), StringComparison.OrdinalIgnoreCase);
+        return string.Equals(
+            ComputeHash(leftPath),
+            ComputeHash(rightPath),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     private static string ComputeHash(string path)
@@ -399,8 +463,15 @@ public sealed class DependencyHealthService
 
     private static string? ResolveExpectedBackendAssetRoot()
     {
-        var bundledRoot = Path.Combine(AppContext.BaseDirectory, "assets", "backend", "windows-x64");
-        if (File.Exists(Path.Combine(bundledRoot, BackendExecutableNames.ManagedExecutableFileName)))
+        var bundledRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "assets",
+            "backend",
+            "windows-x64"
+        );
+        if (
+            File.Exists(Path.Combine(bundledRoot, BackendExecutableNames.ManagedExecutableFileName))
+        )
         {
             return bundledRoot;
         }
@@ -411,8 +482,15 @@ public sealed class DependencyHealthService
             return null;
         }
 
-        var repositoryAssets = Path.Combine(repositoryRoot, AppConstants.ResourcesDirectoryName, "backend", "windows-x64");
-        return File.Exists(Path.Combine(repositoryAssets, BackendExecutableNames.ManagedExecutableFileName))
+        var repositoryAssets = Path.Combine(
+            repositoryRoot,
+            AppConstants.ResourcesDirectoryName,
+            "backend",
+            "windows-x64"
+        );
+        return File.Exists(
+            Path.Combine(repositoryAssets, BackendExecutableNames.ManagedExecutableFileName)
+        )
             ? repositoryAssets
             : null;
     }

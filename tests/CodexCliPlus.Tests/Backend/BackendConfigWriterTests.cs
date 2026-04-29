@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
@@ -14,7 +13,10 @@ namespace CodexCliPlus.Tests.Backend;
 [Collection("BackendProcessManager")]
 public sealed class BackendConfigWriterTests : IDisposable
 {
-    private readonly string _rootDirectory = Path.Combine(Path.GetTempPath(), $"codexcliplus-backend-config-{Guid.NewGuid():N}");
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-backend-config-{Guid.NewGuid():N}"
+    );
 
     [Fact]
     public async Task WriteAsyncGeneratesLoopbackOnlyConfigAndManagementKey()
@@ -25,7 +27,7 @@ public sealed class BackendConfigWriterTests : IDisposable
         var settings = new AppSettings
         {
             BackendPort = 9317,
-            PreferredCodexSource = CodexSourceKind.Official
+            PreferredCodexSource = CodexSourceKind.Official,
         };
 
         var runtime = await writer.WriteAsync(settings);
@@ -38,7 +40,10 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.Equal(AppConstants.DefaultBackendPort, runtime.Port);
         Assert.False(runtime.PortWasAdjusted);
         Assert.Equal($"http://127.0.0.1:{AppConstants.DefaultBackendPort}", runtime.BaseUrl);
-        Assert.Equal($"http://127.0.0.1:{AppConstants.DefaultBackendPort}/healthz", runtime.HealthUrl);
+        Assert.Equal(
+            $"http://127.0.0.1:{AppConstants.DefaultBackendPort}/healthz",
+            runtime.HealthUrl
+        );
         Assert.False(string.IsNullOrWhiteSpace(runtime.ManagementKey));
         Assert.DoesNotContain(runtime.ManagementKey, yaml, StringComparison.Ordinal);
         Assert.Contains("host: \"127.0.0.1\"", yaml, StringComparison.Ordinal);
@@ -46,7 +51,11 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.Contains("allow-remote: false", yaml, StringComparison.Ordinal);
         Assert.Contains("secret-key:", yaml, StringComparison.Ordinal);
         Assert.Contains("disable-control-panel: true", yaml, StringComparison.Ordinal);
-        Assert.Contains($"auth-dir: \"{EscapeYaml(Path.Combine(_rootDirectory, "backend", "auth"))}\"", yaml, StringComparison.Ordinal);
+        Assert.Contains(
+            $"auth-dir: \"{EscapeYaml(Path.Combine(_rootDirectory, "backend", "auth"))}\"",
+            yaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("\"backendPort\": 1327", desktopJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9317", desktopJson, StringComparison.Ordinal);
         Assert.DoesNotContain(".cli-proxy-api", yaml, StringComparison.OrdinalIgnoreCase);
@@ -69,11 +78,16 @@ public sealed class BackendConfigWriterTests : IDisposable
         var writer = new BackendConfigWriter(configurationService, pathService);
         using var listener = TryListenOnDefaultPort();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => writer.WriteAsync(new AppSettings { BackendPort = 9327 }));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            writer.WriteAsync(new AppSettings { BackendPort = 9327 })
+        );
         var yaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
 
-        Assert.Contains("CodexCliPlus backend port 1327 is already in use", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "CodexCliPlus backend port 1327 is already in use",
+            exception.Message,
+            StringComparison.Ordinal
+        );
         Assert.Contains($"port: {AppConstants.DefaultBackendPort}", yaml, StringComparison.Ordinal);
         Assert.DoesNotContain("9327", yaml, StringComparison.Ordinal);
     }
@@ -87,21 +101,30 @@ public sealed class BackendConfigWriterTests : IDisposable
         var initialSettings = new AppSettings
         {
             ManagementKey = "correct-management-key",
-            SecurityKeyOnboardingCompleted = false
+            SecurityKeyOnboardingCompleted = false,
         };
 
         await writer.WriteAsync(
             initialSettings,
-            new BackendConfigWriteOptions { AllowManagementKeyRotation = true });
-        var originalYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
-        var originalHash = Regex.Match(originalYaml, "secret-key: \"(?<hash>.+)\"").Groups["hash"].Value;
+            new BackendConfigWriteOptions { AllowManagementKeyRotation = true }
+        );
+        var originalYaml = await File.ReadAllTextAsync(
+            pathService.Directories.BackendConfigFilePath
+        );
+        var originalHash = Regex
+            .Match(originalYaml, "secret-key: \"(?<hash>.+)\"")
+            .Groups["hash"]
+            .Value;
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => writer.WriteAsync(new AppSettings
-            {
-                ManagementKey = "wrong-management-key",
-                SecurityKeyOnboardingCompleted = true
-            }));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            writer.WriteAsync(
+                new AppSettings
+                {
+                    ManagementKey = "wrong-management-key",
+                    SecurityKeyOnboardingCompleted = true,
+                }
+            )
+        );
         var finalYaml = await File.ReadAllTextAsync(pathService.Directories.BackendConfigFilePath);
         var finalHash = Regex.Match(finalYaml, "secret-key: \"(?<hash>.+)\"").Groups["hash"].Value;
 
@@ -119,14 +142,21 @@ public sealed class BackendConfigWriterTests : IDisposable
         var configurationService = new JsonAppConfigurationService(pathService);
         var writer = new BackendConfigWriter(configurationService, pathService);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => writer.WriteAsync(new AppSettings
-            {
-                ManagementKey = "remembered-key",
-                SecurityKeyOnboardingCompleted = true
-            }));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            writer.WriteAsync(
+                new AppSettings
+                {
+                    ManagementKey = "remembered-key",
+                    SecurityKeyOnboardingCompleted = true,
+                }
+            )
+        );
 
-        Assert.Contains("普通登录不会生成或重置安全密钥", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "普通登录不会生成或重置安全密钥",
+            exception.Message,
+            StringComparison.Ordinal
+        );
         Assert.False(File.Exists(pathService.Directories.BackendConfigFilePath));
     }
 
@@ -146,7 +176,9 @@ public sealed class BackendConfigWriterTests : IDisposable
 
     private static string EscapeYaml(string value)
     {
-        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
     }
 
     public void Dispose()
@@ -168,7 +200,8 @@ public sealed class BackendConfigWriterTests : IDisposable
                 Path.Combine(rootDirectory, "backend"),
                 Path.Combine(rootDirectory, "cache"),
                 Path.Combine(rootDirectory, "config", "appsettings.json"),
-                Path.Combine(rootDirectory, "config", "backend.yaml"));
+                Path.Combine(rootDirectory, "config", "backend.yaml")
+            );
         }
 
         public AppDirectories Directories { get; }

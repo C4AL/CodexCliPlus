@@ -1,5 +1,4 @@
 using System.Diagnostics;
-
 using CodexCliPlus.Core.Abstractions.Processes;
 
 namespace CodexCliPlus.Infrastructure.Processes;
@@ -44,7 +43,10 @@ public sealed class SystemManagedProcess : IManagedProcess
             if (_process.CloseMainWindow())
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    timeout.Token
+                );
                 await _process.WaitForExitAsync(linked.Token);
                 return;
             }

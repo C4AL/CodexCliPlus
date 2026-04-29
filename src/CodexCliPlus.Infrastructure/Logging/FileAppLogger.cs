@@ -1,5 +1,4 @@
 using System.Text;
-
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
@@ -14,7 +13,10 @@ public sealed class FileAppLogger : IAppLogger
     public FileAppLogger(IPathService pathService)
     {
         Directory.CreateDirectory(pathService.Directories.LogsDirectory);
-        LogFilePath = Path.Combine(pathService.Directories.LogsDirectory, AppConstants.DefaultLogFileName);
+        LogFilePath = Path.Combine(
+            pathService.Directories.LogsDirectory,
+            AppConstants.DefaultLogFileName
+        );
     }
 
     public string LogFilePath { get; }
@@ -31,16 +33,23 @@ public sealed class FileAppLogger : IAppLogger
 
     public void LogError(string message, Exception? exception = null)
     {
-        var fullMessage = exception is null ? message : $"{message}{Environment.NewLine}{exception}";
+        var fullMessage = exception is null
+            ? message
+            : $"{message}{Environment.NewLine}{exception}";
         Write("ERR", fullMessage);
     }
 
     private void Write(string level, string message)
     {
-        var line = $"{DateTimeOffset.Now:O} [{level}] {SensitiveDataRedactor.Redact(message)}{Environment.NewLine}";
+        var line =
+            $"{DateTimeOffset.Now:O} [{level}] {SensitiveDataRedactor.Redact(message)}{Environment.NewLine}";
         lock (_gate)
         {
-            File.AppendAllText(LogFilePath, line, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.AppendAllText(
+                LogFilePath,
+                line,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+            );
         }
     }
 }

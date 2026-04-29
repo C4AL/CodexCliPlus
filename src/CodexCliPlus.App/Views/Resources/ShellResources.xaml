@@ -1,0 +1,407 @@
+<ResourceDictionary
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+>
+  <DropShadowEffect
+    x:Key="ShellRaisedPanelShadow"
+    BlurRadius="16"
+    Direction="270"
+    Color="#10000000"
+    Opacity="1"
+    ShadowDepth="2"
+  />
+  <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Effect" Value="{StaticResource ShellRaisedPanelShadow}" />
+  </Style>
+  <Style x:Key="ShellIconButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="RenderTransform">
+      <Setter.Value>
+        <ScaleTransform ScaleX="1" ScaleY="1" />
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border
+            x:Name="ButtonChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="8"
+          >
+            <ContentPresenter
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RecognizesAccessKey="True"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource AccentSoftBrush}"
+              />
+              <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource BorderBrush}"
+              />
+              <Setter Property="RenderTransform">
+                <Setter.Value>
+                  <ScaleTransform ScaleX="0.96" ScaleY="0.96" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ShellTopActionButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="RenderTransform">
+      <Setter.Value>
+        <ScaleTransform ScaleX="1" ScaleY="1" />
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" CornerRadius="8">
+            <ContentPresenter
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RecognizesAccessKey="True"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource AccentSoftBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource BorderBrush}"
+              />
+              <Setter Property="RenderTransform">
+                <Setter.Value>
+                  <ScaleTransform ScaleX="0.96" ScaleY="0.96" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style
+    x:Key="ShellInlineIconButtonStyle"
+    TargetType="{x:Type Button}"
+    BasedOn="{StaticResource ShellIconButtonStyle}"
+  >
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Opacity" Value="0.58" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+      <Trigger Property="IsKeyboardFocusWithin" Value="True">
+        <Setter Property="Opacity" Value="1" />
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="ShellBrandDockButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+    <Setter Property="RenderTransform">
+      <Setter.Value>
+        <ScaleTransform ScaleX="1" ScaleY="1" />
+      </Setter.Value>
+    </Setter>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border
+            x:Name="ButtonChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="10"
+          >
+            <ContentPresenter
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RecognizesAccessKey="True"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource SurfaceAltBrush}"
+              />
+              <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter Property="RenderTransform">
+                <Setter.Value>
+                  <ScaleTransform ScaleX="0.98" ScaleY="0.98" />
+                </Setter.Value>
+              </Setter>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="SilentLoginRiskIconStyle" TargetType="{x:Type Button}">
+    <Setter Property="Width" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Margin" Value="2,0,0,0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Focusable" Value="True" />
+    <Setter Property="ToolTipService.InitialShowDelay" Value="120" />
+    <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}" CornerRadius="12">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="ButtonChrome" Property="Background" Value="#18B42318" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="ButtonChrome" Property="Background" Value="#18B42318" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ShellIconViewboxStyle" TargetType="{x:Type Viewbox}">
+    <Setter Property="Width" Value="17" />
+    <Setter Property="Height" Value="17" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+  </Style>
+  <Style x:Key="ShellTextToolTipStyle" TargetType="{x:Type ToolTip}">
+    <Setter Property="FontFamily" Value="{StaticResource TextThemeFontFamily}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+  </Style>
+  <Style
+    x:Key="ShellRiskToolTipStyle"
+    TargetType="{x:Type ToolTip}"
+    BasedOn="{StaticResource ShellTextToolTipStyle}"
+  >
+    <Setter Property="Foreground" Value="#B42318" />
+  </Style>
+  <Style x:Key="ShellStatusPillStyle" TargetType="{x:Type Border}">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style x:Key="TitleBarButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="ButtonChrome" Background="{TemplateBinding Background}">
+            <ContentPresenter
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RecognizesAccessKey="True"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource SurfaceAltBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource BorderBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="ShellNavigationButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Height" Value="42" />
+    <Setter Property="MinWidth" Value="52" />
+    <Setter Property="Margin" Value="6,3" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border
+            x:Name="ButtonChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="12"
+          >
+            <ContentPresenter
+              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource AccentSoftBrush}"
+              />
+            </Trigger>
+            <Trigger Property="Tag" Value="Active">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource AccentSoftBrush}"
+              />
+              <Setter Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="DialogCloseButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border
+            x:Name="ButtonChrome"
+            Background="{TemplateBinding Background}"
+            CornerRadius="0,16,0,8"
+          >
+            <ContentPresenter
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RecognizesAccessKey="True"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource SurfaceAltBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter
+                TargetName="ButtonChrome"
+                Property="Background"
+                Value="{DynamicResource BorderBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

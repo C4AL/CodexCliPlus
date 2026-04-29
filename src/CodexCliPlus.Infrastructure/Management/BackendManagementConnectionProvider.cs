@@ -13,7 +13,9 @@ public sealed class BackendManagementConnectionProvider : IManagementConnectionP
         _backendProcessManager = backendProcessManager;
     }
 
-    public async Task<ManagementConnectionInfo> GetConnectionAsync(CancellationToken cancellationToken = default)
+    public async Task<ManagementConnectionInfo> GetConnectionAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         var status = _backendProcessManager.CurrentStatus;
         if (status.Runtime is null || status.State != Core.Enums.BackendStateKind.Running)
@@ -23,14 +25,16 @@ public sealed class BackendManagementConnectionProvider : IManagementConnectionP
 
         if (status.Runtime is null || status.State != Core.Enums.BackendStateKind.Running)
         {
-            throw new InvalidOperationException(status.LastError ?? "CLIProxyAPI backend is not available.");
+            throw new InvalidOperationException(
+                status.LastError ?? "CLIProxyAPI backend is not available."
+            );
         }
 
         return new ManagementConnectionInfo
         {
             BaseUrl = status.Runtime.BaseUrl,
             ManagementApiBaseUrl = status.Runtime.ManagementApiBaseUrl,
-            ManagementKey = status.Runtime.ManagementKey
+            ManagementKey = status.Runtime.ManagementKey,
         };
     }
 }

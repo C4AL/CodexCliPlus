@@ -12,17 +12,29 @@ public sealed class ManagementSystemService : IManagementSystemService
         _apiClient = apiClient;
     }
 
-    public async Task<ManagementApiResponse<ManagementLatestVersionInfo>> GetLatestVersionAsync(CancellationToken cancellationToken = default)
+    public async Task<ManagementApiResponse<ManagementLatestVersionInfo>> GetLatestVersionAsync(
+        CancellationToken cancellationToken = default
+    )
     {
-        var response = await _apiClient.SendManagementAsync(HttpMethod.Get, "latest-version", cancellationToken: cancellationToken);
+        var response = await _apiClient.SendManagementAsync(
+            HttpMethod.Get,
+            "latest-version",
+            cancellationToken: cancellationToken
+        );
         using var document = ManagementJson.Parse(response.Value);
-        return ManagementResponseFactory.Map(response, ManagementMappers.MapLatestVersion(document.RootElement));
+        return ManagementResponseFactory.Map(
+            response,
+            ManagementMappers.MapLatestVersion(document.RootElement)
+        );
     }
 
-    public async Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetAvailableModelsAsync(
+    public async Task<
+        ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
+    > GetAvailableModelsAsync(
         string? apiKey = null,
         IReadOnlyDictionary<string, string>? headers = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         var requestHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (headers is not null)
@@ -38,17 +50,27 @@ public sealed class ManagementSystemService : IManagementSystemService
             requestHeaders["Authorization"] = $"Bearer {apiKey}";
         }
 
-        var response = await _apiClient.GetBackendAsync("v1/models", requestHeaders, cancellationToken: cancellationToken);
+        var response = await _apiClient.GetBackendAsync(
+            "v1/models",
+            requestHeaders,
+            cancellationToken: cancellationToken
+        );
         using var document = ManagementJson.Parse(response.Value);
-        return ManagementResponseFactory.Map(response, ManagementMappers.MapModelDescriptors(document.RootElement));
+        return ManagementResponseFactory.Map(
+            response,
+            ManagementMappers.MapModelDescriptors(document.RootElement)
+        );
     }
 
-    public async Task<ManagementApiResponse<ManagementApiCallResult>> ExecuteApiCallAsync(ManagementApiCallRequest request, CancellationToken cancellationToken = default)
+    public async Task<ManagementApiResponse<ManagementApiCallResult>> ExecuteApiCallAsync(
+        ManagementApiCallRequest request,
+        CancellationToken cancellationToken = default
+    )
     {
         var payload = new Dictionary<string, object?>
         {
             ["method"] = request.Method,
-            ["url"] = request.Url
+            ["url"] = request.Url,
         };
 
         if (!string.IsNullOrWhiteSpace(request.AuthIndex))
@@ -70,8 +92,12 @@ public sealed class ManagementSystemService : IManagementSystemService
             HttpMethod.Post,
             "api-call",
             ManagementJson.Serialize(payload),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken
+        );
         using var document = ManagementJson.Parse(response.Value);
-        return ManagementResponseFactory.Map(response, ManagementMappers.MapApiCallResult(document.RootElement));
+        return ManagementResponseFactory.Map(
+            response,
+            ManagementMappers.MapApiCallResult(document.RootElement)
+        );
     }
 }

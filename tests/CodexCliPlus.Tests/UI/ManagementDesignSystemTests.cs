@@ -8,12 +8,23 @@ public sealed class ManagementDesignSystemTests
     public void AppProjectReferencesWebView2AndPublishesVendoredWebUiAssets()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var csproj = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"), Encoding.UTF8);
+        var csproj = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"),
+            Encoding.UTF8
+        );
 
         Assert.Contains("Microsoft.Web.WebView2", csproj, StringComparison.Ordinal);
-        Assert.Contains("resources\\webui\\upstream\\dist\\**\\*", csproj, StringComparison.Ordinal);
+        Assert.Contains(
+            "resources\\webui\\upstream\\dist\\**\\*",
+            csproj,
+            StringComparison.Ordinal
+        );
         Assert.Contains("resources\\webui\\upstream\\sync.json", csproj, StringComparison.Ordinal);
-        Assert.Contains("CliProxyApiManagementCenter.LICENSE.txt", csproj, StringComparison.Ordinal);
+        Assert.Contains(
+            "CliProxyApiManagementCenter.LICENSE.txt",
+            csproj,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -21,26 +32,66 @@ public sealed class ManagementDesignSystemTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var viteConfig = File.ReadAllText(
-            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "vite.config.ts"),
-            Encoding.UTF8);
-        var buildTool = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"), Encoding.UTF8);
-        var locator = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "WebUiAssetLocator.cs"), Encoding.UTF8);
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "vite.config.ts"
+            ),
+            Encoding.UTF8
+        );
+        var buildTool = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"),
+            Encoding.UTF8
+        );
+        var locator = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "WebUiAssetLocator.cs"
+            ),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("outDir: path.resolve(__dirname, '../dist')", viteConfig, StringComparison.Ordinal);
-        Assert.Contains("WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, \"dist\")", buildTool, StringComparison.Ordinal);
+        Assert.Contains(
+            "outDir: path.resolve(__dirname, '../dist')",
+            viteConfig,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, \"dist\")",
+            buildTool,
+            StringComparison.Ordinal
+        );
         Assert.True(
-            locator.IndexOf("TryResolveFromRepository", StringComparison.Ordinal) <
-            locator.IndexOf("TryResolveFromBaseDirectory", StringComparison.Ordinal));
+            locator.IndexOf("TryResolveFromRepository", StringComparison.Ordinal)
+                < locator.IndexOf("TryResolveFromBaseDirectory", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void AppResourcesStillMergeDesignSystemForLegacyCompileCompatibility()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var appXaml = File.ReadAllText(Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml"), Encoding.UTF8);
+        var appXaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml"),
+            Encoding.UTF8
+        );
 
-        Assert.Contains("CodexCliPlus.Management.DesignSystem;component/Themes/DesignSystem.xaml", appXaml, StringComparison.Ordinal);
-        Assert.Contains("Views/Controls/WpfUi/FaFontIconStyle.xaml", appXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "CodexCliPlus.Management.DesignSystem;component/Themes/DesignSystem.xaml",
+            appXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Views/Controls/WpfUi/FaFontIconStyle.xaml",
+            appXaml,
+            StringComparison.Ordinal
+        );
     }
 
     private static string FindRepositoryRoot()

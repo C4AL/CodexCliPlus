@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --redact --no-banner --config .gitleaks.toml
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: actionlint {staged_files}
+    web-type-check:
+      glob: "resources/webui/upstream/source/**/*.{ts,tsx}"
+      run: powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Push-Location resources/webui/upstream/source; try { npm run type-check; exit $LASTEXITCODE } finally { Pop-Location }"

@@ -1,0 +1,59 @@
+name: Security
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "41 20 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secrets-and-sbom:
+    name: secrets-and-sbom
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restore .NET packages
+        run: dotnet restore CodexCliPlus.sln
+
+      - name: Generate CycloneDX SBOM
+        run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
+
+      - name: Generate Syft SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: artifacts/sbom/codexcliplus.syft.cyclonedx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: artifacts/sbom

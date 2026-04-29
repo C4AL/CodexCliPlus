@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known redacted fixture values and vendored management reference assets"
+paths = [
+  '''tests/CPAD\.Tests/Security/DpapiCredentialStoreTests\.cs''',
+  '''tests/CodexCliPlus\.Tests/Security/DpapiCredentialStoreTests\.cs''',
+  '''resources/webui/modules/cpa-uv-overlay/live-assets/cpa-uv-management-reference\.html''',
+  '''sources/cpa-uv-overlay/assets/management\.html'''
+]

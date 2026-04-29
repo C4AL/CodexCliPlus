@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommitsDisabled"
+  ],
+  "timezone": "Asia/Shanghai",
+  "labels": [
+    "dependencies"
+  ],
+  "enabledManagers": [
+    "github-actions",
+    "npm",
+    "nuget"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": [
+        "nuget"
+      ],
+      "groupName": "NuGet packages"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "groupName": "frontend dev tools"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions"
+    }
+  ]
+}

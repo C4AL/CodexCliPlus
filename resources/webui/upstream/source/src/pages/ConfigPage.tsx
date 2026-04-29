@@ -435,16 +435,16 @@ export function ConfigPage() {
   const getFloatingStatusText = () => {
     if (!isMobile) return getStatusText();
     if (disableControls)
-      return t('config_management.status_disconnected_short', { defaultValue: 'Disconnected' });
-    if (loading) return t('config_management.status_loading_short', { defaultValue: 'Loading' });
-    if (error) return t('config_management.status_load_failed_short', { defaultValue: 'Failed' });
+      return t('config_management.status_disconnected_short', { defaultValue: '未连接' });
+    if (loading) return t('config_management.status_loading_short', { defaultValue: '加载中' });
+    if (error) return t('config_management.status_load_failed_short', { defaultValue: '加载失败' });
     if (hasVisualModeError)
-      return t('config_management.visual_mode_unavailable_short', { defaultValue: 'YAML issue' });
+      return t('config_management.visual_mode_unavailable_short', { defaultValue: 'YAML 异常' });
     if (hasVisualValidationErrors)
-      return t('config_management.visual.validation_blocked_short', { defaultValue: 'Fix errors' });
-    if (saving) return t('config_management.status_saving_short', { defaultValue: 'Saving' });
-    if (isDirty) return t('config_management.status_dirty_short', { defaultValue: 'Unsaved' });
-    return t('config_management.status_loaded_short', { defaultValue: 'Loaded' });
+      return t('config_management.visual.validation_blocked_short', { defaultValue: '需修正' });
+    if (saving) return t('config_management.status_saving_short', { defaultValue: '保存中' });
+    if (isDirty) return t('config_management.status_dirty_short', { defaultValue: '未保存' });
+    return t('config_management.status_loaded_short', { defaultValue: '已加载' });
   };
 
   const handleReload = useCallback(() => {

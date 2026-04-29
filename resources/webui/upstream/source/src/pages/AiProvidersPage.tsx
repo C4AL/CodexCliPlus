@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import {
-  CodexSection,
-  ProviderNav,
-  useProviderStats,
-} from '@/components/providers';
+import { CodexSection, ProviderNav, useProviderStats } from '@/components/providers';
 import {
   withDisableAllModelsRule,
   withoutDisableAllModelsRule,
@@ -99,9 +95,7 @@ export function AiProvidersPage() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [
-    config?.codexApiKeys,
-  ]);
+  }, [config?.codexApiKeys]);
 
   useHeaderRefresh(refreshKeyStats, isCurrentLayer);
 
@@ -151,7 +145,7 @@ export function AiProvidersPage() {
     const entry = codexConfigs[index];
     if (!entry) return;
     showConfirmation({
-      title: t('ai_providers.codex_delete_title', { defaultValue: 'Delete Codex Config' }),
+      title: t('ai_providers.codex_delete_title', { defaultValue: '删除 Codex 配置' }),
       message: t('ai_providers.codex_delete_confirm'),
       variant: 'danger',
       confirmText: t('common.confirm'),

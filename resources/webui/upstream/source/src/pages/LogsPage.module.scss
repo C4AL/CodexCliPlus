@@ -437,6 +437,8 @@
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--text-primary);
+  content-visibility: auto;
+  contain-intrinsic-size: 42px;
 
   &:hover {
     background: rgba($primary-color, 0.06);
@@ -520,8 +522,9 @@
 }
 
 .requestIdBadge {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
   font-size: 11px;
   color: #0891b2;
   background: rgba(8, 145, 178, 0.1);
@@ -844,5 +847,13 @@
 
   .errorPanel {
     height: 280px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabItem,
+  .filterChip,
+  .traceButton {
+    transition: none;
   }
 }

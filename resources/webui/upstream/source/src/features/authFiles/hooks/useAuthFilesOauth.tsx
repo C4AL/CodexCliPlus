@@ -157,7 +157,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     (provider: string) => {
       const providerLabel = provider.trim() || provider;
       showConfirmation({
-        title: t('oauth_excluded.delete_title', { defaultValue: 'Delete Exclusion' }),
+        title: t('oauth_excluded.delete_title', { defaultValue: '删除模型禁用' }),
         message: t('oauth_excluded.delete_confirm', { provider: providerLabel }),
         variant: 'danger',
         confirmText: t('common.confirm'),
@@ -192,7 +192,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
               showNotification(`${t('oauth_excluded.delete_failed')}: ${errorMessage}`, 'error');
             }
           }
-        }
+        },
       });
     },
     [loadExcluded, showConfirmation, showNotification, t]
@@ -201,7 +201,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
   const deleteModelAlias = useCallback(
     (provider: string) => {
       showConfirmation({
-        title: t('oauth_model_alias.delete_title', { defaultValue: 'Delete Mappings' }),
+        title: t('oauth_model_alias.delete_title', { defaultValue: '删除映射' }),
         message: t('oauth_model_alias.delete_confirm', { provider }),
         variant: 'danger',
         confirmText: t('common.confirm'),
@@ -214,7 +214,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('oauth_model_alias.delete_failed')}: ${errorMessage}`, 'error');
           }
-        }
+        },
       });
     },
     [loadModelAlias, showConfirmation, showNotification, t]
@@ -248,7 +248,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
 
       const nextMappings: OAuthModelAliasEntry[] = [
         ...currentMappings,
-        { name: nameTrim, alias: aliasTrim, fork: true }
+        { name: nameTrim, alias: aliasTrim, fork: true },
       ];
 
       try {
@@ -270,7 +270,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
       if (!provider || !nameTrim || !aliasTrim) return;
 
       showConfirmation({
-        title: t('oauth_model_alias.delete_link_title', { defaultValue: 'Unlink mapping' }),
+        title: t('oauth_model_alias.delete_link_title', { defaultValue: '取消映射' }),
         message: (
           <Trans
             i18nKey="oauth_model_alias.delete_link_confirm"
@@ -307,7 +307,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
             const errorMessage = err instanceof Error ? err.message : '';
             showNotification(`${t('oauth_model_alias.save_failed')}: ${errorMessage}`, 'error');
           }
-        }
+        },
       });
     },
     [loadModelAlias, modelAlias, showConfirmation, showNotification, t]
@@ -415,7 +415,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
       if (providersToUpdate.length === 0) return;
 
       showConfirmation({
-        title: t('oauth_model_alias.delete_alias_title', { defaultValue: 'Delete Alias' }),
+        title: t('oauth_model_alias.delete_alias_title', { defaultValue: '删除别名' }),
         message: (
           <Trans
             i18nKey="oauth_model_alias.delete_alias_confirm"
@@ -465,7 +465,7 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
           } else {
             showNotification(t('oauth_model_alias.delete_success'), 'success');
           }
-        }
+        },
       });
     },
     [loadModelAlias, modelAlias, showConfirmation, showNotification, t]
@@ -486,6 +486,6 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     handleDeleteLink,
     handleToggleFork,
     handleRenameAlias,
-    handleDeleteAlias
+    handleDeleteAlias,
   };
 }

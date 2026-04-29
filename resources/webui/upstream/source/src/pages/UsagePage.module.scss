@@ -1288,3 +1288,19 @@
     height: 8px;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .statCard,
+  .apiSortBtn,
+  .apiHeader,
+  .sortHeaderButton,
+  .healthBlock {
+    transition: none;
+  }
+
+  .statCard:hover,
+  .healthBlockWrapper:hover .healthBlock,
+  .healthBlockWrapper.healthBlockActive .healthBlock {
+    transform: none;
+  }
+}

@@ -194,7 +194,7 @@ export function SystemPage() {
 
   const handleClearLoginStorage = () => {
     showConfirmation({
-      title: t('system_info.clear_login_title', { defaultValue: 'Clear Login Storage' }),
+      title: t('system_info.clear_login_title', { defaultValue: '清理登录存储' }),
       message: t('system_info.clear_login_confirm'),
       variant: 'danger',
       confirmText: t('common.confirm'),
@@ -429,7 +429,6 @@ export function SystemPage() {
           </div>
         </Card>
       </div>
-
     </div>
   );
 }

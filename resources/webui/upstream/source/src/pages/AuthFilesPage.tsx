@@ -69,8 +69,7 @@ const DEFAULT_REGULAR_PAGE_SIZE = 9;
 const DEFAULT_COMPACT_PAGE_SIZE = 12;
 const CODEX_PROVIDER_FILTER = 'codex';
 
-const escapeWildcardSearchSegment = (value: string) =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeWildcardSearchSegment = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const buildWildcardSearch = (value: string): RegExp | null => {
   if (!value.includes('*')) return null;
@@ -223,13 +222,15 @@ export function AuthFilesPage() {
             ? clampCardPageSize(persisted.pageSize)
             : null;
         const regularPageSize =
-          typeof persisted.regularPageSize === 'number' && Number.isFinite(persisted.regularPageSize)
+          typeof persisted.regularPageSize === 'number' &&
+          Number.isFinite(persisted.regularPageSize)
             ? clampCardPageSize(persisted.regularPageSize)
-            : legacyPageSize ?? DEFAULT_REGULAR_PAGE_SIZE;
+            : (legacyPageSize ?? DEFAULT_REGULAR_PAGE_SIZE);
         const compactPageSize =
-          typeof persisted.compactPageSize === 'number' && Number.isFinite(persisted.compactPageSize)
+          typeof persisted.compactPageSize === 'number' &&
+          Number.isFinite(persisted.compactPageSize)
             ? clampCardPageSize(persisted.compactPageSize)
-            : legacyPageSize ?? DEFAULT_COMPACT_PAGE_SIZE;
+            : (legacyPageSize ?? DEFAULT_COMPACT_PAGE_SIZE);
         setPageSizeByMode({
           regular: regularPageSize,
           compact: compactPageSize,
@@ -461,8 +462,8 @@ export function AuthFilesPage() {
       const copied = await copyToClipboard(text);
       showNotification(
         copied
-          ? t('notification.link_copied', { defaultValue: 'Copied to clipboard' })
-          : t('notification.copy_failed', { defaultValue: 'Copy failed' }),
+          ? t('notification.link_copied', { defaultValue: '已复制到剪贴板' })
+          : t('notification.copy_failed', { defaultValue: '复制失败' }),
         copied ? 'success' : 'error'
       );
     },

@@ -214,7 +214,7 @@ export function AiProvidersAmpcodeEditPage() {
   const clearAmpcodeUpstreamApiKey = async () => {
     showConfirmation({
       title: t('ai_providers.ampcode_clear_upstream_api_key_title', {
-        defaultValue: 'Clear Upstream API Key',
+        defaultValue: '清除上游 API Key',
       }),
       message: t('ai_providers.ampcode_clear_upstream_api_key_confirm'),
       variant: 'danger',
@@ -450,7 +450,9 @@ export function AiProvidersAmpcodeEditPage() {
                     onClick={() => {
                       setUpstreamApiKeysDirty(true);
                       setForm((prev) => {
-                        const nextEntries = prev.upstreamApiKeyEntries.filter((_, entryIndex) => entryIndex !== index);
+                        const nextEntries = prev.upstreamApiKeyEntries.filter(
+                          (_, entryIndex) => entryIndex !== index
+                        );
                         return {
                           ...prev,
                           upstreamApiKeyEntries: nextEntries.length

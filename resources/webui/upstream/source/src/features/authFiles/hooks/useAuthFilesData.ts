@@ -136,13 +136,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
   }, []);
 
   const applyDeletedFiles = useCallback((names: string[]) => {
-    const deletedNames = Array.from(
-      new Set(
-        names
-          .map((name) => name.trim())
-          .filter(Boolean)
-      )
-    );
+    const deletedNames = Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)));
     if (deletedNames.length === 0) return;
 
     const deletedSet = new Set(deletedNames);
@@ -235,13 +229,11 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
         }
 
         if (result.failed.length > 0) {
-          const details = result.failed
-            .map((item) => `${item.name}: ${item.error}`)
-            .join('; ');
+          const details = result.failed.map((item) => `${item.name}: ${item.error}`).join('; ');
           showNotification(`${t('notification.upload_failed')}: ${details}`, 'error');
         }
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage = err instanceof Error ? err.message : '未知错误';
         showNotification(`${t('notification.upload_failed')}: ${errorMessage}`, 'error');
       } finally {
         setUploading(false);
@@ -254,7 +246,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
   const handleDelete = useCallback(
     (name: string) => {
       showConfirmation({
-        title: t('auth_files.delete_title', { defaultValue: 'Delete File' }),
+        title: t('auth_files.delete_title', { defaultValue: '删除文件' }),
         message: `${t('auth_files.delete_confirm')} "${name}" ?`,
         variant: 'danger',
         confirmText: t('common.confirm'),
@@ -291,7 +283,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
           : t('auth_files.delete_all_confirm');
 
       showConfirmation({
-        title: t('auth_files.delete_all_title', { defaultValue: 'Delete All Files' }),
+        title: t('auth_files.delete_all_title', { defaultValue: '删除全部文件' }),
         message: confirmMessage,
         variant: 'danger',
         confirmText: t('common.confirm'),
@@ -322,9 +314,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
                 return;
               }
 
-              const result = await authFilesApi.deleteFiles(
-                filesToDelete.map((file) => file.name)
-              );
+              const result = await authFilesApi.deleteFiles(filesToDelete.map((file) => file.name));
               const success = result.deleted;
               const failed = result.failed.length;
 
@@ -506,7 +496,10 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
         );
 
         if (failCount === 0) {
-          showNotification(t('auth_files.batch_status_success', { count: successCount }), 'success');
+          showNotification(
+            t('auth_files.batch_status_success', { count: successCount }),
+            'success'
+          );
         } else {
           showNotification(
             t('auth_files.batch_status_partial', { success: successCount, failed: failCount }),

@@ -107,31 +107,64 @@
             />
             <Ellipse
               x:Name="ShellBrandStatusDot"
-              Width="9"
-              Height="9"
+              Width="12"
+              Height="12"
               HorizontalAlignment="Right"
               VerticalAlignment="Bottom"
               Fill="{DynamicResource AccentBrush}"
               Stroke="{DynamicResource SurfaceBrush}"
-              StrokeThickness="1"
-            />
+              StrokeThickness="1.4"
+            >
+              <Ellipse.Effect>
+                <DropShadowEffect
+                  x:Name="ShellBrandStatusDotGlow"
+                  BlurRadius="8"
+                  Direction="0"
+                  Color="#6614B8A6"
+                  Opacity="1"
+                  ShadowDepth="0"
+                />
+              </Ellipse.Effect>
+            </Ellipse>
           </Grid>
-          <Grid Margin="10,0,0,0" VerticalAlignment="Center" ClipToBounds="True">
+          <Grid
+            Width="112"
+            Height="24"
+            Margin="10,0,0,0"
+            VerticalAlignment="Center"
+            ClipToBounds="True"
+          >
             <TextBlock
               Text="CodexCliPlus"
               FontSize="15"
               FontWeight="SemiBold"
               Foreground="{DynamicResource PrimaryTextBrush}"
+              VerticalAlignment="Top"
             />
             <Rectangle
+              Width="90"
               Height="1"
-              Width="72"
+              Margin="0,0,0,1"
+              HorizontalAlignment="Left"
               VerticalAlignment="Bottom"
               Fill="{DynamicResource AccentBrush}"
-              Opacity="0.34"
+              Opacity="0.16"
+              RadiusX="1"
+              RadiusY="1"
+            />
+            <Rectangle
+              Width="30"
+              Height="2"
+              Margin="0,0,0,0"
+              HorizontalAlignment="Left"
+              VerticalAlignment="Bottom"
+              Fill="{DynamicResource AccentBrush}"
+              Opacity="0.7"
+              RadiusX="1"
+              RadiusY="1"
             >
               <Rectangle.RenderTransform>
-                <TranslateTransform X="-72" />
+                <TranslateTransform X="-34" />
               </Rectangle.RenderTransform>
               <Rectangle.Triggers>
                 <EventTrigger RoutedEvent="Loaded">
@@ -139,10 +172,14 @@
                     <Storyboard RepeatBehavior="Forever">
                       <DoubleAnimation
                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                        From="-72"
-                        To="110"
-                        Duration="0:0:3.2"
-                      />
+                        From="-34"
+                        To="96"
+                        Duration="0:0:2.6"
+                      >
+                        <DoubleAnimation.EasingFunction>
+                          <SineEase EasingMode="EaseInOut" />
+                        </DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
                     </Storyboard>
                   </BeginStoryboard>
                 </EventTrigger>
@@ -165,8 +202,14 @@
         <Border
           Width="336"
           Padding="16"
-          Background="{DynamicResource SurfaceBrush}"
           Style="{StaticResource ShellRaisedPanelStyle}"
+          Background="{DynamicResource SurfaceBrush}"
+          BorderBrush="Transparent"
+          BorderThickness="0"
+          CornerRadius="18"
+          Effect="{x:Null}"
+          SnapsToDevicePixels="True"
+          UseLayoutRounding="True"
         >
           <StackPanel>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -354,8 +397,11 @@
         >
           <iconPacks:PackIconLucide
             Kind="SunMoon"
-            Width="18"
-            Height="18"
+            Width="17"
+            Height="17"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            SnapsToDevicePixels="True"
             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
           />
         </Button>
@@ -417,47 +463,60 @@
       <Border
         x:Name="ShellNavigationDockHost"
         Grid.Column="0"
-        Width="6"
+        Width="34"
         ClipToBounds="True"
         Background="Transparent"
         MouseEnter="ShellNavigationDockHost_MouseEnter"
+        MouseMove="ShellNavigationDockHost_MouseMove"
         MouseLeave="ShellNavigationDockHost_MouseLeave"
         Panel.ZIndex="2"
         AutomationProperties.AutomationId="ShellNavigationDockHost"
       >
-        <Grid Width="216" HorizontalAlignment="Left">
+        <Grid Width="220" HorizontalAlignment="Left" ClipToBounds="True">
+          <Border
+            x:Name="ShellNavigationRailTrack"
+            Width="13"
+            Height="132"
+            Margin="11,0,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center"
+            Background="{DynamicResource NavigationDockRailTrackBrush}"
+            CornerRadius="7"
+            Opacity="0.58"
+          />
           <Border
             x:Name="ShellNavigationRail"
-            Width="3"
-            Margin="0,24,0,24"
+            Width="5"
+            Height="106"
+            Margin="15,0,0,0"
             HorizontalAlignment="Left"
-            Background="#FFFFFFFF"
-            CornerRadius="2"
-            Opacity="0.92"
+            VerticalAlignment="Center"
+            Background="{DynamicResource NavigationDockRailBrush}"
+            CornerRadius="3"
+            Opacity="1"
+            Effect="{StaticResource ShellNavigationRailShadow}"
           />
           <Border
             x:Name="ShellNavigationPanel"
-            Width="216"
-            Margin="0,18,12,18"
-            Padding="0,12"
+            Width="58"
+            Margin="10,18,12,18"
+            Padding="0,10"
             HorizontalAlignment="Left"
-            Background="#CCFFFFFF"
-            BorderBrush="#55FFFFFF"
+            VerticalAlignment="Center"
+            Background="{DynamicResource NavigationDockPanelBrush}"
+            BorderBrush="{DynamicResource NavigationDockBorderBrush}"
             BorderThickness="1"
-            CornerRadius="0,18,18,0"
+            CornerRadius="22"
+            ClipToBounds="True"
+            IsHitTestVisible="False"
             Opacity="0"
             MouseEnter="ShellNavigationPanel_MouseEnter"
+            Effect="{StaticResource ShellNavigationDockShadow}"
           >
-            <Border.Effect>
-              <DropShadowEffect
-                BlurRadius="20"
-                Direction="0"
-                Color="#18000000"
-                Opacity="1"
-                ShadowDepth="4"
-              />
-            </Border.Effect>
-            <StackPanel>
+            <Border.RenderTransform>
+              <TranslateTransform X="-10" />
+            </Border.RenderTransform>
+            <StackPanel x:Name="ShellNavigationItemsHost" VerticalAlignment="Center">
               <Button
                 x:Name="ShellNavDashboardButton"
                 Style="{StaticResource ShellNavigationButtonStyle}"
@@ -1117,33 +1176,68 @@
             Height="8"
             CornerRadius="4"
             ClipToBounds="True"
+            Background="{DynamicResource SurfaceAltBrush}"
             AutomationProperties.AutomationId="PreparationProgressTrack"
           >
             <Grid ClipToBounds="True">
+              <Border Opacity="0.28" Background="{DynamicResource AccentSoftBrush}" />
+              <Border
+                x:Name="PreparationProgressFill"
+                Width="{Binding ActualWidth, ElementName=PreparationProgressTrack}"
+                Height="8"
+                HorizontalAlignment="Left"
+                Background="{DynamicResource AccentBrush}"
+                CornerRadius="4"
+                RenderTransformOrigin="0,0.5"
+              >
+                <Border.RenderTransform>
+                  <ScaleTransform x:Name="PreparationProgressFillScale" ScaleX="0" ScaleY="1" />
+                </Border.RenderTransform>
+                <Grid ClipToBounds="True">
+                  <Border Width="96" HorizontalAlignment="Left" Opacity="0.46">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#00FFFFFF" Offset="0" />
+                        <GradientStop Color="#CCFFFFFF" Offset="0.5" />
+                        <GradientStop Color="#00FFFFFF" Offset="1" />
+                      </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.RenderTransform>
+                      <TranslateTransform X="-110" />
+                    </Border.RenderTransform>
+                    <Border.Triggers>
+                      <EventTrigger RoutedEvent="Loaded">
+                        <BeginStoryboard>
+                          <Storyboard RepeatBehavior="Forever">
+                            <DoubleAnimation
+                              Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                              From="-110"
+                              To="540"
+                              Duration="0:0:1.45"
+                            >
+                              <DoubleAnimation.EasingFunction>
+                                <SineEase EasingMode="EaseInOut" />
+                              </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                          </Storyboard>
+                        </BeginStoryboard>
+                      </EventTrigger>
+                    </Border.Triggers>
+                  </Border>
+                </Grid>
+              </Border>
               <ProgressBar
                 x:Name="PreparationProgressBar"
                 Height="8"
                 Minimum="0"
                 Maximum="100"
                 AutomationProperties.AutomationId="PreparationProgressBar"
+                Background="Transparent"
+                BorderBrush="Transparent"
+                Foreground="Transparent"
+                Opacity="0.01"
                 Value="0"
               />
-              <Border Width="120" HorizontalAlignment="Left" Background="#33FFFFFF">
-                <Border.Triggers>
-                  <EventTrigger RoutedEvent="Loaded">
-                    <BeginStoryboard>
-                      <Storyboard RepeatBehavior="Forever">
-                        <ThicknessAnimation
-                          Storyboard.TargetProperty="Margin"
-                          From="-120,0,0,0"
-                          To="520,0,0,0"
-                          Duration="0:0:1.7"
-                        />
-                      </Storyboard>
-                    </BeginStoryboard>
-                  </EventTrigger>
-                </Border.Triggers>
-              </Border>
             </Grid>
           </Border>
           <TextBlock

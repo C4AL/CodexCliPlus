@@ -25,6 +25,10 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var hostSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
+            Encoding.UTF8
+        );
 
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
         Assert.Contains(
@@ -54,20 +58,22 @@ public sealed class NavigationShellTests
         Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
         Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
         Assert.Contains("忘记安全密钥/重置", xaml, StringComparison.Ordinal);
-        Assert.Contains(
-            "当前步骤：",
-            File.ReadAllText(
-                Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-                Encoding.UTF8
-            ),
-            StringComparison.Ordinal
-        );
+        Assert.Contains("当前步骤：", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", shellResources, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", shellResources, StringComparison.Ordinal);
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
         Assert.Contains("x:Name=\"ShellSidebarButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Visibility=\"Collapsed\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellNavigationDockHost\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"34\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavigationRailTrack\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "MouseMove=\"ShellNavigationDockHost_MouseMove\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("NavigationDockVisualState", hostSource, StringComparison.Ordinal);
+        Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
@@ -91,9 +97,11 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"ShellThemeButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("iconPacks:PackIconLucide", xaml, StringComparison.Ordinal);
         Assert.Contains("Kind=\"SunMoon\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"17\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("M12,3 C7.029,3 3,7.029 3,12", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellSettingsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsOverlay\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingsWindow_Deactivated", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsFollowSystemCheckBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CornerRadius=\"18,18,0,0\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -183,7 +191,7 @@ public sealed class NavigationShellTests
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("window.innerWidth * 0.25", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("event.clientX <= 64", bridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"",
             hostSource,

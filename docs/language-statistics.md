@@ -4,21 +4,19 @@
 
 - 统计基线：`c9cf65c486cbcc0e95a63609f4054d0d89c240ff`
 - 统计范围：当前 Git 索引中的已跟踪文件，不包含本报告文件。
-- GitHub 语言条目标：只显示高占比语言，低占比辅助格式由 `.gitattributes` 标记为 `linguist-detectable=false`。
-- 高占比阈值：按文本源码体量约 5% 以上保留。
-- 说明：GitHub Linguist 的最终展示可能会把 TSX 归并到 TypeScript，实际百分比以 GitHub 重新计算结果为准。
+- GitHub 语言条目标：只显示高占比实现语言，低占比辅助格式和数据/配置格式由 `.gitattributes` 标记为 `linguist-detectable=false`。
+- 高占比阈值：按文本源码体量约 5% 以上保留；JSON 等数据/配置格式不进入语言条。
+- 说明：GitHub Linguist 会把 TSX 归并到 TypeScript；下表按 GitHub 语言 API 重新计算后的结果记录。
 
 按当前策略，预期保留在 GitHub 语言条中的语言为：
 
 | 语言 | 字节 | 估算占比 | 文件数 |
 | --- | ---: | ---: | ---: |
-| C# | 1,261,046 | 37.11% | 188 |
-| TSX | 966,480 | 28.44% | 87 |
-| TypeScript | 582,578 | 17.14% | 120 |
-| JSON | 340,997 | 10.03% | 15 |
-| SCSS | 247,466 | 7.28% | 32 |
+| TypeScript | 1,548,827 | 50.66% | 207 |
+| C# | 1,261,046 | 41.25% | 188 |
+| SCSS | 247,466 | 8.09% | 32 |
 
-这些估算仅用于说明 `.gitattributes` 的显示意图。它们排除了 `docs/`、`build/`、`.github/`、`.config/` 以及 XAML、YAML、Markdown、SVG、PowerShell、CSS、HTML、JavaScript、MSBuild 等低占比或辅助格式。
+这些估算仅用于说明 `.gitattributes` 的显示意图。它们排除了 `docs/`、`build/`、`.github/`、`.config/` 以及 JSON、XAML、YAML、Markdown、SVG、PowerShell、CSS、HTML、JavaScript、MSBuild 等数据、低占比或辅助格式。
 
 ## 完整文本语言构成
 

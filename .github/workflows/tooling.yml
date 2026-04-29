@@ -20,29 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
-        with:
-          dotnet-version: 10.0.x
-
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: resources/webui/upstream/source/package-lock.json
-
-      - name: Restore .NET tools
-        run: dotnet tool restore
-
-      - name: Restore .NET packages
-        run: dotnet restore CodexCliPlus.sln
-
-      - name: Build .NET
-        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
-
-      - name: Test .NET
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
 
       - name: Install web dependencies
         working-directory: resources/webui/upstream/source

@@ -35,7 +35,13 @@ public static class AboutCatalog
             "Desktop framework and host integration",
             "Microsoft .NET ecosystem",
             "MIT",
-            "Provides the native desktop framework, WebView2 host integration, and MVVM helpers used by the minimal desktop shell.")
+            "Provides the native desktop framework, WebView2 host integration, and MVVM helpers used by the minimal desktop shell."),
+        new(
+            "MahApps.Metro.IconPacks.Lucide",
+            "Desktop shell Lucide icon controls",
+            "MahApps/MahApps.Metro.IconPacks and lucide-icons/lucide",
+            "MIT / ISC",
+            "Provides WPF Lucide icon controls for the desktop shell theme button, risk indicator, and status dock.")
     ];
 
     public static IReadOnlyList<AboutLicenseDocument> LicenseDocuments { get; } =

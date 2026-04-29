@@ -16,7 +16,11 @@ internal static class ManagementJson
         return JsonSerializer.Serialize(value);
     }
 
-    public static bool TryGetProperty(JsonElement element, out JsonElement value, params string[] names)
+    public static bool TryGetProperty(
+        JsonElement element,
+        out JsonElement value,
+        params string[] names
+    )
     {
         if (element.ValueKind != JsonValueKind.Object)
         {
@@ -50,14 +54,16 @@ internal static class ManagementJson
 
     public static JsonElement? GetObject(JsonElement element, params string[] names)
     {
-        return TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.Object
+        return
+            TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.Object
             ? value
             : null;
     }
 
     public static JsonElement? GetArray(JsonElement element, params string[] names)
     {
-        return TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.Array
+        return
+            TryGetProperty(element, out var value, names) && value.ValueKind == JsonValueKind.Array
             ? value
             : null;
     }
@@ -114,7 +120,10 @@ internal static class ManagementJson
 
     public static IReadOnlyList<string> GetStringList(JsonElement element, params string[] names)
     {
-        if (!TryGetProperty(element, out var value, names) || value.ValueKind != JsonValueKind.Array)
+        if (
+            !TryGetProperty(element, out var value, names)
+            || value.ValueKind != JsonValueKind.Array
+        )
         {
             return [];
         }
@@ -180,7 +189,7 @@ internal static class ManagementJson
             JsonValueKind.Number => value.GetRawText(),
             JsonValueKind.True => bool.TrueString,
             JsonValueKind.False => bool.FalseString,
-            _ => null
+            _ => null,
         };
     }
 
@@ -192,8 +201,14 @@ internal static class ManagementJson
             JsonValueKind.False => false,
             JsonValueKind.Number when value.TryGetInt64(out var number) => number != 0,
             JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
-            JsonValueKind.String when long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var numeric) => numeric != 0,
-            _ => null
+            JsonValueKind.String
+                when long.TryParse(
+                    value.GetString(),
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var numeric
+                ) => numeric != 0,
+            _ => null,
         };
     }
 
@@ -204,8 +219,15 @@ internal static class ManagementJson
             return intValue;
         }
 
-        if (value.ValueKind == JsonValueKind.String &&
-            int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out intValue))
+        if (
+            value.ValueKind == JsonValueKind.String
+            && int.TryParse(
+                value.GetString(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out intValue
+            )
+        )
         {
             return intValue;
         }
@@ -220,8 +242,15 @@ internal static class ManagementJson
             return longValue;
         }
 
-        if (value.ValueKind == JsonValueKind.String &&
-            long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out longValue))
+        if (
+            value.ValueKind == JsonValueKind.String
+            && long.TryParse(
+                value.GetString(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out longValue
+            )
+        )
         {
             return longValue;
         }
@@ -231,8 +260,15 @@ internal static class ManagementJson
 
     public static DateTimeOffset? AsDateTimeOffset(JsonElement value)
     {
-        if (value.ValueKind == JsonValueKind.String &&
-            DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
+        if (
+            value.ValueKind == JsonValueKind.String
+            && DateTimeOffset.TryParse(
+                value.GetString(),
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out var parsed
+            )
+        )
         {
             return parsed;
         }

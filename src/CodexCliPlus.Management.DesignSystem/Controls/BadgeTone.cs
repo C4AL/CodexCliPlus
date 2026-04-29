@@ -6,5 +6,5 @@ public enum BadgeTone
     Accent,
     Success,
     Warning,
-    Danger
+    Danger,
 }

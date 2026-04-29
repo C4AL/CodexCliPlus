@@ -4,18 +4,29 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class ManagementConfirmDialog : Window
 {
-    public ManagementConfirmDialog(string title, string message, string confirmText, string cancelText)
+    public ManagementConfirmDialog(
+        string title,
+        string message,
+        string confirmText,
+        string cancelText
+    )
     {
         InitializeComponent();
         Title = title;
         DataContext = new DialogViewModel(message, confirmText, cancelText);
     }
 
-    public static bool Confirm(Window? owner, string title, string message, string confirmText = "确定", string cancelText = "取消")
+    public static bool Confirm(
+        Window? owner,
+        string title,
+        string message,
+        string confirmText = "确定",
+        string cancelText = "取消"
+    )
     {
         var dialog = new ManagementConfirmDialog(title, message, confirmText, cancelText)
         {
-            Owner = owner
+            Owner = owner,
         };
 
         return dialog.ShowDialog() == true;

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.ViewModels.Pages;
 
 namespace CodexCliPlus.Views.Pages;
@@ -29,19 +28,43 @@ public partial class SystemPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         ConnectionItems.ItemsSource = new[]
         {
-            new ManagementKeyValueItem("基础地址", ManagementPageSupport.FormatValue(_viewModel.Connection?.BaseUrl, "未知")),
-            new ManagementKeyValueItem("管理地址", ManagementPageSupport.FormatValue(_viewModel.Connection?.ManagementApiBaseUrl, "未知")),
-            new ManagementKeyValueItem("管理密钥", string.IsNullOrWhiteSpace(_viewModel.Connection?.ManagementKey) ? "未配置" : "已配置"),
-            new ManagementKeyValueItem("最新版本", ManagementPageSupport.FormatValue(_viewModel.LatestVersion?.LatestVersion, "未知")),
-            new ManagementKeyValueItem("请求日志", ManagementPageSupport.FormatBoolean(_viewModel.Config?.RequestLog))
+            new ManagementKeyValueItem(
+                "基础地址",
+                ManagementPageSupport.FormatValue(_viewModel.Connection?.BaseUrl, "未知")
+            ),
+            new ManagementKeyValueItem(
+                "管理地址",
+                ManagementPageSupport.FormatValue(
+                    _viewModel.Connection?.ManagementApiBaseUrl,
+                    "未知"
+                )
+            ),
+            new ManagementKeyValueItem(
+                "管理密钥",
+                string.IsNullOrWhiteSpace(_viewModel.Connection?.ManagementKey)
+                    ? "未配置"
+                    : "已配置"
+            ),
+            new ManagementKeyValueItem(
+                "最新版本",
+                ManagementPageSupport.FormatValue(_viewModel.LatestVersion?.LatestVersion, "未知")
+            ),
+            new ManagementKeyValueItem(
+                "请求日志",
+                ManagementPageSupport.FormatBoolean(_viewModel.Config?.RequestLog)
+            ),
         };
 
-        ModelItems.ItemsSource = _viewModel.Models.Select(model =>
-            $"{model.Id} · {ManagementPageSupport.FormatValue(model.DisplayName, "未命名")} · {ManagementPageSupport.FormatValue(model.OwnedBy, "未知来源")}")
+        ModelItems.ItemsSource = _viewModel
+            .Models.Select(model =>
+                $"{model.Id} · {ManagementPageSupport.FormatValue(model.DisplayName, "未命名")} · {ManagementPageSupport.FormatValue(model.OwnedBy, "未知来源")}"
+            )
             .ToArray();
     }
 
@@ -59,11 +82,7 @@ public partial class SystemPage : Page
 
     private static void OpenLink(string url)
     {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = url,
-            UseShellExecute = true
-        });
+        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
     }
 
     private void OpenCliProxyApiButton_Click(object sender, RoutedEventArgs e)

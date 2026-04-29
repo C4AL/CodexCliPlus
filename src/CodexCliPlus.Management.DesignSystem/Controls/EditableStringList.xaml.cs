@@ -8,11 +8,19 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class EditableStringList : UserControl
 {
-    public static readonly DependencyProperty ItemsSourceProperty =
-        DependencyProperty.Register(nameof(ItemsSource), typeof(IList), typeof(EditableStringList), new PropertyMetadata(null, OnItemsSourceChanged));
+    public static readonly DependencyProperty ItemsSourceProperty = DependencyProperty.Register(
+        nameof(ItemsSource),
+        typeof(IList),
+        typeof(EditableStringList),
+        new PropertyMetadata(null, OnItemsSourceChanged)
+    );
 
-    public static readonly DependencyProperty AddButtonTextProperty =
-        DependencyProperty.Register(nameof(AddButtonText), typeof(string), typeof(EditableStringList), new PropertyMetadata("添加一项"));
+    public static readonly DependencyProperty AddButtonTextProperty = DependencyProperty.Register(
+        nameof(AddButtonText),
+        typeof(string),
+        typeof(EditableStringList),
+        new PropertyMetadata("添加一项")
+    );
 
     private INotifyCollectionChanged? _collectionNotifier;
 
@@ -35,7 +43,10 @@ public partial class EditableStringList : UserControl
         set => SetValue(AddButtonTextProperty, value);
     }
 
-    private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnItemsSourceChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         ((EditableStringList)d).HandleItemsSourceChanged((IList?)e.OldValue, (IList?)e.NewValue);
     }

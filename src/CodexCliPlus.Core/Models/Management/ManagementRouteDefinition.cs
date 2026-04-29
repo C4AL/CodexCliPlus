@@ -5,4 +5,5 @@ public sealed record ManagementRouteDefinition(
     string Path,
     string Title,
     bool IsPrimary,
-    string? ParentKey = null);
+    string? ParentKey = null
+);

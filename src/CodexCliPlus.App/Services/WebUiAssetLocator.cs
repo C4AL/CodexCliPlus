@@ -11,7 +11,11 @@ public sealed class WebUiAssetLocator
     private const string EntryFileName = "index.html";
     private const string SyncRelativePath = "upstream\\sync.json";
 
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "Instance member is resolved through dependency injection.")]
+    [SuppressMessage(
+        "Performance",
+        "CA1822:Mark members as static",
+        Justification = "Instance member is resolved through dependency injection."
+    )]
     public WebUiBundleInfo GetRequiredBundle()
     {
         if (TryResolveFromRepository(out var repositoryBundle))
@@ -51,7 +55,11 @@ public sealed class WebUiAssetLocator
         var entryPath = Path.Combine(distDirectory, EntryFileName);
         var metadataPath = Path.Combine(fullRoot, SyncRelativePath);
 
-        if (!Directory.Exists(distDirectory) || !File.Exists(entryPath) || !File.Exists(metadataPath))
+        if (
+            !Directory.Exists(distDirectory)
+            || !File.Exists(entryPath)
+            || !File.Exists(metadataPath)
+        )
         {
             bundle = default!;
             return false;
@@ -83,4 +91,5 @@ public sealed record WebUiBundleInfo(
     string RootDirectory,
     string DistDirectory,
     string EntryPath,
-    string MetadataPath);
+    string MetadataPath
+);

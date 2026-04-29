@@ -31,32 +31,33 @@ public sealed class CodexLaunchService
 
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-NoExit -Command \"& {{ Set-Location -LiteralPath '{escapedWorkingDirectory}'; {escapedCommand} }}\"",
-                UseShellExecute = true,
-                WorkingDirectory = workingDirectory
-            });
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments =
+                        $"-NoExit -Command \"& {{ Set-Location -LiteralPath '{escapedWorkingDirectory}'; {escapedCommand} }}\"",
+                    UseShellExecute = true,
+                    WorkingDirectory = workingDirectory,
+                }
+            );
 
             _logger.Info(
-                $"Codex 鍚姩璇锋眰锛歴ource={CodexConfigService.GetSourceName(source)}, repo={workingDirectory}, command={command}");
-            return new CodexLaunchResult
-            {
-                IsSuccess = true,
-                Command = command
-            };
+                $"Codex 启动成功，source={CodexConfigService.GetSourceName(source)}, repo={workingDirectory}, command={command}"
+            );
+            return new CodexLaunchResult { IsSuccess = true, Command = command };
         }
         catch (Exception exception)
         {
             _logger.LogError(
-                $"Codex 鍚姩澶辫触锛歴ource={CodexConfigService.GetSourceName(source)}, repo={workingDirectory}, command={command}",
-                exception);
+                $"Codex 启动失败，source={CodexConfigService.GetSourceName(source)}, repo={workingDirectory}, command={command}",
+                exception
+            );
             return new CodexLaunchResult
             {
                 IsSuccess = false,
                 Command = command,
-                ErrorMessage = exception.Message
+                ErrorMessage = exception.Message,
             };
         }
     }

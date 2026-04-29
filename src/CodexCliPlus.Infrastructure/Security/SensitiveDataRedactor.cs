@@ -32,6 +32,8 @@ internal static partial class SensitiveDataRedactor
     [GeneratedRegex("(?im)((?:api-key|management key)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
     private static partial Regex ApiKeyPattern();
 
-    [GeneratedRegex("(?im)((?:access-token|refresh-token|token)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
+    [GeneratedRegex(
+        "(?im)((?:access-token|refresh-token|token)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+    )]
     private static partial Regex TokenPattern();
 }

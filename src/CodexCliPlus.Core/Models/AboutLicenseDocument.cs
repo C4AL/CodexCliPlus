@@ -5,4 +5,5 @@ public sealed record AboutLicenseDocument(
     string License,
     string OutputFileName,
     string RepositoryRelativePath,
-    string Summary);
+    string Summary
+);

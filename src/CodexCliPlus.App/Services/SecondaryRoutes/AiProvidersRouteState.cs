@@ -6,7 +6,9 @@ public sealed class AiProvidersRouteState
 {
     private const string ScopeName = "AI Providers";
     private readonly IUnsavedChangesGuard _unsavedChangesGuard;
-    private readonly Dictionary<string, int> _selectedIndices = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> _selectedIndices = new(
+        StringComparer.OrdinalIgnoreCase
+    );
 
     public AiProvidersRouteState(IUnsavedChangesGuard unsavedChangesGuard)
     {

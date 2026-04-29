@@ -6,4 +6,5 @@ public sealed record ManagedProcessStartInfo(
     string WorkingDirectory,
     IReadOnlyDictionary<string, string?>? EnvironmentVariables = null,
     bool CaptureOutput = true,
-    bool CreateNoWindow = true);
+    bool CreateNoWindow = true
+);

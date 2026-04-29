@@ -38,7 +38,7 @@ web-ci:
     just web-build
 
 format-check:
-    dotnet csharpier --check src tests
+    dotnet csharpier check src tests
 
 coverage:
     dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory artifacts/test-results

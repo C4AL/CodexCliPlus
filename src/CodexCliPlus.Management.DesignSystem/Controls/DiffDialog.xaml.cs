@@ -12,10 +12,7 @@ public partial class DiffDialog : Window
 
     public static bool Confirm(Window? owner, string beforeText, string afterText, string summary)
     {
-        var dialog = new DiffDialog(beforeText, afterText, summary)
-        {
-            Owner = owner
-        };
+        var dialog = new DiffDialog(beforeText, afterText, summary) { Owner = owner };
 
         return dialog.ShowDialog() == true;
     }

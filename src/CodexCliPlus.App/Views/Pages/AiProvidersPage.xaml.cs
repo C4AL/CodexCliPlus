@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Management.DesignSystem.Controls;
 using CodexCliPlus.Services.SecondaryRoutes;
@@ -20,7 +19,8 @@ public partial class AiProvidersPage : Page
         IManagementAuthService authService,
         IManagementNavigationService navigationService,
         IUnsavedChangesGuard unsavedChangesGuard,
-        AiProvidersRouteState routeState)
+        AiProvidersRouteState routeState
+    )
     {
         _viewModel = viewModel;
         _navigationService = navigationService;
@@ -36,13 +36,15 @@ public partial class AiProvidersPage : Page
             this,
             _routeState,
             RefreshAndRenderAsync,
-            (routeKey, description) => routeHost?.TryNavigate(routeKey, description) ?? false);
+            (routeKey, description) => routeHost?.TryNavigate(routeKey, description) ?? false
+        );
         _routeHost = routeHost = new ManagementSecondaryRouteHost(
             DetailShell,
             "ai-providers",
             _navigationService,
             unsavedChangesGuard,
-            routeFactory);
+            routeFactory
+        );
 
         Loaded += async (_, _) => await RefreshAndRenderAsync();
         _navigationService.RouteChanged += NavigationService_RouteChanged;
@@ -50,7 +52,13 @@ public partial class AiProvidersPage : Page
 
     private void NavigationService_RouteChanged(object? sender, EventArgs e)
     {
-        if (string.Equals(_navigationService.SelectedPrimaryRouteKey, "ai-providers", StringComparison.OrdinalIgnoreCase))
+        if (
+            string.Equals(
+                _navigationService.SelectedPrimaryRouteKey,
+                "ai-providers",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
         {
             Render();
         }
@@ -68,32 +76,85 @@ public partial class AiProvidersPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
-        ConfigureCard(GeminiCard, "gemini", "Gemini", "Native route pages for Gemini keys and model aliases.", $"{_viewModel.Gemini.Count} entries");
-        ConfigureCard(CodexCard, "codex", "Codex", "Base URL, prefix, excluded models and headers.", $"{_viewModel.Codex.Count} entries");
-        ConfigureCard(ClaudeCard, "claude", "Claude", "Entry editor plus dedicated model definitions route.", $"{_viewModel.Claude.Count} entries");
-        ConfigureCard(VertexCard, "vertex", "Vertex", "Provider key forms without JSON fallback.", $"{_viewModel.Vertex.Count} entries");
-        ConfigureCard(OpenAiCard, "openai", "OpenAI Compatibility", "Compatibility providers and model definitions.", $"{_viewModel.OpenAi.Count} entries");
-        ConfigureCard(AmpcodeCard, "ampcode", "AmpCode", "Base settings, model mappings and upstream key mappings.", $"{(_viewModel.AmpCode?.ModelMappings.Count ?? 0)} mappings");
+        ConfigureCard(
+            GeminiCard,
+            "gemini",
+            "Gemini",
+            "Native route pages for Gemini keys and model aliases.",
+            $"{_viewModel.Gemini.Count} entries"
+        );
+        ConfigureCard(
+            CodexCard,
+            "codex",
+            "Codex",
+            "Base URL, prefix, excluded models and headers.",
+            $"{_viewModel.Codex.Count} entries"
+        );
+        ConfigureCard(
+            ClaudeCard,
+            "claude",
+            "Claude",
+            "Entry editor plus dedicated model definitions route.",
+            $"{_viewModel.Claude.Count} entries"
+        );
+        ConfigureCard(
+            VertexCard,
+            "vertex",
+            "Vertex",
+            "Provider key forms without JSON fallback.",
+            $"{_viewModel.Vertex.Count} entries"
+        );
+        ConfigureCard(
+            OpenAiCard,
+            "openai",
+            "OpenAI Compatibility",
+            "Compatibility providers and model definitions.",
+            $"{_viewModel.OpenAi.Count} entries"
+        );
+        ConfigureCard(
+            AmpcodeCard,
+            "ampcode",
+            "AmpCode",
+            "Base settings, model mappings and upstream key mappings.",
+            $"{(_viewModel.AmpCode?.ModelMappings.Count ?? 0)} mappings"
+        );
 
-        RouteTextBlock.Text = _navigationService.CurrentRoute?.ParentKey == "ai-providers"
-            ? _navigationService.CurrentRoute.Path
-            : "/ai-providers";
+        RouteTextBlock.Text =
+            _navigationService.CurrentRoute?.ParentKey == "ai-providers"
+                ? _navigationService.CurrentRoute.Path
+                : "/ai-providers";
 
         _routeHost.Refresh();
     }
 
-    private void ConfigureCard(ProviderCard card, string key, string title, string subtitle, string meta)
+    private void ConfigureCard(
+        ProviderCard card,
+        string key,
+        string title,
+        string subtitle,
+        string meta
+    )
     {
         card.Tag = key;
         card.Title = title;
         card.Subtitle = subtitle;
         card.MetaText = meta;
-        card.BadgeText = string.Equals(_routeState.SelectedProviderKey, key, StringComparison.OrdinalIgnoreCase)
+        card.BadgeText = string.Equals(
+            _routeState.SelectedProviderKey,
+            key,
+            StringComparison.OrdinalIgnoreCase
+        )
             ? "Current"
             : "Open";
-        card.IsSelected = string.Equals(_routeState.SelectedProviderKey, key, StringComparison.OrdinalIgnoreCase);
+        card.IsSelected = string.Equals(
+            _routeState.SelectedProviderKey,
+            key,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     private void NormalizeRouteSelection()
@@ -114,20 +175,31 @@ public partial class AiProvidersPage : Page
         var routeKey = _navigationService.CurrentSecondaryRouteKey;
         if (string.IsNullOrWhiteSpace(routeKey))
         {
-            NavigateToProvider(selectedProvider, preferNew: GetProviderEntryCount(selectedProvider) == 0);
+            NavigateToProvider(
+                selectedProvider,
+                preferNew: GetProviderEntryCount(selectedProvider) == 0
+            );
             return;
         }
 
         var count = GetProviderEntryCount(selectedProvider);
         if (count == 0)
         {
-            _routeState.SetRoute(selectedProvider, GetEditableRouteKey(selectedProvider, isNew: true), 0);
+            _routeState.SetRoute(
+                selectedProvider,
+                GetEditableRouteKey(selectedProvider, isNew: true),
+                0
+            );
             return;
         }
 
         if (!IsNewRoute(routeKey) && _routeState.GetSelectedIndex(selectedProvider, count) >= count)
         {
-            _routeState.SetRoute(selectedProvider, GetEditableRouteKey(selectedProvider, isNew: false), count - 1);
+            _routeState.SetRoute(
+                selectedProvider,
+                GetEditableRouteKey(selectedProvider, isNew: false),
+                count - 1
+            );
         }
     }
 
@@ -141,7 +213,7 @@ public partial class AiProvidersPage : Page
             "vertex" => _viewModel.Vertex.Count,
             "openai" => _viewModel.OpenAi.Count,
             "ampcode" => 1,
-            _ => 0
+            _ => 0,
         };
     }
 
@@ -196,7 +268,7 @@ public partial class AiProvidersPage : Page
             "claude" => isNew ? "ai-providers-claude-new" : "ai-providers-claude-edit",
             "vertex" => isNew ? "ai-providers-vertex-new" : "ai-providers-vertex-edit",
             "openai" => isNew ? "ai-providers-openai-new" : "ai-providers-openai-edit",
-            _ => "ai-providers"
+            _ => "ai-providers",
         };
     }
 

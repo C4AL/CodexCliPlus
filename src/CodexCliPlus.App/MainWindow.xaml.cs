@@ -12,7 +12,6 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
-
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Management;
@@ -27,10 +26,8 @@ using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
-
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
-
 using MessageBox = System.Windows.MessageBox;
 using WpfBrush = System.Windows.Media.Brush;
 using WpfButton = System.Windows.Controls.Button;
@@ -49,19 +46,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         FirstRunKeyReveal,
         NativeLogin,
         LoadingManagement,
-        Blocked
+        Blocked,
     }
 
     private const string AppHostName = "codexcliplus-webui.local";
     private const string UiTestModeEnvironmentVariable = "CODEXCLIPLUS_UI_TEST_MODE";
-    private const string UiTestWebViewUserDataFolderEnvironmentVariable = "CODEXCLIPLUS_WEBVIEW2_USER_DATA_FOLDER";
-    private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable = "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
+    private const string UiTestWebViewUserDataFolderEnvironmentVariable =
+        "CODEXCLIPLUS_WEBVIEW2_USER_DATA_FOLDER";
+    private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable =
+        "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
-    private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(2500);
+    private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
+        2500
+    );
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
     private static readonly JsonSerializerOptions WebMessageJsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     private readonly MainWindowViewModel _viewModel;
@@ -114,7 +115,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IManagementOverviewService managementOverviewService,
         IManagementConfigurationService managementConfigurationService,
         WebUiAssetLocator webUiAssetLocator,
-        ShellNotificationService notificationService)
+        ShellNotificationService notificationService
+    )
     {
         _viewModel = viewModel;
         _backendProcessManager = backendProcessManager;
@@ -135,12 +137,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         _navigationDockCollapseTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(520)
+            Interval = TimeSpan.FromMilliseconds(520),
         };
         _navigationDockCollapseTimer.Tick += NavigationDockCollapseTimer_Tick;
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
-        _notificationService.NotificationRequested += ShellNotificationService_NotificationRequested;
+        _notificationService.NotificationRequested +=
+            ShellNotificationService_NotificationRequested;
         SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
     }
 
@@ -176,14 +179,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowBlocker(
                 "桌面宿主启动失败",
                 "无法加载桌面配置或初始化宿主环境。",
-                exception.Message);
+                exception.Message
+            );
         }
     }
 
     private void Window_Closed(object? sender, EventArgs e)
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
-        _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
+        _notificationService.NotificationRequested -=
+            ShellNotificationService_NotificationRequested;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
@@ -195,7 +200,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     public void Dispose()
     {
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
-        _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
+        _notificationService.NotificationRequested -=
+            ShellNotificationService_NotificationRequested;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
@@ -215,12 +221,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             ApplyShellTheme(_settings.ThemeMode);
             UpdateShellThemePresentation();
-            PostWebUiCommand(new
-            {
-                type = "setTheme",
-                theme = ToWebTheme(_settings.ThemeMode),
-                resolvedTheme = ToWebResolvedTheme(_settings.ThemeMode)
-            });
+            PostWebUiCommand(
+                new
+                {
+                    type = "setTheme",
+                    theme = ToWebTheme(_settings.ThemeMode),
+                    resolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
+                }
+            );
         });
     }
 
@@ -246,7 +254,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return;
         }
 
-        await InitializeHostAsync(restartBackend: _backendProcessManager.CurrentStatus.State != BackendStateKind.Running);
+        await InitializeHostAsync(
+            restartBackend: _backendProcessManager.CurrentStatus.State != BackendStateKind.Running
+        );
     }
 
     private async void UpgradeContinueButton_Click(object sender, RoutedEventArgs e)
@@ -260,10 +270,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
         catch (Exception exception)
         {
-            ShowBlocker(
-                "更新确认失败",
-                "无法保存本次更新确认状态。",
-                exception.Message);
+            ShowBlocker("更新确认失败", "无法保存本次更新确认状态。", exception.Message);
         }
         finally
         {
@@ -276,7 +283,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         await SignInAsync();
     }
 
-    private async void ManagementKeyPasswordBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private async void ManagementKeyPasswordBox_KeyDown(
+        object sender,
+        System.Windows.Input.KeyEventArgs e
+    )
     {
         if (e.Key != Key.Enter)
         {
@@ -309,7 +319,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             await File.WriteAllTextAsync(
                 filePath,
                 content,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+            );
             _notificationService.ShowAuto($"已保存到桌面：{Path.GetFileName(filePath)}");
         }
         catch (Exception exception)
@@ -340,7 +351,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             "重置会清空后端配置、Provider 配置、OAuth/Auth 文件、本机保存的安全密钥和 WebUI 本地登录状态。日志、诊断文件和 backend 资产会保留。",
             "重置安全密钥",
             MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            MessageBoxImage.Warning
+        );
         if (firstConfirm != MessageBoxResult.Yes)
         {
             return;
@@ -351,7 +363,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             "确认重置后，现有账号与配置无法通过桌面壳恢复。是否继续？",
             "确认重置",
             MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            MessageBoxImage.Warning
+        );
         if (secondConfirm != MessageBoxResult.Yes)
         {
             return;
@@ -525,7 +538,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_settings.ManagementKey) && _backendProcessManager.CurrentStatus.State != BackendStateKind.Running)
+        if (
+            string.IsNullOrWhiteSpace(_settings.ManagementKey)
+            && _backendProcessManager.CurrentStatus.State != BackendStateKind.Running
+        )
         {
             ShowLogin("请先输入安全密钥。");
             return;
@@ -547,7 +563,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, exception.Message, "检查更新失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                this,
+                exception.Message,
+                "检查更新失败",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
         }
     }
 
@@ -570,9 +592,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         if (e.ClickCount == 2)
         {
-            WindowState = WindowState == WindowState.Maximized
-                ? WindowState.Normal
-                : WindowState.Maximized;
+            WindowState =
+                WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
             return;
         }
 
@@ -580,9 +601,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             DragMove();
         }
-        catch (InvalidOperationException)
-        {
-        }
+        catch (InvalidOperationException) { }
     }
 
     private async Task ContinueAfterStartupGateAsync()
@@ -621,8 +640,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             new BackendConfigWriteOptions
             {
                 AllowManagementKeyRotation = true,
-                ValidatePort = false
-            });
+                ValidatePort = false,
+            }
+        );
 
         FirstRunSecurityKeyTextBox.Text = _firstRunManagementKey;
         FirstRunSecurityKeyTextBox.CaretIndex = 0;
@@ -663,9 +683,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             FirstRunConfirmContinueButton.Content = "确认";
             FirstRunConfirmContinueButton.IsEnabled = true;
         }
-        catch (TaskCanceledException)
-        {
-        }
+        catch (TaskCanceledException) { }
     }
 
     private async Task CompleteFirstRunAsync()
@@ -787,9 +805,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             DeleteFileIfExistsInsideRoot(_pathService.Directories.BackendConfigFilePath);
             DeleteFileIfExistsInsideRoot(_pathService.Directories.SettingsFilePath);
-            DeleteDirectoryIfExistsInsideRoot(Path.Combine(_pathService.Directories.ConfigDirectory, AppConstants.SecretsDirectoryName));
-            DeleteDirectoryIfExistsInsideRoot(Path.Combine(_pathService.Directories.BackendDirectory, "auth"));
-            if (!string.IsNullOrWhiteSpace(configuredAuthDirectory) && IsPathInsideAppRoot(configuredAuthDirectory))
+            DeleteDirectoryIfExistsInsideRoot(
+                Path.Combine(
+                    _pathService.Directories.ConfigDirectory,
+                    AppConstants.SecretsDirectoryName
+                )
+            );
+            DeleteDirectoryIfExistsInsideRoot(
+                Path.Combine(_pathService.Directories.BackendDirectory, "auth")
+            );
+            if (
+                !string.IsNullOrWhiteSpace(configuredAuthDirectory)
+                && IsPathInsideAppRoot(configuredAuthDirectory)
+            )
             {
                 DeleteDirectoryIfExistsInsideRoot(configuredAuthDirectory);
             }
@@ -801,14 +829,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
         catch (Exception exception)
         {
-            ShowBlocker(
-                "安全密钥重置失败",
-                "未能完成本地配置和认证状态清理。",
-                exception.Message);
+            ShowBlocker("安全密钥重置失败", "未能完成本地配置和认证状态清理。", exception.Message);
         }
     }
 
-    private async void BackendProcessManager_StatusChanged(object? sender, BackendStatusSnapshot snapshot)
+    private async void BackendProcessManager_StatusChanged(
+        object? sender,
+        BackendStatusSnapshot snapshot
+    )
     {
         if (_isInitializing || snapshot.State != BackendStateKind.Error)
         {
@@ -820,7 +848,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowBlocker(
                 "后端不可用",
                 "本地后端未能保持运行，桌面宿主已暂停管理界面。",
-                snapshot.LastError ?? snapshot.Message);
+                snapshot.LastError ?? snapshot.Message
+            );
         });
     }
 
@@ -840,14 +869,27 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             await _pathService.EnsureCreatedAsync();
 
-            ShowPreparationStep("WebView2", 25, "正在检查 WebView2 运行时。", StartupState.Preparing);
+            ShowPreparationStep(
+                "WebView2",
+                25,
+                "正在检查 WebView2 运行时。",
+                StartupState.Preparing
+            );
             EnsureWebView2Runtime();
 
-            ShowPreparationStep("后端资产", 40, "正在定位管理界面和后端资产。", StartupState.Preparing);
+            ShowPreparationStep(
+                "后端资产",
+                40,
+                "正在定位管理界面和后端资产。",
+                StartupState.Preparing
+            );
             var bundle = _webUiAssetLocator.GetRequiredBundle();
 
             ShowPreparationStep("配置", 55, "正在确认后端配置。", StartupState.Preparing);
-            if (restartBackend && _backendProcessManager.CurrentStatus.State == BackendStateKind.Running)
+            if (
+                restartBackend
+                && _backendProcessManager.CurrentStatus.State == BackendStateKind.Running
+            )
             {
                 ShowPreparationStep("核心启动", 68, "正在重启本地后端。", StartupState.Preparing);
                 await _backendProcessManager.RestartAsync();
@@ -864,14 +906,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 ManagementKey = connection.ManagementKey,
                 Theme = ToWebTheme(_settings.ThemeMode),
                 ResolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
-                SidebarCollapsed = _sidebarCollapsed
+                SidebarCollapsed = _sidebarCollapsed,
             };
 
             _shellApiBase = connection.BaseUrl;
             _shellConnectionStatus = "connected";
             UpdateShellConnectionPresentation();
 
-            ShowPreparationStep("管理桥接", 95, "正在打开管理界面。", StartupState.LoadingManagement);
+            ShowPreparationStep(
+                "管理桥接",
+                95,
+                "正在打开管理界面。",
+                StartupState.LoadingManagement
+            );
             await EnsureWebViewAsync(bundle, payload);
             await EnsureMinimumPreparationDisplayAsync();
             ShowWebView();
@@ -881,21 +928,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowBlocker(
                 "缺少 WebView2 运行时",
                 "当前系统未安装 Microsoft Edge WebView2 Runtime，桌面宿主无法承载管理界面。",
-                exception.Message);
+                exception.Message
+            );
         }
         catch (FileNotFoundException exception)
         {
             ShowBlocker(
                 "缺少管理界面资源",
                 "前端静态资源未找到，桌面宿主无法继续启动。",
-                exception.Message);
+                exception.Message
+            );
         }
         catch (Exception exception)
         {
             ShowBlocker(
                 "桌面宿主启动失败",
                 "管理界面宿主未能完成初始化，请先修复阻断错误。",
-                exception.Message);
+                exception.Message
+            );
         }
         finally
         {
@@ -927,24 +977,34 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async Task<CoreWebView2Environment?> CreateWebViewEnvironmentAsync()
     {
-        if (!string.Equals(
+        if (
+            !string.Equals(
                 Environment.GetEnvironmentVariable(UiTestModeEnvironmentVariable),
                 "1",
-                StringComparison.Ordinal))
+                StringComparison.Ordinal
+            )
+        )
         {
             return null;
         }
 
-        var userDataFolder = Environment.GetEnvironmentVariable(UiTestWebViewUserDataFolderEnvironmentVariable);
+        var userDataFolder = Environment.GetEnvironmentVariable(
+            UiTestWebViewUserDataFolderEnvironmentVariable
+        );
         if (string.IsNullOrWhiteSpace(userDataFolder))
         {
-            userDataFolder = Path.Combine(_pathService.Directories.RuntimeDirectory, "webview2-test-profile");
+            userDataFolder = Path.Combine(
+                _pathService.Directories.RuntimeDirectory,
+                "webview2-test-profile"
+            );
         }
 
         Directory.CreateDirectory(userDataFolder);
 
         var options = new CoreWebView2EnvironmentOptions();
-        var remoteDebuggingPort = Environment.GetEnvironmentVariable(UiTestWebViewRemoteDebuggingPortEnvironmentVariable);
+        var remoteDebuggingPort = Environment.GetEnvironmentVariable(
+            UiTestWebViewRemoteDebuggingPortEnvironmentVariable
+        );
         if (int.TryParse(remoteDebuggingPort, out var port) && port is > 0 and <= 65535)
         {
             options.AdditionalBrowserArguments = $"--remote-debugging-port={port}";
@@ -953,7 +1013,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         return await CoreWebView2Environment.CreateAsync(
             browserExecutableFolder: null,
             userDataFolder: userDataFolder,
-            options: options);
+            options: options
+        );
     }
 
     private void ConfigureWebView(WebUiBundleInfo bundle)
@@ -967,7 +1028,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         core.SetVirtualHostNameToFolderMapping(
             AppHostName,
             bundle.DistDirectory,
-            CoreWebView2HostResourceAccessKind.Allow);
+            CoreWebView2HostResourceAccessKind.Allow
+        );
 
         core.NavigationStarting += CoreWebView2_NavigationStarting;
         core.NewWindowRequested += CoreWebView2_NewWindowRequested;
@@ -979,16 +1041,25 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         if (_bootstrapScriptId is not null)
         {
-            ManagementWebView.CoreWebView2.RemoveScriptToExecuteOnDocumentCreated(_bootstrapScriptId);
+            ManagementWebView.CoreWebView2.RemoveScriptToExecuteOnDocumentCreated(
+                _bootstrapScriptId
+            );
         }
 
-        _bootstrapScriptId = await ManagementWebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
-            DesktopBridgeScriptFactory.CreateInitializationScript(payload));
+        _bootstrapScriptId =
+            await ManagementWebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                DesktopBridgeScriptFactory.CreateInitializationScript(payload)
+            );
     }
 
-    private void CoreWebView2_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+    private void CoreWebView2_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e
+    )
     {
-        if (string.IsNullOrWhiteSpace(e.Uri) || !Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri))
+        if (
+            string.IsNullOrWhiteSpace(e.Uri) || !Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
+        )
         {
             return;
         }
@@ -998,8 +1069,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return;
         }
 
-        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
-            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        if (
+            !uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+        )
         {
             return;
         }
@@ -1008,7 +1081,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         OpenExternal(uri.ToString());
     }
 
-    private void CoreWebView2_NewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    private void CoreWebView2_NewWindowRequested(
+        object? sender,
+        CoreWebView2NewWindowRequestedEventArgs e
+    )
     {
         e.Handled = true;
         if (!string.IsNullOrWhiteSpace(e.Uri))
@@ -1017,7 +1093,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
-    private void CoreWebView2_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    private void CoreWebView2_WebMessageReceived(
+        object? sender,
+        CoreWebView2WebMessageReceivedEventArgs e
+    )
     {
         try
         {
@@ -1031,7 +1110,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             switch (typeElement.GetString())
             {
                 case "openExternal":
-                    var url = root.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
+                    var url = root.TryGetProperty("url", out var urlElement)
+                        ? urlElement.GetString()
+                        : null;
                     if (!string.IsNullOrWhiteSpace(url))
                     {
                         OpenExternal(url);
@@ -1043,9 +1124,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     var message = root.TryGetProperty("message", out var messageElement)
                         ? messageElement.GetString()
                         : null;
-                    ShowLogin(string.IsNullOrWhiteSpace(message)
-                        ? "登录状态已失效，请重新输入安全密钥。"
-                        : message);
+                    ShowLogin(
+                        string.IsNullOrWhiteSpace(message)
+                            ? "登录状态已失效，请重新输入安全密钥。"
+                            : message
+                    );
                     break;
 
                 case "shellStateChanged":
@@ -1054,8 +1137,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
                 case "navigationHoverZone":
                     var navigationHoverZoneActive =
-                        root.TryGetProperty("active", out var activeElement) &&
-                        activeElement.ValueKind is JsonValueKind.True;
+                        root.TryGetProperty("active", out var activeElement)
+                        && activeElement.ValueKind is JsonValueKind.True;
                     if (navigationHoverZoneActive)
                     {
                         ExpandNavigationDock(showLabels: false);
@@ -1068,9 +1151,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     break;
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void ApplyWebUiShellState(JsonElement root)
@@ -1095,8 +1176,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             _shellResolvedTheme = NormalizeResolvedTheme(resolvedThemeElement.GetString());
         }
 
-        if (root.TryGetProperty("sidebarCollapsed", out var sidebarCollapsedElement) &&
-            (sidebarCollapsedElement.ValueKind is JsonValueKind.True or JsonValueKind.False))
+        if (
+            root.TryGetProperty("sidebarCollapsed", out var sidebarCollapsedElement)
+            && (sidebarCollapsedElement.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        )
         {
             _sidebarCollapsed = sidebarCollapsedElement.GetBoolean();
         }
@@ -1117,11 +1200,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             ShowBlocker(
                 "WebView2 进程异常退出",
                 "管理界面渲染进程发生故障，桌面宿主已停止继续渲染空白页面。",
-                e.ProcessFailedKind.ToString());
+                e.ProcessFailedKind.ToString()
+            );
         });
     }
 
-    private void ShowPreparationStep(string step, double progress, string description, StartupState state)
+    private void ShowPreparationStep(
+        string step,
+        double progress,
+        string description,
+        StartupState state
+    )
     {
         _startupState = state;
         if (LoadingPanel.Visibility != Visibility.Visible || _preparationPanelShownAt is null)
@@ -1129,9 +1218,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             _preparationPanelShownAt = DateTimeOffset.UtcNow;
         }
 
-        LoadingTitleText.Text = state == StartupState.LoadingManagement
-            ? "正在进入管理界面"
-            : "正在准备桌面管理界面";
+        LoadingTitleText.Text =
+            state == StartupState.LoadingManagement ? "正在进入管理界面" : "正在准备桌面管理界面";
         LoadingDescriptionText.Text = description;
         LoadingStatusText.Text = BuildPreparationStatus(progress, state);
         PreparationStepText.Text = $"当前步骤：{step}";
@@ -1140,8 +1228,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             RangeBase.ValueProperty,
             new DoubleAnimation(normalizedProgress, new Duration(TimeSpan.FromMilliseconds(320)))
             {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-            });
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
 
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -1158,7 +1247,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         var previousVersion = string.IsNullOrWhiteSpace(_settings.LastSeenApplicationVersion)
             ? "旧版本"
             : _settings.LastSeenApplicationVersion.Trim();
-        UpgradeNoticeVersionText.Text = $"已从 {previousVersion} 升级到 {CurrentApplicationVersion}";
+        UpgradeNoticeVersionText.Text =
+            $"已从 {previousVersion} 升级到 {CurrentApplicationVersion}";
 
         UpgradeNoticePanel.Visibility = Visibility.Visible;
         FirstRunKeyPanel.Visibility = Visibility.Collapsed;
@@ -1275,7 +1365,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             "connected" => (WpfBrush)FindResource("AccentBrush"),
             "connecting" => new SolidColorBrush(WpfColor.FromRgb(217, 119, 6)),
             "error" => new SolidColorBrush(WpfColor.FromRgb(220, 38, 38)),
-            _ => (WpfBrush)FindResource("SecondaryTextBrush")
+            _ => (WpfBrush)FindResource("SecondaryTextBrush"),
         };
     }
 
@@ -1285,12 +1375,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         ApplyShellTheme(themeMode);
         UpdateShellThemePresentation();
         await _appConfigurationService.SaveAsync(_settings);
-        PostWebUiCommand(new
-        {
-            type = "setTheme",
-            theme = ToWebTheme(themeMode),
-            resolvedTheme = ToWebResolvedTheme(themeMode)
-        });
+        PostWebUiCommand(
+            new
+            {
+                type = "setTheme",
+                theme = ToWebTheme(themeMode),
+                resolvedTheme = ToWebResolvedTheme(themeMode),
+            }
+        );
     }
 
     private void ApplyShellTheme(AppThemeMode themeMode)
@@ -1328,7 +1420,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             AppThemeMode.White => "纯白",
             AppThemeMode.Dark => "暗色",
-            _ => "跟随系统"
+            _ => "跟随系统",
         };
 
         ShellThemeButton.ToolTip = $"主题：{label}";
@@ -1346,11 +1438,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         try
         {
-            ManagementWebView.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message, WebMessageJsonOptions));
+            ManagementWebView.CoreWebView2.PostWebMessageAsJson(
+                JsonSerializer.Serialize(message, WebMessageJsonOptions)
+            );
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void ShellNavigationButton_Click(object sender, RoutedEventArgs e)
@@ -1368,24 +1460,29 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         _activeWebUiPath = NormalizeRoutePath(path);
         UpdateNavigationActiveState();
-        PostWebUiCommand(new
-        {
-            type = "navigate",
-            path = _activeWebUiPath
-        });
+        PostWebUiCommand(new { type = "navigate", path = _activeWebUiPath });
     }
 
-    private void ShellNavigationDockHost_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    private void ShellNavigationDockHost_MouseEnter(
+        object sender,
+        System.Windows.Input.MouseEventArgs e
+    )
     {
         ExpandNavigationDock(showLabels: false);
     }
 
-    private void ShellNavigationPanel_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    private void ShellNavigationPanel_MouseEnter(
+        object sender,
+        System.Windows.Input.MouseEventArgs e
+    )
     {
         ExpandNavigationDock(showLabels: true);
     }
 
-    private void ShellNavigationDockHost_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    private void ShellNavigationDockHost_MouseLeave(
+        object sender,
+        System.Windows.Input.MouseEventArgs e
+    )
     {
         CollapseNavigationDockWithDelay(shortDelay: false);
     }
@@ -1415,28 +1512,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             FrameworkElement.WidthProperty,
             new DoubleAnimation(width, new Duration(TimeSpan.FromMilliseconds(220)))
             {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            });
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
         ShellNavigationPanel.BeginAnimation(
             UIElement.OpacityProperty,
             new DoubleAnimation(panelOpacity, new Duration(TimeSpan.FromMilliseconds(160)))
             {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-            });
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
     }
 
     private void UpdateNavigationActiveState()
     {
-        foreach (var button in new[]
-        {
-            ShellNavDashboardButton,
-            ShellNavConfigButton,
-            ShellNavAccountButton,
-            ShellNavAuthFilesButton,
-            ShellNavQuotaButton,
-            ShellNavUsageButton,
-            ShellNavLogsButton
-        })
+        foreach (
+            var button in new[]
+            {
+                ShellNavDashboardButton,
+                ShellNavConfigButton,
+                ShellNavAccountButton,
+                ShellNavAuthFilesButton,
+                ShellNavQuotaButton,
+                ShellNavUsageButton,
+                ShellNavLogsButton,
+            }
+        )
         {
             if (button.CommandParameter is not string path)
             {
@@ -1456,8 +1557,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return normalizedPath == "/";
         }
 
-        return normalizedPath.Equals(normalizedRoute, StringComparison.OrdinalIgnoreCase) ||
-            normalizedPath.StartsWith(normalizedRoute + "/", StringComparison.OrdinalIgnoreCase);
+        return normalizedPath.Equals(normalizedRoute, StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.StartsWith(normalizedRoute + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeRoutePath(string? path)
@@ -1510,7 +1611,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             _settingsWindow?.Show();
             _settingsWindow?.Activate();
-            _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
+            _settingsWindowRoot?.BeginAnimation(
+                UIElement.OpacityProperty,
+                CreateEaseAnimation(1, 180)
+            );
             await RefreshSettingsOverlayAsync();
         }
         catch (Exception exception)
@@ -1558,7 +1662,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _settingsWindowRoot = new Grid
         {
             Background = new SolidColorBrush(WpfColor.FromArgb(0x55, 0, 0, 0)),
-            Opacity = 0
+            Opacity = 0,
         };
         _settingsWindowRoot.MouseLeftButtonDown += SettingsWindowRoot_MouseLeftButtonDown;
         _settingsWindowRoot.Children.Add(SettingsDialogCard);
@@ -1572,7 +1676,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             AllowsTransparency = true,
             Background = System.Windows.Media.Brushes.Transparent,
             Content = _settingsWindowRoot,
-            Topmost = false
+            Topmost = false,
         };
         _settingsWindow.Deactivated += SettingsWindow_Deactivated;
         _settingsWindow.Closed += SettingsWindow_Closed;
@@ -1666,7 +1770,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             var overview = await _managementOverviewService.GetOverviewAsync(cts.Token);
-            _shellBackendVersion = ResolveBackendVersion(overview.Value.ServerVersion, overview.Metadata.Version);
+            _shellBackendVersion = ResolveBackendVersion(
+                overview.Value.ServerVersion,
+                overview.Metadata.Version
+            );
         }
         catch
         {
@@ -1693,11 +1800,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 : overview.Value.ServerVersion;
             _shellBackendVersion = ResolveBackendVersion(backendVersion, null);
             UpdateShellDockPresentation();
-            SettingsModelOverviewText.Text = overview.Value.AvailableModelCount is { } count
-                ? $"可用模型：{count} 个"
+            SettingsModelOverviewText.Text =
+                overview.Value.AvailableModelCount is { } count ? $"可用模型：{count} 个"
                 : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
                     ? "可用模型：未加载"
-                    : $"可用模型：{overview.Value.AvailableModelsError}";
+                : $"可用模型：{overview.Value.AvailableModelsError}";
             SettingsProviderOverviewText.Text =
                 $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
         }
@@ -1718,15 +1825,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         UpdateShellThemePresentation();
     }
 
-    private string ShellConnectionStatusLabel => _shellConnectionStatus switch
-    {
-        "connected" => "已连接",
-        "connecting" => "连接中",
-        "error" => "异常",
-        _ => "未连接"
-    };
+    private string ShellConnectionStatusLabel =>
+        _shellConnectionStatus switch
+        {
+            "connected" => "已连接",
+            "connecting" => "连接中",
+            "error" => "异常",
+            _ => "未连接",
+        };
 
-    private void ShellNotificationService_NotificationRequested(object? sender, ShellNotificationRequest request)
+    private void ShellNotificationService_NotificationRequested(
+        object? sender,
+        ShellNotificationRequest request
+    )
     {
         Dispatcher.Invoke(() =>
         {
@@ -1756,8 +1867,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 FrameworkElement.WidthProperty,
                 new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(2)))
                 {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-                });
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut },
+                }
+            );
             await Task.Delay(TimeSpan.FromSeconds(2.15));
             await FadeOutAndRemoveAsync(AutoNotificationStack, card);
         };
@@ -1778,11 +1890,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             Height = 3,
             HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
-            Background = new SolidColorBrush(WpfColor.FromRgb(37, 99, 235))
+            Background = new SolidColorBrush(WpfColor.FromRgb(37, 99, 235)),
         };
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             progress,
-            showCloseButton ? "ManualNotificationProgress" : "AutoNotificationProgress");
+            showCloseButton ? "ManualNotificationProgress" : "AutoNotificationProgress"
+        );
 
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1791,33 +1904,40 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         var contentGrid = new Grid { Margin = new Thickness(14, 12, 14, 12) };
         if (showCloseButton)
         {
-            contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            contentGrid.ColumnDefinitions.Add(
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+            );
             contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
 
         var textStack = new StackPanel();
         if (!string.IsNullOrWhiteSpace(title))
         {
-            textStack.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 14,
-                FontWeight = FontWeights.SemiBold,
-                Foreground = (WpfBrush)FindResource("PrimaryTextBrush")
-            });
+            textStack.Children.Add(
+                new TextBlock
+                {
+                    Text = title,
+                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = (WpfBrush)FindResource("PrimaryTextBrush"),
+                }
+            );
         }
 
         var messageText = new TextBlock
         {
             Text = message,
-            Margin = string.IsNullOrWhiteSpace(title) ? new Thickness(0) : new Thickness(0, 6, 0, 0),
+            Margin = string.IsNullOrWhiteSpace(title)
+                ? new Thickness(0)
+                : new Thickness(0, 6, 0, 0),
             FontSize = 13,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = (WpfBrush)FindResource("SecondaryTextBrush")
+            Foreground = (WpfBrush)FindResource("SecondaryTextBrush"),
         };
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             messageText,
-            showCloseButton ? "ManualNotificationMessage" : "AutoNotificationMessage");
+            showCloseButton ? "ManualNotificationMessage" : "AutoNotificationMessage"
+        );
         System.Windows.Automation.AutomationProperties.SetName(messageText, message);
         textStack.Children.Add(messageText);
         contentGrid.Children.Add(textStack);
@@ -1832,7 +1952,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 Padding = new Thickness(0),
                 Margin = new Thickness(10, -4, -6, 0),
                 FontFamily = new WpfFontFamily("Segoe MDL2 Assets"),
-                ToolTip = "关闭"
+                ToolTip = "关闭",
             };
             Grid.SetColumn(closeButton, 1);
             contentGrid.Children.Add(closeButton);
@@ -1855,23 +1975,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 Direction = 270,
                 Color = WpfColor.FromArgb(0x10, 0, 0, 0),
                 Opacity = 1,
-                ShadowDepth = 2
+                ShadowDepth = 2,
             },
             Child = root,
-            Tag = progress
+            Tag = progress,
         };
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             card,
-            showCloseButton ? "ManualNotificationCard" : "AutoNotificationCard");
+            showCloseButton ? "ManualNotificationCard" : "AutoNotificationCard"
+        );
         System.Windows.Automation.AutomationProperties.SetName(
             card,
-            string.IsNullOrWhiteSpace(title) ? message : $"{title} {message}");
+            string.IsNullOrWhiteSpace(title) ? message : $"{title} {message}"
+        );
 
-        if (showCloseButton && contentGrid.Children.OfType<WpfButton>().FirstOrDefault() is { } button)
+        if (
+            showCloseButton
+            && contentGrid.Children.OfType<WpfButton>().FirstOrDefault() is { } button
+        )
         {
-            System.Windows.Automation.AutomationProperties.SetAutomationId(button, "ManualNotificationCloseButton");
+            System.Windows.Automation.AutomationProperties.SetAutomationId(
+                button,
+                "ManualNotificationCloseButton"
+            );
             System.Windows.Automation.AutomationProperties.SetName(button, "关闭");
-            button.Click += async (_, _) => await FadeOutAndRemoveAsync(ManualNotificationStack, card);
+            button.Click += async (_, _) =>
+                await FadeOutAndRemoveAsync(ManualNotificationStack, card);
         }
 
         return card;
@@ -1879,22 +2008,37 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private static void AnimateNotificationIn(Border card)
     {
-        card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(180))));
+        card.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(180)))
+        );
         if (card.RenderTransform is TranslateTransform transform)
         {
-            transform.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
-            transform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
+            transform.BeginAnimation(
+                TranslateTransform.XProperty,
+                new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)))
+            );
+            transform.BeginAnimation(
+                TranslateTransform.YProperty,
+                new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)))
+            );
         }
     }
 
-    private static async Task FadeOutAndRemoveAsync(System.Windows.Controls.Panel owner, Border card)
+    private static async Task FadeOutAndRemoveAsync(
+        System.Windows.Controls.Panel owner,
+        Border card
+    )
     {
         if (!owner.Children.Contains(card))
         {
             return;
         }
 
-        card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180))));
+        card.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)))
+        );
         await Task.Delay(TimeSpan.FromMilliseconds(190));
         owner.Children.Remove(card);
     }
@@ -1933,7 +2077,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         return !string.Equals(
             _settings.LastSeenApplicationVersion?.Trim(),
             CurrentApplicationVersion,
-            StringComparison.OrdinalIgnoreCase);
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     private string CurrentApplicationVersion =>
@@ -1968,7 +2113,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             "connected" => "connected",
             "connecting" => "connecting",
             "error" => "error",
-            _ => "disconnected"
+            _ => "disconnected",
         };
     }
 
@@ -1978,7 +2123,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             "dark" => "dark",
             "white" or "light" => "white",
-            _ => "auto"
+            _ => "auto",
         };
     }
 
@@ -1993,7 +2138,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             AppThemeMode.White => "white",
             AppThemeMode.Dark => "dark",
-            _ => "auto"
+            _ => "auto",
         };
     }
 
@@ -2004,15 +2149,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private static bool IsEffectiveDarkTheme(AppThemeMode themeMode)
     {
-        return themeMode == AppThemeMode.Dark ||
-            (themeMode == AppThemeMode.System && IsSystemDarkTheme());
+        return themeMode == AppThemeMode.Dark
+            || (themeMode == AppThemeMode.System && IsSystemDarkTheme());
     }
 
     private static bool IsSystemDarkTheme()
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+            );
             var value = key?.GetValue("AppsUseLightTheme");
             return value is int intValue && intValue == 0;
         }
@@ -2026,7 +2173,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         return new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
         {
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         };
     }
 
@@ -2052,18 +2199,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private static string BuildSecurityKeyFileContent(string securityKey)
     {
-        return
-            "CodexCliPlus 安全密钥" + Environment.NewLine +
-            Environment.NewLine +
-            securityKey + Environment.NewLine +
-            Environment.NewLine +
-            "请妥善保存。完整安全密钥只会在首次初始化页面显示一次。" + Environment.NewLine +
-            "不要把此文件发送给不受信任的人。" + Environment.NewLine;
+        return "CodexCliPlus 安全密钥"
+            + Environment.NewLine
+            + Environment.NewLine
+            + securityKey
+            + Environment.NewLine
+            + Environment.NewLine
+            + "请妥善保存。完整安全密钥只会在首次初始化页面显示一次。"
+            + Environment.NewLine
+            + "不要把此文件发送给不受信任的人。"
+            + Environment.NewLine;
     }
 
     private static string BuildDesktopSecurityKeyFilePath()
     {
-        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        var desktopDirectory = Environment.GetFolderPath(
+            Environment.SpecialFolder.DesktopDirectory
+        );
         if (string.IsNullOrWhiteSpace(desktopDirectory))
         {
             throw new InvalidOperationException("无法定位桌面目录。");
@@ -2074,7 +2226,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             normalizedDesktopDirectory = Path.GetFullPath(desktopDirectory);
         }
-        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        catch (Exception exception)
+            when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
             throw new InvalidOperationException("桌面目录路径无效。", exception);
         }
@@ -2094,7 +2247,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             UnauthorizedAccessException => $"无法写入系统桌面目录。{exception.Message}",
             IOException => $"无法写入系统桌面目录。{exception.Message}",
-            _ => exception.Message
+            _ => exception.Message,
         };
     }
 
@@ -2159,11 +2312,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                   } catch {
                   }
                 })();
-                """);
+                """
+            );
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void DeleteFileIfExistsInsideRoot(string filePath)
@@ -2200,8 +2352,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             : root + Path.DirectorySeparatorChar;
         var target = Path.GetFullPath(path);
 
-        return target.Equals(root, StringComparison.OrdinalIgnoreCase) ||
-            target.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+        return target.Equals(root, StringComparison.OrdinalIgnoreCase)
+            || target.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
     }
 
     private string? TryReadConfiguredAuthDirectory()
@@ -2220,8 +2372,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 return null;
             }
 
-            var authDirectory = match.Groups["path"].Value
-                .Replace("\\\"", "\"", StringComparison.Ordinal)
+            var authDirectory = match
+                .Groups["path"]
+                .Value.Replace("\\\"", "\"", StringComparison.Ordinal)
                 .Replace("\\\\", "\\", StringComparison.Ordinal)
                 .Trim();
 
@@ -2249,15 +2402,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             return;
         }
 
-        if (!uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
-            !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        if (
+            !uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+            && !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+        )
         {
             return;
         }
 
-        Process.Start(new ProcessStartInfo(uri.ToString())
-        {
-            UseShellExecute = true
-        });
+        Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
     }
 }

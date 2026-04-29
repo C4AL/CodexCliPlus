@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
-
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
@@ -15,20 +14,14 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly Func<ProcessStartInfo, Process?> _processStarter;
 
-    public UpdateInstallerService(
-        IPathService pathService,
-        IHttpClientFactory httpClientFactory)
-        : this(
-            pathService,
-            httpClientFactory,
-            static startInfo => Process.Start(startInfo))
-    {
-    }
+    public UpdateInstallerService(IPathService pathService, IHttpClientFactory httpClientFactory)
+        : this(pathService, httpClientFactory, static startInfo => Process.Start(startInfo)) { }
 
     public UpdateInstallerService(
         IPathService pathService,
         IHttpClientFactory httpClientFactory,
-        Func<ProcessStartInfo, Process?> processStarter)
+        Func<ProcessStartInfo, Process?> processStarter
+    )
     {
         _pathService = pathService;
         _httpClientFactory = httpClientFactory;
@@ -37,18 +30,19 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
 
     public bool CanPrepareInstaller(UpdateCheckResult updateCheckResult)
     {
-        return _pathService.Directories.DataMode == AppDataMode.Installed &&
-            updateCheckResult is not null &&
-            updateCheckResult.Channel == UpdateChannel.Stable &&
-            !updateCheckResult.IsChannelReserved &&
-            updateCheckResult.IsCheckSuccessful &&
-            updateCheckResult.IsUpdateAvailable &&
-            ResolveInstallableAssetOrNull(updateCheckResult) is not null;
+        return _pathService.Directories.DataMode == AppDataMode.Installed
+            && updateCheckResult is not null
+            && updateCheckResult.Channel == UpdateChannel.Stable
+            && !updateCheckResult.IsChannelReserved
+            && updateCheckResult.IsCheckSuccessful
+            && updateCheckResult.IsUpdateAvailable
+            && ResolveInstallableAssetOrNull(updateCheckResult) is not null;
     }
 
     public async Task<PreparedUpdateInstaller> DownloadInstallerAsync(
         UpdateCheckResult updateCheckResult,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(updateCheckResult);
         EnsureInstalledModeForInstallerHandoff();
@@ -57,13 +51,18 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         var installerAsset = ResolveInstallableAsset(updateCheckResult);
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
-        var updatesCacheDirectory = Path.Combine(_pathService.Directories.CacheDirectory, "updates");
+        var updatesCacheDirectory = Path.Combine(
+            _pathService.Directories.CacheDirectory,
+            "updates"
+        );
         Directory.CreateDirectory(updatesCacheDirectory);
 
         var safeFileName = Path.GetFileName(installerAsset.Name);
         if (string.IsNullOrWhiteSpace(safeFileName))
         {
-            throw new InvalidOperationException("Stable installer asset does not provide a valid file name.");
+            throw new InvalidOperationException(
+                "Stable installer asset does not provide a valid file name."
+            );
         }
 
         var installerPath = Path.Combine(updatesCacheDirectory, safeFileName);
@@ -75,12 +74,15 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
                 updatesCacheDirectory,
                 installerPath,
                 usedCachedFile: true,
-                digestValidated: cachedDigestValidated);
+                digestValidated: cachedDigestValidated
+            );
         }
 
         if (string.IsNullOrWhiteSpace(installerAsset.DownloadUrl))
         {
-            throw new InvalidOperationException("Stable installer asset does not provide a download URL.");
+            throw new InvalidOperationException(
+                "Stable installer asset does not provide a download URL."
+            );
         }
 
         var temporaryPath = $"{installerPath}.download";
@@ -92,20 +94,30 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
             using var response = await client.GetAsync(
                 installerAsset.DownloadUrl,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+                cancellationToken
+            );
             response.EnsureSuccessStatusCode();
 
-            await using (var installerStream = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var fileStream = new FileStream(
-                temporaryPath,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None))
+            await using (
+                var installerStream = await response.Content.ReadAsStreamAsync(cancellationToken)
+            )
+            await using (
+                var fileStream = new FileStream(
+                    temporaryPath,
+                    FileMode.Create,
+                    FileAccess.Write,
+                    FileShare.None
+                )
+            )
             {
                 await installerStream.CopyToAsync(fileStream, cancellationToken);
             }
 
-            var digestValidated = ValidateInstallerFile(temporaryPath, installerAsset, strictDigestValidation: true);
+            var digestValidated = ValidateInstallerFile(
+                temporaryPath,
+                installerAsset,
+                strictDigestValidation: true
+            );
 
             DeleteFileIfPresent(installerPath);
             File.Move(temporaryPath, installerPath);
@@ -116,7 +128,8 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
                 updatesCacheDirectory,
                 installerPath,
                 usedCachedFile: false,
-                digestValidated: digestValidated);
+                digestValidated: digestValidated
+            );
         }
         catch
         {
@@ -127,7 +140,8 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
 
     public Task LaunchInstallerAsync(
         PreparedUpdateInstaller installer,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(installer);
         cancellationToken.ThrowIfCancellationRequested();
@@ -136,32 +150,42 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         if (installer.DataMode != AppDataMode.Installed)
         {
             throw new InvalidOperationException(
-                "Installer handoff is only supported for Installed mode.");
+                "Installer handoff is only supported for Installed mode."
+            );
         }
 
-        if (string.IsNullOrWhiteSpace(installer.InstallerPath) || !File.Exists(installer.InstallerPath))
+        if (
+            string.IsNullOrWhiteSpace(installer.InstallerPath)
+            || !File.Exists(installer.InstallerPath)
+        )
         {
-            throw new FileNotFoundException("Prepared installer executable could not be found.", installer.InstallerPath);
+            throw new FileNotFoundException(
+                "Prepared installer executable could not be found.",
+                installer.InstallerPath
+            );
         }
 
         var workingDirectory = Path.GetDirectoryName(installer.InstallerPath);
         if (string.IsNullOrWhiteSpace(workingDirectory))
         {
-            throw new InvalidOperationException("Prepared installer does not provide a valid working directory.");
+            throw new InvalidOperationException(
+                "Prepared installer does not provide a valid working directory."
+            );
         }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = installer.InstallerPath,
             WorkingDirectory = workingDirectory,
-            UseShellExecute = true
+            UseShellExecute = true,
         };
 
         var process = _processStarter(startInfo);
         if (process is null)
         {
             throw new InvalidOperationException(
-                $"Failed to launch installer '{installer.InstallerPath}' via shell execute.");
+                $"Failed to launch installer '{installer.InstallerPath}' via shell execute."
+            );
         }
 
         return Task.CompletedTask;
@@ -173,7 +197,8 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         string updatesCacheDirectory,
         string installerPath,
         bool usedCachedFile,
-        bool digestValidated)
+        bool digestValidated
+    )
     {
         return new PreparedUpdateInstaller
         {
@@ -183,7 +208,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
             InstallerPath = installerPath,
             UsedCachedFile = usedCachedFile,
             DigestValidated = digestValidated,
-            DataMode = AppDataMode.Installed
+            DataMode = AppDataMode.Installed,
         };
     }
 
@@ -194,16 +219,21 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         if (installableAsset is null)
         {
             throw new InvalidOperationException(
-                "The update result does not contain a directly installable stable installer asset.");
+                "The update result does not contain a directly installable stable installer asset."
+            );
         }
 
         return installableAsset;
     }
 
-    private static UpdateReleaseAsset? ResolveInstallableAssetOrNull(UpdateCheckResult updateCheckResult)
+    private static UpdateReleaseAsset? ResolveInstallableAssetOrNull(
+        UpdateCheckResult updateCheckResult
+    )
     {
-        if (updateCheckResult.InstallableAsset is not null &&
-            IsInstallableAsset(updateCheckResult.InstallableAsset))
+        if (
+            updateCheckResult.InstallableAsset is not null
+            && IsInstallableAsset(updateCheckResult.InstallableAsset)
+        )
         {
             return updateCheckResult.InstallableAsset;
         }
@@ -219,34 +249,42 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         }
 
         throw new InvalidOperationException(
-            "Installer handoff is disabled outside Installed mode.");
+            "Installer handoff is disabled outside Installed mode."
+        );
     }
 
     private static void ValidateStableUpdateResult(UpdateCheckResult updateCheckResult)
     {
-        if (updateCheckResult.Channel != UpdateChannel.Stable || updateCheckResult.IsChannelReserved)
+        if (
+            updateCheckResult.Channel != UpdateChannel.Stable
+            || updateCheckResult.IsChannelReserved
+        )
         {
             throw new InvalidOperationException(
-                "Installer handoff requires an active Stable update check result. Beta is reserved and cannot produce installer handoff.");
+                "Installer handoff requires an active Stable update check result. Beta is reserved and cannot produce installer handoff."
+            );
         }
 
         if (!updateCheckResult.IsCheckSuccessful)
         {
             throw new InvalidOperationException(
-                "Installer handoff requires a successful Stable update check result.");
+                "Installer handoff requires a successful Stable update check result."
+            );
         }
 
         if (!updateCheckResult.IsUpdateAvailable)
         {
             throw new InvalidOperationException(
-                "Installer handoff is only available when the Stable release is newer than the running desktop version.");
+                "Installer handoff is only available when the Stable release is newer than the running desktop version."
+            );
         }
     }
 
     private static bool TryReuseCachedInstaller(
         string installerPath,
         UpdateReleaseAsset installerAsset,
-        out bool digestValidated)
+        out bool digestValidated
+    )
     {
         digestValidated = false;
 
@@ -260,7 +298,8 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
             digestValidated = ValidateInstallerFile(
                 installerPath,
                 installerAsset,
-                strictDigestValidation: false);
+                strictDigestValidation: false
+            );
             return true;
         }
         catch
@@ -273,18 +312,23 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     private static bool ValidateInstallerFile(
         string installerPath,
         UpdateReleaseAsset installerAsset,
-        bool strictDigestValidation)
+        bool strictDigestValidation
+    )
     {
         var fileInfo = new FileInfo(installerPath);
         if (!fileInfo.Exists)
         {
-            throw new FileNotFoundException("Installer executable could not be found for validation.", installerPath);
+            throw new FileNotFoundException(
+                "Installer executable could not be found for validation.",
+                installerPath
+            );
         }
 
         if (installerAsset.Size > 0 && fileInfo.Length != installerAsset.Size)
         {
             throw new InvalidOperationException(
-                $"Installer size mismatch for '{installerAsset.Name}'. Expected {installerAsset.Size} bytes but found {fileInfo.Length}.");
+                $"Installer size mismatch for '{installerAsset.Name}'. Expected {installerAsset.Size} bytes but found {fileInfo.Length}."
+            );
         }
 
         if (!TryParseSha256Digest(installerAsset.Digest, out var expectedDigest))
@@ -306,11 +350,13 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         if (!strictDigestValidation)
         {
             throw new InvalidOperationException(
-                $"Cached installer digest mismatch for '{installerAsset.Name}'.");
+                $"Cached installer digest mismatch for '{installerAsset.Name}'."
+            );
         }
 
         throw new InvalidOperationException(
-            $"Downloaded installer digest mismatch for '{installerAsset.Name}'.");
+            $"Downloaded installer digest mismatch for '{installerAsset.Name}'."
+        );
     }
 
     private static bool TryParseSha256Digest(string? digest, out string? normalizedDigest)
@@ -322,16 +368,21 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         }
 
         var parts = digest.Split(':', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2 || !string.Equals(parts[0], "sha256", StringComparison.OrdinalIgnoreCase))
+        if (
+            parts.Length != 2
+            || !string.Equals(parts[0], "sha256", StringComparison.OrdinalIgnoreCase)
+        )
         {
             throw new InvalidOperationException(
-                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'.");
+                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'."
+            );
         }
 
         if (string.IsNullOrWhiteSpace(parts[1]))
         {
             throw new InvalidOperationException(
-                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'.");
+                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'."
+            );
         }
 
         normalizedDigest = parts[1].Trim().ToLowerInvariant();
@@ -346,9 +397,12 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
 
     private static bool IsInstallableAsset(UpdateReleaseAsset asset)
     {
-        return asset.Name.StartsWith($"{AppConstants.InstallerNamePrefix}.", StringComparison.OrdinalIgnoreCase) &&
-            asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(asset.DownloadUrl);
+        return asset.Name.StartsWith(
+                $"{AppConstants.InstallerNamePrefix}.",
+                StringComparison.OrdinalIgnoreCase
+            )
+            && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
     }
 
     private static void DeleteFileIfPresent(string path)

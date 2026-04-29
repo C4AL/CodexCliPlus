@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-
 using CodexCliPlus.Core.Models.Management;
 
 namespace CodexCliPlus.Infrastructure.Management;
@@ -22,7 +21,7 @@ internal static class ManagementMappers
             Removed = ManagementJson.GetInt32(root, "removed"),
             Changed = ManagementJson.GetStringList(root, "changed"),
             Files = ManagementJson.GetStringList(root, "files"),
-            Failed = MapBatchFailures(root)
+            Failed = MapBatchFailures(root),
         };
     }
 
@@ -43,32 +42,86 @@ internal static class ManagementMappers
             Debug = ManagementJson.GetBoolean(root, "debug"),
             ProxyUrl = ManagementJson.GetString(root, "proxy-url", "proxyUrl"),
             RequestRetry = ManagementJson.GetInt32(root, "request-retry", "requestRetry"),
-            MaxRetryInterval = ManagementJson.GetInt32(root, "max-retry-interval", "maxRetryInterval"),
-            QuotaExceeded = quotaExceeded is null ? null : new ManagementQuotaExceededSettings
-            {
-                SwitchProject = ManagementJson.GetBoolean(quotaExceeded.Value, "switch-project", "switchProject"),
-                SwitchPreviewModel = ManagementJson.GetBoolean(quotaExceeded.Value, "switch-preview-model", "switchPreviewModel"),
-                AntigravityCredits = ManagementJson.GetBoolean(quotaExceeded.Value, "antigravity-credits", "antigravityCredits")
-            },
-            UsageStatisticsEnabled = ManagementJson.GetBoolean(root, "usage-statistics-enabled", "usageStatisticsEnabled"),
+            MaxRetryInterval = ManagementJson.GetInt32(
+                root,
+                "max-retry-interval",
+                "maxRetryInterval"
+            ),
+            QuotaExceeded = quotaExceeded is null
+                ? null
+                : new ManagementQuotaExceededSettings
+                {
+                    SwitchProject = ManagementJson.GetBoolean(
+                        quotaExceeded.Value,
+                        "switch-project",
+                        "switchProject"
+                    ),
+                    SwitchPreviewModel = ManagementJson.GetBoolean(
+                        quotaExceeded.Value,
+                        "switch-preview-model",
+                        "switchPreviewModel"
+                    ),
+                    AntigravityCredits = ManagementJson.GetBoolean(
+                        quotaExceeded.Value,
+                        "antigravity-credits",
+                        "antigravityCredits"
+                    ),
+                },
+            UsageStatisticsEnabled = ManagementJson.GetBoolean(
+                root,
+                "usage-statistics-enabled",
+                "usageStatisticsEnabled"
+            ),
             RequestLog = ManagementJson.GetBoolean(root, "request-log", "requestLog"),
             LoggingToFile = ManagementJson.GetBoolean(root, "logging-to-file", "loggingToFile"),
-            LogsMaxTotalSizeMb = ManagementJson.GetInt32(root, "logs-max-total-size-mb", "logsMaxTotalSizeMb"),
-            ErrorLogsMaxFiles = ManagementJson.GetInt32(root, "error-logs-max-files", "errorLogsMaxFiles"),
+            LogsMaxTotalSizeMb = ManagementJson.GetInt32(
+                root,
+                "logs-max-total-size-mb",
+                "logsMaxTotalSizeMb"
+            ),
+            ErrorLogsMaxFiles = ManagementJson.GetInt32(
+                root,
+                "error-logs-max-files",
+                "errorLogsMaxFiles"
+            ),
             WebSocketAuth = ManagementJson.GetBoolean(root, "ws-auth", "wsAuth"),
-            ForceModelPrefix = ManagementJson.GetBoolean(root, "force-model-prefix", "forceModelPrefix"),
+            ForceModelPrefix = ManagementJson.GetBoolean(
+                root,
+                "force-model-prefix",
+                "forceModelPrefix"
+            ),
             RoutingStrategy = routing is not null
                 ? ManagementJson.GetString(routing.Value, "strategy")
                 : ManagementJson.GetString(root, "routing-strategy", "routingStrategy"),
             ApiKeys = ManagementJson.GetStringList(root, "api-keys", "apiKeys"),
-            GeminiApiKeys = MapProviderList<ManagementGeminiKeyConfiguration>(root, "gemini-api-key", MapGeminiKeyConfiguration),
-            CodexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(root, "codex-api-key", MapProviderKeyConfiguration),
-            ClaudeApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(root, "claude-api-key", MapProviderKeyConfiguration),
-            VertexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(root, "vertex-api-key", MapProviderKeyConfiguration),
-            OpenAiCompatibility = MapProviderList(root, "openai-compatibility", MapOpenAiCompatibilityEntry),
+            GeminiApiKeys = MapProviderList<ManagementGeminiKeyConfiguration>(
+                root,
+                "gemini-api-key",
+                MapGeminiKeyConfiguration
+            ),
+            CodexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
+                root,
+                "codex-api-key",
+                MapProviderKeyConfiguration
+            ),
+            ClaudeApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
+                root,
+                "claude-api-key",
+                MapProviderKeyConfiguration
+            ),
+            VertexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
+                root,
+                "vertex-api-key",
+                MapProviderKeyConfiguration
+            ),
+            OpenAiCompatibility = MapProviderList(
+                root,
+                "openai-compatibility",
+                MapOpenAiCompatibilityEntry
+            ),
             OAuthExcludedModels = oauthExcluded,
             AmpCode = ampCodeObject is null ? null : MapAmpCodeConfiguration(ampCodeObject.Value),
-            RawJson = root.GetRawText()
+            RawJson = root.GetRawText(),
         };
     }
 
@@ -94,39 +147,68 @@ internal static class ManagementMappers
                 continue;
             }
 
-            files.Add(new ManagementAuthFileItem
-            {
-                Name = name,
-                Id = ManagementJson.GetString(item, "id"),
-                Type = ManagementJson.GetString(item, "type"),
-                Provider = ManagementJson.GetString(item, "provider"),
-                Label = ManagementJson.GetString(item, "label"),
-                Email = ManagementJson.GetString(item, "email"),
-                AccountType = ManagementJson.GetString(item, "account_type", "accountType"),
-                Account = ManagementJson.GetString(item, "account"),
-                AuthIndex = ManagementJson.GetString(item, "auth_index", "authIndex"),
-                Size = ManagementJson.GetInt64(item, "size"),
-                Disabled = ManagementJson.GetBoolean(item, "disabled") ?? false,
-                Unavailable = ManagementJson.GetBoolean(item, "unavailable") ?? false,
-                RuntimeOnly = ManagementJson.GetBoolean(item, "runtime_only", "runtimeOnly") ?? false,
-                Status = ManagementJson.GetString(item, "status"),
-                StatusMessage = ManagementJson.GetString(item, "status_message", "statusMessage"),
-                Source = ManagementJson.GetString(item, "source"),
-                Path = ManagementJson.GetString(item, "path"),
-                CreatedAt = ManagementJson.GetDateTimeOffset(item, "created_at", "createdAt"),
-                UpdatedAt = ManagementJson.GetDateTimeOffset(item, "updated_at", "modtime", "modified"),
-                LastRefresh = ManagementJson.GetDateTimeOffset(item, "last_refresh", "lastRefresh"),
-                NextRetryAfter = ManagementJson.GetDateTimeOffset(item, "next_retry_after", "nextRetryAfter")
-            });
+            files.Add(
+                new ManagementAuthFileItem
+                {
+                    Name = name,
+                    Id = ManagementJson.GetString(item, "id"),
+                    Type = ManagementJson.GetString(item, "type"),
+                    Provider = ManagementJson.GetString(item, "provider"),
+                    Label = ManagementJson.GetString(item, "label"),
+                    Email = ManagementJson.GetString(item, "email"),
+                    AccountType = ManagementJson.GetString(item, "account_type", "accountType"),
+                    Account = ManagementJson.GetString(item, "account"),
+                    AuthIndex = ManagementJson.GetString(item, "auth_index", "authIndex"),
+                    Size = ManagementJson.GetInt64(item, "size"),
+                    Disabled = ManagementJson.GetBoolean(item, "disabled") ?? false,
+                    Unavailable = ManagementJson.GetBoolean(item, "unavailable") ?? false,
+                    RuntimeOnly =
+                        ManagementJson.GetBoolean(item, "runtime_only", "runtimeOnly") ?? false,
+                    Status = ManagementJson.GetString(item, "status"),
+                    StatusMessage = ManagementJson.GetString(
+                        item,
+                        "status_message",
+                        "statusMessage"
+                    ),
+                    Source = ManagementJson.GetString(item, "source"),
+                    Path = ManagementJson.GetString(item, "path"),
+                    CreatedAt = ManagementJson.GetDateTimeOffset(item, "created_at", "createdAt"),
+                    UpdatedAt = ManagementJson.GetDateTimeOffset(
+                        item,
+                        "updated_at",
+                        "modtime",
+                        "modified"
+                    ),
+                    LastRefresh = ManagementJson.GetDateTimeOffset(
+                        item,
+                        "last_refresh",
+                        "lastRefresh"
+                    ),
+                    NextRetryAfter = ManagementJson.GetDateTimeOffset(
+                        item,
+                        "next_retry_after",
+                        "nextRetryAfter"
+                    ),
+                }
+            );
         }
 
         return files;
     }
 
-    public static IReadOnlyDictionary<string, IReadOnlyList<string>> MapOAuthExcludedModels(JsonElement root)
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> MapOAuthExcludedModels(
+        JsonElement root
+    )
     {
         JsonElement source;
-        if (ManagementJson.TryGetProperty(root, out var wrapped, "oauth-excluded-models", "oauthExcludedModels"))
+        if (
+            ManagementJson.TryGetProperty(
+                root,
+                out var wrapped,
+                "oauth-excluded-models",
+                "oauthExcludedModels"
+            )
+        )
         {
             source = wrapped;
         }
@@ -140,7 +222,9 @@ internal static class ManagementMappers
             return new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, IReadOnlyList<string>>(
+            StringComparer.OrdinalIgnoreCase
+        );
         foreach (var property in source.EnumerateObject())
         {
             if (property.Value.ValueKind != JsonValueKind.Array)
@@ -148,7 +232,8 @@ internal static class ManagementMappers
                 continue;
             }
 
-            var items = property.Value.EnumerateArray()
+            var items = property
+                .Value.EnumerateArray()
                 .Select(ManagementJson.AsString)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value!)
@@ -161,10 +246,20 @@ internal static class ManagementMappers
         return result;
     }
 
-    public static IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>> MapOAuthModelAliases(JsonElement root)
+    public static IReadOnlyDictionary<
+        string,
+        IReadOnlyList<ManagementOAuthModelAliasEntry>
+    > MapOAuthModelAliases(JsonElement root)
     {
         JsonElement source;
-        if (ManagementJson.TryGetProperty(root, out var wrapped, "oauth-model-alias", "oauthModelAlias"))
+        if (
+            ManagementJson.TryGetProperty(
+                root,
+                out var wrapped,
+                "oauth-model-alias",
+                "oauthModelAlias"
+            )
+        )
         {
             source = wrapped;
         }
@@ -175,10 +270,14 @@ internal static class ManagementMappers
 
         if (source.ValueKind != JsonValueKind.Object)
         {
-            return new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(StringComparer.OrdinalIgnoreCase);
+            return new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(
+                StringComparer.OrdinalIgnoreCase
+            );
         }
 
-        var result = new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(
+            StringComparer.OrdinalIgnoreCase
+        );
         foreach (var channel in source.EnumerateObject())
         {
             if (channel.Value.ValueKind != JsonValueKind.Array)
@@ -201,12 +300,14 @@ internal static class ManagementMappers
                     continue;
                 }
 
-                entries.Add(new ManagementOAuthModelAliasEntry
-                {
-                    Name = name,
-                    Alias = alias,
-                    Fork = ManagementJson.GetBoolean(item, "fork") ?? false
-                });
+                entries.Add(
+                    new ManagementOAuthModelAliasEntry
+                    {
+                        Name = name,
+                        Alias = alias,
+                        Fork = ManagementJson.GetBoolean(item, "fork") ?? false,
+                    }
+                );
             }
 
             result[channel.Name] = entries;
@@ -222,7 +323,10 @@ internal static class ManagementMappers
         {
             array = root;
         }
-        else if (ManagementJson.TryGetProperty(root, out var wrapped, "data", "models", "items") && wrapped.ValueKind == JsonValueKind.Array)
+        else if (
+            ManagementJson.TryGetProperty(root, out var wrapped, "data", "models", "items")
+            && wrapped.ValueKind == JsonValueKind.Array
+        )
         {
             array = wrapped;
         }
@@ -245,15 +349,17 @@ internal static class ManagementMappers
                 continue;
             }
 
-            models.Add(new ManagementModelDescriptor
-            {
-                Id = id,
-                DisplayName = ManagementJson.GetString(item, "display_name", "displayName"),
-                Type = ManagementJson.GetString(item, "type", "object"),
-                OwnedBy = ManagementJson.GetString(item, "owned_by", "ownedBy"),
-                Alias = ManagementJson.GetString(item, "alias"),
-                Description = ManagementJson.GetString(item, "description")
-            });
+            models.Add(
+                new ManagementModelDescriptor
+                {
+                    Id = id,
+                    DisplayName = ManagementJson.GetString(item, "display_name", "displayName"),
+                    Type = ManagementJson.GetString(item, "type", "object"),
+                    OwnedBy = ManagementJson.GetString(item, "owned_by", "ownedBy"),
+                    Alias = ManagementJson.GetString(item, "alias"),
+                    Description = ManagementJson.GetString(item, "description"),
+                }
+            );
         }
 
         return models;
@@ -264,7 +370,7 @@ internal static class ManagementMappers
         return new ManagementOAuthStartResponse
         {
             Url = ManagementJson.GetString(root, "url") ?? string.Empty,
-            State = ManagementJson.GetString(root, "state")
+            State = ManagementJson.GetString(root, "state"),
         };
     }
 
@@ -273,20 +379,24 @@ internal static class ManagementMappers
         return new ManagementOAuthStatus
         {
             Status = ManagementJson.GetString(root, "status") ?? string.Empty,
-            Error = ManagementJson.GetString(root, "error")
+            Error = ManagementJson.GetString(root, "error"),
         };
     }
 
     public static ManagementUsageSnapshot MapUsage(JsonElement root)
     {
         var usageRoot = ManagementJson.GetObject(root, "usage") ?? root;
-        var apis = new Dictionary<string, ManagementUsageApiSnapshot>(StringComparer.OrdinalIgnoreCase);
+        var apis = new Dictionary<string, ManagementUsageApiSnapshot>(
+            StringComparer.OrdinalIgnoreCase
+        );
         var apiObject = ManagementJson.GetObject(usageRoot, "apis");
         if (apiObject is not null)
         {
             foreach (var apiEntry in apiObject.Value.EnumerateObject())
             {
-                var models = new Dictionary<string, ManagementUsageModelSnapshot>(StringComparer.OrdinalIgnoreCase);
+                var models = new Dictionary<string, ManagementUsageModelSnapshot>(
+                    StringComparer.OrdinalIgnoreCase
+                );
                 var modelsObject = ManagementJson.GetObject(apiEntry.Value, "models");
                 if (modelsObject is not null)
                 {
@@ -299,62 +409,125 @@ internal static class ManagementMappers
                             foreach (var detail in detailArray.Value.EnumerateArray())
                             {
                                 var tokens = ManagementJson.GetObject(detail, "tokens");
-                                details.Add(new ManagementUsageRequestDetail
-                                {
-                                    Timestamp = ManagementJson.GetDateTimeOffset(detail, "timestamp"),
-                                    Source = ManagementJson.GetString(detail, "source"),
-                                    AuthIndex = ManagementJson.GetString(detail, "auth_index", "authIndex"),
-                                    LatencyMs = ManagementJson.GetInt64(detail, "latency_ms", "latencyMs"),
-                                    Failed = ManagementJson.GetBoolean(detail, "failed") ?? false,
-                                    Tokens = tokens is null ? new ManagementUsageTokenStats() : new ManagementUsageTokenStats
+                                details.Add(
+                                    new ManagementUsageRequestDetail
                                     {
-                                        InputTokens = ManagementJson.GetInt64(tokens.Value, "input_tokens", "inputTokens") ?? 0,
-                                        OutputTokens = ManagementJson.GetInt64(tokens.Value, "output_tokens", "outputTokens") ?? 0,
-                                        ReasoningTokens = ManagementJson.GetInt64(tokens.Value, "reasoning_tokens", "reasoningTokens") ?? 0,
-                                        CachedTokens = ManagementJson.GetInt64(tokens.Value, "cached_tokens", "cachedTokens") ?? 0,
-                                        TotalTokens = ManagementJson.GetInt64(tokens.Value, "total_tokens", "totalTokens") ?? 0
+                                        Timestamp = ManagementJson.GetDateTimeOffset(
+                                            detail,
+                                            "timestamp"
+                                        ),
+                                        Source = ManagementJson.GetString(detail, "source"),
+                                        AuthIndex = ManagementJson.GetString(
+                                            detail,
+                                            "auth_index",
+                                            "authIndex"
+                                        ),
+                                        LatencyMs = ManagementJson.GetInt64(
+                                            detail,
+                                            "latency_ms",
+                                            "latencyMs"
+                                        ),
+                                        Failed =
+                                            ManagementJson.GetBoolean(detail, "failed") ?? false,
+                                        Tokens = tokens is null
+                                            ? new ManagementUsageTokenStats()
+                                            : new ManagementUsageTokenStats
+                                            {
+                                                InputTokens =
+                                                    ManagementJson.GetInt64(
+                                                        tokens.Value,
+                                                        "input_tokens",
+                                                        "inputTokens"
+                                                    ) ?? 0,
+                                                OutputTokens =
+                                                    ManagementJson.GetInt64(
+                                                        tokens.Value,
+                                                        "output_tokens",
+                                                        "outputTokens"
+                                                    ) ?? 0,
+                                                ReasoningTokens =
+                                                    ManagementJson.GetInt64(
+                                                        tokens.Value,
+                                                        "reasoning_tokens",
+                                                        "reasoningTokens"
+                                                    ) ?? 0,
+                                                CachedTokens =
+                                                    ManagementJson.GetInt64(
+                                                        tokens.Value,
+                                                        "cached_tokens",
+                                                        "cachedTokens"
+                                                    ) ?? 0,
+                                                TotalTokens =
+                                                    ManagementJson.GetInt64(
+                                                        tokens.Value,
+                                                        "total_tokens",
+                                                        "totalTokens"
+                                                    ) ?? 0,
+                                            },
                                     }
-                                });
+                                );
                             }
                         }
 
                         models[modelEntry.Name] = new ManagementUsageModelSnapshot
                         {
-                            TotalRequests = ManagementJson.GetInt64(modelEntry.Value, "total_requests", "totalRequests") ?? 0,
-                            TotalTokens = ManagementJson.GetInt64(modelEntry.Value, "total_tokens", "totalTokens") ?? 0,
-                            Details = details
+                            TotalRequests =
+                                ManagementJson.GetInt64(
+                                    modelEntry.Value,
+                                    "total_requests",
+                                    "totalRequests"
+                                ) ?? 0,
+                            TotalTokens =
+                                ManagementJson.GetInt64(
+                                    modelEntry.Value,
+                                    "total_tokens",
+                                    "totalTokens"
+                                ) ?? 0,
+                            Details = details,
                         };
                     }
                 }
 
                 apis[apiEntry.Name] = new ManagementUsageApiSnapshot
                 {
-                    TotalRequests = ManagementJson.GetInt64(apiEntry.Value, "total_requests", "totalRequests") ?? 0,
-                    TotalTokens = ManagementJson.GetInt64(apiEntry.Value, "total_tokens", "totalTokens") ?? 0,
-                    Models = models
+                    TotalRequests =
+                        ManagementJson.GetInt64(apiEntry.Value, "total_requests", "totalRequests")
+                        ?? 0,
+                    TotalTokens =
+                        ManagementJson.GetInt64(apiEntry.Value, "total_tokens", "totalTokens") ?? 0,
+                    Models = models,
                 };
             }
         }
 
         return new ManagementUsageSnapshot
         {
-            TotalRequests = ManagementJson.GetInt64(usageRoot, "total_requests", "totalRequests") ?? 0,
+            TotalRequests =
+                ManagementJson.GetInt64(usageRoot, "total_requests", "totalRequests") ?? 0,
             SuccessCount = ManagementJson.GetInt64(usageRoot, "success_count", "successCount") ?? 0,
             FailureCount = ManagementJson.GetInt64(usageRoot, "failure_count", "failureCount") ?? 0,
             TotalTokens = ManagementJson.GetInt64(usageRoot, "total_tokens", "totalTokens") ?? 0,
             Apis = apis,
-            RequestsByDay = ManagementJson.GetObject(usageRoot, "requests_by_day", "requestsByDay") is { } requestsByDay
+            RequestsByDay = ManagementJson.GetObject(usageRoot, "requests_by_day", "requestsByDay")
+                is { } requestsByDay
                 ? ManagementJson.GetLongDictionary(requestsByDay)
                 : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
-            RequestsByHour = ManagementJson.GetObject(usageRoot, "requests_by_hour", "requestsByHour") is { } requestsByHour
+            RequestsByHour = ManagementJson.GetObject(
+                usageRoot,
+                "requests_by_hour",
+                "requestsByHour"
+            )
+                is { } requestsByHour
                 ? ManagementJson.GetLongDictionary(requestsByHour)
                 : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
-            TokensByDay = ManagementJson.GetObject(usageRoot, "tokens_by_day", "tokensByDay") is { } tokensByDay
+            TokensByDay = ManagementJson.GetObject(usageRoot, "tokens_by_day", "tokensByDay")
+                is { } tokensByDay
                 ? ManagementJson.GetLongDictionary(tokensByDay)
                 : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
-            TokensByHour = ManagementJson.GetObject(usageRoot, "tokens_by_hour", "tokensByHour") is { } tokensByHour
+            TokensByHour = ManagementJson.GetObject(usageRoot, "tokens_by_hour", "tokensByHour")
+                is { } tokensByHour
                 ? ManagementJson.GetLongDictionary(tokensByHour)
-                : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
         };
     }
 
@@ -364,7 +537,7 @@ internal static class ManagementMappers
         {
             Version = ManagementJson.GetInt32(root, "version") ?? 0,
             ExportedAt = ManagementJson.GetDateTimeOffset(root, "exported_at", "exportedAt"),
-            Usage = MapUsage(root)
+            Usage = MapUsage(root),
         };
     }
 
@@ -375,7 +548,7 @@ internal static class ManagementMappers
             Added = ManagementJson.GetInt32(root, "added"),
             Skipped = ManagementJson.GetInt32(root, "skipped"),
             TotalRequests = ManagementJson.GetInt64(root, "total_requests", "totalRequests"),
-            FailedRequests = ManagementJson.GetInt64(root, "failed_requests", "failedRequests")
+            FailedRequests = ManagementJson.GetInt64(root, "failed_requests", "failedRequests"),
         };
     }
 
@@ -385,7 +558,8 @@ internal static class ManagementMappers
         {
             Lines = ManagementJson.GetStringList(root, "lines"),
             LineCount = ManagementJson.GetInt32(root, "line-count", "lineCount") ?? 0,
-            LatestTimestamp = ManagementJson.GetInt64(root, "latest-timestamp", "latestTimestamp") ?? 0
+            LatestTimestamp =
+                ManagementJson.GetInt64(root, "latest-timestamp", "latestTimestamp") ?? 0,
         };
     }
 
@@ -397,13 +571,14 @@ internal static class ManagementMappers
             return [];
         }
 
-        return array.Value.EnumerateArray()
+        return array
+            .Value.EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(item => new ManagementErrorLogFile
             {
                 Name = ManagementJson.GetString(item, "name") ?? string.Empty,
                 Size = ManagementJson.GetInt64(item, "size"),
-                Modified = ManagementJson.GetInt64(item, "modified")
+                Modified = ManagementJson.GetInt64(item, "modified"),
             })
             .Where(item => !string.IsNullOrWhiteSpace(item.Name))
             .ToArray();
@@ -413,24 +588,30 @@ internal static class ManagementMappers
     {
         return new ManagementLatestVersionInfo
         {
-            LatestVersion = ManagementJson.GetString(root, "latest-version", "latestVersion", "latest") ?? string.Empty
+            LatestVersion =
+                ManagementJson.GetString(root, "latest-version", "latestVersion", "latest")
+                ?? string.Empty,
         };
     }
 
     public static ManagementApiCallResult MapApiCallResult(JsonElement root)
     {
-        var headers = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        var headers = new Dictionary<string, IReadOnlyList<string>>(
+            StringComparer.OrdinalIgnoreCase
+        );
         if (ManagementJson.GetObject(root, "header", "headers") is { } headerObject)
         {
             foreach (var property in headerObject.EnumerateObject())
             {
-                headers[property.Name] = property.Value.ValueKind == JsonValueKind.Array
-                    ? property.Value.EnumerateArray()
-                        .Select(ManagementJson.AsString)
-                        .Where(value => !string.IsNullOrWhiteSpace(value))
-                        .Select(value => value!)
-                        .ToArray()
-                    : [];
+                headers[property.Name] =
+                    property.Value.ValueKind == JsonValueKind.Array
+                        ? property
+                            .Value.EnumerateArray()
+                            .Select(ManagementJson.AsString)
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value!)
+                            .ToArray()
+                        : [];
             }
         }
 
@@ -441,7 +622,7 @@ internal static class ManagementMappers
             {
                 JsonValueKind.String => body.GetString() ?? string.Empty,
                 JsonValueKind.Undefined or JsonValueKind.Null => string.Empty,
-                _ => body.GetRawText()
+                _ => body.GetRawText(),
             };
         }
 
@@ -449,7 +630,7 @@ internal static class ManagementMappers
         {
             StatusCode = ManagementJson.GetInt32(root, "status_code", "statusCode") ?? 0,
             Headers = headers,
-            BodyText = bodyText
+            BodyText = bodyText,
         };
     }
 
@@ -458,46 +639,67 @@ internal static class ManagementMappers
         return new Dictionary<string, object?>
         {
             ["version"] = payload.Version,
-            ["usage"] = ToUsageSnapshotPayload(payload.Usage)
+            ["usage"] = ToUsageSnapshotPayload(payload.Usage),
         };
     }
 
     private static ManagementAmpCodeConfiguration MapAmpCodeConfiguration(JsonElement element)
     {
         var modelMappings = ManagementJson.GetArray(element, "model-mappings", "modelMappings");
-        var upstreamApiKeys = ManagementJson.GetArray(element, "upstream-api-keys", "upstreamApiKeys");
+        var upstreamApiKeys = ManagementJson.GetArray(
+            element,
+            "upstream-api-keys",
+            "upstreamApiKeys"
+        );
 
         return new ManagementAmpCodeConfiguration
         {
             UpstreamUrl = ManagementJson.GetString(element, "upstream-url", "upstreamUrl"),
-            UpstreamApiKey = ManagementJson.GetString(element, "upstream-api-key", "upstreamApiKey"),
-            ForceModelMappings = ManagementJson.GetBoolean(element, "force-model-mappings", "forceModelMappings"),
+            UpstreamApiKey = ManagementJson.GetString(
+                element,
+                "upstream-api-key",
+                "upstreamApiKey"
+            ),
+            ForceModelMappings = ManagementJson.GetBoolean(
+                element,
+                "force-model-mappings",
+                "forceModelMappings"
+            ),
             ModelMappings = modelMappings is null
                 ? []
-                : modelMappings.Value.EnumerateArray()
+                : modelMappings
+                    .Value.EnumerateArray()
                     .Where(item => item.ValueKind == JsonValueKind.Object)
                     .Select(item => new ManagementAmpCodeModelMapping
                     {
                         From = ManagementJson.GetString(item, "from") ?? string.Empty,
-                        To = ManagementJson.GetString(item, "to") ?? string.Empty
+                        To = ManagementJson.GetString(item, "to") ?? string.Empty,
                     })
-                    .Where(item => !string.IsNullOrWhiteSpace(item.From) && !string.IsNullOrWhiteSpace(item.To))
+                    .Where(item =>
+                        !string.IsNullOrWhiteSpace(item.From) && !string.IsNullOrWhiteSpace(item.To)
+                    )
                     .ToArray(),
             UpstreamApiKeys = upstreamApiKeys is null
                 ? []
-                : upstreamApiKeys.Value.EnumerateArray()
+                : upstreamApiKeys
+                    .Value.EnumerateArray()
                     .Where(item => item.ValueKind == JsonValueKind.Object)
                     .Select(item => new ManagementAmpCodeUpstreamApiKeyMapping
                     {
-                        UpstreamApiKey = ManagementJson.GetString(item, "upstream-api-key", "upstreamApiKey") ?? string.Empty,
-                        ApiKeys = ManagementJson.GetStringList(item, "api-keys", "apiKeys")
+                        UpstreamApiKey =
+                            ManagementJson.GetString(item, "upstream-api-key", "upstreamApiKey")
+                            ?? string.Empty,
+                        ApiKeys = ManagementJson.GetStringList(item, "api-keys", "apiKeys"),
                     })
                     .Where(item => !string.IsNullOrWhiteSpace(item.UpstreamApiKey))
-                    .ToArray()
+                    .ToArray(),
         };
     }
 
-    private static T MapProviderBase<T>(JsonElement item, Func<ManagementProviderKeyConfiguration, T> factory)
+    private static T MapProviderBase<T>(
+        JsonElement item,
+        Func<ManagementProviderKeyConfiguration, T> factory
+    )
     {
         var apiKey = ManagementJson.GetString(item, "api-key", "apiKey");
         var headers = ManagementJson.GetObject(item, "headers") is { } headerObject
@@ -514,16 +716,28 @@ internal static class ManagementMappers
             ProxyUrl = ManagementJson.GetString(item, "proxy-url", "proxyUrl"),
             Headers = headers,
             Models = MapModelAliases(item),
-            ExcludedModels = ManagementJson.GetStringList(item, "excluded-models", "excludedModels"),
+            ExcludedModels = ManagementJson.GetStringList(
+                item,
+                "excluded-models",
+                "excludedModels"
+            ),
             Cloak = ManagementJson.GetObject(item, "cloak") is { } cloakObject
                 ? new ManagementCloakConfiguration
                 {
                     Mode = ManagementJson.GetString(cloakObject, "mode"),
-                    StrictMode = ManagementJson.GetBoolean(cloakObject, "strict-mode", "strictMode"),
-                    SensitiveWords = ManagementJson.GetStringList(cloakObject, "sensitive-words", "sensitiveWords")
+                    StrictMode = ManagementJson.GetBoolean(
+                        cloakObject,
+                        "strict-mode",
+                        "strictMode"
+                    ),
+                    SensitiveWords = ManagementJson.GetStringList(
+                        cloakObject,
+                        "sensitive-words",
+                        "sensitiveWords"
+                    ),
                 }
                 : null,
-            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex")
+            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex"),
         };
 
         return factory(configuration);
@@ -531,20 +745,23 @@ internal static class ManagementMappers
 
     private static ManagementGeminiKeyConfiguration MapGeminiKeyConfiguration(JsonElement item)
     {
-        return MapProviderBase(item, baseConfig => new ManagementGeminiKeyConfiguration
-        {
-            ApiKey = baseConfig.ApiKey,
-            Priority = baseConfig.Priority,
-            Prefix = baseConfig.Prefix,
-            BaseUrl = baseConfig.BaseUrl,
-            WebSockets = baseConfig.WebSockets,
-            ProxyUrl = baseConfig.ProxyUrl,
-            Headers = baseConfig.Headers,
-            Models = baseConfig.Models,
-            ExcludedModels = baseConfig.ExcludedModels,
-            Cloak = baseConfig.Cloak,
-            AuthIndex = baseConfig.AuthIndex
-        });
+        return MapProviderBase(
+            item,
+            baseConfig => new ManagementGeminiKeyConfiguration
+            {
+                ApiKey = baseConfig.ApiKey,
+                Priority = baseConfig.Priority,
+                Prefix = baseConfig.Prefix,
+                BaseUrl = baseConfig.BaseUrl,
+                WebSockets = baseConfig.WebSockets,
+                ProxyUrl = baseConfig.ProxyUrl,
+                Headers = baseConfig.Headers,
+                Models = baseConfig.Models,
+                ExcludedModels = baseConfig.ExcludedModels,
+                Cloak = baseConfig.Cloak,
+                AuthIndex = baseConfig.AuthIndex,
+            }
+        );
     }
 
     private static ManagementProviderKeyConfiguration MapProviderKeyConfiguration(JsonElement item)
@@ -574,15 +791,17 @@ internal static class ManagementMappers
                     continue;
                 }
 
-                apiKeyEntries.Add(new ManagementApiKeyEntry
-                {
-                    ApiKey = apiKey,
-                    ProxyUrl = ManagementJson.GetString(apiEntry, "proxy-url", "proxyUrl"),
-                    Headers = ManagementJson.GetObject(apiEntry, "headers") is { } apiHeaders
-                        ? ManagementJson.GetStringDictionary(apiHeaders)
-                        : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-                    AuthIndex = ManagementJson.GetString(apiEntry, "auth-index", "authIndex")
-                });
+                apiKeyEntries.Add(
+                    new ManagementApiKeyEntry
+                    {
+                        ApiKey = apiKey,
+                        ProxyUrl = ManagementJson.GetString(apiEntry, "proxy-url", "proxyUrl"),
+                        Headers = ManagementJson.GetObject(apiEntry, "headers") is { } apiHeaders
+                            ? ManagementJson.GetStringDictionary(apiHeaders)
+                            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                        AuthIndex = ManagementJson.GetString(apiEntry, "auth-index", "authIndex"),
+                    }
+                );
             }
         }
 
@@ -596,7 +815,7 @@ internal static class ManagementMappers
             Models = MapModelAliases(item),
             Priority = ManagementJson.GetInt32(item, "priority"),
             TestModel = ManagementJson.GetString(item, "test-model", "testModel"),
-            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex")
+            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex"),
         };
     }
 
@@ -607,7 +826,8 @@ internal static class ManagementMappers
             return [];
         }
 
-        return modelArray.EnumerateArray()
+        return modelArray
+            .EnumerateArray()
             .Select(model =>
             {
                 var name = ManagementJson.GetString(model, "name", "id", "model");
@@ -621,7 +841,7 @@ internal static class ManagementMappers
                     Name = name,
                     Alias = ManagementJson.GetString(model, "alias", "display_name", "displayName"),
                     Priority = ManagementJson.GetInt32(model, "priority"),
-                    TestModel = ManagementJson.GetString(model, "test-model", "testModel")
+                    TestModel = ManagementJson.GetString(model, "test-model", "testModel"),
                 };
             })
             .Where(model => model is not null)
@@ -632,14 +852,16 @@ internal static class ManagementMappers
     private static T[] MapProviderList<T>(
         JsonElement root,
         string propertyName,
-        Func<JsonElement, T> factory)
+        Func<JsonElement, T> factory
+    )
     {
         if (ManagementJson.GetArray(root, propertyName) is not { } array)
         {
             return [];
         }
 
-        return array.EnumerateArray()
+        return array
+            .EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(factory)
             .ToArray();
@@ -652,18 +874,23 @@ internal static class ManagementMappers
             return [];
         }
 
-        return array.EnumerateArray()
+        return array
+            .EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(item => new ManagementBatchFailure
             {
                 Name = ManagementJson.GetString(item, "name") ?? string.Empty,
-                Error = ManagementJson.GetString(item, "error", "message") ?? string.Empty
+                Error = ManagementJson.GetString(item, "error", "message") ?? string.Empty,
             })
-            .Where(item => !string.IsNullOrWhiteSpace(item.Name) || !string.IsNullOrWhiteSpace(item.Error))
+            .Where(item =>
+                !string.IsNullOrWhiteSpace(item.Name) || !string.IsNullOrWhiteSpace(item.Error)
+            )
             .ToArray();
     }
 
-    private static Dictionary<string, object?> ToUsageSnapshotPayload(ManagementUsageSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageSnapshotPayload(
+        ManagementUsageSnapshot snapshot
+    )
     {
         return new Dictionary<string, object?>
         {
@@ -674,15 +901,18 @@ internal static class ManagementMappers
             ["apis"] = snapshot.Apis.ToDictionary(
                 pair => pair.Key,
                 pair => (object)ToUsageApiSnapshotPayload(pair.Value),
-                StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase
+            ),
             ["requests_by_day"] = snapshot.RequestsByDay,
             ["requests_by_hour"] = snapshot.RequestsByHour,
             ["tokens_by_day"] = snapshot.TokensByDay,
-            ["tokens_by_hour"] = snapshot.TokensByHour
+            ["tokens_by_hour"] = snapshot.TokensByHour,
         };
     }
 
-    private static Dictionary<string, object?> ToUsageApiSnapshotPayload(ManagementUsageApiSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageApiSnapshotPayload(
+        ManagementUsageApiSnapshot snapshot
+    )
     {
         return new Dictionary<string, object?>
         {
@@ -691,32 +921,40 @@ internal static class ManagementMappers
             ["models"] = snapshot.Models.ToDictionary(
                 pair => pair.Key,
                 pair => (object)ToUsageModelSnapshotPayload(pair.Value),
-                StringComparer.OrdinalIgnoreCase)
+                StringComparer.OrdinalIgnoreCase
+            ),
         };
     }
 
-    private static Dictionary<string, object?> ToUsageModelSnapshotPayload(ManagementUsageModelSnapshot snapshot)
+    private static Dictionary<string, object?> ToUsageModelSnapshotPayload(
+        ManagementUsageModelSnapshot snapshot
+    )
     {
         return new Dictionary<string, object?>
         {
             ["total_requests"] = snapshot.TotalRequests,
             ["total_tokens"] = snapshot.TotalTokens,
-            ["details"] = snapshot.Details.Select(detail => new Dictionary<string, object?>
-            {
-                ["timestamp"] = detail.Timestamp?.UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
-                ["source"] = detail.Source,
-                ["auth_index"] = detail.AuthIndex,
-                ["latency_ms"] = detail.LatencyMs,
-                ["failed"] = detail.Failed,
-                ["tokens"] = new Dictionary<string, object?>
+            ["details"] = snapshot
+                .Details.Select(detail => new Dictionary<string, object?>
                 {
-                    ["input_tokens"] = detail.Tokens.InputTokens,
-                    ["output_tokens"] = detail.Tokens.OutputTokens,
-                    ["reasoning_tokens"] = detail.Tokens.ReasoningTokens,
-                    ["cached_tokens"] = detail.Tokens.CachedTokens,
-                    ["total_tokens"] = detail.Tokens.TotalTokens
-                }
-            }).ToArray()
+                    ["timestamp"] = detail.Timestamp?.UtcDateTime.ToString(
+                        "O",
+                        CultureInfo.InvariantCulture
+                    ),
+                    ["source"] = detail.Source,
+                    ["auth_index"] = detail.AuthIndex,
+                    ["latency_ms"] = detail.LatencyMs,
+                    ["failed"] = detail.Failed,
+                    ["tokens"] = new Dictionary<string, object?>
+                    {
+                        ["input_tokens"] = detail.Tokens.InputTokens,
+                        ["output_tokens"] = detail.Tokens.OutputTokens,
+                        ["reasoning_tokens"] = detail.Tokens.ReasoningTokens,
+                        ["cached_tokens"] = detail.Tokens.CachedTokens,
+                        ["total_tokens"] = detail.Tokens.TotalTokens,
+                    },
+                })
+                .ToArray(),
         };
     }
 }

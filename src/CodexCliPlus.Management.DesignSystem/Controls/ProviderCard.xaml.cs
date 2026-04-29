@@ -6,23 +6,47 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class ProviderCard : UserControl
 {
-    public static readonly RoutedEvent ClickEvent =
-        EventManager.RegisterRoutedEvent(nameof(Click), RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(ProviderCard));
+    public static readonly RoutedEvent ClickEvent = EventManager.RegisterRoutedEvent(
+        nameof(Click),
+        RoutingStrategy.Bubble,
+        typeof(RoutedEventHandler),
+        typeof(ProviderCard)
+    );
 
-    public static readonly DependencyProperty TitleProperty =
-        DependencyProperty.Register(nameof(Title), typeof(string), typeof(ProviderCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
+        nameof(Title),
+        typeof(string),
+        typeof(ProviderCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty SubtitleProperty =
-        DependencyProperty.Register(nameof(Subtitle), typeof(string), typeof(ProviderCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty SubtitleProperty = DependencyProperty.Register(
+        nameof(Subtitle),
+        typeof(string),
+        typeof(ProviderCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty MetaTextProperty =
-        DependencyProperty.Register(nameof(MetaText), typeof(string), typeof(ProviderCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty MetaTextProperty = DependencyProperty.Register(
+        nameof(MetaText),
+        typeof(string),
+        typeof(ProviderCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty BadgeTextProperty =
-        DependencyProperty.Register(nameof(BadgeText), typeof(string), typeof(ProviderCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty BadgeTextProperty = DependencyProperty.Register(
+        nameof(BadgeText),
+        typeof(string),
+        typeof(ProviderCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty IsSelectedProperty =
-        DependencyProperty.Register(nameof(IsSelected), typeof(bool), typeof(ProviderCard), new PropertyMetadata(false, OnSelectionChanged));
+    public static readonly DependencyProperty IsSelectedProperty = DependencyProperty.Register(
+        nameof(IsSelected),
+        typeof(bool),
+        typeof(ProviderCard),
+        new PropertyMetadata(false, OnSelectionChanged)
+    );
 
     public ProviderCard()
     {

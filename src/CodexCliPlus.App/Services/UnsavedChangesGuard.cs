@@ -1,7 +1,5 @@
 using System.Windows;
-
 using CodexCliPlus.Core.Abstractions.Management;
-
 using MessageBox = System.Windows.MessageBox;
 
 namespace CodexCliPlus.Services;
@@ -47,7 +45,8 @@ public sealed class UnsavedChangesGuard : IUnsavedChangesGuard
             $"当前有未保存的更改，继续前往“{targetDescription}”会丢失这些修改。\n\n是否继续？",
             "未保存更改",
             MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning);
+            MessageBoxImage.Warning
+        );
 
         if (result == MessageBoxResult.OK)
         {

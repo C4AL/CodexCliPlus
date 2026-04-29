@@ -16,7 +16,8 @@ public sealed class ManagementSecondaryRouteHost : IDisposable
         string primaryRouteKey,
         IManagementNavigationService navigationService,
         IUnsavedChangesGuard unsavedChangesGuard,
-        IManagementSecondaryRouteViewFactory viewFactory)
+        IManagementSecondaryRouteViewFactory viewFactory
+    )
     {
         _shell = shell;
         _primaryRouteKey = primaryRouteKey;
@@ -93,9 +94,10 @@ public sealed class ManagementSecondaryRouteHost : IDisposable
 
     private void Render()
     {
-        var secondaryRouteKey = _navigationService.CurrentRoute?.ParentKey == _primaryRouteKey
-            ? _navigationService.CurrentSecondaryRouteKey
-            : null;
+        var secondaryRouteKey =
+            _navigationService.CurrentRoute?.ParentKey == _primaryRouteKey
+                ? _navigationService.CurrentSecondaryRouteKey
+                : null;
         var descriptor = _viewFactory.Create(secondaryRouteKey);
 
         _shell.Title = descriptor.Title;

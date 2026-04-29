@@ -40,7 +40,8 @@ public sealed class ManagementConfigSnapshot
 
     public IReadOnlyList<ManagementProviderKeyConfiguration> VertexApiKeys { get; init; } = [];
 
-    public IReadOnlyList<ManagementOpenAiCompatibilityEntry> OpenAiCompatibility { get; init; } = [];
+    public IReadOnlyList<ManagementOpenAiCompatibilityEntry> OpenAiCompatibility { get; init; } =
+    [];
 
     public IReadOnlyDictionary<string, IReadOnlyList<string>> OAuthExcludedModels { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
@@ -74,7 +75,8 @@ public sealed class ManagementAmpCodeConfiguration
     public IReadOnlyList<ManagementAmpCodeModelMapping> ModelMappings { get; init; } = [];
 
     [JsonPropertyName("upstream-api-keys")]
-    public IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping> UpstreamApiKeys { get; init; } = [];
+    public IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping> UpstreamApiKeys { get; init; } =
+    [];
 }
 
 public sealed class ManagementAmpCodeModelMapping

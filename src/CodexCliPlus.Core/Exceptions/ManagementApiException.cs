@@ -7,7 +7,8 @@ public sealed class ManagementApiException : Exception
         int? statusCode = null,
         string? errorCode = null,
         string? responseBody = null,
-        Exception? innerException = null)
+        Exception? innerException = null
+    )
         : base(message, innerException)
     {
         StatusCode = statusCode;

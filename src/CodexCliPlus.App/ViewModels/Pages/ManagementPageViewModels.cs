@@ -1,8 +1,8 @@
 using System.Globalization;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models.Management;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CodexCliPlus.ViewModels.Pages;
 
@@ -51,7 +51,8 @@ public abstract class ManagementPageViewModel : ObservableObject
             await action();
             Status = string.Create(
                 CultureInfo.CurrentCulture,
-                $"已刷新：{DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture)}");
+                $"已刷新：{DateTimeOffset.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture)}"
+            );
         }
         catch (Exception exception)
         {
@@ -79,11 +80,14 @@ public sealed class DashboardPageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新仪表盘", async () =>
-        {
-            Snapshot = (await _overviewService.GetOverviewAsync()).Value;
-            OnPropertyChanged(nameof(Snapshot));
-        });
+        return RunAsync(
+            "正在刷新仪表盘",
+            async () =>
+            {
+                Snapshot = (await _overviewService.GetOverviewAsync()).Value;
+                OnPropertyChanged(nameof(Snapshot));
+            }
+        );
     }
 }
 
@@ -93,7 +97,8 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
 
     public ConfigPageViewModel(
         IManagementConfigurationService configurationService,
-        ConfigPageState state)
+        ConfigPageState state
+    )
         : base("配置", "运行时、重试、日志和配额行为的原生配置页。高级 YAML 保留为折叠式兜底能力。")
     {
         _configurationService = configurationService;
@@ -127,29 +132,75 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
             return Task.CompletedTask;
         }
 
-        return RunAsync("正在保存配置", async () =>
-        {
-            var changedFields = payload.ChangedFields.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return RunAsync(
+            "正在保存配置",
+            async () =>
+            {
+                var changedFields = payload.ChangedFields.ToHashSet(
+                    StringComparer.OrdinalIgnoreCase
+                );
 
-            await SaveBooleanSettingAsync(changedFields, "debug", payload.Debug);
-            await SaveBooleanSettingAsync(changedFields, "usage-statistics-enabled", payload.UsageStatisticsEnabled);
-            await SaveBooleanSettingAsync(changedFields, "request-log", payload.RequestLog);
-            await SaveBooleanSettingAsync(changedFields, "logging-to-file", payload.LoggingToFile);
-            await SaveBooleanSettingAsync(changedFields, "ws-auth", payload.WebSocketAuth);
-            await SaveBooleanSettingAsync(changedFields, "force-model-prefix", payload.ForceModelPrefix);
-            await SaveBooleanSettingAsync(changedFields, "quota-exceeded/switch-project", payload.SwitchProject);
-            await SaveBooleanSettingAsync(changedFields, "quota-exceeded/switch-preview-model", payload.SwitchPreviewModel);
+                await SaveBooleanSettingAsync(changedFields, "debug", payload.Debug);
+                await SaveBooleanSettingAsync(
+                    changedFields,
+                    "usage-statistics-enabled",
+                    payload.UsageStatisticsEnabled
+                );
+                await SaveBooleanSettingAsync(changedFields, "request-log", payload.RequestLog);
+                await SaveBooleanSettingAsync(
+                    changedFields,
+                    "logging-to-file",
+                    payload.LoggingToFile
+                );
+                await SaveBooleanSettingAsync(changedFields, "ws-auth", payload.WebSocketAuth);
+                await SaveBooleanSettingAsync(
+                    changedFields,
+                    "force-model-prefix",
+                    payload.ForceModelPrefix
+                );
+                await SaveBooleanSettingAsync(
+                    changedFields,
+                    "quota-exceeded/switch-project",
+                    payload.SwitchProject
+                );
+                await SaveBooleanSettingAsync(
+                    changedFields,
+                    "quota-exceeded/switch-preview-model",
+                    payload.SwitchPreviewModel
+                );
 
-            await SaveIntegerSettingAsync(changedFields, "request-retry", payload.RequestRetry);
-            await SaveIntegerSettingAsync(changedFields, "max-retry-interval", payload.MaxRetryInterval);
-            await SaveIntegerSettingAsync(changedFields, "logs-max-total-size-mb", payload.LogsMaxTotalSizeMb);
-            await SaveIntegerSettingAsync(changedFields, "error-logs-max-files", payload.ErrorLogsMaxFiles);
+                await SaveIntegerSettingAsync(changedFields, "request-retry", payload.RequestRetry);
+                await SaveIntegerSettingAsync(
+                    changedFields,
+                    "max-retry-interval",
+                    payload.MaxRetryInterval
+                );
+                await SaveIntegerSettingAsync(
+                    changedFields,
+                    "logs-max-total-size-mb",
+                    payload.LogsMaxTotalSizeMb
+                );
+                await SaveIntegerSettingAsync(
+                    changedFields,
+                    "error-logs-max-files",
+                    payload.ErrorLogsMaxFiles
+                );
 
-            await SaveStringSettingAsync(changedFields, "routing/strategy", payload.RoutingStrategy);
-            await SaveStringSettingAsync(changedFields, "proxy-url", payload.ProxyUrl, deleteWhenEmpty: true);
+                await SaveStringSettingAsync(
+                    changedFields,
+                    "routing/strategy",
+                    payload.RoutingStrategy
+                );
+                await SaveStringSettingAsync(
+                    changedFields,
+                    "proxy-url",
+                    payload.ProxyUrl,
+                    deleteWhenEmpty: true
+                );
 
-            await ReloadFromServiceAsync();
-        });
+                await ReloadFromServiceAsync();
+            }
+        );
     }
 
     public Task SaveAdvancedYamlAsync()
@@ -168,11 +219,14 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
             return Task.CompletedTask;
         }
 
-        return RunAsync("正在应用高级 YAML", async () =>
-        {
-            await _configurationService.PutConfigYamlAsync(State.AdvancedYamlDraft);
-            await ReloadFromServiceAsync();
-        });
+        return RunAsync(
+            "正在应用高级 YAML",
+            async () =>
+            {
+                await _configurationService.PutConfigYamlAsync(State.AdvancedYamlDraft);
+                await ReloadFromServiceAsync();
+            }
+        );
     }
 
     private async Task ReloadFromServiceAsync()
@@ -188,7 +242,11 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
         OnPropertyChanged(nameof(ServerYaml));
     }
 
-    private async Task SaveBooleanSettingAsync(HashSet<string> changedFields, string path, bool value)
+    private async Task SaveBooleanSettingAsync(
+        HashSet<string> changedFields,
+        string path,
+        bool value
+    )
     {
         if (!changedFields.Contains(path))
         {
@@ -198,7 +256,11 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
         await _configurationService.UpdateBooleanSettingAsync(path, value);
     }
 
-    private async Task SaveIntegerSettingAsync(HashSet<string> changedFields, string path, int? value)
+    private async Task SaveIntegerSettingAsync(
+        HashSet<string> changedFields,
+        string path,
+        int? value
+    )
     {
         if (!changedFields.Contains(path))
         {
@@ -218,7 +280,8 @@ public sealed class ConfigPageViewModel : ManagementPageViewModel
         HashSet<string> changedFields,
         string path,
         string value,
-        bool deleteWhenEmpty = true)
+        bool deleteWhenEmpty = true
+    )
     {
         if (!changedFields.Contains(path))
         {
@@ -259,24 +322,34 @@ public sealed class AiProvidersPageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新提供商", async () =>
-        {
-            var geminiTask = _providersService.GetGeminiKeysAsync();
-            var codexTask = _providersService.GetCodexKeysAsync();
-            var claudeTask = _providersService.GetClaudeKeysAsync();
-            var vertexTask = _providersService.GetVertexKeysAsync();
-            var openAiTask = _providersService.GetOpenAiCompatibilityAsync();
-            var ampCodeTask = _providersService.GetAmpCodeAsync();
-            await Task.WhenAll(geminiTask, codexTask, claudeTask, vertexTask, openAiTask, ampCodeTask);
+        return RunAsync(
+            "正在刷新提供商",
+            async () =>
+            {
+                var geminiTask = _providersService.GetGeminiKeysAsync();
+                var codexTask = _providersService.GetCodexKeysAsync();
+                var claudeTask = _providersService.GetClaudeKeysAsync();
+                var vertexTask = _providersService.GetVertexKeysAsync();
+                var openAiTask = _providersService.GetOpenAiCompatibilityAsync();
+                var ampCodeTask = _providersService.GetAmpCodeAsync();
+                await Task.WhenAll(
+                    geminiTask,
+                    codexTask,
+                    claudeTask,
+                    vertexTask,
+                    openAiTask,
+                    ampCodeTask
+                );
 
-            Gemini = geminiTask.Result.Value;
-            Codex = codexTask.Result.Value;
-            Claude = claudeTask.Result.Value;
-            Vertex = vertexTask.Result.Value;
-            OpenAi = openAiTask.Result.Value;
-            AmpCode = ampCodeTask.Result.Value;
-            OnPropertyChanged(string.Empty);
-        });
+                Gemini = geminiTask.Result.Value;
+                Codex = codexTask.Result.Value;
+                Claude = claudeTask.Result.Value;
+                Vertex = vertexTask.Result.Value;
+                OpenAi = openAiTask.Result.Value;
+                AmpCode = ampCodeTask.Result.Value;
+                OnPropertyChanged(string.Empty);
+            }
+        );
     }
 }
 
@@ -287,7 +360,8 @@ public sealed class AuthFilesPageViewModel : ManagementPageViewModel
 
     public AuthFilesPageViewModel(
         IManagementAuthFilesService authFilesService,
-        IManagementOAuthService oauthService)
+        IManagementOAuthService oauthService
+    )
         : base("认证文件", "批量上传、删除、启停、筛选、模型查看、OAuth 排除和别名")
     {
         _authFilesService = authFilesService;
@@ -299,53 +373,71 @@ public sealed class AuthFilesPageViewModel : ManagementPageViewModel
     public IReadOnlyDictionary<string, IReadOnlyList<string>> ExcludedModels { get; private set; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
-    public IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>> ModelAliases { get; private set; } =
-        new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>> ModelAliases
+    {
+        get;
+        private set;
+    } =
+        new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(
+            StringComparer.OrdinalIgnoreCase
+        );
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新认证文件", async () =>
-        {
-            var filesTask = _authFilesService.GetAuthFilesAsync();
-            var excludedTask = _oauthService.GetOAuthExcludedModelsAsync();
-            var aliasesTask = _oauthService.GetOAuthModelAliasesAsync();
-            await Task.WhenAll(filesTask, excludedTask, aliasesTask);
+        return RunAsync(
+            "正在刷新认证文件",
+            async () =>
+            {
+                var filesTask = _authFilesService.GetAuthFilesAsync();
+                var excludedTask = _oauthService.GetOAuthExcludedModelsAsync();
+                var aliasesTask = _oauthService.GetOAuthModelAliasesAsync();
+                await Task.WhenAll(filesTask, excludedTask, aliasesTask);
 
-            Files = filesTask.Result.Value;
-            ExcludedModels = excludedTask.Result.Value;
-            ModelAliases = aliasesTask.Result.Value;
-            OnPropertyChanged(string.Empty);
-        });
+                Files = filesTask.Result.Value;
+                ExcludedModels = excludedTask.Result.Value;
+                ModelAliases = aliasesTask.Result.Value;
+                OnPropertyChanged(string.Empty);
+            }
+        );
     }
 
     public Task UploadAsync(IReadOnlyList<ManagementAuthFileUpload> files)
     {
-        return RunAsync("正在上传认证文件", async () =>
-        {
-            await _authFilesService.UploadAuthFilesAsync(files);
-            Files = (await _authFilesService.GetAuthFilesAsync()).Value;
-            OnPropertyChanged(nameof(Files));
-        });
+        return RunAsync(
+            "正在上传认证文件",
+            async () =>
+            {
+                await _authFilesService.UploadAuthFilesAsync(files);
+                Files = (await _authFilesService.GetAuthFilesAsync()).Value;
+                OnPropertyChanged(nameof(Files));
+            }
+        );
     }
 
     public Task DeleteAsync(IReadOnlyList<string> names)
     {
-        return RunAsync("正在删除认证文件", async () =>
-        {
-            await _authFilesService.DeleteAuthFilesAsync(names);
-            Files = (await _authFilesService.GetAuthFilesAsync()).Value;
-            OnPropertyChanged(nameof(Files));
-        });
+        return RunAsync(
+            "正在删除认证文件",
+            async () =>
+            {
+                await _authFilesService.DeleteAuthFilesAsync(names);
+                Files = (await _authFilesService.GetAuthFilesAsync()).Value;
+                OnPropertyChanged(nameof(Files));
+            }
+        );
     }
 
     public Task SetDisabledAsync(string name, bool disabled)
     {
-        return RunAsync("正在更新认证状态", async () =>
-        {
-            await _authFilesService.SetAuthFileDisabledAsync(name, disabled);
-            Files = (await _authFilesService.GetAuthFilesAsync()).Value;
-            OnPropertyChanged(nameof(Files));
-        });
+        return RunAsync(
+            "正在更新认证状态",
+            async () =>
+            {
+                await _authFilesService.SetAuthFileDisabledAsync(name, disabled);
+                Files = (await _authFilesService.GetAuthFilesAsync()).Value;
+                OnPropertyChanged(nameof(Files));
+            }
+        );
     }
 
     public Task<ManagementApiResponse<string>> DownloadAsync(string name)
@@ -353,7 +445,9 @@ public sealed class AuthFilesPageViewModel : ManagementPageViewModel
         return _authFilesService.DownloadAuthFileAsync(name);
     }
 
-    public Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetModelsAsync(string name)
+    public Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetModelsAsync(
+        string name
+    )
     {
         return _authFilesService.GetAuthFileModelsAsync(name);
     }
@@ -369,7 +463,10 @@ public sealed class OAuthPageViewModel : ManagementPageViewModel
         _oauthService = oauthService;
     }
 
-    public Task<ManagementApiResponse<ManagementOAuthStartResponse>> StartAsync(string provider, string? projectId = null)
+    public Task<ManagementApiResponse<ManagementOAuthStartResponse>> StartAsync(
+        string provider,
+        string? projectId = null
+    )
     {
         return _oauthService.GetOAuthStartAsync(provider, projectId);
     }
@@ -379,7 +476,10 @@ public sealed class OAuthPageViewModel : ManagementPageViewModel
         return _oauthService.GetOAuthStatusAsync(state);
     }
 
-    public Task<ManagementApiResponse<ManagementOperationResult>> SubmitCallbackAsync(string provider, string redirectUrl)
+    public Task<ManagementApiResponse<ManagementOperationResult>> SubmitCallbackAsync(
+        string provider,
+        string redirectUrl
+    )
     {
         return _oauthService.SubmitOAuthCallbackAsync(provider, redirectUrl);
     }
@@ -399,31 +499,40 @@ public sealed class QuotaPageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新配额", async () =>
-        {
-            Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
-            OnPropertyChanged(nameof(Config));
-        });
+        return RunAsync(
+            "正在刷新配额",
+            async () =>
+            {
+                Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
+                OnPropertyChanged(nameof(Config));
+            }
+        );
     }
 
     public Task SetSwitchProjectAsync(bool enabled)
     {
-        return RunAsync("正在保存配额设置", async () =>
-        {
-            await _quotaService.SetSwitchProjectAsync(enabled);
-            Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
-            OnPropertyChanged(nameof(Config));
-        });
+        return RunAsync(
+            "正在保存配额设置",
+            async () =>
+            {
+                await _quotaService.SetSwitchProjectAsync(enabled);
+                Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
+                OnPropertyChanged(nameof(Config));
+            }
+        );
     }
 
     public Task SetSwitchPreviewModelAsync(bool enabled)
     {
-        return RunAsync("正在保存配额设置", async () =>
-        {
-            await _quotaService.SetSwitchPreviewModelAsync(enabled);
-            Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
-            OnPropertyChanged(nameof(Config));
-        });
+        return RunAsync(
+            "正在保存配额设置",
+            async () =>
+            {
+                await _quotaService.SetSwitchPreviewModelAsync(enabled);
+                Config = (await _quotaService.GetQuotaSettingsAsync()).Value;
+                OnPropertyChanged(nameof(Config));
+            }
+        );
     }
 }
 
@@ -441,11 +550,14 @@ public sealed class UsagePageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新用量", async () =>
-        {
-            Snapshot = (await _usageService.GetUsageAsync()).Value;
-            OnPropertyChanged(nameof(Snapshot));
-        });
+        return RunAsync(
+            "正在刷新用量",
+            async () =>
+            {
+                Snapshot = (await _usageService.GetUsageAsync()).Value;
+                OnPropertyChanged(nameof(Snapshot));
+            }
+        );
     }
 
     public Task<ManagementApiResponse<ManagementUsageExportPayload>> ExportAsync()
@@ -455,12 +567,15 @@ public sealed class UsagePageViewModel : ManagementPageViewModel
 
     public Task ImportAsync(ManagementUsageExportPayload payload)
     {
-        return RunAsync("正在导入用量", async () =>
-        {
-            await _usageService.ImportUsageAsync(payload);
-            Snapshot = (await _usageService.GetUsageAsync()).Value;
-            OnPropertyChanged(nameof(Snapshot));
-        });
+        return RunAsync(
+            "正在导入用量",
+            async () =>
+            {
+                await _usageService.ImportUsageAsync(payload);
+                Snapshot = (await _usageService.GetUsageAsync()).Value;
+                OnPropertyChanged(nameof(Snapshot));
+            }
+        );
     }
 }
 
@@ -483,19 +598,25 @@ public sealed class LogsPageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync(long after = 0)
     {
-        return RunAsync("正在刷新日志", async () =>
-        {
-            await ReloadLogsAsync(after);
-        });
+        return RunAsync(
+            "正在刷新日志",
+            async () =>
+            {
+                await ReloadLogsAsync(after);
+            }
+        );
     }
 
     public Task ClearAsync()
     {
-        return RunAsync("正在清空日志", async () =>
-        {
-            await _logsService.ClearLogsAsync();
-            await ReloadLogsAsync();
-        });
+        return RunAsync(
+            "正在清空日志",
+            async () =>
+            {
+                await _logsService.ClearLogsAsync();
+                await ReloadLogsAsync();
+            }
+        );
     }
 
     public async Task<RequestLogLookupResult> LookupRequestLogAsync(string id)
@@ -538,7 +659,8 @@ public sealed class SystemPageViewModel : ManagementPageViewModel
         IManagementSystemService systemService,
         IManagementSessionService sessionService,
         IManagementAuthService authService,
-        IManagementConfigurationService configurationService)
+        IManagementConfigurationService configurationService
+    )
         : base("系统", "版本、模型列表、请求日志开关、官方链接和连接信息")
     {
         _systemService = systemService;
@@ -557,24 +679,30 @@ public sealed class SystemPageViewModel : ManagementPageViewModel
 
     public Task RefreshAsync()
     {
-        return RunAsync("正在刷新系统", async () =>
-        {
-            Connection = await _sessionService.GetConnectionAsync();
-            Config = (await _configurationService.GetConfigAsync()).Value;
-            LatestVersion = await ReadLatestVersionAsync();
-            Models = await ReadModelsAsync();
-            OnPropertyChanged(string.Empty);
-        });
+        return RunAsync(
+            "正在刷新系统",
+            async () =>
+            {
+                Connection = await _sessionService.GetConnectionAsync();
+                Config = (await _configurationService.GetConfigAsync()).Value;
+                LatestVersion = await ReadLatestVersionAsync();
+                Models = await ReadModelsAsync();
+                OnPropertyChanged(string.Empty);
+            }
+        );
     }
 
     public Task SetRequestLogAsync(bool enabled)
     {
-        return RunAsync("正在保存请求日志开关", async () =>
-        {
-            await _configurationService.UpdateBooleanSettingAsync("request-log", enabled);
-            Config = (await _configurationService.GetConfigAsync()).Value;
-            OnPropertyChanged(nameof(Config));
-        });
+        return RunAsync(
+            "正在保存请求日志开关",
+            async () =>
+            {
+                await _configurationService.UpdateBooleanSettingAsync("request-log", enabled);
+                Config = (await _configurationService.GetConfigAsync()).Value;
+                OnPropertyChanged(nameof(Config));
+            }
+        );
     }
 
     private async Task<ManagementLatestVersionInfo?> ReadLatestVersionAsync()
@@ -594,7 +722,9 @@ public sealed class SystemPageViewModel : ManagementPageViewModel
         try
         {
             var keys = (await _authService.GetApiKeysAsync()).Value;
-            return (await _systemService.GetAvailableModelsAsync(keys.Count > 0 ? keys[0] : null)).Value;
+            return (
+                await _systemService.GetAvailableModelsAsync(keys.Count > 0 ? keys[0] : null)
+            ).Value;
         }
         catch
         {

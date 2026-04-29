@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.Management.DesignSystem.Controls;
 using CodexCliPlus.ViewModels.Pages;
 using MessageBox = System.Windows.MessageBox;
@@ -39,7 +38,12 @@ public partial class ConfigPage : Page
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ConfigPageViewModel.Status) or nameof(ConfigPageViewModel.Error) or nameof(ConfigPageViewModel.IsBusy))
+        if (
+            e.PropertyName
+            is nameof(ConfigPageViewModel.Status)
+                or nameof(ConfigPageViewModel.Error)
+                or nameof(ConfigPageViewModel.IsBusy)
+        )
         {
             Render();
         }
@@ -47,9 +51,12 @@ public partial class ConfigPage : Page
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ConfigPageState.HasAnyChanges) or
-            nameof(ConfigPageState.CanSaveFields) or
-            nameof(ConfigPageState.CanSaveYaml))
+        if (
+            e.PropertyName
+            is nameof(ConfigPageState.HasAnyChanges)
+                or nameof(ConfigPageState.CanSaveFields)
+                or nameof(ConfigPageState.CanSaveYaml)
+        )
         {
             Render();
         }
@@ -60,7 +67,9 @@ public partial class ConfigPage : Page
         StatusBadge.Text = _viewModel.Status;
         StatusBadge.Tone = ManagementPageSupport.GetTone(_viewModel.Error);
         ErrorTextBlock.Text = _viewModel.Error;
-        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error) ? Visibility.Collapsed : Visibility.Visible;
+        ErrorTextBlock.Visibility = string.IsNullOrWhiteSpace(_viewModel.Error)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         YamlEditor.IsReadOnly = _viewModel.IsBusy;
     }
@@ -72,7 +81,10 @@ public partial class ConfigPage : Page
             return;
         }
 
-        if (_viewModel.State.HasAnyChanges && !ConfirmDiscard("重新加载会覆盖当前字段和高级 YAML 草稿，是否继续？"))
+        if (
+            _viewModel.State.HasAnyChanges
+            && !ConfirmDiscard("重新加载会覆盖当前字段和高级 YAML 草稿，是否继续？")
+        )
         {
             return;
         }
@@ -120,8 +132,10 @@ public partial class ConfigPage : Page
             return;
         }
 
-        if (_viewModel.State.HasYamlChanges &&
-            !ConfirmDiscard("重置高级 YAML 草稿后，当前 YAML 修改将被放弃，是否继续？"))
+        if (
+            _viewModel.State.HasYamlChanges
+            && !ConfirmDiscard("重置高级 YAML 草稿后，当前 YAML 修改将被放弃，是否继续？")
+        )
         {
             return;
         }
@@ -142,13 +156,17 @@ public partial class ConfigPage : Page
             return;
         }
 
-        var changedLines = ManagementPageSupport.CountChangedLines(_viewModel.ServerYaml, _viewModel.State.AdvancedYamlDraft);
+        var changedLines = ManagementPageSupport.CountChangedLines(
+            _viewModel.ServerYaml,
+            _viewModel.State.AdvancedYamlDraft
+        );
         var summary = $"即将写回 config.yaml，并覆盖当前服务端配置。\n变更行数：{changedLines}";
         var confirmed = DiffDialog.Confirm(
             Window.GetWindow(this),
             _viewModel.ServerYaml,
             _viewModel.State.AdvancedYamlDraft,
-            summary);
+            summary
+        );
 
         if (!confirmed)
         {
@@ -161,10 +179,7 @@ public partial class ConfigPage : Page
 
     private static bool ConfirmDiscard(string message)
     {
-        return MessageBox.Show(
-            message,
-            "配置",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning) == MessageBoxResult.OK;
+        return MessageBox.Show(message, "配置", MessageBoxButton.OKCancel, MessageBoxImage.Warning)
+            == MessageBoxResult.OK;
     }
 }

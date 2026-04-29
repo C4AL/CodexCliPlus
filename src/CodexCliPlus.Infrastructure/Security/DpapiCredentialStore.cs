@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
@@ -21,7 +20,11 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
         _pathService = pathService;
     }
 
-    public async Task SaveSecretAsync(string reference, string value, CancellationToken cancellationToken = default)
+    public async Task SaveSecretAsync(
+        string reference,
+        string value,
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -33,19 +36,25 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
             var payload = ProtectedData.Protect(
                 Encoding.UTF8.GetBytes(value),
                 Entropy,
-                DataProtectionScope.CurrentUser);
+                DataProtectionScope.CurrentUser
+            );
 
             await File.WriteAllBytesAsync(secretPath, payload, cancellationToken);
         }
-        catch (Exception exception) when (exception is CryptographicException or IOException or UnauthorizedAccessException)
+        catch (Exception exception)
+            when (exception is CryptographicException or IOException or UnauthorizedAccessException)
         {
             throw new SecureCredentialStoreException(
                 $"Failed to save secure credential reference '{reference}'.",
-                exception);
+                exception
+            );
         }
     }
 
-    public async Task<string?> LoadSecretAsync(string reference, CancellationToken cancellationToken = default)
+    public async Task<string?> LoadSecretAsync(
+        string reference,
+        CancellationToken cancellationToken = default
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -58,14 +67,20 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
             }
 
             var payload = await File.ReadAllBytesAsync(secretPath, cancellationToken);
-            var plainBytes = ProtectedData.Unprotect(payload, Entropy, DataProtectionScope.CurrentUser);
+            var plainBytes = ProtectedData.Unprotect(
+                payload,
+                Entropy,
+                DataProtectionScope.CurrentUser
+            );
             return Encoding.UTF8.GetString(plainBytes);
         }
-        catch (Exception exception) when (exception is CryptographicException or IOException or UnauthorizedAccessException)
+        catch (Exception exception)
+            when (exception is CryptographicException or IOException or UnauthorizedAccessException)
         {
             throw new SecureCredentialStoreException(
                 $"Failed to load secure credential reference '{reference}'.",
-                exception);
+                exception
+            );
         }
     }
 
@@ -87,7 +102,8 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
         {
             throw new SecureCredentialStoreException(
                 $"Failed to delete secure credential reference '{reference}'.",
-                exception);
+                exception
+            );
         }
     }
 
@@ -97,7 +113,8 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
         return Path.Combine(
             _pathService.Directories.ConfigDirectory,
             AppConstants.SecretsDirectoryName,
-            $"{normalizedReference}.bin");
+            $"{normalizedReference}.bin"
+        );
     }
 
     private static string NormalizeReference(string reference)
@@ -107,10 +124,15 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
             throw new ArgumentException("Credential reference cannot be empty.", nameof(reference));
         }
 
-        var sanitized = ReferenceSanitizer.Replace(reference.Trim().ToLowerInvariant(), "-").Trim('-');
+        var sanitized = ReferenceSanitizer
+            .Replace(reference.Trim().ToLowerInvariant(), "-")
+            .Trim('-');
         if (string.IsNullOrWhiteSpace(sanitized))
         {
-            throw new ArgumentException("Credential reference must contain letters or digits.", nameof(reference));
+            throw new ArgumentException(
+                "Credential reference must contain letters or digits.",
+                nameof(reference)
+            );
         }
 
         return sanitized;

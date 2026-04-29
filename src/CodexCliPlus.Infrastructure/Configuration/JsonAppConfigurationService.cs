@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
@@ -19,7 +18,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new AppThemeModeJsonConverter(), new JsonStringEnumConverter() }
+        Converters = { new AppThemeModeJsonConverter(), new JsonStringEnumConverter() },
     };
 
     private readonly IPathService _pathService;
@@ -27,13 +26,12 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
     private string _sessionManagementKey = string.Empty;
 
     public JsonAppConfigurationService(IPathService pathService)
-        : this(pathService, new DpapiCredentialStore(pathService))
-    {
-    }
+        : this(pathService, new DpapiCredentialStore(pathService)) { }
 
     public JsonAppConfigurationService(
         IPathService pathService,
-        ISecureCredentialStore credentialStore)
+        ISecureCredentialStore credentialStore
+    )
     {
         _pathService = pathService;
         _credentialStore = credentialStore;
@@ -48,8 +46,12 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             return CreateDefaultSettingsForDataMode();
         }
 
-        var json = await File.ReadAllTextAsync(_pathService.Directories.SettingsFilePath, cancellationToken);
-        var persisted = JsonSerializer.Deserialize<PersistedAppSettings>(json, JsonOptions)
+        var json = await File.ReadAllTextAsync(
+            _pathService.Directories.SettingsFilePath,
+            cancellationToken
+        );
+        var persisted =
+            JsonSerializer.Deserialize<PersistedAppSettings>(json, JsonOptions)
             ?? new PersistedAppSettings();
 
         var settings = persisted.ToModel();
@@ -63,18 +65,27 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 settings.ManagementKeyReference = AppConstants.DefaultManagementKeyReference;
             }
 
-            await _credentialStore.SaveSecretAsync(settings.ManagementKeyReference, settings.ManagementKey, cancellationToken);
+            await _credentialStore.SaveSecretAsync(
+                settings.ManagementKeyReference,
+                settings.ManagementKey,
+                cancellationToken
+            );
             await SaveAsync(settings, cancellationToken);
             return settings;
         }
 
         if (!string.IsNullOrWhiteSpace(settings.ManagementKeyReference))
         {
-            var storedManagementKey = await _credentialStore.LoadSecretAsync(
-                settings.ManagementKeyReference,
-                cancellationToken) ?? string.Empty;
+            var storedManagementKey =
+                await _credentialStore.LoadSecretAsync(
+                    settings.ManagementKeyReference,
+                    cancellationToken
+                ) ?? string.Empty;
 
-            if (persisted.RememberManagementKey is null && !string.IsNullOrWhiteSpace(storedManagementKey))
+            if (
+                persisted.RememberManagementKey is null
+                && !string.IsNullOrWhiteSpace(storedManagementKey)
+            )
             {
                 settings.RememberManagementKey = true;
                 settings.ManagementKey = storedManagementKey;
@@ -113,13 +124,17 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 await _credentialStore.SaveSecretAsync(
                     settings.ManagementKeyReference,
                     settings.ManagementKey,
-                    cancellationToken);
+                    cancellationToken
+                );
             }
         }
         else
         {
             _sessionManagementKey = settings.ManagementKey;
-            await _credentialStore.DeleteSecretAsync(settings.ManagementKeyReference, cancellationToken);
+            await _credentialStore.DeleteSecretAsync(
+                settings.ManagementKeyReference,
+                cancellationToken
+            );
         }
 
         var persisted = PersistedAppSettings.FromModel(settings);
@@ -128,7 +143,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             _pathService.Directories.SettingsFilePath,
             json,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     private AppSettings CreateDefaultSettingsForDataMode()
@@ -152,7 +168,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public bool? RememberManagementKey { get; init; }
 
-        public Core.Enums.CodexSourceKind PreferredCodexSource { get; init; } = Core.Enums.CodexSourceKind.Official;
+        public Core.Enums.CodexSourceKind PreferredCodexSource { get; init; } =
+            Core.Enums.CodexSourceKind.Official;
 
         public bool StartWithWindows { get; init; }
 
@@ -166,7 +183,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public Core.Enums.AppThemeMode ThemeMode { get; init; } = Core.Enums.AppThemeMode.System;
 
-        public Core.Enums.AppLogLevel MinimumLogLevel { get; init; } = Core.Enums.AppLogLevel.Information;
+        public Core.Enums.AppLogLevel MinimumLogLevel { get; init; } =
+            Core.Enums.AppLogLevel.Information;
 
         public bool EnableDebugTools { get; init; }
 
@@ -199,7 +217,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 LastSeenApplicationVersion = string.IsNullOrWhiteSpace(LastSeenApplicationVersion)
                     ? null
                     : LastSeenApplicationVersion.Trim(),
-                ManagementKey = string.Empty
+                ManagementKey = string.Empty,
             };
         }
 
@@ -221,9 +239,11 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 EnableDebugTools = settings.EnableDebugTools,
                 LastRepositoryPath = settings.LastRepositoryPath,
                 SecurityKeyOnboardingCompleted = settings.SecurityKeyOnboardingCompleted,
-                LastSeenApplicationVersion = string.IsNullOrWhiteSpace(settings.LastSeenApplicationVersion)
+                LastSeenApplicationVersion = string.IsNullOrWhiteSpace(
+                    settings.LastSeenApplicationVersion
+                )
                     ? null
-                    : settings.LastSeenApplicationVersion.Trim()
+                    : settings.LastSeenApplicationVersion.Trim(),
             };
         }
     }
@@ -233,7 +253,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         public override AppThemeMode Read(
             ref Utf8JsonReader reader,
             Type typeToConvert,
-            JsonSerializerOptions options)
+            JsonSerializerOptions options
+        )
         {
             if (reader.TokenType == JsonTokenType.Number && reader.TryGetInt32(out var value))
             {
@@ -253,21 +274,24 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 "system" or "auto" => AppThemeMode.System,
                 "white" or "light" => AppThemeMode.White,
                 "dark" => AppThemeMode.Dark,
-                _ => AppThemeMode.System
+                _ => AppThemeMode.System,
             };
         }
 
         public override void Write(
             Utf8JsonWriter writer,
             AppThemeMode value,
-            JsonSerializerOptions options)
+            JsonSerializerOptions options
+        )
         {
-            writer.WriteStringValue(value switch
-            {
-                AppThemeMode.White => "White",
-                AppThemeMode.Dark => "Dark",
-                _ => "System"
-            });
+            writer.WriteStringValue(
+                value switch
+                {
+                    AppThemeMode.White => "White",
+                    AppThemeMode.Dark => "Dark",
+                    _ => "System",
+                }
+            );
         }
     }
 }

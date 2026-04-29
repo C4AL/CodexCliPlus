@@ -2,9 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-
 using CodexCliPlus.Management.DesignSystem.Controls;
-
 using MessageBox = System.Windows.MessageBox;
 
 namespace CodexCliPlus.Views.Pages;
@@ -14,7 +12,7 @@ internal static class ManagementPageSupport
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        WriteIndented = true
+        WriteIndented = true,
     };
 
     public static string FormatValue(string? value, string fallback = "未设置")
@@ -28,13 +26,14 @@ internal static class ManagementPageSupport
         {
             true => "已启用",
             false => "已禁用",
-            _ => "未设置"
+            _ => "未设置",
         };
     }
 
     public static string FormatDate(DateTimeOffset? value)
     {
-        return value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture) ?? "未记录";
+        return value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture)
+            ?? "未记录";
     }
 
     public static string FormatFileSize(long? bytes)
@@ -71,8 +70,10 @@ internal static class ManagementPageSupport
         {
             < 100_000_000_000L => DateTimeOffset.FromUnixTimeSeconds(value.Value),
             < 100_000_000_000_000L => DateTimeOffset.FromUnixTimeMilliseconds(value.Value),
-            < 100_000_000_000_000_000L => DateTimeOffset.FromUnixTimeMilliseconds(value.Value / 1000),
-            _ => DateTimeOffset.FromUnixTimeMilliseconds(value.Value / 1_000_000)
+            < 100_000_000_000_000_000L => DateTimeOffset.FromUnixTimeMilliseconds(
+                value.Value / 1000
+            ),
+            _ => DateTimeOffset.FromUnixTimeMilliseconds(value.Value / 1_000_000),
         };
 
         return FormatDate(dateTime);
@@ -134,12 +135,24 @@ internal static class ManagementPageSupport
 
     public static void ShowInfo(Page owner, string title, string message)
     {
-        MessageBox.Show(Window.GetWindow(owner), message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(
+            Window.GetWindow(owner),
+            message,
+            title,
+            MessageBoxButton.OK,
+            MessageBoxImage.Information
+        );
     }
 
     public static void ShowError(Page owner, string title, Exception exception)
     {
-        MessageBox.Show(Window.GetWindow(owner), exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show(
+            Window.GetWindow(owner),
+            exception.Message,
+            title,
+            MessageBoxButton.OK,
+            MessageBoxImage.Error
+        );
     }
 }
 
@@ -147,6 +160,11 @@ internal sealed record ManagementMetricItem(string Value, string Label, string D
 
 internal sealed record ManagementKeyValueItem(string Label, string Value);
 
-internal sealed record UsageApiSummaryItem(string Provider, long TotalRequests, long TotalTokens, int ModelCount);
+internal sealed record UsageApiSummaryItem(
+    string Provider,
+    long TotalRequests,
+    long TotalTokens,
+    int ModelCount
+);
 
 internal sealed record ErrorLogViewItem(string Name, string Size, string Modified);

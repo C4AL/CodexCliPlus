@@ -101,7 +101,7 @@ public enum ManagementProviderKind
     Codex,
     Claude,
     Vertex,
-    OpenAiCompatibility
+    OpenAiCompatibility,
 }
 
 public sealed class ManagementLatestVersionInfo
@@ -131,7 +131,8 @@ public sealed class ManagementApiCallRequest
 
     public string? AuthIndex { get; init; }
 
-    public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> Headers { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     public string? Data { get; init; }
 }

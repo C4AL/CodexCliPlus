@@ -12,7 +12,8 @@ public sealed record AppDirectories(
     string DiagnosticsDirectory,
     string RuntimeDirectory,
     string SettingsFilePath,
-    string BackendConfigFilePath)
+    string BackendConfigFilePath
+)
 {
     public AppDirectories(
         string rootDirectory,
@@ -21,7 +22,8 @@ public sealed record AppDirectories(
         string backendDirectory,
         string cacheDirectory,
         string settingsFilePath,
-        string backendConfigFilePath)
+        string backendConfigFilePath
+    )
         : this(
             AppDataMode.Installed,
             rootDirectory,
@@ -32,9 +34,8 @@ public sealed record AppDirectories(
             Path.Combine(rootDirectory, "diagnostics"),
             Path.Combine(rootDirectory, "runtime"),
             settingsFilePath,
-            backendConfigFilePath)
-    {
-    }
+            backendConfigFilePath
+        ) { }
 
     public string DesktopConfigFilePath => SettingsFilePath;
 }

@@ -31,7 +31,8 @@ public sealed class BackendProcessManager : IDisposable
         IAppConfigurationService configurationService,
         IPathService pathService,
         IProcessService processService,
-        IAppLogger logger)
+        IAppLogger logger
+    )
     {
         _assetService = assetService;
         _configWriter = configWriter;
@@ -57,7 +58,9 @@ public sealed class BackendProcessManager : IDisposable
         }
     }
 
-    public async Task<BackendStatusSnapshot> StartAsync(CancellationToken cancellationToken = default)
+    public async Task<BackendStatusSnapshot> StartAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -73,11 +76,14 @@ public sealed class BackendProcessManager : IDisposable
                 return CurrentStatus;
             }
 
-            UpdateStatus(new BackendStatusSnapshot
-            {
-                State = BackendStateKind.Starting,
-                Message = $"Starting {BackendExecutableNames.ManagedExecutableFileName} backend..."
-            });
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Starting,
+                    Message =
+                        $"Starting {BackendExecutableNames.ManagedExecutableFileName} backend...",
+                }
+            );
 
             var assetLayout = await _assetService.EnsureAssetsAsync(cancellationToken);
             CleanupRuntimeArtifacts();
@@ -89,31 +95,37 @@ public sealed class BackendProcessManager : IDisposable
                 new ManagedProcessStartInfo(
                     assetLayout.ExecutablePath,
                     $"-config \"{runtime.ConfigPath}\"",
-                    assetLayout.WorkingDirectory),
+                    assetLayout.WorkingDirectory
+                ),
                 line => AppendLogLine($"[stdout] {line}"),
                 line => AppendLogLine($"[stderr] {line}"),
-                cancellationToken);
+                cancellationToken
+            );
 
             _managedProcess.Exited += OnProcessExited;
             AppendLogLine(
-                $"Started {BackendExecutableNames.ManagedExecutableFileName} backend process (PID {_managedProcess.ProcessId}).");
+                $"Started {BackendExecutableNames.ManagedExecutableFileName} backend process (PID {_managedProcess.ProcessId})."
+            );
 
             var isHealthy = await _healthChecker.WaitUntilHealthyAsync(
                 runtime.HealthUrl,
                 TimeSpan.FromSeconds(30),
-                cancellationToken);
+                cancellationToken
+            );
 
             if (!isHealthy)
             {
                 _logger.Warn("Backend health check did not pass within 30 seconds.");
-                UpdateStatus(new BackendStatusSnapshot
-                {
-                    State = BackendStateKind.Error,
-                    Message = "Backend failed to become ready.",
-                    LastError = "Backend health check did not pass within 30 seconds.",
-                    Runtime = runtime,
-                    ProcessId = _managedProcess.ProcessId
-                });
+                UpdateStatus(
+                    new BackendStatusSnapshot
+                    {
+                        State = BackendStateKind.Error,
+                        Message = "Backend failed to become ready.",
+                        LastError = "Backend health check did not pass within 30 seconds.",
+                        Runtime = runtime,
+                        ProcessId = _managedProcess.ProcessId,
+                    }
+                );
 
                 await StopManagedProcessAsync(cancellationToken);
                 return CurrentStatus;
@@ -123,13 +135,15 @@ public sealed class BackendProcessManager : IDisposable
                 ? $"Backend is running on port {runtime.Port} (requested {runtime.RequestedPort})."
                 : $"Backend is running on port {runtime.Port}.";
 
-            UpdateStatus(new BackendStatusSnapshot
-            {
-                State = BackendStateKind.Running,
-                Message = runningMessage,
-                Runtime = runtime,
-                ProcessId = _managedProcess.ProcessId
-            });
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Running,
+                    Message = runningMessage,
+                    Runtime = runtime,
+                    ProcessId = _managedProcess.ProcessId,
+                }
+            );
 
             return CurrentStatus;
         }
@@ -138,12 +152,14 @@ public sealed class BackendProcessManager : IDisposable
             _logger.LogError("Failed to start backend process.", exception);
             await StopManagedProcessAsync(cancellationToken);
             CleanupRuntimeArtifacts();
-            UpdateStatus(new BackendStatusSnapshot
-            {
-                State = BackendStateKind.Error,
-                Message = "Failed to start backend process.",
-                LastError = exception.Message
-            });
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Error,
+                    Message = "Failed to start backend process.",
+                    LastError = exception.Message,
+                }
+            );
 
             return CurrentStatus;
         }
@@ -153,7 +169,9 @@ public sealed class BackendProcessManager : IDisposable
         }
     }
 
-    public async Task<BackendStatusSnapshot> StopAsync(CancellationToken cancellationToken = default)
+    public async Task<BackendStatusSnapshot> StopAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -163,12 +181,14 @@ public sealed class BackendProcessManager : IDisposable
             await StopManagedProcessAsync(cancellationToken);
             CleanupRuntimeArtifacts();
 
-            UpdateStatus(new BackendStatusSnapshot
-            {
-                State = BackendStateKind.Stopped,
-                Message = "Backend is stopped.",
-                Runtime = runtime
-            });
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Stopped,
+                    Message = "Backend is stopped.",
+                    Runtime = runtime,
+                }
+            );
 
             return CurrentStatus;
         }
@@ -178,7 +198,9 @@ public sealed class BackendProcessManager : IDisposable
         }
     }
 
-    public async Task<BackendStatusSnapshot> RestartAsync(CancellationToken cancellationToken = default)
+    public async Task<BackendStatusSnapshot> RestartAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         await StopAsync(cancellationToken);
         return await StartAsync(cancellationToken);
@@ -197,16 +219,20 @@ public sealed class BackendProcessManager : IDisposable
             return;
         }
 
-        AppendLogLine($"{BackendExecutableNames.ManagedExecutableFileName} backend process exited unexpectedly.");
-        UpdateStatus(new BackendStatusSnapshot
-        {
-            State = BackendStateKind.Error,
-            Message = "Backend process exited unexpectedly.",
-            LastError =
-                $"{BackendExecutableNames.ManagedExecutableFileName} process exited unexpectedly. Check the desktop log for details.",
-            Runtime = CurrentStatus.Runtime,
-            ProcessId = CurrentStatus.ProcessId
-        });
+        AppendLogLine(
+            $"{BackendExecutableNames.ManagedExecutableFileName} backend process exited unexpectedly."
+        );
+        UpdateStatus(
+            new BackendStatusSnapshot
+            {
+                State = BackendStateKind.Error,
+                Message = "Backend process exited unexpectedly.",
+                LastError =
+                    $"{BackendExecutableNames.ManagedExecutableFileName} process exited unexpectedly. Check the desktop log for details.",
+                Runtime = CurrentStatus.Runtime,
+                ProcessId = CurrentStatus.ProcessId,
+            }
+        );
     }
 
     private void AppendLogLine(string line)
@@ -232,7 +258,7 @@ public sealed class BackendProcessManager : IDisposable
             LastError = snapshot.LastError,
             Runtime = snapshot.Runtime,
             ProcessId = snapshot.ProcessId,
-            UpdatedAt = DateTimeOffset.Now
+            UpdatedAt = DateTimeOffset.Now,
         };
 
         StatusChanged?.Invoke(this, CurrentStatus);
@@ -279,7 +305,9 @@ public sealed class BackendProcessManager : IDisposable
         }
         catch (Exception exception)
         {
-            _logger.Warn($"Failed to clean runtime artifacts in {runtimeDirectory}: {exception.Message}");
+            _logger.Warn(
+                $"Failed to clean runtime artifacts in {runtimeDirectory}: {exception.Message}"
+            );
         }
     }
 }

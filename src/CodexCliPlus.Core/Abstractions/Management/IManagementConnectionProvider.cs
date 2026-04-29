@@ -4,5 +4,7 @@ namespace CodexCliPlus.Core.Abstractions.Management;
 
 public interface IManagementConnectionProvider
 {
-    Task<ManagementConnectionInfo> GetConnectionAsync(CancellationToken cancellationToken = default);
+    Task<ManagementConnectionInfo> GetConnectionAsync(
+        CancellationToken cancellationToken = default
+    );
 }

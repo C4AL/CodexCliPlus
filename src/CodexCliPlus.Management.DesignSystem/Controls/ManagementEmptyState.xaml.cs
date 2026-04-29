@@ -5,14 +5,26 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class ManagementEmptyState : UserControl
 {
-    public static readonly DependencyProperty TitleProperty =
-        DependencyProperty.Register(nameof(Title), typeof(string), typeof(ManagementEmptyState), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
+        nameof(Title),
+        typeof(string),
+        typeof(ManagementEmptyState),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty DescriptionProperty =
-        DependencyProperty.Register(nameof(Description), typeof(string), typeof(ManagementEmptyState), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty DescriptionProperty = DependencyProperty.Register(
+        nameof(Description),
+        typeof(string),
+        typeof(ManagementEmptyState),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty ActionContentProperty =
-        DependencyProperty.Register(nameof(ActionContent), typeof(object), typeof(ManagementEmptyState), new PropertyMetadata(null, OnActionContentChanged));
+    public static readonly DependencyProperty ActionContentProperty = DependencyProperty.Register(
+        nameof(ActionContent),
+        typeof(object),
+        typeof(ManagementEmptyState),
+        new PropertyMetadata(null, OnActionContentChanged)
+    );
 
     public ManagementEmptyState()
     {
@@ -38,13 +50,18 @@ public partial class ManagementEmptyState : UserControl
         set => SetValue(ActionContentProperty, value);
     }
 
-    private static void OnActionContentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnActionContentChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         ((ManagementEmptyState)d).UpdateActionVisibility();
     }
 
     private void UpdateActionVisibility()
     {
-        ActionPresenter.Visibility = ActionContent is null ? Visibility.Collapsed : Visibility.Visible;
+        ActionPresenter.Visibility = ActionContent is null
+            ? Visibility.Collapsed
+            : Visibility.Visible;
     }
 }

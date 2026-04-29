@@ -5,17 +5,34 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class ManagementLogViewer : UserControl
 {
-    public static readonly DependencyProperty TextProperty =
-        DependencyProperty.Register(nameof(Text), typeof(string), typeof(ManagementLogViewer), new PropertyMetadata(string.Empty, OnDisplayPropertyChanged));
+    public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
+        nameof(Text),
+        typeof(string),
+        typeof(ManagementLogViewer),
+        new PropertyMetadata(string.Empty, OnDisplayPropertyChanged)
+    );
 
-    public static readonly DependencyProperty EmptyTitleProperty =
-        DependencyProperty.Register(nameof(EmptyTitle), typeof(string), typeof(ManagementLogViewer), new PropertyMetadata("暂无日志内容", OnDisplayPropertyChanged));
+    public static readonly DependencyProperty EmptyTitleProperty = DependencyProperty.Register(
+        nameof(EmptyTitle),
+        typeof(string),
+        typeof(ManagementLogViewer),
+        new PropertyMetadata("暂无日志内容", OnDisplayPropertyChanged)
+    );
 
     public static readonly DependencyProperty EmptyDescriptionProperty =
-        DependencyProperty.Register(nameof(EmptyDescription), typeof(string), typeof(ManagementLogViewer), new PropertyMetadata("可在当前页面中刷新、清空或复制日志。", OnDisplayPropertyChanged));
+        DependencyProperty.Register(
+            nameof(EmptyDescription),
+            typeof(string),
+            typeof(ManagementLogViewer),
+            new PropertyMetadata("可在当前页面中刷新、清空或复制日志。", OnDisplayPropertyChanged)
+        );
 
-    public static readonly DependencyProperty CopyButtonTextProperty =
-        DependencyProperty.Register(nameof(CopyButtonText), typeof(string), typeof(ManagementLogViewer), new PropertyMetadata("复制内容"));
+    public static readonly DependencyProperty CopyButtonTextProperty = DependencyProperty.Register(
+        nameof(CopyButtonText),
+        typeof(string),
+        typeof(ManagementLogViewer),
+        new PropertyMetadata("复制内容")
+    );
 
     public ManagementLogViewer()
     {
@@ -47,7 +64,10 @@ public partial class ManagementLogViewer : UserControl
         set => SetValue(CopyButtonTextProperty, value);
     }
 
-    private static void OnDisplayPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnDisplayPropertyChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         ((ManagementLogViewer)d).UpdateVisualState();
     }

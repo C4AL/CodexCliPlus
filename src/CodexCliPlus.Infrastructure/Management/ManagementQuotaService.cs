@@ -12,18 +12,34 @@ public sealed class ManagementQuotaService : IManagementQuotaService
         _configurationService = configurationService;
     }
 
-    public Task<ManagementApiResponse<ManagementConfigSnapshot>> GetQuotaSettingsAsync(CancellationToken cancellationToken = default)
+    public Task<ManagementApiResponse<ManagementConfigSnapshot>> GetQuotaSettingsAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         return _configurationService.GetConfigAsync(cancellationToken);
     }
 
-    public Task<ManagementApiResponse<ManagementOperationResult>> SetSwitchProjectAsync(bool enabled, CancellationToken cancellationToken = default)
+    public Task<ManagementApiResponse<ManagementOperationResult>> SetSwitchProjectAsync(
+        bool enabled,
+        CancellationToken cancellationToken = default
+    )
     {
-        return _configurationService.UpdateBooleanSettingAsync("quota-exceeded/switch-project", enabled, cancellationToken);
+        return _configurationService.UpdateBooleanSettingAsync(
+            "quota-exceeded/switch-project",
+            enabled,
+            cancellationToken
+        );
     }
 
-    public Task<ManagementApiResponse<ManagementOperationResult>> SetSwitchPreviewModelAsync(bool enabled, CancellationToken cancellationToken = default)
+    public Task<ManagementApiResponse<ManagementOperationResult>> SetSwitchPreviewModelAsync(
+        bool enabled,
+        CancellationToken cancellationToken = default
+    )
     {
-        return _configurationService.UpdateBooleanSettingAsync("quota-exceeded/switch-preview-model", enabled, cancellationToken);
+        return _configurationService.UpdateBooleanSettingAsync(
+            "quota-exceeded/switch-preview-model",
+            enabled,
+            cancellationToken
+        );
     }
 }

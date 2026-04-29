@@ -3,5 +3,5 @@ namespace CodexCliPlus.Core.Enums;
 public enum CodexSourceKind
 {
     Official = 0,
-    Cpa = 1
+    Cpa = 1,
 }

@@ -5,4 +5,5 @@ public sealed record AboutComponentSource(
     string Role,
     string Origin,
     string License,
-    string Notes);
+    string Notes
+);

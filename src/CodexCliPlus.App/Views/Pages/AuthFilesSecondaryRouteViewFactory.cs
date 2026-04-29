@@ -36,7 +36,8 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         Page owner,
         AuthFilesRouteState routeState,
         Func<Task> refreshAsync,
-        Func<string, string, bool> navigate)
+        Func<string, string, bool> navigate
+    )
     {
         _viewModel = viewModel;
         _authService = authService;
@@ -59,7 +60,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         {
             "auth-files-oauth-excluded" => CreateOAuthExcludedDescriptor(),
             "auth-files-oauth-model-alias" => CreateOAuthModelAliasDescriptor(),
-            _ => CreateDetailsDescriptor()
+            _ => CreateDetailsDescriptor(),
         };
     }
 
@@ -77,8 +78,10 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 new ManagementEmptyState
                 {
                     Title = "No auth file selected",
-                    Description = "The default route shows file details, status actions and download/delete once a file is selected."
-                });
+                    Description =
+                        "The default route shows file details, status actions and download/delete once a file is selected.",
+                }
+            );
         }
 
         var view = new AuthFileDetailsRouteView(
@@ -87,27 +90,23 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             _routeState.SelectedPrefix,
             _routeState.SelectedProxyUrl,
             _routeState.SelectedHeaders,
-            _routeState.MarkDirty);
+            _routeState.MarkDirty
+        );
 
         return new ManagementSecondaryRouteDescriptor(
             file.Label ?? file.Name,
             $"{ManagementPageSupport.FormatValue(file.Provider, "Unknown provider")} · {GetStatusText(file)}",
             view,
             BuildDetailsHeader(file),
-            BuildDetailsFooter(file, view));
+            BuildDetailsFooter(file, view)
+        );
     }
 
     private StackPanel BuildDetailsHeader(ManagementAuthFileItem file)
     {
-        var panel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
-        var toggleButton = new Button
-        {
-            Content = file.Disabled ? "Enable file" : "Disable file"
-        };
+        var toggleButton = new Button { Content = file.Disabled ? "Enable file" : "Disable file" };
         toggleButton.Click += async (_, _) =>
         {
             try
@@ -125,7 +124,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         var downloadButton = new Button
         {
             Margin = new Thickness(12, 0, 0, 0),
-            Content = "Download JSON"
+            Content = "Download JSON",
         };
         downloadButton.Click += async (_, _) =>
         {
@@ -135,7 +134,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 var dialog = new SaveFileDialog
                 {
                     FileName = file.Name,
-                    Filter = "JSON files|*.json|All files|*.*"
+                    Filter = "JSON files|*.json|All files|*.*",
                 };
                 if (dialog.ShowDialog(Window.GetWindow(_owner)) == true)
                 {
@@ -152,37 +151,45 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         var excludedButton = new Button
         {
             Margin = new Thickness(12, 0, 0, 0),
-            Content = "OAuth excluded models"
+            Content = "OAuth excluded models",
         };
-        excludedButton.Click += (_, _) => _navigate("auth-files-oauth-excluded", "OAuth excluded models");
+        excludedButton.Click += (_, _) =>
+            _navigate("auth-files-oauth-excluded", "OAuth excluded models");
         panel.Children.Add(excludedButton);
 
         var aliasButton = new Button
         {
             Margin = new Thickness(12, 0, 0, 0),
-            Content = "OAuth model aliases"
+            Content = "OAuth model aliases",
         };
-        aliasButton.Click += (_, _) => _navigate("auth-files-oauth-model-alias", "OAuth model aliases");
+        aliasButton.Click += (_, _) =>
+            _navigate("auth-files-oauth-model-alias", "OAuth model aliases");
         panel.Children.Add(aliasButton);
 
         return panel;
     }
 
-    private StackPanel BuildDetailsFooter(ManagementAuthFileItem file, AuthFileDetailsRouteView view)
+    private StackPanel BuildDetailsFooter(
+        ManagementAuthFileItem file,
+        AuthFileDetailsRouteView view
+    )
     {
         var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var deleteButton = new Button
-        {
-            Content = "Delete file"
-        };
+        var deleteButton = new Button { Content = "Delete file" };
         deleteButton.Click += async (_, _) =>
         {
-            if (!ManagementConfirmDialog.Confirm(Window.GetWindow(_owner), "Delete auth file", $"Delete {file.Name}?"))
+            if (
+                !ManagementConfirmDialog.Confirm(
+                    Window.GetWindow(_owner),
+                    "Delete auth file",
+                    $"Delete {file.Name}?"
+                )
+            )
             {
                 return;
             }
@@ -192,7 +199,11 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 await _viewModel.DeleteAsync([file.Name]);
                 _routeState.SetSelectedFile(null);
                 _routeState.SetSelectedModels([]);
-                _routeState.SetDraftFields(null, null, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+                _routeState.SetDraftFields(
+                    null,
+                    null,
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                );
                 _routeState.MarkClean();
                 await _refreshAsync();
             }
@@ -207,7 +218,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         {
             Content = "Save fields",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -247,28 +258,22 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         var initialItems = _viewModel.ExcludedModels.TryGetValue(providerKey, out var values)
             ? values
             : [];
-        var view = new EditableStringCollectionRouteView(initialItems, _routeState.MarkDirty, "Add excluded model");
+        var view = new EditableStringCollectionRouteView(
+            initialItems,
+            _routeState.MarkDirty,
+            "Add excluded model"
+        );
 
-        var header = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
-        header.Children.Add(new StatusBadge
-        {
-            Text = providerKey,
-            Tone = BadgeTone.Neutral
-        });
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        header.Children.Add(new StatusBadge { Text = providerKey, Tone = BadgeTone.Neutral });
 
         var footer = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var deleteButton = new Button
-        {
-            Content = "Delete mapping"
-        };
+        var deleteButton = new Button { Content = "Delete mapping" };
         deleteButton.Click += async (_, _) =>
         {
             try
@@ -288,7 +293,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         {
             Content = "Save",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -319,7 +324,8 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             $"Editing provider-level excluded models for {file.Name}.",
             view,
             header,
-            footer);
+            footer
+        );
     }
 
     private ManagementSecondaryRouteDescriptor CreateOAuthModelAliasDescriptor()
@@ -344,26 +350,16 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             : [];
         var view = new EditableOAuthAliasRouteView(initialItems, _routeState.MarkDirty);
 
-        var header = new StackPanel
-        {
-            Orientation = Orientation.Horizontal
-        };
-        header.Children.Add(new StatusBadge
-        {
-            Text = providerKey,
-            Tone = BadgeTone.Neutral
-        });
+        var header = new StackPanel { Orientation = Orientation.Horizontal };
+        header.Children.Add(new StatusBadge { Text = providerKey, Tone = BadgeTone.Neutral });
 
         var footer = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right
+            HorizontalAlignment = HorizontalAlignment.Right,
         };
 
-        var deleteButton = new Button
-        {
-            Content = "Delete mapping"
-        };
+        var deleteButton = new Button { Content = "Delete mapping" };
         deleteButton.Click += async (_, _) =>
         {
             try
@@ -383,7 +379,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
         {
             Content = "Save",
             Background = (Brush)Application.Current.Resources["ManagementAccentBrush"],
-            Foreground = Brushes.White
+            Foreground = Brushes.White,
         };
         saveButton.Click += async (_, _) =>
         {
@@ -414,10 +410,13 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             $"Editing model aliases for provider {providerKey}.",
             view,
             header,
-            footer);
+            footer
+        );
     }
 
-    private static ManagementSecondaryRouteDescriptor CreateSelectionRequiredDescriptor(string title)
+    private static ManagementSecondaryRouteDescriptor CreateSelectionRequiredDescriptor(
+        string title
+    )
     {
         return new ManagementSecondaryRouteDescriptor(
             title,
@@ -425,11 +424,15 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             new ManagementEmptyState
             {
                 Title = "No auth file selected",
-                Description = "Choose a file from the left list and reopen this route."
-            });
+                Description = "Choose a file from the left list and reopen this route.",
+            }
+        );
     }
 
-    private static ManagementSecondaryRouteDescriptor CreateMissingProviderDescriptor(ManagementAuthFileItem file, string title)
+    private static ManagementSecondaryRouteDescriptor CreateMissingProviderDescriptor(
+        ManagementAuthFileItem file,
+        string title
+    )
     {
         return new ManagementSecondaryRouteDescriptor(
             title,
@@ -437,13 +440,21 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             new ManagementEmptyState
             {
                 Title = "Missing provider metadata",
-                Description = "OAuth provider-level routes require a provider value on the selected auth file."
-            });
+                Description =
+                    "OAuth provider-level routes require a provider value on the selected auth file.",
+            }
+        );
     }
 
     private ManagementAuthFileItem? GetSelectedFile()
     {
-        return _viewModel.Files.FirstOrDefault(file => string.Equals(file.Name, _routeState.SelectedFileName, StringComparison.OrdinalIgnoreCase));
+        return _viewModel.Files.FirstOrDefault(file =>
+            string.Equals(
+                file.Name,
+                _routeState.SelectedFileName,
+                StringComparison.OrdinalIgnoreCase
+            )
+        );
     }
 
     private static string GetStatusText(ManagementAuthFileItem file)
@@ -470,7 +481,8 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             string? prefix,
             string? proxyUrl,
             IReadOnlyDictionary<string, string> headers,
-            Action onDirty)
+            Action onDirty
+        )
         {
             Content = BuildLayout(file, models);
             _prefixTextBox.Text = prefix ?? string.Empty;
@@ -492,66 +504,90 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 Name = name,
                 Prefix = NormalizeText(_prefixTextBox.Text),
                 ProxyUrl = NormalizeText(_proxyUrlTextBox.Text),
-                Headers = BuildHeaders(_headers)
+                Headers = BuildHeaders(_headers),
             };
         }
 
-        private StackPanel BuildLayout(ManagementAuthFileItem file, IReadOnlyList<ManagementModelDescriptor> models)
+        private StackPanel BuildLayout(
+            ManagementAuthFileItem file,
+            IReadOnlyList<ManagementModelDescriptor> models
+        )
         {
             var root = new StackPanel();
 
             var info = new StackPanel();
             info.Children.Add(CreateInfoRow("File", file.Name));
-            info.Children.Add(CreateInfoRow("Provider", ManagementPageSupport.FormatValue(file.Provider, "Unknown")));
-            info.Children.Add(CreateInfoRow("Email", ManagementPageSupport.FormatValue(file.Email, "Not recorded")));
-            info.Children.Add(CreateInfoRow("Account", ManagementPageSupport.FormatValue(file.Account, "Unknown")));
+            info.Children.Add(
+                CreateInfoRow(
+                    "Provider",
+                    ManagementPageSupport.FormatValue(file.Provider, "Unknown")
+                )
+            );
+            info.Children.Add(
+                CreateInfoRow(
+                    "Email",
+                    ManagementPageSupport.FormatValue(file.Email, "Not recorded")
+                )
+            );
+            info.Children.Add(
+                CreateInfoRow("Account", ManagementPageSupport.FormatValue(file.Account, "Unknown"))
+            );
             info.Children.Add(CreateInfoRow("Status", GetStatusText(file)));
-            info.Children.Add(CreateInfoRow("Updated", ManagementPageSupport.FormatDate(file.UpdatedAt)));
-            info.Children.Add(CreateInfoRow("Size", ManagementPageSupport.FormatFileSize(file.Size)));
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Basic information",
-                Description = "Read-only metadata from the selected auth file.",
-                SectionContent = info
-            });
+            info.Children.Add(
+                CreateInfoRow("Updated", ManagementPageSupport.FormatDate(file.UpdatedAt))
+            );
+            info.Children.Add(
+                CreateInfoRow("Size", ManagementPageSupport.FormatFileSize(file.Size))
+            );
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Basic information",
+                    Description = "Read-only metadata from the selected auth file.",
+                    SectionContent = info,
+                }
+            );
 
             var patchable = new StackPanel();
-            patchable.Children.Add(new ManagementFieldRow
-            {
-                Label = "Prefix",
-                FieldContent = _prefixTextBox
-            });
-            patchable.Children.Add(new ManagementFieldRow
-            {
-                Label = "Proxy URL",
-                FieldContent = _proxyUrlTextBox
-            });
-            patchable.Children.Add(new ManagementFieldRow
-            {
-                Label = "Headers",
-                FieldContent = new EditableKeyValueList
+            patchable.Children.Add(
+                new ManagementFieldRow { Label = "Prefix", FieldContent = _prefixTextBox }
+            );
+            patchable.Children.Add(
+                new ManagementFieldRow { Label = "Proxy URL", FieldContent = _proxyUrlTextBox }
+            );
+            patchable.Children.Add(
+                new ManagementFieldRow
                 {
-                    ItemsSource = _headers,
-                    KeyHeader = "Header",
-                    ValueHeader = "Value",
-                    AddButtonText = "Add header"
+                    Label = "Headers",
+                    FieldContent = new EditableKeyValueList
+                    {
+                        ItemsSource = _headers,
+                        KeyHeader = "Header",
+                        ValueHeader = "Value",
+                        AddButtonText = "Add header",
+                    },
                 }
-            });
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Patchable fields",
-                Description = "Saved through PatchAuthFileFieldsAsync.",
-                SectionContent = patchable
-            });
+            );
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Patchable fields",
+                    Description = "Saved through PatchAuthFileFieldsAsync.",
+                    SectionContent = patchable,
+                }
+            );
 
             var modelList = new StackPanel();
             if (models.Count == 0)
             {
-                modelList.Children.Add(new ManagementEmptyState
-                {
-                    Title = "No models",
-                    Description = "GetAuthFileModelsAsync returned no visible models for this file."
-                });
+                modelList.Children.Add(
+                    new ManagementEmptyState
+                    {
+                        Title = "No models",
+                        Description =
+                            "GetAuthFileModelsAsync returned no visible models for this file.",
+                    }
+                );
             }
             else
             {
@@ -561,12 +597,14 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 }
             }
 
-            root.Children.Add(new ManagementFormSection
-            {
-                Title = "Resolved models",
-                Description = "These models come from GetAuthFileModelsAsync(name).",
-                SectionContent = modelList
-            });
+            root.Children.Add(
+                new ManagementFormSection
+                {
+                    Title = "Resolved models",
+                    Description = "These models come from GetAuthFileModelsAsync(name).",
+                    SectionContent = modelList,
+                }
+            );
 
             return root;
         }
@@ -580,8 +618,8 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 {
                     Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
                     Text = value,
-                    TextWrapping = TextWrapping.Wrap
-                }
+                    TextWrapping = TextWrapping.Wrap,
+                },
             };
         }
     }
@@ -590,7 +628,11 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
     {
         private readonly ObservableCollection<EditableStringItem> _items = [];
 
-        public EditableStringCollectionRouteView(IEnumerable<string> initialItems, Action onDirty, string addButtonText)
+        public EditableStringCollectionRouteView(
+            IEnumerable<string> initialItems,
+            Action onDirty,
+            string addButtonText
+        )
         {
             foreach (var item in initialItems)
             {
@@ -600,14 +642,14 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             var list = new EditableStringList
             {
                 ItemsSource = _items,
-                AddButtonText = addButtonText
+                AddButtonText = addButtonText,
             };
             list.Changed += (_, _) => onDirty();
             Content = new ManagementFormSection
             {
                 Title = "Models",
                 Description = "Editing provider-level string collections without JSON fallback.",
-                SectionContent = list
+                SectionContent = list,
             };
         }
 
@@ -625,23 +667,28 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
     {
         private readonly ObservableCollection<EditableModelAliasItem> _aliases = [];
 
-        public EditableOAuthAliasRouteView(IEnumerable<ManagementOAuthModelAliasEntry> aliases, Action onDirty)
+        public EditableOAuthAliasRouteView(
+            IEnumerable<ManagementOAuthModelAliasEntry> aliases,
+            Action onDirty
+        )
         {
             foreach (var alias in aliases)
             {
-                _aliases.Add(new EditableModelAliasItem
-                {
-                    Name = alias.Name,
-                    Alias = alias.Alias,
-                    Fork = alias.Fork
-                });
+                _aliases.Add(
+                    new EditableModelAliasItem
+                    {
+                        Name = alias.Name,
+                        Alias = alias.Alias,
+                        Fork = alias.Fork,
+                    }
+                );
             }
 
             var list = new EditableModelAliasList
             {
                 ItemsSource = _aliases,
                 ShowFork = true,
-                AddButtonText = "Add alias"
+                AddButtonText = "Add alias",
             };
             list.Changed += (_, _) => onDirty();
 
@@ -649,19 +696,21 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             {
                 Title = "Aliases",
                 Description = "Saved through UpdateOAuthModelAliasAsync(channel, aliases).",
-                SectionContent = list
+                SectionContent = list,
             };
         }
 
         public ManagementOAuthModelAliasEntry[] BuildAliases()
         {
             return _aliases
-                .Where(item => !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.Alias))
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.Alias)
+                )
                 .Select(item => new ManagementOAuthModelAliasEntry
                 {
                     Name = item.Name.Trim(),
                     Alias = item.Alias.Trim(),
-                    Fork = item.Fork
+                    Fork = item.Fork,
                 })
                 .ToArray();
         }
@@ -670,13 +719,15 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
     private static Border CreateModelDescriptorCard(ManagementModelDescriptor definition)
     {
         var stack = new StackPanel();
-        stack.Children.Add(new TextBlock
-        {
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
-            Text = definition.Id
-        });
+        stack.Children.Add(
+            new TextBlock
+            {
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = (Brush)Application.Current.Resources["ManagementPrimaryTextBrush"],
+                Text = definition.Id,
+            }
+        );
 
         var meta = string.Join(
             " · ",
@@ -685,17 +736,20 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
                 definition.DisplayName,
                 definition.Type,
                 definition.OwnedBy,
-                definition.Alias
-            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                definition.Alias,
+            }.Where(value => !string.IsNullOrWhiteSpace(value))
+        );
 
         if (!string.IsNullOrWhiteSpace(meta))
         {
-            stack.Children.Add(new TextBlock
-            {
-                Margin = new Thickness(0, 8, 0, 0),
-                Style = (Style)Application.Current.Resources["ManagementHintTextStyle"],
-                Text = meta
-            });
+            stack.Children.Add(
+                new TextBlock
+                {
+                    Margin = new Thickness(0, 8, 0, 0),
+                    Style = (Style)Application.Current.Resources["ManagementHintTextStyle"],
+                    Text = meta,
+                }
+            );
         }
 
         return new Border
@@ -706,7 +760,7 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             BorderBrush = (Brush)Application.Current.Resources["ManagementBorderBrush"],
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
-            Child = stack
+            Child = stack,
         };
     }
 
@@ -718,7 +772,8 @@ internal sealed class AuthFilesSecondaryRouteViewFactory : IManagementSecondaryR
             .ToDictionary(
                 group => group.Key,
                 group => group.Last().Value.Trim(),
-                StringComparer.OrdinalIgnoreCase);
+                StringComparer.OrdinalIgnoreCase
+            );
     }
 
     private static string? NormalizeText(string? text)

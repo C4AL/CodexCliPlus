@@ -7,26 +7,58 @@ namespace CodexCliPlus.Management.DesignSystem.Controls;
 
 public partial class AuthFileCard : UserControl
 {
-    public static readonly RoutedEvent CheckedChangedEvent =
-        EventManager.RegisterRoutedEvent(nameof(CheckedChanged), RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(AuthFileCard));
+    public static readonly RoutedEvent CheckedChangedEvent = EventManager.RegisterRoutedEvent(
+        nameof(CheckedChanged),
+        RoutingStrategy.Bubble,
+        typeof(RoutedEventHandler),
+        typeof(AuthFileCard)
+    );
 
-    public static readonly DependencyProperty TitleProperty =
-        DependencyProperty.Register(nameof(Title), typeof(string), typeof(AuthFileCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty TitleProperty = DependencyProperty.Register(
+        nameof(Title),
+        typeof(string),
+        typeof(AuthFileCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty SubtitleProperty =
-        DependencyProperty.Register(nameof(Subtitle), typeof(string), typeof(AuthFileCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty SubtitleProperty = DependencyProperty.Register(
+        nameof(Subtitle),
+        typeof(string),
+        typeof(AuthFileCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty MetaTextProperty =
-        DependencyProperty.Register(nameof(MetaText), typeof(string), typeof(AuthFileCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty MetaTextProperty = DependencyProperty.Register(
+        nameof(MetaText),
+        typeof(string),
+        typeof(AuthFileCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty StatusTextProperty =
-        DependencyProperty.Register(nameof(StatusText), typeof(string), typeof(AuthFileCard), new PropertyMetadata(string.Empty));
+    public static readonly DependencyProperty StatusTextProperty = DependencyProperty.Register(
+        nameof(StatusText),
+        typeof(string),
+        typeof(AuthFileCard),
+        new PropertyMetadata(string.Empty)
+    );
 
-    public static readonly DependencyProperty IsCheckedProperty =
-        DependencyProperty.Register(nameof(IsChecked), typeof(bool), typeof(AuthFileCard), new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnVisualStateChanged));
+    public static readonly DependencyProperty IsCheckedProperty = DependencyProperty.Register(
+        nameof(IsChecked),
+        typeof(bool),
+        typeof(AuthFileCard),
+        new FrameworkPropertyMetadata(
+            false,
+            FrameworkPropertyMetadataOptions.BindsTwoWayByDefault,
+            OnVisualStateChanged
+        )
+    );
 
-    public static readonly DependencyProperty IsSelectedProperty =
-        DependencyProperty.Register(nameof(IsSelected), typeof(bool), typeof(AuthFileCard), new PropertyMetadata(false, OnVisualStateChanged));
+    public static readonly DependencyProperty IsSelectedProperty = DependencyProperty.Register(
+        nameof(IsSelected),
+        typeof(bool),
+        typeof(AuthFileCard),
+        new PropertyMetadata(false, OnVisualStateChanged)
+    );
 
     public AuthFileCard()
     {
@@ -76,7 +108,10 @@ public partial class AuthFileCard : UserControl
         set => SetValue(IsSelectedProperty, value);
     }
 
-    private static void OnVisualStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnVisualStateChanged(
+        DependencyObject d,
+        DependencyPropertyChangedEventArgs e
+    )
     {
         var card = (AuthFileCard)d;
         card.UpdateVisualState();
@@ -92,8 +127,9 @@ public partial class AuthFileCard : UserControl
         CardBorder.Background = IsSelected
             ? (Brush)resources["ManagementSurfaceAccentBrush"]
             : (Brush)resources["ManagementSurfaceBrush"];
-        CardBorder.BorderBrush = (IsSelected || IsChecked)
-            ? (Brush)resources["ManagementAccentBrush"]
-            : (Brush)resources["ManagementBorderBrush"];
+        CardBorder.BorderBrush =
+            (IsSelected || IsChecked)
+                ? (Brush)resources["ManagementAccentBrush"]
+                : (Brush)resources["ManagementBorderBrush"];
     }
 }

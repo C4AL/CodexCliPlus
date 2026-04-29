@@ -36,7 +36,8 @@ public sealed class AppPathService : IPathService
             diagnosticsDirectory,
             runtimeDirectory,
             Path.Combine(configDirectory, AppConstants.AppSettingsFileName),
-            Path.Combine(configDirectory, AppConstants.BackendConfigFileName));
+            Path.Combine(configDirectory, AppConstants.BackendConfigFileName)
+        );
     }
 
     public AppDirectories Directories { get; }
@@ -63,7 +64,7 @@ public sealed class AppPathService : IPathService
         return modeOverride?.Trim().ToLowerInvariant() switch
         {
             "development" => AppDataMode.Development,
-            _ => AppDataMode.Installed
+            _ => AppDataMode.Installed,
         };
     }
 
@@ -72,7 +73,7 @@ public sealed class AppPathService : IPathService
         return dataMode switch
         {
             AppDataMode.Development => ResolveDevelopmentRootDirectory(),
-            _ => AppContext.BaseDirectory
+            _ => AppContext.BaseDirectory,
         };
     }
 
@@ -102,10 +103,12 @@ public sealed class AppPathService : IPathService
 
     private void TryMigrateLegacyLocalAppDataConfiguration()
     {
-        if (_legacyMigrationAttempted ||
-            _usesRootOverride ||
-            Directories.DataMode != AppDataMode.Installed ||
-            HasNewConfiguration())
+        if (
+            _legacyMigrationAttempted
+            || _usesRootOverride
+            || Directories.DataMode != AppDataMode.Installed
+            || HasNewConfiguration()
+        )
         {
             _legacyMigrationAttempted = true;
             return;
@@ -114,32 +117,43 @@ public sealed class AppPathService : IPathService
         _legacyMigrationAttempted = true;
         var legacyRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            AppConstants.ProductKey);
-        if (string.IsNullOrWhiteSpace(legacyRoot) ||
-            !Directory.Exists(legacyRoot) ||
-            IsSameDirectory(legacyRoot, Directories.RootDirectory))
+            AppConstants.ProductKey
+        );
+        if (
+            string.IsNullOrWhiteSpace(legacyRoot)
+            || !Directory.Exists(legacyRoot)
+            || IsSameDirectory(legacyRoot, Directories.RootDirectory)
+        )
         {
             return;
         }
 
         CopyLegacyFile(
             Path.Combine(legacyRoot, "config", AppConstants.LegacyAppSettingsFileName),
-            Directories.SettingsFilePath);
+            Directories.SettingsFilePath
+        );
         CopyLegacyFile(
             Path.Combine(legacyRoot, "config", AppConstants.LegacyBackendConfigFileName),
-            Directories.BackendConfigFilePath);
+            Directories.BackendConfigFilePath
+        );
         CopyLegacyDirectory(
             Path.Combine(legacyRoot, "config", AppConstants.SecretsDirectoryName),
-            Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName));
-        CopyLegacyDirectory(Path.Combine(legacyRoot, "backend", "auth"), Path.Combine(Directories.BackendDirectory, "auth"));
+            Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName)
+        );
+        CopyLegacyDirectory(
+            Path.Combine(legacyRoot, "backend", "auth"),
+            Path.Combine(Directories.BackendDirectory, "auth")
+        );
     }
 
     private bool HasNewConfiguration()
     {
-        return File.Exists(Directories.SettingsFilePath) ||
-            File.Exists(Directories.BackendConfigFilePath) ||
-            Directory.Exists(Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName)) ||
-            Directory.Exists(Path.Combine(Directories.BackendDirectory, "auth"));
+        return File.Exists(Directories.SettingsFilePath)
+            || File.Exists(Directories.BackendConfigFilePath)
+            || Directory.Exists(
+                Path.Combine(Directories.ConfigDirectory, AppConstants.SecretsDirectoryName)
+            )
+            || Directory.Exists(Path.Combine(Directories.BackendDirectory, "auth"));
     }
 
     private static void CopyLegacyFile(string source, string target)
@@ -161,7 +175,9 @@ public sealed class AppPathService : IPathService
         }
 
         Directory.CreateDirectory(target);
-        foreach (var sourcePath in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        foreach (
+            var sourcePath in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+        )
         {
             var relativePath = Path.GetRelativePath(source, sourcePath);
             var targetPath = Path.Combine(target, relativePath);
@@ -173,8 +189,11 @@ public sealed class AppPathService : IPathService
     private static bool IsSameDirectory(string first, string second)
     {
         return string.Equals(
-            Path.GetFullPath(first).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(second).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            StringComparison.OrdinalIgnoreCase);
+            Path.GetFullPath(first)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(second)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 }

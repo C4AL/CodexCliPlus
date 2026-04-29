@@ -11,13 +11,16 @@ public sealed class ManagementSessionService : IManagementSessionService
 
     public ManagementSessionService(
         BackendProcessManager backendProcessManager,
-        IManagementConnectionProvider connectionProvider)
+        IManagementConnectionProvider connectionProvider
+    )
     {
         _backendProcessManager = backendProcessManager;
         _connectionProvider = connectionProvider;
     }
 
-    public async Task<ManagementConnectionInfo> GetConnectionAsync(CancellationToken cancellationToken = default)
+    public async Task<ManagementConnectionInfo> GetConnectionAsync(
+        CancellationToken cancellationToken = default
+    )
     {
         var runtime = _backendProcessManager.CurrentStatus.Runtime;
         if (runtime is not null)
@@ -26,7 +29,7 @@ public sealed class ManagementSessionService : IManagementSessionService
             {
                 BaseUrl = runtime.BaseUrl,
                 ManagementApiBaseUrl = runtime.ManagementApiBaseUrl,
-                ManagementKey = runtime.ManagementKey
+                ManagementKey = runtime.ManagementKey,
             };
         }
 

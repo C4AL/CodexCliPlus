@@ -1,5 +1,4 @@
 using System.Diagnostics;
-
 using CodexCliPlus.Core.Abstractions.Processes;
 
 namespace CodexCliPlus.Infrastructure.Processes;
@@ -10,7 +9,8 @@ public sealed class SystemProcessService : IProcessService
         ManagedProcessStartInfo startInfo,
         Action<string>? standardOutput = null,
         Action<string>? standardError = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(startInfo.FileName);
         ArgumentException.ThrowIfNullOrWhiteSpace(startInfo.WorkingDirectory);
@@ -25,7 +25,7 @@ public sealed class SystemProcessService : IProcessService
             UseShellExecute = false,
             RedirectStandardOutput = startInfo.CaptureOutput,
             RedirectStandardError = startInfo.CaptureOutput,
-            CreateNoWindow = startInfo.CreateNoWindow
+            CreateNoWindow = startInfo.CreateNoWindow,
         };
 
         if (startInfo.EnvironmentVariables is not null)
@@ -36,11 +36,7 @@ public sealed class SystemProcessService : IProcessService
             }
         }
 
-        var process = new Process
-        {
-            StartInfo = processStartInfo,
-            EnableRaisingEvents = true
-        };
+        var process = new Process { StartInfo = processStartInfo, EnableRaisingEvents = true };
 
         if (startInfo.CaptureOutput)
         {

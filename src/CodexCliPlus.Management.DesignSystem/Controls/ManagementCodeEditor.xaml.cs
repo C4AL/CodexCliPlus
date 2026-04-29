@@ -7,11 +7,23 @@ public partial class ManagementCodeEditor : UserControl
 {
     private bool _updatingFromDependencyProperty;
 
-    public static readonly DependencyProperty TextProperty =
-        DependencyProperty.Register(nameof(Text), typeof(string), typeof(ManagementCodeEditor), new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnTextChanged));
+    public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
+        nameof(Text),
+        typeof(string),
+        typeof(ManagementCodeEditor),
+        new FrameworkPropertyMetadata(
+            string.Empty,
+            FrameworkPropertyMetadataOptions.BindsTwoWayByDefault,
+            OnTextChanged
+        )
+    );
 
-    public static readonly DependencyProperty IsReadOnlyProperty =
-        DependencyProperty.Register(nameof(IsReadOnly), typeof(bool), typeof(ManagementCodeEditor), new PropertyMetadata(false));
+    public static readonly DependencyProperty IsReadOnlyProperty = DependencyProperty.Register(
+        nameof(IsReadOnly),
+        typeof(bool),
+        typeof(ManagementCodeEditor),
+        new PropertyMetadata(false)
+    );
 
     public ManagementCodeEditor()
     {

@@ -18,12 +18,20 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
   security-events: write
 
 jobs:
   release:
     name: build-release
     runs-on: windows-latest
+    env:
+      CODEXCLIPLUS_SIGNING_REQUIRED: "true"
+      WINDOWS_CODESIGN_PFX_BASE64: ${{ secrets.WINDOWS_CODESIGN_PFX_BASE64 }}
+      WINDOWS_CODESIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_CODESIGN_PFX_PASSWORD }}
+      WINDOWS_CODESIGN_TIMESTAMP_URL: ${{ vars.WINDOWS_CODESIGN_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
 
     steps:
       - name: Checkout
@@ -35,6 +43,11 @@ jobs:
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
           dotnet-version: 10.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: 1.26.2
 
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
@@ -58,6 +71,17 @@ jobs:
 
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Validate signing secrets
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODESIGN_PFX_BASE64)) {
+            throw "WINDOWS_CODESIGN_PFX_BASE64 secret is required for release signing."
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CODESIGN_PFX_PASSWORD)) {
+            throw "WINDOWS_CODESIGN_PFX_PASSWORD secret is required for release signing."
+          }
+
       - name: Restore tools
         run: dotnet tool restore
 
@@ -68,7 +92,7 @@ jobs:
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
       - name: Test .NET with coverage
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke" --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
 
       - name: Generate .NET coverage report
         run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
@@ -113,6 +137,17 @@ jobs:
 
       - name: Write checksums
         run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+
+      - name: Generate artifact attestations
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: |
+            artifacts/buildtool/packages/*
+            artifacts/buildtool/SHA256SUMS.txt
+            artifacts/buildtool/release-manifest.json
+            artifacts/buildtool/assets/asset-manifest.json
+            artifacts/buildtool/publish/win-x64/publish-manifest.json
+            artifacts/sbom/*
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

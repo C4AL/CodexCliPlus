@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CodexCliPlus.BuildTool;
@@ -158,6 +159,21 @@ public sealed class InstallerPackagingTests : IDisposable
         );
     }
 
+    [Fact]
+    public void MakeMicaCompatibilityIncludesVisualStudioBuildToolsInstances()
+    {
+        var field = typeof(MakeMicaVisualStudioCompatibility).GetField(
+            "Vs2026AwareVsWhereArguments",
+            BindingFlags.NonPublic | BindingFlags.Static
+        );
+
+        Assert.NotNull(field);
+        Assert.Equal(
+            "-latest -products * -property installationPath",
+            field!.GetRawConstantValue()
+        );
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_rootDirectory))
@@ -270,6 +286,7 @@ public sealed class InstallerPackagingTests : IDisposable
             IReadOnlyList<string> arguments,
             string workingDirectory,
             BuildLogger logger,
+            IReadOnlyDictionary<string, string?>? environment = null,
             CancellationToken cancellationToken = default
         )
         {

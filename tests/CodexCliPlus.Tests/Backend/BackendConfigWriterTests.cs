@@ -77,6 +77,12 @@ public sealed class BackendConfigWriterTests : IDisposable
         var configurationService = new JsonAppConfigurationService(pathService);
         var writer = new BackendConfigWriter(configurationService, pathService);
         using var listener = TryListenOnDefaultPort();
+        if (listener is null)
+        {
+            Assert.Skip(
+                $"CodexCliPlus backend port {AppConstants.DefaultBackendPort} is already occupied."
+            );
+        }
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             writer.WriteAsync(new AppSettings { BackendPort = 9327 })

@@ -164,6 +164,70 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task FetchAssetsBuildsPatchedBackendFromPinnedSourceWhenRepositoryResourcesAreIncomplete()
+    {
+        var repositoryRoot = CreateRepositoryWithoutBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out-build");
+        var runner = new PatchedBackendBuildProcessRunner();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "fetch-assets",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
+            output,
+            error,
+            runner
+        );
+
+        Assert.True(exitCode == 0, error.ToString());
+        var backendRoot = Path.Combine(outputRoot, "assets", "backend", "windows-x64");
+        Assert.True(
+            File.Exists(Path.Combine(backendRoot, BackendExecutableNames.ManagedExecutableFileName))
+        );
+        Assert.True(File.Exists(Path.Combine(backendRoot, "LICENSE")));
+        Assert.Contains(
+            "building patched backend from source",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains(
+            runner.Calls,
+            call => call.FileName == "git" && call.Arguments[0] == "clone"
+        );
+        Assert.Contains(
+            runner.Calls,
+            call =>
+                call.FileName == "git"
+                && call.Arguments.SequenceEqual(["checkout", BackendReleaseMetadata.SourceCommit])
+        );
+        var goGetCall = Assert.Single(
+            runner.Calls,
+            call => call.FileName == "go" && call.Arguments.Count > 0 && call.Arguments[0] == "get"
+        );
+        Assert.Contains("github.com/go-git/go-git/v6@v6.0.0-alpha.2", goGetCall.Arguments);
+
+        var goBuildCall = Assert.Single(
+            runner.Calls,
+            call =>
+                call.FileName == "go" && call.Arguments.Count > 0 && call.Arguments[0] == "build"
+        );
+        Assert.Contains("-trimpath", goBuildCall.Arguments);
+        Assert.Equal("0", goBuildCall.Environment["CGO_ENABLED"]);
+        Assert.Equal("windows", goBuildCall.Environment["GOOS"]);
+        Assert.Equal("amd64", goBuildCall.Environment["GOARCH"]);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public void RequiredBackendFilesUseManagedExecutableName()
     {
         Assert.Contains(
@@ -596,6 +660,17 @@ public sealed class BuildToolCommandTests : IDisposable
         return repositoryRoot;
     }
 
+    private string CreateRepositoryWithoutBackendAssets()
+    {
+        var repositoryRoot = Path.Combine(_rootDirectory, "repo-missing-backend-assets");
+        Directory.CreateDirectory(repositoryRoot);
+        File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
+        Directory.CreateDirectory(
+            Path.Combine(repositoryRoot, "resources", "backend", "windows-x64")
+        );
+        return repositoryRoot;
+    }
+
     private string CreateRepositoryWithVendoredWebUiOverlay()
     {
         var repositoryRoot = Path.Combine(_rootDirectory, "webui-repo");
@@ -744,6 +819,7 @@ public sealed class BuildToolCommandTests : IDisposable
             IReadOnlyList<string> arguments,
             string workingDirectory,
             BuildLogger logger,
+            IReadOnlyDictionary<string, string?>? environment = null,
             CancellationToken cancellationToken = default
         )
         {
@@ -755,7 +831,8 @@ public sealed class BuildToolCommandTests : IDisposable
     private sealed record ProcessCall(
         string FileName,
         IReadOnlyList<string> Arguments,
-        string WorkingDirectory
+        string WorkingDirectory,
+        IReadOnlyDictionary<string, string?> Environment
     );
 
     private sealed class OverlayRecordingProcessRunner : IProcessRunner
@@ -767,10 +844,18 @@ public sealed class BuildToolCommandTests : IDisposable
             IReadOnlyList<string> arguments,
             string workingDirectory,
             BuildLogger logger,
+            IReadOnlyDictionary<string, string?>? environment = null,
             CancellationToken cancellationToken = default
         )
         {
-            Calls.Add(new ProcessCall(fileName, arguments.ToArray(), workingDirectory));
+            Calls.Add(
+                new ProcessCall(
+                    fileName,
+                    arguments.ToArray(),
+                    workingDirectory,
+                    environment?.ToDictionary() ?? new Dictionary<string, string?>()
+                )
+            );
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
 
             if (arguments.SequenceEqual(["ci"], StringComparer.Ordinal))
@@ -797,6 +882,119 @@ public sealed class BuildToolCommandTests : IDisposable
             }
 
             return Task.FromResult(0);
+        }
+    }
+
+    private sealed class PatchedBackendBuildProcessRunner : IProcessRunner
+    {
+        public List<ProcessCall> Calls { get; } = [];
+
+        public Task<int> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            BuildLogger logger,
+            IReadOnlyDictionary<string, string?>? environment = null,
+            CancellationToken cancellationToken = default
+        )
+        {
+            Calls.Add(
+                new ProcessCall(
+                    fileName,
+                    arguments.ToArray(),
+                    workingDirectory,
+                    environment?.ToDictionary() ?? new Dictionary<string, string?>()
+                )
+            );
+            logger.Info($"{fileName} {string.Join(" ", arguments)}");
+
+            if (
+                fileName == "git"
+                && arguments.Count >= 4
+                && arguments[0] == "clone"
+                && arguments[1] == "--no-checkout"
+            )
+            {
+                CreatePinnedBackendSource(arguments[^1]);
+                return Task.FromResult(0);
+            }
+
+            if (fileName == "go" && arguments.Count > 0 && arguments[0] == "build")
+            {
+                var outputIndex = arguments.ToList().IndexOf("-o") + 1;
+                Assert.True(outputIndex > 0);
+                Directory.CreateDirectory(Path.GetDirectoryName(arguments[outputIndex])!);
+                File.WriteAllBytes(arguments[outputIndex], CreateStubExecutableBytes());
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private static void CreatePinnedBackendSource(string sourceRoot)
+        {
+            Directory.CreateDirectory(sourceRoot);
+            File.WriteAllText(Path.Combine(sourceRoot, "LICENSE"), "license");
+            File.WriteAllText(Path.Combine(sourceRoot, "README.md"), "readme");
+            File.WriteAllText(Path.Combine(sourceRoot, "README_CN.md"), "readme cn");
+            File.WriteAllText(Path.Combine(sourceRoot, "config.example.yaml"), "config");
+            File.WriteAllText(
+                Path.Combine(sourceRoot, "go.mod"),
+                """
+                module github.com/router-for-me/CLIProxyAPI/v6
+
+                require github.com/go-git/go-git/v6 v6.0.0-20251009132922-75a182125145
+                """
+            );
+            File.WriteAllText(Path.Combine(sourceRoot, "go.sum"), string.Empty);
+
+            var storeRoot = Path.Combine(sourceRoot, "internal", "store");
+            Directory.CreateDirectory(storeRoot);
+            File.WriteAllText(
+                Path.Combine(storeRoot, "gitstore.go"),
+                """
+                package store
+
+                import (
+                    "github.com/go-git/go-git/v6"
+                    "github.com/go-git/go-git/v6/config"
+                    "github.com/go-git/go-git/v6/plumbing"
+                    "github.com/go-git/go-git/v6/plumbing/object"
+                    "github.com/go-git/go-git/v6/plumbing/transport"
+                    "github.com/go-git/go-git/v6/plumbing/transport/http"
+                )
+
+                type GitTokenStore struct {
+                    username string
+                    password string
+                }
+
+                func sample(repo *git.Repository, remote *git.Remote, authMethod transport.AuthMethod) {
+                    _ = config.RefSpec("")
+                    _ = plumbing.ReferenceName("")
+                    _ = object.Commit{}
+                    _ = &git.CloneOptions{Auth: authMethod, URL: ""}
+                    _ = &git.PullOptions{Auth: authMethod, RemoteName: "origin"}
+                    _ = &git.FetchOptions{Auth: authMethod, RemoteName: "origin"}
+                    _ = &git.ListOptions{Auth: authMethod}
+                    s := &GitTokenStore{}
+                    _ = &git.PushOptions{Auth: s.gitAuth(), Force: true}
+                    _, _ = repo.Head()
+                    _, _ = remote.List(nil)
+                }
+
+                func (s *GitTokenStore) gitAuth() transport.AuthMethod {
+                    if s.username == "" && s.password == "" {
+                        return nil
+                    }
+                    user := s.username
+                    if user == "" {
+                        user = "git"
+                    }
+                    return &http.BasicAuth{Username: user, Password: s.password}
+                }
+                """,
+                Encoding.UTF8
+            );
         }
     }
 }

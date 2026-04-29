@@ -6,6 +6,7 @@ using CodexCliPlus.Infrastructure.Backend;
 
 namespace CodexCliPlus.Tests.Backend;
 
+[Trait("Category", "LiveBackend")]
 public sealed class BackendAssetServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

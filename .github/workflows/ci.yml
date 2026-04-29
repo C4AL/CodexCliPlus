@@ -35,10 +35,29 @@ jobs:
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke" --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
 
       - name: Generate coverage report
         run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
+
+      - name: Enforce coverage baseline
+        shell: pwsh
+        run: |
+          $summaryPath = "artifacts/coverage/Summary.txt"
+          if (!(Test-Path $summaryPath)) {
+            throw "Coverage summary not found: $summaryPath"
+          }
+
+          $summary = Get-Content -Raw $summaryPath
+          if ($summary -notmatch "Line coverage:\s*(?<coverage>[0-9]+(?:\.[0-9]+)?)%") {
+            throw "Could not parse line coverage from $summaryPath"
+          }
+
+          $lineCoverage = [decimal]$Matches.coverage
+          $minimumLineCoverage = [decimal]20.0
+          if ($lineCoverage -lt $minimumLineCoverage) {
+            throw "Line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
+          }
 
       - name: Publish coverage summary
         shell: pwsh

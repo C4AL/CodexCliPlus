@@ -416,6 +416,7 @@ internal sealed class ThrowingProcessRunner : IProcessRunner
         IReadOnlyList<string> arguments,
         string workingDirectory,
         BuildLogger logger,
+        IReadOnlyDictionary<string, string?>? environment = null,
         CancellationToken cancellationToken = default
     )
     {

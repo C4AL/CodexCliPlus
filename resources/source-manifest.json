@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-04-29T00:00:00Z",
+  "resources": [
+    {
+      "path": "resources/fonts/Fgi-Regular.ttf",
+      "kind": "font",
+      "source": "BetterGI-derived desktop shell resource set",
+      "sourceUrl": "https://github.com/babalae/better-genshin-impact",
+      "license": "GPL-3.0",
+      "licenseFile": "resources/licenses/BetterGI.GPL-3.0.txt",
+      "size": 1115340,
+      "sha256": "4b0576c05ed26e05ca6018671bf9661bc72ccae14690fa28df73cc6b867834b5",
+      "updatePolicy": "Update only from an audited upstream snapshot and refresh this manifest in the same change."
+    },
+    {
+      "path": "resources/fonts/MiSans-Regular.ttf",
+      "kind": "font",
+      "source": "Xiaomi MiSans public font release",
+      "sourceUrl": "https://hyperos.mi.com/font/en/",
+      "license": "MiSans font license",
+      "licenseFile": null,
+      "size": 7924400,
+      "sha256": "7172aa1b5c703780ee12df3fe4c50481dde01f3b125a045a398000a88d032ae5",
+      "updatePolicy": "Update only from the official MiSans distribution and re-check redistribution terms before release."
+    },
+    {
+      "path": "resources/icons/codexcliplus-display.png",
+      "kind": "icon",
+      "source": "CodexCliPlus project artwork",
+      "sourceUrl": "https://github.com/C4AL/CodexCliPlus",
+      "license": "MIT",
+      "licenseFile": "LICENSE",
+      "size": 113884,
+      "sha256": "1bdb651bccb4ad734fcb891f3288dc78b4d827575d393915eb89b65ecac19b19",
+      "updatePolicy": "Update together with the icon source artwork and release screenshots."
+    },
+    {
+      "path": "resources/icons/codexcliplus.ico",
+      "kind": "icon",
+      "source": "CodexCliPlus project artwork",
+      "sourceUrl": "https://github.com/C4AL/CodexCliPlus",
+      "license": "MIT",
+      "licenseFile": "LICENSE",
+      "size": 175398,
+      "sha256": "76b9eab989790800026f0dcdf1ef6e97bb0d394cbb7d38a036fd503e49144ba4",
+      "updatePolicy": "Update together with the icon source artwork and Windows installer branding."
+    },
+    {
+      "path": "resources/icons/ico-transparent.png",
+      "kind": "icon",
+      "source": "CodexCliPlus project artwork",
+      "sourceUrl": "https://github.com/C4AL/CodexCliPlus",
+      "license": "MIT",
+      "licenseFile": "LICENSE",
+      "size": 1976337,
+      "sha256": "3d4f179fa268ec45f9f344a6f3bd410e7b20d8090395cfcb2db9ece68011f79e",
+      "updatePolicy": "Update together with the icon source artwork and installer icon export."
+    },
+    {
+      "path": "resources/webui/upstream/source/logo.jpg",
+      "kind": "image",
+      "source": "Vendored CLI Proxy API Management Center WebUI source snapshot",
+      "sourceUrl": "https://github.com/router-for-me/Cli-Proxy-API-Management-Center.git",
+      "license": "MIT",
+      "licenseFile": "resources/webui/upstream/source/LICENSE",
+      "size": 54461,
+      "sha256": "8421570cb6e9a37774e3dde40e404c437245e172ed9bff1243620f73282a1e8b",
+      "updatePolicy": "Update only through the WebUI upstream sync process and refresh resources/webui/upstream/sync.json."
+    }
+  ]
+}

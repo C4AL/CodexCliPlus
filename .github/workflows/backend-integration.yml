@@ -1,0 +1,86 @@
+name: Backend Integration
+
+on:
+  schedule:
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-backend:
+    name: live-backend-tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: 1.26.2
+
+      - name: Restore
+        run: dotnet restore CodexCliPlus.sln
+
+      - name: Build
+        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
+
+      - name: Fetch backend assets
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets
+
+      - name: Run live backend tests
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category=LiveBackend" --logger "trx;LogFileName=codexcliplus-live-backend.trx" --results-directory artifacts/backend-integration-results
+
+      - name: Upload backend integration artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: backend-integration-results
+          path: artifacts/backend-integration-results
+          if-no-files-found: warn
+
+  smoke:
+    name: smoke-tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00
+        with:
+          go-version: 1.26.2
+
+      - name: Restore
+        run: dotnet restore CodexCliPlus.sln
+
+      - name: Build
+        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
+
+      - name: Fetch backend assets
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets
+
+      - name: Run smoke tests
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category=Smoke" --logger "trx;LogFileName=codexcliplus-smoke.trx" --results-directory artifacts/smoke-results
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: smoke-results
+          path: artifacts/smoke-results
+          if-no-files-found: warn

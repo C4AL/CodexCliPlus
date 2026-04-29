@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CodexCliPlus.Tests.Backend;
 
 [Collection("BackendProcessManager")]
+[Trait("Category", "LiveBackend")]
 public sealed class BackendProcessManagerIntegrationTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

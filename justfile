@@ -14,7 +14,7 @@ build:
     dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
 test:
-    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal
+    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
 
 test-ui:
     dotnet test tests/CodexCliPlus.UiTests/CodexCliPlus.UiTests.csproj --configuration Release --verbosity normal
@@ -41,7 +41,7 @@ format-check:
     dotnet csharpier check src tests
 
 coverage:
-    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory artifacts/test-results
+    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --filter "Category!=LiveBackend&Category!=Smoke"
     reportgenerator -reports:"artifacts/test-results/**/coverage.cobertura.xml" -targetdir:"artifacts/coverage" -reporttypes:"Html;TextSummary"
 
 sbom:

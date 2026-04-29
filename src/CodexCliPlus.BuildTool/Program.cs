@@ -27,8 +27,8 @@ public static class BuildToolApp
         "verify-assets",
         "build-webui",
         "publish",
-        "package-online-installer",
         "package-offline-installer",
+        "package-update",
         "verify-package",
         "write-checksums",
     ];
@@ -85,14 +85,11 @@ public static class BuildToolApp
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
                 "build-webui" => await WebUiCommands.BuildVendoredAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
-                "package-online-installer" => await PackageCommands.PackageInstallerAsync(
-                    context,
-                    InstallerPackageKind.Online
-                ),
                 "package-offline-installer" => await PackageCommands.PackageInstallerAsync(
                     context,
                     InstallerPackageKind.Offline
                 ),
+                "package-update" => await PackageCommands.PackageUpdateAsync(context),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
                 "write-checksums" => await ReleaseArtifactCommands.WriteChecksumsAsync(context),
                 _ => 1,
@@ -1031,6 +1028,12 @@ public static class PublishCommands
             context.WebUiAssetsRoot,
             Path.Combine(context.PublishRoot, "assets", "webui")
         );
+        var updaterExitCode = await PublishUpdaterAsync(context);
+        if (updaterExitCode != 0)
+        {
+            return updaterExitCode;
+        }
+
         await context.SigningService.SignAsync(
             Path.Combine(context.PublishRoot, AppConstants.ExecutableName),
             context
@@ -1038,6 +1041,46 @@ public static class PublishCommands
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
         context.Logger.Info($"publish output: {context.PublishRoot}");
+        return 0;
+    }
+
+    private static async Task<int> PublishUpdaterAsync(BuildContext context)
+    {
+        var updaterProject = Path.Combine(
+            context.Options.RepositoryRoot,
+            "src",
+            "CodexCliPlus.Updater",
+            "CodexCliPlus.Updater.csproj"
+        );
+        var updaterOutput = Path.Combine(context.PublishRoot, "updater");
+        var exitCode = await context.ProcessRunner.RunAsync(
+            "dotnet",
+            [
+                "publish",
+                updaterProject,
+                "--configuration",
+                context.Options.Configuration,
+                "--runtime",
+                context.Options.Runtime,
+                "--self-contained",
+                "true",
+                "--output",
+                updaterOutput,
+                "/p:PublishSingleFile=false",
+            ],
+            context.Options.RepositoryRoot,
+            context.Logger
+        );
+        if (exitCode != 0)
+        {
+            context.Logger.Error($"dotnet publish updater failed with exit code {exitCode}.");
+            return exitCode;
+        }
+
+        await context.SigningService.SignAsync(
+            Path.Combine(updaterOutput, "CodexCliPlus.Updater.exe"),
+            context
+        );
         return 0;
     }
 
@@ -1087,10 +1130,14 @@ public static class PackageCommands
         InstallerPackageKind packageKind
     )
     {
+        if (packageKind != InstallerPackageKind.Offline)
+        {
+            throw new NotSupportedException("Only offline installer packaging is supported.");
+        }
+
         SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-        var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
-        var packageType =
-            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        var packageMoniker = "Offline";
+        var packageType = "offline-installer";
         var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
         var appPackageRoot = Path.Combine(stageRoot, "app-package");
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
@@ -1190,6 +1237,77 @@ public static class PackageCommands
         return Task.FromResult(0);
     }
 
+    public static async Task<int> PackageUpdateAsync(BuildContext context)
+    {
+        SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+
+        var stageRoot = Path.Combine(context.InstallerRoot, "update-package", "stage");
+        var payloadRoot = Path.Combine(stageRoot, "payload");
+        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
+        SafeFileSystem.CopyDirectory(context.PublishRoot, payloadRoot);
+
+        var files = Directory
+            .EnumerateFiles(payloadRoot, "*", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path))
+            .OrderBy(
+                file => Path.GetRelativePath(payloadRoot, file.FullName),
+                StringComparer.OrdinalIgnoreCase
+            )
+            .ToArray();
+        var entries = new List<object>();
+        foreach (var file in files)
+        {
+            var relativePath = Path.GetRelativePath(payloadRoot, file.FullName).Replace('\\', '/');
+            entries.Add(
+                new
+                {
+                    path = relativePath,
+                    size = file.Length,
+                    sha256 = await ComputeSha256Async(file.FullName),
+                }
+            );
+        }
+
+        var manifest = new
+        {
+            product = AppConstants.ProductName,
+            version = context.Options.Version,
+            runtime = context.Options.Runtime,
+            createdAtUtc = DateTimeOffset.UtcNow,
+            updateKind = "file-manifest-diff",
+            signing = SigningOptions.FromEnvironment().SigningRequired
+                ? "required"
+                : "optional-unsigned",
+            files = entries,
+        };
+
+        await File.WriteAllTextAsync(
+            Path.Combine(stageRoot, "update-manifest.json"),
+            JsonSerializer.Serialize(manifest, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        Directory.CreateDirectory(context.PackageRoot);
+        var packagePath = Path.Combine(
+            context.PackageRoot,
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip"
+        );
+        if (File.Exists(packagePath))
+        {
+            File.Delete(packagePath);
+        }
+
+        ZipFile.CreateFromDirectory(
+            stageRoot,
+            packagePath,
+            CompressionLevel.Optimal,
+            includeBaseDirectory: false
+        );
+        await context.SigningService.SignAsync(packagePath, context);
+        context.Logger.Info($"update package: {packagePath}");
+        return 0;
+    }
+
     private static async Task CreatePackageAsync(
         BuildContext context,
         string stageRoot,
@@ -1225,6 +1343,13 @@ public static class PackageCommands
         );
         await context.SigningService.SignAsync(packagePath, context);
         context.Logger.Info($"{packageType} package: {packagePath}");
+    }
+
+    private static async Task<string> ComputeSha256Async(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA256.HashDataAsync(stream);
+        return Convert.ToHexStringLower(hash);
     }
 
     private static void CopySigningMetadataIfExists(
@@ -1311,7 +1436,6 @@ public static class PackageCommands
 
 public enum InstallerPackageKind
 {
-    Online,
     Offline,
 }
 
@@ -1372,7 +1496,9 @@ public static class ReleaseArtifactCommands
             runtime = context.Options.Runtime,
             configuration = context.Options.Configuration,
             generatedAtUtc = DateTimeOffset.UtcNow,
-            signingRequired = SigningOptions.FromEnvironment().SigningRequired,
+            signing = SigningOptions.FromEnvironment().SigningRequired
+                ? "required"
+                : "unsigned-or-optional",
             attestation = new { provider = "github-artifact-attestation", expected = true },
             artifacts,
         };
@@ -1449,8 +1575,8 @@ public sealed class PackageVerifier
     public IReadOnlyList<string> VerifyAll()
     {
         var failures = new List<string>();
-        VerifyInstallerPackage("Online", failures);
         VerifyInstallerPackage("Offline", failures);
+        VerifyUpdatePackage(failures);
 
         return failures;
     }
@@ -1535,6 +1661,16 @@ public sealed class PackageVerifier
         {
             failures.Add($"Package '{path}' is not a readable zip archive: {exception.Message}");
         }
+    }
+
+    private void VerifyUpdatePackage(List<string> failures)
+    {
+        var updatePackagePath = Path.Combine(
+            context.PackageRoot,
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip"
+        );
+        VerifyZip(updatePackagePath, "update-manifest.json", failures);
+        VerifyZip(updatePackagePath, $"payload/{AppConstants.ExecutableName}", failures);
     }
 
     private static void VerifyZipExecutable(
@@ -1818,9 +1954,10 @@ public static class InstallerMetadata
                 stable = new
                 {
                     enabled = true,
-                    source = "https://github.com/C4AL/CodexCliPlus/releases/latest",
-                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe",
-                    installedBuildCanLaunchInstaller = true,
+                    source = "release-manifest.json + CodexCliPlus.Update.<version>.<runtime>.zip",
+                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe",
+                    updateKind = "file-manifest-diff",
+                    installedBuildCanLaunchUpdater = true,
                 },
                 beta = new { reserved = true, enabled = false },
             }

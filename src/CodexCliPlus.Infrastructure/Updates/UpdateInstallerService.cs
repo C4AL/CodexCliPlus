@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Updates;
@@ -13,6 +14,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     private readonly IPathService _pathService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly Func<ProcessStartInfo, Process?> _processStarter;
+    private readonly Func<string> _baseDirectoryProvider;
 
     public UpdateInstallerService(IPathService pathService, IHttpClientFactory httpClientFactory)
         : this(pathService, httpClientFactory, static startInfo => Process.Start(startInfo)) { }
@@ -20,12 +22,14 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     public UpdateInstallerService(
         IPathService pathService,
         IHttpClientFactory httpClientFactory,
-        Func<ProcessStartInfo, Process?> processStarter
+        Func<ProcessStartInfo, Process?> processStarter,
+        Func<string>? baseDirectoryProvider = null
     )
     {
         _pathService = pathService;
         _httpClientFactory = httpClientFactory;
         _processStarter = processStarter;
+        _baseDirectoryProvider = baseDirectoryProvider ?? (() => AppContext.BaseDirectory);
     }
 
     public bool CanPrepareInstaller(UpdateCheckResult updateCheckResult)
@@ -160,32 +164,53 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         )
         {
             throw new FileNotFoundException(
-                "Prepared installer executable could not be found.",
+                "Prepared update package could not be found.",
                 installer.InstallerPath
             );
         }
 
-        var workingDirectory = Path.GetDirectoryName(installer.InstallerPath);
+        var appDirectory = _baseDirectoryProvider();
+        var updaterPath = Path.Combine(appDirectory, "updater", "CodexCliPlus.Updater.exe");
+        if (!File.Exists(updaterPath))
+        {
+            throw new FileNotFoundException("Updater executable could not be found.", updaterPath);
+        }
+
+        var workingDirectory = Path.GetDirectoryName(updaterPath);
         if (string.IsNullOrWhiteSpace(workingDirectory))
         {
             throw new InvalidOperationException(
-                "Prepared installer does not provide a valid working directory."
+                "Updater executable does not provide a valid working directory."
             );
         }
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = installer.InstallerPath,
+            FileName = updaterPath,
             WorkingDirectory = workingDirectory,
-            UseShellExecute = true,
+            UseShellExecute = false,
         };
+        startInfo.ArgumentList.Add("--pid");
+        startInfo.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        startInfo.ArgumentList.Add("--app-dir");
+        startInfo.ArgumentList.Add(appDirectory);
+        startInfo.ArgumentList.Add("--package");
+        startInfo.ArgumentList.Add(installer.InstallerPath);
+        if (
+            TryParseSha256Digest(installer.Asset.Digest, out var sha256)
+            && !string.IsNullOrWhiteSpace(sha256)
+        )
+        {
+            startInfo.ArgumentList.Add("--sha256");
+            startInfo.ArgumentList.Add(sha256);
+        }
+        startInfo.ArgumentList.Add("--restart");
+        startInfo.ArgumentList.Add(Path.Combine(appDirectory, AppConstants.ExecutableName));
 
         var process = _processStarter(startInfo);
         if (process is null)
         {
-            throw new InvalidOperationException(
-                $"Failed to launch installer '{installer.InstallerPath}' via shell execute."
-            );
+            throw new InvalidOperationException($"Failed to launch updater '{updaterPath}'.");
         }
 
         return Task.CompletedTask;
@@ -397,12 +422,18 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
 
     private static bool IsInstallableAsset(UpdateReleaseAsset asset)
     {
-        return asset.Name.StartsWith(
-                $"{AppConstants.InstallerNamePrefix}.",
-                StringComparison.OrdinalIgnoreCase
+        var supported =
+            (
+                asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
+                && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
             )
-            && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
+            || (
+                asset.Name.StartsWith(
+                    $"{AppConstants.InstallerNamePrefix}.Offline.",
+                    StringComparison.OrdinalIgnoreCase
+                ) && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            );
+        return supported && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
     }
 
     private static void DeleteFileIfPresent(string path)

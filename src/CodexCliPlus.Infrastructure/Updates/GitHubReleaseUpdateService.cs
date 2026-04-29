@@ -195,16 +195,27 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         UpdateReleaseAsset[] assets
     )
     {
-        return assets
-            .Where(asset =>
-                asset.Name.StartsWith(
-                    $"{AppConstants.InstallerNamePrefix}.",
+        static bool IsUpdatePackage(UpdateReleaseAsset asset)
+        {
+            return asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
+                && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
+        }
+
+        static bool IsOfflineInstaller(UpdateReleaseAsset asset)
+        {
+            return asset.Name.StartsWith(
+                    $"{AppConstants.InstallerNamePrefix}.Offline.",
                     StringComparison.OrdinalIgnoreCase
                 )
                 && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(asset.DownloadUrl)
-            )
-            .OrderByDescending(asset => asset.Size)
+                && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
+        }
+
+        return assets
+            .Where(asset => IsUpdatePackage(asset) || IsOfflineInstaller(asset))
+            .OrderBy(asset => IsUpdatePackage(asset) ? 0 : 1)
+            .ThenByDescending(asset => asset.Size)
             .ThenBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
     }

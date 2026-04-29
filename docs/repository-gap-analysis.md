@@ -11,7 +11,7 @@
 
 - CodexCliPlus 命名的 solution、项目文件、测试项目和发布产物名已建立。
 - WPF shell、托盘行为、WebView2 宿主、后端托管、诊断和安全凭据存储已建立。
-- WebUI 源码位于 `resources/webui/upstream/source`，构建产物和同步元数据位于 `resources/webui/upstream/dist` 与 `resources/webui/upstream/sync.json`。
+- WebUI 源码位于 `resources/webui/upstream/source`，同步元数据位于 `resources/webui/upstream/sync.json`；构建产物由 BuildTool 写入 `artifacts/buildtool/assets/webui/upstream`，不再作为源码跟踪内容。
 - 桌面 bootstrap 已覆盖 `desktopMode`、`apiBase`、`managementKey`，并避免将管理密钥写入浏览器持久化存储。
 - `CodexCliPlus.BuildTool` 负责：
   - `fetch-assets`

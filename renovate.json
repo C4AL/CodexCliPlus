@@ -3,7 +3,8 @@
   "extends": [
     "config:recommended",
     ":dependencyDashboard",
-    ":semanticCommitsDisabled"
+    ":semanticCommitsDisabled",
+    "helpers:pinGitHubActionDigests"
   ],
   "timezone": "Asia/Shanghai",
   "labels": [

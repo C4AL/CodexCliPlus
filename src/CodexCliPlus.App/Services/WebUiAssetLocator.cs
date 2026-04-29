@@ -6,6 +6,7 @@ namespace CodexCliPlus.Services;
 public sealed class WebUiAssetLocator
 {
     private const string BundledRoot = "assets\\webui";
+    private const string GeneratedRoot = "artifacts\\buildtool\\assets\\webui";
     private const string ResourceRoot = "resources\\webui";
     private const string DistRelativePath = "upstream\\dist";
     private const string EntryFileName = "index.html";
@@ -18,14 +19,19 @@ public sealed class WebUiAssetLocator
     )]
     public WebUiBundleInfo GetRequiredBundle()
     {
-        if (TryResolveFromRepository(out var repositoryBundle))
-        {
-            return repositoryBundle;
-        }
-
         if (TryResolveFromBaseDirectory(out var bundled))
         {
             return bundled;
+        }
+
+        if (TryResolveFromGeneratedAssets(out var generatedBundle))
+        {
+            return generatedBundle;
+        }
+
+        if (TryResolveFromRepository(out var repositoryBundle))
+        {
+            return repositoryBundle;
         }
 
         throw new FileNotFoundException("The vendored WebUI bundle is missing.");
@@ -34,6 +40,18 @@ public sealed class WebUiAssetLocator
     private static bool TryResolveFromBaseDirectory(out WebUiBundleInfo bundle)
     {
         return TryResolve(Path.Combine(AppContext.BaseDirectory, BundledRoot), out bundle);
+    }
+
+    private static bool TryResolveFromGeneratedAssets(out WebUiBundleInfo bundle)
+    {
+        var repositoryRoot = TryFindRepositoryRoot();
+        if (repositoryRoot is null)
+        {
+            bundle = default!;
+            return false;
+        }
+
+        return TryResolve(Path.Combine(repositoryRoot, GeneratedRoot), out bundle);
     }
 
     private static bool TryResolveFromRepository(out WebUiBundleInfo bundle)

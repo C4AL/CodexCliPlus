@@ -23,10 +23,12 @@ public static class BuildToolApp
     [
         "fetch-assets",
         "verify-assets",
+        "build-webui",
         "publish",
         "package-online-installer",
         "package-offline-installer",
         "verify-package",
+        "write-checksums",
     ];
 
     public static async Task<int> ExecuteAsync(
@@ -79,6 +81,7 @@ public static class BuildToolApp
             {
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
+                "build-webui" => await WebUiCommands.BuildVendoredAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
                 "package-online-installer" => await PackageCommands.PackageInstallerAsync(
                     context,
@@ -89,6 +92,7 @@ public static class BuildToolApp
                     InstallerPackageKind.Offline
                 ),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
+                "write-checksums" => await ReleaseArtifactCommands.WriteChecksumsAsync(context),
                 _ => 1,
             };
         }
@@ -235,9 +239,21 @@ public sealed class BuildContext(
 
     public string AssetManifestPath => Path.Combine(AssetsRoot, "asset-manifest.json");
 
+    public string WebUiAssetsRoot => Path.Combine(AssetsRoot, "webui");
+
+    public string WebUiGeneratedRoot => Path.Combine(WebUiAssetsRoot, "upstream");
+
+    public string WebUiGeneratedDistRoot => Path.Combine(WebUiGeneratedRoot, "dist");
+
+    public string WebUiGeneratedSyncMetadataPath => Path.Combine(WebUiGeneratedRoot, "sync.json");
+
     public string PublishRoot => Path.Combine(Options.OutputRoot, "publish", Options.Runtime);
 
     public string PackageRoot => Path.Combine(Options.OutputRoot, "packages");
+
+    public string ChecksumsPath => Path.Combine(Options.OutputRoot, "SHA256SUMS.txt");
+
+    public string ReleaseManifestPath => Path.Combine(Options.OutputRoot, "release-manifest.json");
 
     public string InstallerRoot => Path.Combine(Options.OutputRoot, "installer", Options.Runtime);
 
@@ -264,8 +280,6 @@ public sealed class BuildContext(
     public string WebUiSourceNodeModulesRoot => Path.Combine(WebUiSourceRoot, "node_modules");
 
     public string WebUiSourceDistRoot => Path.Combine(WebUiSourceRoot, "dist");
-
-    public string WebUiVendoredDistRoot => Path.Combine(WebUiRoot, "dist");
 
     public string WebUiSyncMetadataPath => Path.Combine(WebUiRoot, "sync.json");
 
@@ -655,12 +669,15 @@ public static class WebUiCommands
             return 1;
         }
 
-        SafeFileSystem.CleanDirectory(
-            context.WebUiVendoredDistRoot,
-            context.Options.RepositoryRoot
+        SafeFileSystem.CleanDirectory(context.WebUiGeneratedRoot, context.Options.OutputRoot);
+        SafeFileSystem.CopyDirectory(context.WebUiBuildDistRoot, context.WebUiGeneratedDistRoot);
+        Directory.CreateDirectory(context.WebUiGeneratedRoot);
+        File.Copy(
+            context.WebUiSyncMetadataPath,
+            context.WebUiGeneratedSyncMetadataPath,
+            overwrite: true
         );
-        SafeFileSystem.CopyDirectory(context.WebUiBuildDistRoot, context.WebUiVendoredDistRoot);
-        context.Logger.Info($"vendored WebUI dist refreshed: {context.WebUiVendoredDistRoot}");
+        context.Logger.Info($"vendored WebUI dist generated: {context.WebUiGeneratedDistRoot}");
         return 0;
     }
 
@@ -817,6 +834,10 @@ public static class PublishCommands
         SafeFileSystem.CopyDirectory(
             Path.Combine(context.AssetsRoot, "backend"),
             Path.Combine(context.PublishRoot, "assets", "backend")
+        );
+        SafeFileSystem.CopyDirectory(
+            context.WebUiAssetsRoot,
+            Path.Combine(context.PublishRoot, "assets", "webui")
         );
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
@@ -1064,6 +1085,116 @@ public enum InstallerPackageKind
 {
     Online,
     Offline,
+}
+
+public static class ReleaseArtifactCommands
+{
+    public static async Task<int> WriteChecksumsAsync(BuildContext context)
+    {
+        var files = EnumerateReleaseFiles(context)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(
+                path => ToRepositoryRelativePath(context, path),
+                StringComparer.OrdinalIgnoreCase
+            )
+            .ToArray();
+
+        if (files.Length == 0)
+        {
+            context.Logger.Error("No release artifacts found for checksum generation.");
+            return 1;
+        }
+
+        var artifacts = new List<object>();
+        var checksumLines = new List<string>();
+        foreach (var file in files)
+        {
+            var sha256 = await ComputeSha256Async(file);
+            var relativePath = ToRepositoryRelativePath(context, file);
+            checksumLines.Add($"{sha256}  {relativePath}");
+            artifacts.Add(
+                new
+                {
+                    path = relativePath,
+                    size = new FileInfo(file).Length,
+                    sha256,
+                }
+            );
+        }
+
+        Directory.CreateDirectory(context.Options.OutputRoot);
+        await File.WriteAllLinesAsync(
+            context.ChecksumsPath,
+            checksumLines,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        var manifest = new
+        {
+            product = AppConstants.ProductName,
+            version = context.Options.Version,
+            runtime = context.Options.Runtime,
+            configuration = context.Options.Configuration,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            artifacts,
+        };
+        await File.WriteAllTextAsync(
+            context.ReleaseManifestPath,
+            JsonSerializer.Serialize(manifest, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        context.Logger.Info($"checksums: {context.ChecksumsPath}");
+        context.Logger.Info($"release manifest: {context.ReleaseManifestPath}");
+        return 0;
+    }
+
+    private static IEnumerable<string> EnumerateReleaseFiles(BuildContext context)
+    {
+        foreach (var file in EnumerateFilesIfExists(context.PackageRoot))
+        {
+            yield return file;
+        }
+
+        foreach (
+            var file in new[]
+            {
+                context.AssetManifestPath,
+                Path.Combine(context.PublishRoot, "publish-manifest.json"),
+            }
+        )
+        {
+            if (File.Exists(file))
+            {
+                yield return file;
+            }
+        }
+
+        var sbomRoot = Path.Combine(context.Options.RepositoryRoot, "artifacts", "sbom");
+        foreach (var file in EnumerateFilesIfExists(sbomRoot))
+        {
+            yield return file;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateFilesIfExists(string directory)
+    {
+        return Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            : [];
+    }
+
+    private static async Task<string> ComputeSha256Async(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA256.HashDataAsync(stream);
+        return Convert.ToHexStringLower(hash);
+    }
+
+    private static string ToRepositoryRelativePath(BuildContext context, string path)
+    {
+        return Path.GetRelativePath(context.Options.RepositoryRoot, path).Replace('\\', '/');
+    }
 }
 
 public sealed class PackageVerifier(BuildContext context)

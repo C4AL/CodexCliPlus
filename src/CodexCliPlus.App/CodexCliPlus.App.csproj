@@ -29,18 +29,6 @@
       Include="..\..\resources\fonts\*.ttf"
       Link="Resources\Fonts\%(Filename)%(Extension)"
     />
-    <Content
-      Include="..\..\resources\webui\upstream\dist\**\*"
-      Link="assets\webui\upstream\dist\%(RecursiveDir)%(Filename)%(Extension)"
-      CopyToOutputDirectory="PreserveNewest"
-      CopyToPublishDirectory="PreserveNewest"
-    />
-    <Content
-      Include="..\..\resources\webui\upstream\sync.json"
-      Link="assets\webui\upstream\sync.json"
-      CopyToOutputDirectory="PreserveNewest"
-      CopyToPublishDirectory="PreserveNewest"
-    />
     <None
       Include="..\..\LICENSE"
       Link="Licenses\CodexCliPlus.LICENSE.txt"

@@ -18,15 +18,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
         with:
           dotnet-version: 10.0.x
 
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 24
           cache: npm
@@ -59,6 +59,17 @@ jobs:
       - name: Test web
         working-directory: resources/webui/upstream/source
         run: npm run test
+
+      - name: Coverage web
+        working-directory: resources/webui/upstream/source
+        run: npm run coverage -- --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html
+
+      - name: Upload web coverage artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: web-coverage
+          path: resources/webui/upstream/source/coverage
+          if-no-files-found: warn
 
       - name: Check unused frontend surface
         working-directory: resources/webui/upstream/source

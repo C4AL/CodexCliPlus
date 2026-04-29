@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without leading v"
+        required: true
+        default: "1.0.0"
+      publish_release:
+        description: "Create or update the GitHub Release"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  security-events: write
+
+jobs:
+  release:
+    name: build-release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: resources/webui/upstream/source/package-lock.json
+
+      - name: Resolve release version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          } else {
+            $version = "${{ inputs.version }}"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Release version is required."
+          }
+
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore .NET packages
+        run: dotnet restore CodexCliPlus.sln
+
+      - name: Build .NET
+        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
+
+      - name: Test .NET with coverage
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
+
+      - name: Generate .NET coverage report
+        run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
+
+      - name: Install web dependencies
+        working-directory: resources/webui/upstream/source
+        run: npm ci
+
+      - name: Lint web
+        working-directory: resources/webui/upstream/source
+        run: npm run lint
+
+      - name: Type-check web
+        working-directory: resources/webui/upstream/source
+        run: npm run type-check
+
+      - name: Test web
+        working-directory: resources/webui/upstream/source
+        run: npm run test
+
+      - name: Build release artifacts
+        shell: pwsh
+        run: |
+          $project = "src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj"
+          dotnet run --project $project -- fetch-assets --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- verify-assets --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- build-webui --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- publish --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- package-online-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- package-offline-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- verify-package --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Generate SBOM
+        run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
+
+      - name: Write checksums
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: codexcliplus-release
+          path: |
+            artifacts/buildtool/packages
+            artifacts/buildtool/SHA256SUMS.txt
+            artifacts/buildtool/release-manifest.json
+            artifacts/buildtool/assets/asset-manifest.json
+            artifacts/buildtool/publish/win-x64/publish-manifest.json
+            artifacts/sbom
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag' || inputs.publish_release == true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "v$env:RELEASE_VERSION" }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title $tag --notes "CodexCliPlus $tag"
+          }
+
+          $paths = @()
+          $paths += Get-ChildItem -File "artifacts/buildtool/packages" | ForEach-Object { $_.FullName }
+          $paths += "artifacts/buildtool/SHA256SUMS.txt"
+          $paths += "artifacts/buildtool/release-manifest.json"
+          $paths += "artifacts/buildtool/assets/asset-manifest.json"
+          $paths += "artifacts/buildtool/publish/win-x64/publish-manifest.json"
+          if (Test-Path "artifacts/sbom") {
+            $paths += Get-ChildItem -File "artifacts/sbom" | ForEach-Object { $_.FullName }
+          }
+          gh release upload $tag @paths --clobber

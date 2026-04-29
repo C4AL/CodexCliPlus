@@ -54,7 +54,7 @@ jobs:
           }
 
           $lineCoverage = [decimal]$Matches.coverage
-          $minimumLineCoverage = [decimal]20.0
+          $minimumLineCoverage = [decimal]35.0
           if ($lineCoverage -lt $minimumLineCoverage) {
             throw "Line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
           }

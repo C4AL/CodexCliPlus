@@ -16,7 +16,11 @@
 - Stage and commit only files changed for the current task. Never include unrelated or pre-existing dirty worktree changes in a default commit unless the user explicitly confirms they should be included.
 - Future backend upgrades must keep `ccp-core.exe` as the CodexCliPlus managed runtime and packaged asset name. The upstream archive entry `cli-proxy-api.exe` is only an input source name and must not be reintroduced as the project runtime or bundled file name.
 - Desktop notification and hint feedback must use the shell notification system: bottom-center auto-dismiss notifications for short success/status feedback, and bottom-right manual-dismiss notifications for failures or items needing user attention. Do not add new ad hoc note text blocks or module-local tip surfaces for notification-style feedback.
-- Third-party open-source libraries, dependencies, and tools may be installed for animation, visual effects, and UI beautification work when they materially improve the final result. Other development tasks may reference this rule, but adding a dependency must be justified by a clearly better outcome and must preserve security, license compatibility, platform/runtime compatibility, maintainability, performance, and bundle-size discipline.
+- Third-party open-source libraries, dependencies, and tools may be installed for any development task when they materially improve the result; do not avoid new dependencies by default.
+- Prefer a mature library when it clearly reduces implementation complexity, improves reliability, or reuses proven domain logic.
+- Before adding a dependency, check existing project dependencies, maintenance activity, license compatibility, platform/runtime compatibility, performance impact, and bundle or install size.
+- After adding a dependency, update the relevant manifest and lockfile, then run the relevant tests or build verification.
+- For complex areas such as core business logic, rule engines, parsers, date and time handling, form validation, charts, drag and drop, virtualized lists, animation, visual effects, and UI beautification, prefer reliable existing libraries when they fit the project constraints.
 
 ## Parallel Agent Usage
 - Use parallel agents/concurrent work modes when they can materially improve development efficiency or shorten delivery time. This is not limited to preprocessing or read-only exploration; bounded implementation, test, and verification tasks may also be delegated.

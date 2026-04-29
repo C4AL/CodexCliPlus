@@ -12,6 +12,7 @@
 
 *.md text eol=lf
 *.txt text eol=lf
+.gitattributes text eol=lf
 *.gitignore text eol=lf
 *.editorconfig text eol=lf
 *.json text eol=lf
@@ -33,6 +34,37 @@
 *.ttf binary
 *.exe binary
 *.zip binary
+
+# GitHub Linguist language bar policy.
+# Keep the public repository language bar focused on high-share languages while
+# hiding low-share auxiliary formats. The complete tracked-file language profile
+# lives in docs/language-statistics.md.
+build/** linguist-detectable=false
+.github/** linguist-detectable=false
+.config/** linguist-detectable=false
+docs/** linguist-detectable=false
+
+*.xaml linguist-detectable=false
+*.xml linguist-detectable=false
+*.props linguist-detectable=false
+*.targets linguist-detectable=false
+*.csproj linguist-detectable=false
+*.sln linguist-detectable=false
+*.js linguist-detectable=false
+*.jsx linguist-detectable=false
+*.css linguist-detectable=false
+*.html linguist-detectable=false
+*.svg linguist-detectable=false
+*.yml linguist-detectable=false
+*.yaml linguist-detectable=false
+*.md linguist-detectable=false
+*.txt linguist-detectable=false
+*.toml linguist-detectable=false
+*.ps1 linguist-detectable=false
+*.gitignore linguist-detectable=false
+*.editorconfig linguist-detectable=false
+justfile linguist-detectable=false
+LICENSE linguist-detectable=false
 
 resources/webui/upstream/dist/index.html linguist-generated=true
 resources/webui/modules/cpa-uv-overlay/live-assets/*.html linguist-generated=true

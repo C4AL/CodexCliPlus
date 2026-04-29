@@ -17,12 +17,14 @@ export interface DesktopShellState {
   theme: DesktopTheme;
   resolvedTheme: DesktopResolvedTheme;
   sidebarCollapsed: boolean;
+  pathname: string;
 }
 
 export type DesktopShellCommand =
   | { type: 'refreshAll' }
   | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
-  | { type: 'toggleSidebarCollapsed'; collapsed?: boolean };
+  | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
+  | { type: 'navigate'; path: string };
 
 interface DesktopBridge {
   isDesktopMode?: () => boolean;
@@ -113,6 +115,14 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
     return {
       type: 'toggleSidebarCollapsed',
       collapsed: typeof record.collapsed === 'boolean' ? record.collapsed : undefined,
+    };
+  }
+
+  if (record.type === 'navigate') {
+    const path = typeof record.path === 'string' ? record.path.trim() : '';
+    return {
+      type: 'navigate',
+      path: path || '/',
     };
   }
 
@@ -213,6 +223,7 @@ export function sendShellStateChanged(state: DesktopShellState): boolean {
       theme: normalizeDesktopTheme(state.theme),
       resolvedTheme: normalizeResolvedTheme(state.resolvedTheme),
       sidebarCollapsed: state.sidebarCollapsed === true,
+      pathname: typeof state.pathname === 'string' ? state.pathname : '/',
     });
     return true;
   } catch (error) {

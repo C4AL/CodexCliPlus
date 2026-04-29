@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
@@ -86,16 +87,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private string _shellBackendVersion = BackendReleaseMetadata.Version;
     private string _shellTheme = "auto";
     private string _shellResolvedTheme = "light";
+    private string _activeWebUiPath = "/";
     private CancellationTokenSource? _firstRunConfirmCountdown;
     private DateTimeOffset? _preparationPanelShownAt;
     private ManagementOverviewSnapshot? _settingsOverview;
+    private Window? _settingsWindow;
+    private Grid? _settingsWindowRoot;
+    private bool _suppressFollowSystemChange;
+    private readonly DispatcherTimer _navigationDockCollapseTimer;
     private bool _allowClose;
     private bool _isInitializing;
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
-    private bool _settingsOverlayHidManagementWebView;
     private bool _sidebarCollapsed;
-    private Visibility _managementWebViewVisibilityBeforeSettingsOverlay = Visibility.Collapsed;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -128,6 +132,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         DataContext = _viewModel;
         InitializeComponent();
+
+        _navigationDockCollapseTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(520)
+        };
+        _navigationDockCollapseTimer.Tick += NavigationDockCollapseTimer_Tick;
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested += ShellNotificationService_NotificationRequested;
@@ -175,8 +185,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
+        _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
+        CloseSettingsWindow();
         TrayIcon.Unregister();
     }
 
@@ -185,8 +197,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -= ShellNotificationService_NotificationRequested;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
+        _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
+        CloseSettingsWindow();
         GC.SuppressFinalize(this);
     }
 
@@ -358,8 +372,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private void ShellSidebarButton_Click(object sender, RoutedEventArgs e)
     {
-        _sidebarCollapsed = !_sidebarCollapsed;
-        PostWebUiCommand(new { type = "toggleSidebarCollapsed", collapsed = _sidebarCollapsed });
+        ExpandNavigationDock(showLabels: true);
     }
 
     private void ShellRefreshButton_Click(object sender, RoutedEventArgs e)
@@ -398,12 +411,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
     private async void ShellThemeButton_Click(object sender, RoutedEventArgs e)
     {
-        var next = _settings.ThemeMode switch
-        {
-            AppThemeMode.System => AppThemeMode.White,
-            AppThemeMode.White => AppThemeMode.Dark,
-            _ => AppThemeMode.System
-        };
+        var next = IsEffectiveDarkTheme(_settings.ThemeMode)
+            ? AppThemeMode.White
+            : AppThemeMode.Dark;
 
         await SetShellThemeAsync(next);
     }
@@ -411,12 +421,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private async void ShellSettingsButton_Click(object sender, RoutedEventArgs e)
     {
         ShellBrandDockPopup.IsOpen = false;
-        await ShowSettingsOverlayAsync();
-    }
+        if (_settingsOverlayOpen)
+        {
+            await HideSettingsOverlayAsync();
+            return;
+        }
 
-    private async void SettingsOverlayCloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        await HideSettingsOverlayAsync();
+        await ShowSettingsOverlayAsync();
     }
 
     private async void SettingsOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -432,19 +443,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         e.Handled = true;
     }
 
-    private async void SettingsThemeSystemButton_Click(object sender, RoutedEventArgs e)
+    private async void SettingsFollowSystemCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        await SetShellThemeAsync(AppThemeMode.System);
-    }
+        if (_suppressFollowSystemChange)
+        {
+            return;
+        }
 
-    private async void SettingsThemeWhiteButton_Click(object sender, RoutedEventArgs e)
-    {
-        await SetShellThemeAsync(AppThemeMode.White);
-    }
+        var followSystem = SettingsFollowSystemCheckBox.IsChecked == true;
+        if (followSystem)
+        {
+            await SetShellThemeAsync(AppThemeMode.System);
+            return;
+        }
 
-    private async void SettingsThemeDarkButton_Click(object sender, RoutedEventArgs e)
-    {
-        await SetShellThemeAsync(AppThemeMode.Dark);
+        var explicitTheme = IsEffectiveDarkTheme(AppThemeMode.System)
+            ? AppThemeMode.Dark
+            : AppThemeMode.White;
+        await SetShellThemeAsync(explicitTheme);
     }
 
     private void SettingsOpenMainRepoButton_Click(object sender, RoutedEventArgs e)
@@ -484,32 +500,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         {
             SettingsClearLoginButton.IsEnabled = true;
         }
-    }
-
-    private async void SettingsRequestLogButton_Click(object sender, RoutedEventArgs e)
-    {
-        var next = !(_settingsOverview?.Config.RequestLog ?? false);
-        SettingsRequestLogButton.IsEnabled = false;
-        try
-        {
-            await _managementConfigurationService.UpdateBooleanSettingAsync("request-log", next);
-            _notificationService.ShowAuto(next ? "请求日志已开启。" : "请求日志已关闭。");
-            PostWebUiCommand(new { type = "refreshAll" });
-            await RefreshSettingsOverlayAsync();
-        }
-        catch (Exception exception)
-        {
-            _notificationService.ShowManual("请求日志更新失败", exception.Message);
-        }
-        finally
-        {
-            SettingsRequestLogButton.IsEnabled = true;
-        }
-    }
-
-    private async void SettingsRefreshInfoButton_Click(object sender, RoutedEventArgs e)
-    {
-        await RefreshSettingsOverlayAsync();
     }
 
     private void HideToTrayButton_Click(object sender, RoutedEventArgs e)
@@ -1061,6 +1051,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 case "shellStateChanged":
                     ApplyWebUiShellState(root);
                     break;
+
+                case "navigationHoverZone":
+                    var navigationHoverZoneActive =
+                        root.TryGetProperty("active", out var activeElement) &&
+                        activeElement.ValueKind is JsonValueKind.True;
+                    if (navigationHoverZoneActive)
+                    {
+                        ExpandNavigationDock(showLabels: false);
+                    }
+                    else
+                    {
+                        CollapseNavigationDockWithDelay(shortDelay: false);
+                    }
+
+                    break;
             }
         }
         catch
@@ -1096,7 +1101,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             _sidebarCollapsed = sidebarCollapsedElement.GetBoolean();
         }
 
+        if (root.TryGetProperty("pathname", out var pathnameElement))
+        {
+            _activeWebUiPath = NormalizeRoutePath(pathnameElement.GetString());
+        }
+
         UpdateShellConnectionPresentation();
+        UpdateNavigationActiveState();
     }
 
     private void CoreWebView2_ProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
@@ -1321,9 +1332,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         };
 
         ShellThemeButton.ToolTip = $"主题：{label}";
-        SetThemeButtonState(SettingsThemeSystemButton, _settings.ThemeMode == AppThemeMode.System);
-        SetThemeButtonState(SettingsThemeWhiteButton, _settings.ThemeMode == AppThemeMode.White);
-        SetThemeButtonState(SettingsThemeDarkButton, _settings.ThemeMode == AppThemeMode.Dark);
+        _suppressFollowSystemChange = true;
+        SettingsFollowSystemCheckBox.IsChecked = _settings.ThemeMode == AppThemeMode.System;
+        _suppressFollowSystemChange = false;
     }
 
     private void PostWebUiCommand(object message)
@@ -1342,11 +1353,137 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
     }
 
+    private void ShellNavigationButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not WpfButton button || button.CommandParameter is not string path)
+        {
+            return;
+        }
+
+        NavigateWebUiRoute(path);
+        CollapseNavigationDockWithDelay(shortDelay: true);
+    }
+
+    private void NavigateWebUiRoute(string path)
+    {
+        _activeWebUiPath = NormalizeRoutePath(path);
+        UpdateNavigationActiveState();
+        PostWebUiCommand(new
+        {
+            type = "navigate",
+            path = _activeWebUiPath
+        });
+    }
+
+    private void ShellNavigationDockHost_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        ExpandNavigationDock(showLabels: false);
+    }
+
+    private void ShellNavigationPanel_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        ExpandNavigationDock(showLabels: true);
+    }
+
+    private void ShellNavigationDockHost_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        CollapseNavigationDockWithDelay(shortDelay: false);
+    }
+
+    private void NavigationDockCollapseTimer_Tick(object? sender, EventArgs e)
+    {
+        _navigationDockCollapseTimer.Stop();
+        AnimateNavigationDock(width: 6, panelOpacity: 0);
+    }
+
+    private void ExpandNavigationDock(bool showLabels)
+    {
+        _navigationDockCollapseTimer.Stop();
+        AnimateNavigationDock(showLabels ? 216 : 64, panelOpacity: 1);
+    }
+
+    private void CollapseNavigationDockWithDelay(bool shortDelay)
+    {
+        _navigationDockCollapseTimer.Stop();
+        _navigationDockCollapseTimer.Interval = TimeSpan.FromMilliseconds(shortDelay ? 220 : 520);
+        _navigationDockCollapseTimer.Start();
+    }
+
+    private void AnimateNavigationDock(double width, double panelOpacity)
+    {
+        ShellNavigationDockHost.BeginAnimation(
+            FrameworkElement.WidthProperty,
+            new DoubleAnimation(width, new Duration(TimeSpan.FromMilliseconds(220)))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+        ShellNavigationPanel.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(panelOpacity, new Duration(TimeSpan.FromMilliseconds(160)))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            });
+    }
+
+    private void UpdateNavigationActiveState()
+    {
+        foreach (var button in new[]
+        {
+            ShellNavDashboardButton,
+            ShellNavConfigButton,
+            ShellNavAccountButton,
+            ShellNavAuthFilesButton,
+            ShellNavQuotaButton,
+            ShellNavUsageButton,
+            ShellNavLogsButton
+        })
+        {
+            if (button.CommandParameter is not string path)
+            {
+                continue;
+            }
+
+            button.Tag = IsRouteActive(path, _activeWebUiPath) ? "Active" : null;
+        }
+    }
+
+    private static bool IsRouteActive(string route, string pathname)
+    {
+        var normalizedRoute = NormalizeRoutePath(route);
+        var normalizedPath = NormalizeRoutePath(pathname);
+        if (normalizedRoute == "/")
+        {
+            return normalizedPath == "/";
+        }
+
+        return normalizedPath.Equals(normalizedRoute, StringComparison.OrdinalIgnoreCase) ||
+            normalizedPath.StartsWith(normalizedRoute + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeRoutePath(string? path)
+    {
+        var normalized = string.IsNullOrWhiteSpace(path) ? "/" : path.Trim();
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        if (normalized.Length > 1 && normalized.EndsWith('/'))
+        {
+            normalized = normalized.TrimEnd('/');
+        }
+
+        return normalized.Equals("/dashboard", StringComparison.OrdinalIgnoreCase)
+            ? "/"
+            : normalized;
+    }
+
     private async Task ShowSettingsOverlayAsync()
     {
         if (_settingsOverlayOpen)
         {
-            SettingsOverlay.Visibility = Visibility.Visible;
+            PositionSettingsWindow();
+            _settingsWindow?.Activate();
             UpdateSettingsOverlayBaseline();
             return;
         }
@@ -1354,10 +1491,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             _settingsOverlayOpen = true;
-            HideManagementWebViewForSettingsOverlay();
             UpdateSettingsOverlayBaseline();
-            SettingsOverlay.Visibility = Visibility.Visible;
-            SettingsOverlay.Opacity = 0;
+            EnsureSettingsWindow();
+            PositionSettingsWindow();
+            SettingsOverlay.Visibility = Visibility.Collapsed;
+            if (_settingsWindowRoot is not null)
+            {
+                _settingsWindowRoot.Opacity = 0;
+            }
+
             if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
             {
                 scale.ScaleX = 0.96;
@@ -1366,14 +1508,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(1, 180));
             }
 
-            SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
+            _settingsWindow?.Show();
+            _settingsWindow?.Activate();
+            _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 180));
             await RefreshSettingsOverlayAsync();
         }
         catch (Exception exception)
         {
             _settingsOverlayOpen = false;
-            SettingsOverlay.Visibility = Visibility.Collapsed;
-            RestoreManagementWebViewAfterSettingsOverlay();
+            CloseSettingsWindow();
             _notificationService.ShowManual("设置打开失败", exception.Message);
         }
     }
@@ -1386,7 +1529,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         }
 
         _settingsOverlayOpen = false;
-        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
+        _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
         if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
         {
             scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(0.96, 140));
@@ -1396,30 +1539,125 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         await Task.Delay(TimeSpan.FromMilliseconds(150));
         if (!_settingsOverlayOpen)
         {
-            SettingsOverlay.Visibility = Visibility.Collapsed;
-            RestoreManagementWebViewAfterSettingsOverlay();
+            CloseSettingsWindow();
         }
     }
 
-    private void HideManagementWebViewForSettingsOverlay()
+    private void EnsureSettingsWindow()
     {
-        _managementWebViewVisibilityBeforeSettingsOverlay = ManagementWebView.Visibility;
-        _settingsOverlayHidManagementWebView = ManagementWebView.Visibility == Visibility.Visible;
-        if (_settingsOverlayHidManagementWebView)
-        {
-            ManagementWebView.Visibility = Visibility.Hidden;
-        }
-    }
-
-    private void RestoreManagementWebViewAfterSettingsOverlay()
-    {
-        if (!_settingsOverlayHidManagementWebView)
+        if (_settingsWindow is not null)
         {
             return;
         }
 
-        ManagementWebView.Visibility = _managementWebViewVisibilityBeforeSettingsOverlay;
-        _settingsOverlayHidManagementWebView = false;
+        if (SettingsDialogCard.Parent is System.Windows.Controls.Panel currentParent)
+        {
+            currentParent.Children.Remove(SettingsDialogCard);
+        }
+
+        _settingsWindowRoot = new Grid
+        {
+            Background = new SolidColorBrush(WpfColor.FromArgb(0x55, 0, 0, 0)),
+            Opacity = 0
+        };
+        _settingsWindowRoot.MouseLeftButtonDown += SettingsWindowRoot_MouseLeftButtonDown;
+        _settingsWindowRoot.Children.Add(SettingsDialogCard);
+
+        _settingsWindow = new Window
+        {
+            Owner = this,
+            ShowInTaskbar = false,
+            WindowStyle = WindowStyle.None,
+            ResizeMode = ResizeMode.NoResize,
+            AllowsTransparency = true,
+            Background = System.Windows.Media.Brushes.Transparent,
+            Content = _settingsWindowRoot,
+            Topmost = false
+        };
+        _settingsWindow.Deactivated += SettingsWindow_Deactivated;
+        _settingsWindow.Closed += SettingsWindow_Closed;
+    }
+
+    private async void SettingsWindowRoot_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ReferenceEquals(e.OriginalSource, _settingsWindowRoot))
+        {
+            await HideSettingsOverlayAsync();
+        }
+    }
+
+    private async void SettingsWindow_Deactivated(object? sender, EventArgs e)
+    {
+        if (_settingsOverlayOpen)
+        {
+            await HideSettingsOverlayAsync();
+        }
+    }
+
+    private void SettingsWindow_Closed(object? sender, EventArgs e)
+    {
+        if (_settingsWindowRoot is not null)
+        {
+            _settingsWindowRoot.MouseLeftButtonDown -= SettingsWindowRoot_MouseLeftButtonDown;
+            if (SettingsDialogCard.Parent == _settingsWindowRoot)
+            {
+                _settingsWindowRoot.Children.Remove(SettingsDialogCard);
+            }
+        }
+
+        if (!SettingsOverlay.Children.Contains(SettingsDialogCard))
+        {
+            SettingsOverlay.Children.Add(SettingsDialogCard);
+        }
+
+        _settingsWindow = null;
+        _settingsWindowRoot = null;
+        SettingsOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void PositionSettingsWindow()
+    {
+        if (_settingsWindow is null)
+        {
+            return;
+        }
+
+        _settingsWindow.Left = Left;
+        _settingsWindow.Top = Top;
+        _settingsWindow.Width = Math.Max(ActualWidth, MinWidth);
+        _settingsWindow.Height = Math.Max(ActualHeight, MinHeight);
+    }
+
+    private void CloseSettingsWindow()
+    {
+        if (_settingsWindow is null)
+        {
+            return;
+        }
+
+        _settingsWindow.Deactivated -= SettingsWindow_Deactivated;
+        _settingsWindow.Closed -= SettingsWindow_Closed;
+        var window = _settingsWindow;
+        _settingsWindow = null;
+        window.Content = null;
+
+        if (_settingsWindowRoot is not null)
+        {
+            _settingsWindowRoot.MouseLeftButtonDown -= SettingsWindowRoot_MouseLeftButtonDown;
+            if (SettingsDialogCard.Parent == _settingsWindowRoot)
+            {
+                _settingsWindowRoot.Children.Remove(SettingsDialogCard);
+            }
+        }
+
+        if (!SettingsOverlay.Children.Contains(SettingsDialogCard))
+        {
+            SettingsOverlay.Children.Add(SettingsDialogCard);
+        }
+
+        _settingsWindowRoot = null;
+        window.Close();
+        SettingsOverlay.Visibility = Visibility.Collapsed;
     }
 
     private async Task RefreshShellDockOverviewAsync()
@@ -1445,8 +1683,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private async Task RefreshSettingsOverlayAsync()
     {
         UpdateSettingsOverlayBaseline();
-        SettingsRefreshInfoButton.IsEnabled = false;
-        SettingsRequestLogButton.IsEnabled = false;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
@@ -1464,7 +1700,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     : $"可用模型：{overview.Value.AvailableModelsError}";
             SettingsProviderOverviewText.Text =
                 $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
-            UpdateRequestLogPresentation();
         }
         catch (Exception exception)
         {
@@ -1475,35 +1710,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             UpdateShellDockPresentation();
             SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
             SettingsProviderOverviewText.Text = "提供商概览：未加载";
-            SettingsRequestLogText.Text = "请求日志状态：未加载";
-        }
-        finally
-        {
-            SettingsRefreshInfoButton.IsEnabled = true;
-            SettingsRequestLogButton.IsEnabled = _settingsOverview is not null;
         }
     }
 
     private void UpdateSettingsOverlayBaseline()
     {
         UpdateShellThemePresentation();
-        UpdateRequestLogPresentation();
-    }
-
-    private void UpdateRequestLogPresentation()
-    {
-        if (_settingsOverview is null)
-        {
-            SettingsRequestLogText.Text = "请求日志状态：未加载";
-            SettingsRequestLogButton.Content = "切换请求日志";
-            return;
-        }
-
-        var enabled = _settingsOverview.Config.RequestLog == true;
-        SettingsRequestLogText.Text = enabled
-            ? "请求日志状态：已开启。仅在排查问题时建议保持开启。"
-            : "请求日志状态：已关闭。";
-        SettingsRequestLogButton.Content = enabled ? "关闭请求日志" : "开启请求日志";
     }
 
     private string ShellConnectionStatusLabel => _shellConnectionStatus switch

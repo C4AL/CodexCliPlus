@@ -32,6 +32,10 @@ public sealed class NavigationShellTests
         Assert.Contains("BorderThickness\" Value=\"0\"", xaml, StringComparison.Ordinal);
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
         Assert.Contains("x:Name=\"ShellSidebarButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"Collapsed\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavigationDockHost\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockPopup\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellDockAppVersionText\"", xaml, StringComparison.Ordinal);
@@ -47,6 +51,11 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("M12,3 C7.029,3 3,7.029 3,12", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellSettingsButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsOverlay\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SettingsFollowSystemCheckBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CornerRadius=\"18,18,0,0\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"SettingsOverlayCloseButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"SettingsRequestLogButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"SettingsRefreshInfoButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"SettingsAppVersionText\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"SettingsBackendVersionText\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"SettingsConnectionText\"", xaml, StringComparison.Ordinal);
@@ -88,7 +97,12 @@ public sealed class NavigationShellTests
         Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("refreshAll", hostSource, StringComparison.Ordinal);
         Assert.Contains("setTheme", hostSource, StringComparison.Ordinal);
-        Assert.Contains("toggleSidebarCollapsed", hostSource, StringComparison.Ordinal);
+        Assert.Contains("navigate", hostSource, StringComparison.Ordinal);
+        Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
+        Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("window.innerWidth * 0.25", bridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"", hostSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("StartupState", hostSource, StringComparison.Ordinal);
         Assert.Contains("UpgradeNotice", hostSource, StringComparison.Ordinal);
@@ -265,6 +279,12 @@ public sealed class NavigationShellTests
         var mainLayoutSource = File.ReadAllText(
             Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "components", "layout", "MainLayout.tsx"),
             Encoding.UTF8);
+        var logsPageSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "LogsPage.tsx"),
+            Encoding.UTF8);
+        var systemPageSource = File.ReadAllText(
+            Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "pages", "SystemPage.tsx"),
+            Encoding.UTF8);
         var themeStoreSource = File.ReadAllText(
             Path.Combine(repositoryRoot, "resources", "webui", "upstream", "source", "src", "stores", "useThemeStore.ts"),
             Encoding.UTF8);
@@ -287,6 +307,13 @@ public sealed class NavigationShellTests
         Assert.Contains("!desktopMode &&", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("desktop-shell", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("toggleSidebarCollapsed", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("command.type === 'navigate'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("'requestLog'", logsPageSource, StringComparison.Ordinal);
+        Assert.Contains("logs.request_log_tab", logsPageSource, StringComparison.Ordinal);
+        Assert.Contains("configApi.updateRequestLog", logsPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("request-log-modal", systemPageSource, StringComparison.Ordinal);
         Assert.DoesNotContain("key: 'light'", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("export type Theme = 'light'", commonTypesSource, StringComparison.Ordinal);
         Assert.Contains("const order: Theme[] = ['auto', 'white', 'dark']", themeStoreSource, StringComparison.Ordinal);
@@ -312,6 +339,8 @@ public sealed class NavigationShellTests
         Assert.Contains("requestNativeLogin", distIndex, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged", distIndex, StringComparison.Ordinal);
         Assert.Contains("toggleSidebarCollapsed", distIndex, StringComparison.Ordinal);
+        Assert.Contains("navigate", distIndex, StringComparison.Ordinal);
+        Assert.Contains("pathname", distIndex, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", distIndex, StringComparison.Ordinal);
     }
 

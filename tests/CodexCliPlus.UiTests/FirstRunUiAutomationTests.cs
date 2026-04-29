@@ -189,16 +189,16 @@ public sealed class FirstRunUiAutomationTests
         run.CaptureWindow("shell-brand-dock-full.png");
 
         run.Click("ShellSettingsButton");
-        run.WaitForAutomationId("SettingsOverlayCloseButton", TimeSpan.FromSeconds(5));
+        run.WaitForAutomationId("SettingsFollowSystemCheckBox", TimeSpan.FromSeconds(5));
         await Task.Delay(250);
         run.CaptureWindow("settings-overlay-first-open.png");
-        run.Click("SettingsOverlayCloseButton");
+        run.Click("ShellSettingsButton");
         await Task.Delay(300);
         run.Click("ShellSettingsButton");
-        run.WaitForAutomationId("SettingsOverlayCloseButton", TimeSpan.FromSeconds(5));
+        run.WaitForAutomationId("SettingsFollowSystemCheckBox", TimeSpan.FromSeconds(5));
         await Task.Delay(250);
         run.CaptureWindow("settings-overlay-second-open.png");
-        run.Click("SettingsOverlayCloseButton");
+        run.Click("ShellSettingsButton");
 
         run.CaptureWindow("webui-bridge-full.png");
         run.WriteReview(
@@ -206,7 +206,7 @@ public sealed class FirstRunUiAutomationTests
             "记住安全密钥 WebUI 桥接探针",
             "查看 webui-page.png 和 webui-bridge-full.png：勾选记住后应进入 WebUI 管理界面，不应停留在原生加载页。",
             "查看 shell-brand-dock-full.png：点击顶部 logo/CodexCliPlus 后必须出现包含程序版本、内核版本、连接状态和后端地址的 dock。",
-            "查看 settings-overlay-first-open.png 和 settings-overlay-second-open.png：设置按钮必须能打开叠加层，关闭后再次点击仍能正常打开。",
+            "查看 settings-overlay-first-open.png 和 settings-overlay-second-open.png：设置按钮必须能打开设置窗口，关闭后再次点击仍能正常打开且没有 X 关闭按钮。",
             "查看 webui-state.json：DesktopMode 与 AppShellVisible 必须为 true，AuthFailureVisible 必须为 false，URL 应为 codexcliplus-webui.local。");
 
         Assert.True(state.DesktopMode);

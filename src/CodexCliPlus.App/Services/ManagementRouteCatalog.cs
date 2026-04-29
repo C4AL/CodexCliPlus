@@ -8,9 +8,8 @@ public static class ManagementRouteCatalog
     [
         new("dashboard", "/", "仪表盘", true),
         new("config", "/config", "配置", true),
-        new("ai-providers", "/ai-providers", "AI 提供商", true),
+        new("ai-providers", "/ai-providers", "账号配置", true),
         new("auth-files", "/auth-files", "认证文件", true),
-        new("oauth", "/oauth", "OAuth", true),
         new("quota", "/quota", "配额", true),
         new("usage", "/usage", "用量", true),
         new("logs", "/logs", "日志", true),

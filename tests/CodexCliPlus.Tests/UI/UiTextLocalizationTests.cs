@@ -56,6 +56,7 @@ public sealed class UiTextLocalizationTests
 
         Assert.Contains("\"main\": \"CodexCliPlus\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("CodexCliPlus", visibleText, StringComparison.Ordinal);
+        Assert.Contains("账号配置", visibleText, StringComparison.Ordinal);
         Assert.Contains("\"desktop_subtitle\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("!desktopMode &&", loginPage, StringComparison.Ordinal);
 
@@ -108,6 +109,8 @@ public sealed class UiTextLocalizationTests
         var authFilesPage = File.ReadAllText(Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx"), Encoding.UTF8);
 
         Assert.Contains("AiProvidersCodexEditPage", routeSource, StringComparison.Ordinal);
+        Assert.Contains("Navigate to=\"/ai-providers\"", routeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("element: <OAuthPage", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersGeminiEditPage", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersClaude", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersOpenAI", routeSource, StringComparison.Ordinal);
@@ -115,6 +118,7 @@ public sealed class UiTextLocalizationTests
         Assert.DoesNotContain("AiProvidersAmpcode", routeSource, StringComparison.Ordinal);
 
         Assert.Contains("CodexSection", providersPage, StringComparison.Ordinal);
+        Assert.Contains("OAuthPage embedded", providersPage, StringComparison.Ordinal);
         Assert.DoesNotContain("GeminiSection", providersPage, StringComparison.Ordinal);
         Assert.DoesNotContain("ClaudeSection", providersPage, StringComparison.Ordinal);
         Assert.DoesNotContain("OpenAISection", providersPage, StringComparison.Ordinal);

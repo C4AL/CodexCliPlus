@@ -55,7 +55,11 @@ const PROVIDERS: {
 const CALLBACK_SUPPORTED: OAuthProvider[] = ['codex'];
 const getAuthKey = (provider: OAuthProvider, suffix: string) => `auth_login.${provider}_${suffix}`;
 
-export function OAuthPage() {
+interface OAuthPageProps {
+  embedded?: boolean;
+}
+
+export function OAuthPage({ embedded = false }: OAuthPageProps = {}) {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const [states, setStates] = useState<Partial<Record<OAuthProvider, ProviderState>>>({});
@@ -188,11 +192,8 @@ export function OAuthPage() {
     }
   };
 
-  return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('nav.oauth', { defaultValue: 'OAuth' })}</h1>
-
-      <div className={styles.content}>
+  const content = (
+    <div className={styles.content}>
         {PROVIDERS.map((provider) => {
           const state = states[provider.id] || {};
           const canSubmitCallback = CALLBACK_SUPPORTED.includes(provider.id) && Boolean(state.url);
@@ -282,7 +283,17 @@ export function OAuthPage() {
             </div>
           );
         })}
-      </div>
+    </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className={styles.container}>
+      <h1 className={styles.pageTitle}>{t('nav.oauth', { defaultValue: 'OAuth' })}</h1>
+      {content}
     </div>
   );
 }

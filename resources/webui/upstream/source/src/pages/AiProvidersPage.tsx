@@ -16,6 +16,7 @@ import { providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import type { ProviderKeyConfig } from '@/types';
 import { indexUsageDetailsByAuthIndex, indexUsageDetailsBySource } from '@/utils/usageIndex';
+import { OAuthPage } from './OAuthPage';
 import styles from './AiProvidersPage.module.scss';
 
 export function AiProvidersPage() {
@@ -190,6 +191,9 @@ export function AiProvidersPage() {
             onDelete={(index) => void deleteCodex(index)}
             onToggle={(index, enabled) => void setConfigEnabled(index, enabled)}
           />
+        </div>
+        <div id="provider-oauth">
+          <OAuthPage embedded />
         </div>
       </div>
 

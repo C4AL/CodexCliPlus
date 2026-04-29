@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
@@ -17,7 +17,6 @@ import {
   IconSidebarConfig,
   IconSidebarDashboard,
   IconSidebarLogs,
-  IconSidebarOauth,
   IconSidebarProviders,
   IconSidebarQuota,
   IconSidebarSystem,
@@ -43,7 +42,6 @@ const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
   aiProviders: <IconSidebarProviders size={18} />,
   authFiles: <IconSidebarAuthFiles size={18} />,
-  oauth: <IconSidebarOauth size={18} />,
   quota: <IconSidebarQuota size={18} />,
   usage: <IconSidebarUsage size={18} />,
   config: <IconSidebarConfig size={18} />,
@@ -191,6 +189,7 @@ export function MainLayout() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const apiBase = useAuthStore((state) => state.apiBase);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
@@ -205,10 +204,10 @@ export function MainLayout() {
   const setTheme = useThemeStore((state) => state.setTheme);
 
   const desktopMode = isDesktopMode();
-  const desktopBootstrap = useRef(getDesktopBootstrap());
+  const [desktopBootstrap] = useState(() => getDesktopBootstrap());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => desktopMode && desktopBootstrap.current?.sidebarCollapsed === true
+    () => desktopMode && desktopBootstrap?.sidebarCollapsed === true
   );
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [brandExpanded, setBrandExpanded] = useState(true);
@@ -373,10 +372,9 @@ export function MainLayout() {
     { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
     { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
     { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
-    { path: '/oauth', label: t('nav.oauth', { defaultValue: 'OAuth' }), icon: sidebarIcons.oauth },
     { path: '/quota', label: t('nav.quota_management'), icon: sidebarIcons.quota },
     { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
-    ...(config?.loggingToFile
+    ...(desktopMode || config?.loggingToFile
       ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }]
       : []),
     ...(desktopMode
@@ -474,9 +472,14 @@ export function MainLayout() {
         setSidebarCollapsed((previous) =>
           typeof command.collapsed === 'boolean' ? command.collapsed : !previous
         );
+        return;
+      }
+
+      if (command.type === 'navigate') {
+        navigate(command.path || '/');
       }
     });
-  }, [desktopMode, handleRefreshAll, setTheme]);
+  }, [desktopMode, handleRefreshAll, navigate, setTheme]);
 
   useEffect(() => {
     if (!desktopMode) {
@@ -489,8 +492,9 @@ export function MainLayout() {
       theme,
       resolvedTheme,
       sidebarCollapsed,
+      pathname: location.pathname,
     });
-  }, [apiBase, connectionStatus, desktopMode, resolvedTheme, sidebarCollapsed, theme]);
+  }, [apiBase, connectionStatus, desktopMode, location.pathname, resolvedTheme, sidebarCollapsed, theme]);
 
   return (
     <div className={`app-shell${desktopMode ? ' desktop-shell' : ''}`}>
@@ -641,24 +645,26 @@ export function MainLayout() {
           tabIndex={sidebarOpen ? 0 : -1}
         />
 
-        <aside
-          className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
-        >
-          <div className="nav-section">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
-              </NavLink>
-            ))}
-          </div>
-        </aside>
+        {!desktopMode && (
+          <aside
+            className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}
+          >
+            <div className="nav-section">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
+                  title={sidebarCollapsed ? item.label : undefined}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
+                </NavLink>
+              ))}
+            </div>
+          </aside>
+        )}
 
         <div className={`content${isLogsPage ? ' content-logs' : ''}`} ref={contentRef}>
           <main className={`main-content${isLogsPage ? ' main-content-logs' : ''}`}>

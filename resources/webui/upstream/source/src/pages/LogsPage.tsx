@@ -23,6 +23,7 @@ import {
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
+import { configApi } from '@/services/api/config';
 import { logsApi } from '@/services/api/logs';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
@@ -62,7 +63,7 @@ const getErrorMessage = (err: unknown): string => {
   return typeof message === 'string' ? message : '';
 };
 
-type TabType = 'logs' | 'errors';
+type TabType = 'logs' | 'requestLog' | 'errors';
 
 export function LogsPage() {
   const { t } = useTranslation();
@@ -72,6 +73,8 @@ export function LogsPage() {
   const managementKey = useAuthStore((state) => state.managementKey);
   const traceScopeKey = `${apiBase}::${managementKey}`;
   const config = useConfigStore((state) => state.config);
+  const updateConfigValue = useConfigStore((state) => state.updateConfigValue);
+  const clearCache = useConfigStore((state) => state.clearCache);
   const requestLogEnabled = config?.requestLog ?? false;
 
   const [activeTab, setActiveTab] = useState<TabType>('logs');
@@ -92,6 +95,7 @@ export function LogsPage() {
   const [errorLogsError, setErrorLogsError] = useState('');
   const [requestLogId, setRequestLogId] = useState<string | null>(null);
   const [requestLogDownloading, setRequestLogDownloading] = useState(false);
+  const [requestLogSaving, setRequestLogSaving] = useState(false);
 
   const trace = useTraceResolver({
     traceScopeKey,
@@ -452,6 +456,27 @@ export function LogsPage() {
     }
   };
 
+  const setRequestLogEnabled = async (enabled: boolean) => {
+    if (disableControls || !config || requestLogSaving) return;
+    const previous = requestLogEnabled;
+    setRequestLogSaving(true);
+    updateConfigValue('request-log', enabled);
+    try {
+      await configApi.updateRequestLog(enabled);
+      clearCache('request-log');
+      showNotification(t('notification.request_log_updated'), 'success');
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      updateConfigValue('request-log', previous);
+      showNotification(
+        `${t('notification.update_failed')}${message ? `: ${message}` : ''}`,
+        'error'
+      );
+    } finally {
+      setRequestLogSaving(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (longPressRef.current?.timer) {
@@ -472,6 +497,13 @@ export function LogsPage() {
           onClick={() => setActiveTab('logs')}
         >
           {t('logs.log_content')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.tabItem} ${activeTab === 'requestLog' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('requestLog')}
+        >
+          {t('logs.request_log_tab')}
         </button>
         <button
           type="button"
@@ -858,6 +890,31 @@ export function LogsPage() {
             ) : (
               <EmptyState title={t('logs.empty_title')} description={t('logs.empty_desc')} />
             )}
+          </Card>
+        )}
+
+        {activeTab === 'requestLog' && (
+          <Card>
+            <div className="stack">
+              <div className="hint">{t('logs.request_log_description')}</div>
+              <div>
+                <div className={`status-badge ${requestLogEnabled ? 'warning' : 'success'}`}>
+                  {requestLogEnabled
+                    ? t('logs.request_log_status_enabled')
+                    : t('logs.request_log_status_disabled')}
+                </div>
+              </div>
+              <div className="status-badge warning">{t('logs.request_log_sensitive_warning')}</div>
+              <ToggleSwitch
+                checked={requestLogEnabled}
+                disabled={disableControls || !config || requestLogSaving}
+                onChange={(value) => {
+                  void setRequestLogEnabled(value);
+                }}
+                label={t('logs.request_log_toggle_label')}
+                ariaLabel={t('logs.request_log_toggle_label')}
+              />
+            </div>
           </Card>
         )}
 

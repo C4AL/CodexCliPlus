@@ -1,0 +1,65 @@
+name: Tooling
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  project-tooling:
+    name: project-tooling
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: resources/webui/upstream/source/package-lock.json
+
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Restore .NET packages
+        run: dotnet restore CodexCliPlus.sln
+
+      - name: Build .NET
+        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
+
+      - name: Test .NET
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal
+
+      - name: Install web dependencies
+        working-directory: resources/webui/upstream/source
+        run: npm ci
+
+      - name: Lint web
+        working-directory: resources/webui/upstream/source
+        run: npm run lint
+
+      - name: Type-check web
+        working-directory: resources/webui/upstream/source
+        run: npm run type-check
+
+      - name: Test web
+        working-directory: resources/webui/upstream/source
+        run: npm run test
+
+      - name: Check unused frontend surface
+        working-directory: resources/webui/upstream/source
+        run: npm run knip

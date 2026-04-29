@@ -182,7 +182,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             await configService.UpdateIntegerSettingAsync("request-retry", 7);
             await configService.UpdateIntegerSettingAsync("max-retry-interval", 21);
             await configService.UpdateIntegerSettingAsync("logs-max-total-size-mb", 128);
-            await configService.UpdateIntegerSettingAsync("error-logs-max-files", 9);
+            await configService.UpdateIntegerSettingAsync("error-logs-max-files", 10);
             await configService.UpdateStringSettingAsync("routing/strategy", "fill-first");
             await configService.UpdateStringSettingAsync("proxy-url", "http://127.0.0.1:8888");
 
@@ -196,7 +196,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             Assert.Equal(7, config.Value.RequestRetry);
             Assert.Equal(21, config.Value.MaxRetryInterval);
             Assert.Equal(128, config.Value.LogsMaxTotalSizeMb);
-            Assert.Equal(9, config.Value.ErrorLogsMaxFiles);
+            Assert.Equal(10, config.Value.ErrorLogsMaxFiles);
             Assert.Equal("fill-first", config.Value.RoutingStrategy);
             Assert.Equal("http://127.0.0.1:8888", config.Value.ProxyUrl);
             Assert.True(config.Value.QuotaExceeded?.SwitchProject);

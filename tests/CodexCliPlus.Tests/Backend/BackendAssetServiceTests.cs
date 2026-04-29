@@ -27,14 +27,17 @@ public sealed class BackendAssetServiceTests : IDisposable
             pathService.Directories.BackendDirectory,
             BackendExecutableNames.UpstreamExecutableFileName
         );
-        File.Copy(FindRepositoryBackendExecutable(), managedPath);
-        await File.WriteAllTextAsync(legacyPath, "legacy managed executable");
-
         var service = new BackendAssetService(
             new HttpClient(),
             pathService,
             new NullAppLogger(_rootDirectory)
         );
+
+        var preparedLayout = await service.RepairAssetsAsync();
+        Assert.Equal(managedPath, preparedLayout.ExecutablePath);
+        Assert.True(File.Exists(managedPath));
+
+        await File.WriteAllTextAsync(legacyPath, "legacy managed executable");
 
         var layout = await service.EnsureAssetsAsync();
 
@@ -49,31 +52,6 @@ public sealed class BackendAssetServiceTests : IDisposable
         {
             Directory.Delete(_rootDirectory, recursive: true);
         }
-    }
-
-    private static string FindRepositoryBackendExecutable()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            var candidate = Path.Combine(
-                current.FullName,
-                "resources",
-                "backend",
-                "windows-x64",
-                BackendExecutableNames.ManagedExecutableFileName
-            );
-            if (File.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new FileNotFoundException(
-            $"Could not find repository backend executable {BackendExecutableNames.ManagedExecutableFileName}."
-        );
     }
 
     private sealed class TestPathService : IPathService

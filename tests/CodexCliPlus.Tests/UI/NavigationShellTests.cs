@@ -100,8 +100,15 @@ public sealed class NavigationShellTests
         Assert.Contains("Window_Deactivated", hostSource, StringComparison.Ordinal);
         Assert.Contains("CloseShellDockPopups", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
+        Assert.Contains("NavigationDockEdgeIntentWidth = 18", hostSource, StringComparison.Ordinal);
+        Assert.Contains("NavigationDockPanelOpenOffset", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
         Assert.Contains("ApplyNavigationDockLabelState", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "button.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Center",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "NavigationDockExpandThreshold",
             hostSource,
@@ -128,8 +135,15 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "PreviewMouseLeftButtonDown=\"ShellBrandDockButton_PreviewMouseLeftButtonDown\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"ShellBrandDockPopup\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockCard\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Opened=\"ShellBrandDockPopup_Opened\"", xaml, StringComparison.Ordinal);
@@ -198,6 +212,12 @@ public sealed class NavigationShellTests
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayCheckUpdatesMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayExitMenuItem_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "_wasShellBrandDockOpenBeforeButtonClick = ShellBrandDockPopup.IsOpen",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("var wasOpenBeforeClick", hostSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -260,9 +280,9 @@ public sealed class NavigationShellTests
         Assert.Contains("usageStatsRefreshed", hostSource, StringComparison.Ordinal);
         Assert.Contains("usageStatsRefreshed", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("ScheduleUsageStatsRefreshedSync", hostSource, StringComparison.Ordinal);
-        Assert.Contains("event.clientX > 8", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("event.clientX > 18", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("setTimeout", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("180", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("90", bridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "PostWebUiCommand(new { type = \"toggleSidebarCollapsed\"",
             hostSource,
@@ -505,6 +525,42 @@ public sealed class NavigationShellTests
         Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("_notificationService.ShowAuto", hostSource, StringComparison.Ordinal);
         Assert.Contains("_notificationService.ShowManual", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ScaleTransform.ScaleXProperty", hostSource, StringComparison.Ordinal);
+        Assert.Contains("UpdateNotificationCardClip", hostSource, StringComparison.Ordinal);
+        Assert.Contains("new RectangleGeometry", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "progress.Width = card.ActualWidth",
+            hostSource,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public void SettingsUpdateStatusUsesShortInlineMessages()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var xaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var hostSource = ReadMainWindowSources(repositoryRoot);
+
+        Assert.Contains("Text=\"更新状态：正在读取。\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SetSettingsUpdateStatus", hostSource, StringComparison.Ordinal);
+        Assert.Contains("SetSettingsUpdateStatus(\"检查中\")", hostSource, StringComparison.Ordinal);
+        Assert.Contains("SetSettingsUpdateStatus(\"检查失败\")", hostSource, StringComparison.Ordinal);
+        Assert.Contains("SetSettingsUpdateStatus(\"应用失败\")", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "SettingsUpdateStatusText.Text = $\"检查更新失败：{exception.Message}\"",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "SettingsUpdateStatusText.Text = $\"应用更新失败：{exception.Message}\"",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("UsageDatabasePath", hostSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -637,6 +693,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var mainRoutesSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "MainRoutes.tsx"
+            ),
+            Encoding.UTF8
+        );
         var logsPageSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -711,7 +780,18 @@ public sealed class NavigationShellTests
         Assert.Contains("toggleSidebarCollapsed", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("command.type === 'navigate'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "{ path: '/dashboard/overview', element: route('console-overview', <ConsolePage />) }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "{ path: '/dashboard/overview', element: <Navigate to=\"/console\" replace /> }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("'requestLog'", logsPageSource, StringComparison.Ordinal);
         Assert.Contains("logs.request_log_tab", logsPageSource, StringComparison.Ordinal);
         Assert.Contains("configApi.updateRequestLog", logsPageSource, StringComparison.Ordinal);

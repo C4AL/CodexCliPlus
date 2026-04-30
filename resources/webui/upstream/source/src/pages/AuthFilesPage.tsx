@@ -25,14 +25,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import {
   exportAccountConfigInDesktopShell,
-  exportSacPackageInDesktopShell,
   importAccountConfigInDesktopShell,
   importSacPackageInDesktopShell,
   isDesktopMode,
 } from '@/desktop/bridge';
 import { authFilesApi } from '@/services/api';
 import { copyToClipboard } from '@/utils/clipboard';
-import { downloadBlob } from '@/utils/download';
 import {
   MAX_CARD_PAGE_SIZE,
   MIN_CARD_PAGE_SIZE,
@@ -111,7 +109,6 @@ export function AuthFilesPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importJsonText, setImportJsonText] = useState('');
   const [importingConfig, setImportingConfig] = useState(false);
-  const [exportingConfig, setExportingConfig] = useState(false);
   const [uiStateHydrated, setUiStateHydrated] = useState(false);
   const floatingBatchActionsRef = useRef<HTMLDivElement>(null);
   const batchActionAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
@@ -569,37 +566,12 @@ export function AuthFilesPage() {
     showNotification(t('auth_files.desktop_bridge_required'), 'warning');
   }, [showNotification, t]);
 
-  const handleExportConfig = useCallback(async () => {
-    if (isDesktopMode() && exportAccountConfigInDesktopShell('json')) {
-      showNotification(t('auth_files.export_requested'), 'info');
-      return;
-    }
-
-    setExportingConfig(true);
-    try {
-      const exportItems = await Promise.all(
-        codexFiles
-          .filter((file) => !isRuntimeOnlyAuthFile(file))
-          .map(async (file) => [file.name, JSON.parse(await authFilesApi.downloadText(file.name))] as const)
-      );
-      const blob = new Blob([JSON.stringify(Object.fromEntries(exportItems), null, 2)], {
-        type: 'application/json',
-      });
-      downloadBlob({ filename: 'codex-auth-files-export.json', blob });
-      showNotification(t('auth_files.export_success'), 'success');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : t('common.unknown_error');
-      showNotification(`${t('auth_files.export_failed')}: ${message}`, 'error');
-    } finally {
-      setExportingConfig(false);
-    }
-  }, [codexFiles, showNotification, t]);
-
-  const handleSacExport = useCallback(() => {
-    if (isDesktopMode() && exportSacPackageInDesktopShell()) {
+  const handleExportConfig = useCallback(() => {
+    if (isDesktopMode() && exportAccountConfigInDesktopShell('sac')) {
       showNotification(t('auth_files.export_sac_requested'), 'info');
       return;
     }
+
     showNotification(t('auth_files.desktop_bridge_required'), 'warning');
   }, [showNotification, t]);
 
@@ -833,14 +805,6 @@ export function AuthFilesPage() {
               {t('common.refresh')}
             </Button>
             <Button
-              size="sm"
-              onClick={handleUploadClick}
-              disabled={disableControls || uploading}
-              loading={uploading}
-            >
-              {t('auth_files.upload_button')}
-            </Button>
-            <Button
               variant="secondary"
               size="sm"
               onClick={() => setImportModalOpen(true)}
@@ -851,9 +815,8 @@ export function AuthFilesPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => void handleExportConfig()}
-              disabled={disableControls || exportingConfig}
-              loading={exportingConfig}
+              onClick={handleExportConfig}
+              disabled={disableControls}
             >
               {t('auth_files.export_config_button')}
             </Button>
@@ -873,14 +836,6 @@ export function AuthFilesPage() {
             >
               {deleteAllButtonLabel}
             </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,application/json"
-              multiple
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
           </div>
         }
       >
@@ -1079,6 +1034,14 @@ export function AuthFilesPage() {
             />
             <div className={styles.importModalActions}>
               <Button
+                size="sm"
+                onClick={handleUploadClick}
+                disabled={disableControls || uploading}
+                loading={uploading}
+              >
+                {t('auth_files.upload_button')}
+              </Button>
+              <Button
                 variant="primary"
                 size="sm"
                 onClick={() => void handleJsonImport()}
@@ -1093,9 +1056,14 @@ export function AuthFilesPage() {
               <Button variant="secondary" size="sm" onClick={handleSacImport}>
                 {t('auth_files.import_sac_button')}
               </Button>
-              <Button variant="secondary" size="sm" onClick={handleSacExport}>
-                {t('auth_files.export_sac_button')}
-              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                multiple
+                className={styles.hiddenFileInput}
+                onChange={handleFileChange}
+              />
             </div>
           </div>
         </div>

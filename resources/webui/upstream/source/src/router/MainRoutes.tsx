@@ -73,7 +73,7 @@ const dashboardRoute = (
 const mainRoutes = [
   { path: '/', element: dashboardRoute },
   { path: '/dashboard', element: dashboardRoute },
-  { path: '/dashboard/overview', element: <Navigate to="/console" replace /> },
+  { path: '/dashboard/overview', element: route('console-overview', <ConsolePage />) },
   { path: '/console', element: route('console', <ConsolePage />) },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },

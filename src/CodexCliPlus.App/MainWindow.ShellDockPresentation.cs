@@ -453,7 +453,10 @@ public partial class MainWindow
         var panelOpacity = state == NavigationDockVisualState.Resting ? 0 : 1;
         var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0;
         var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0;
-        var panelOffset = state == NavigationDockVisualState.Resting ? -6 : 0;
+        var panelOffset =
+            state == NavigationDockVisualState.Resting
+                ? NavigationDockPanelRestingOffset
+                : NavigationDockPanelOpenOffset;
         var duration = state == NavigationDockVisualState.Resting ? 130 : 240;
         var panelDuration = state == NavigationDockVisualState.Resting ? 110 : 210;
         ShellNavigationPanel.IsHitTestVisible = state != NavigationDockVisualState.Resting;
@@ -526,9 +529,7 @@ public partial class MainWindow
         var expandedLabelWidth = ResolveNavigationDockLabelExpandedWidth();
         foreach (var button in ShellNavigationItemsHost.Children.OfType<WpfButton>())
         {
-            button.HorizontalContentAlignment = expanded
-                ? System.Windows.HorizontalAlignment.Left
-                : System.Windows.HorizontalAlignment.Center;
+            button.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Center;
         }
 
         foreach (var label in FindVisualChildren<TextBlock>(ShellNavigationItemsHost))
@@ -639,8 +640,13 @@ public partial class MainWindow
             normalized = normalized.TrimEnd('/');
         }
 
-        return normalized.Equals("/dashboard", StringComparison.OrdinalIgnoreCase)
-            ? "/"
+        if (normalized.Equals("/dashboard", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/";
+        }
+
+        return normalized.Equals("/console", StringComparison.OrdinalIgnoreCase)
+            ? "/dashboard/overview"
             : normalized;
     }
 }

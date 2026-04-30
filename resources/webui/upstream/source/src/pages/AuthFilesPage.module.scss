@@ -152,6 +152,10 @@
   gap: $spacing-sm;
 }
 
+.hiddenFileInput {
+  display: none;
+}
+
 // 筛选区域
 .filterSection {
   display: flex;

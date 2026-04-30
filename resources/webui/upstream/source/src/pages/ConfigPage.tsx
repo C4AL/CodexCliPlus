@@ -1,9 +1,7 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { createPortal } from 'react-dom';
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { parse as parseYaml, parseDocument } from 'yaml';
-import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -15,7 +13,6 @@ import {
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
 import { DiffModal } from '@/components/config/DiffModal';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useVisualConfig } from '@/hooks/useVisualConfig';
 import { useNotificationStore, useAuthStore, useThemeStore, useConfigStore } from '@/stores';
 import { configFileApi } from '@/services/api/configFile';
@@ -37,13 +34,10 @@ function readCommercialModeFromYaml(yamlContent: string): boolean {
 
 export function ConfigPage() {
   const { t } = useTranslation();
-  const pageTransitionLayer = usePageTransitionLayer();
-  const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.isCurrentLayer : true;
   const showNotification = useNotificationStore((state) => state.showNotification);
   const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
-  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const {
     visualValues,
@@ -79,11 +73,9 @@ export function ConfigPage() {
   });
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const editorRef = useRef<ReactCodeMirrorRef | null>(null);
-  const floatingActionsRef = useRef<HTMLDivElement>(null);
 
   const disableControls = connectionStatus !== 'connected';
   const isDirty = dirty || visualDirty;
-  const shouldRenderFloatingActions = isCurrentLayer;
   const hasVisualModeError = !!visualParseError;
   const hasVisualValidationErrors =
     activeTab === 'visual' &&
@@ -387,31 +379,6 @@ export function ConfigPage() {
     performSearch(lastSearchedQuery, 'next');
   }, [lastSearchedQuery, performSearch]);
 
-  // Keep bottom floating actions from covering page content by syncing its height to a CSS variable.
-  useLayoutEffect(() => {
-    if (typeof window === 'undefined' || !shouldRenderFloatingActions) return;
-
-    const actionsEl = floatingActionsRef.current;
-    if (!actionsEl) return;
-
-    const updatePadding = () => {
-      const height = actionsEl.getBoundingClientRect().height;
-      document.documentElement.style.setProperty('--config-action-bar-height', `${height}px`);
-    };
-
-    updatePadding();
-    window.addEventListener('resize', updatePadding);
-
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updatePadding);
-    ro?.observe(actionsEl);
-
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener('resize', updatePadding);
-      document.documentElement.style.removeProperty('--config-action-bar-height');
-    };
-  }, [shouldRenderFloatingActions]);
-
   // Status text
   const getStatusText = () => {
     if (disableControls) return t('config_management.status_disconnected');
@@ -432,21 +399,6 @@ export function ConfigPage() {
     return '';
   };
 
-  const getFloatingStatusText = () => {
-    if (!isMobile) return getStatusText();
-    if (disableControls)
-      return t('config_management.status_disconnected_short', { defaultValue: '未连接' });
-    if (loading) return t('config_management.status_loading_short', { defaultValue: '加载中' });
-    if (error) return t('config_management.status_load_failed_short', { defaultValue: '加载失败' });
-    if (hasVisualModeError)
-      return t('config_management.visual_mode_unavailable_short', { defaultValue: 'YAML 异常' });
-    if (hasVisualValidationErrors)
-      return t('config_management.visual.validation_blocked_short', { defaultValue: '需修正' });
-    if (saving) return t('config_management.status_saving_short', { defaultValue: '保存中' });
-    if (isDirty) return t('config_management.status_dirty_short', { defaultValue: '未保存' });
-    return t('config_management.status_loaded_short', { defaultValue: '已加载' });
-  };
-
   const handleReload = useCallback(() => {
     if (!isDirty) {
       void loadConfig();
@@ -464,49 +416,6 @@ export function ConfigPage() {
       },
     });
   }, [isDirty, loadConfig, showConfirmation, t]);
-
-  const floatingActions = (
-    <div className={styles.floatingActionContainer} ref={floatingActionsRef}>
-      <div className={styles.floatingActionList}>
-        <div
-          className={`${styles.floatingStatus} ${
-            isMobile ? styles.floatingStatusCompact : ''
-          } ${getStatusClass()}`}
-        >
-          {getFloatingStatusText()}
-        </div>
-        <button
-          type="button"
-          className={styles.floatingActionButton}
-          onClick={handleReload}
-          disabled={loading || saving}
-          title={t('config_management.reload')}
-          aria-label={t('config_management.reload')}
-        >
-          <IconRefreshCw size={16} />
-        </button>
-        <button
-          type="button"
-          className={styles.floatingActionButton}
-          onClick={handleSave}
-          disabled={
-            disableControls ||
-            loading ||
-            saving ||
-            !isDirty ||
-            diffModalOpen ||
-            hasVisualModeError ||
-            hasVisualValidationErrors
-          }
-          title={t('config_management.save')}
-          aria-label={t('config_management.save')}
-        >
-          <IconCheck size={16} />
-          {isDirty && <span className={styles.dirtyDot} aria-hidden="true" />}
-        </button>
-      </div>
-    </div>
-  );
 
   const pageEyebrow =
     activeTab === 'visual'
@@ -545,6 +454,33 @@ export function ConfigPage() {
             >
               {t('config_management.tabs.source', { defaultValue: '源代码编辑' })}
             </button>
+          </div>
+          <div className={styles.headerActions}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleReload}
+              disabled={loading || saving}
+            >
+              <IconRefreshCw size={16} />
+              {t('config_management.reload')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={
+                disableControls ||
+                loading ||
+                saving ||
+                !isDirty ||
+                diffModalOpen ||
+                hasVisualModeError ||
+                hasVisualValidationErrors
+              }
+            >
+              <IconCheck size={16} />
+              {t('config_management.save')}
+            </Button>
           </div>
         </div>
       </div>
@@ -647,9 +583,6 @@ export function ConfigPage() {
         </div>
       </div>
 
-      {shouldRenderFloatingActions && typeof document !== 'undefined'
-        ? createPortal(floatingActions, document.body)
-        : null}
       <DiffModal
         open={diffModalOpen}
         original={serverYaml}

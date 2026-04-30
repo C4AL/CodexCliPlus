@@ -385,30 +385,7 @@
         Panel.ZIndex="1"
       >
         <Button
-          x:Name="ShellRefreshButton"
-          Style="{StaticResource ShellTopActionButtonStyle}"
-          AutomationProperties.AutomationId="ShellRefreshButton"
-          AutomationProperties.Name="刷新"
-          Click="ShellRefreshButton_Click"
-          ToolTip="刷新"
-        >
-          <Viewbox Style="{StaticResource ShellIconViewboxStyle}">
-            <Canvas Width="24" Height="24">
-              <Path
-                Data="M20,12 C20,16.418 16.418,20 12,20 C7.582,20 4,16.418 4,12 C4,7.582 7.582,4 12,4 C14.245,4 16.277,4.924 17.73,6.414 M20,5 L20,10 L15,10"
-                Fill="Transparent"
-                Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                StrokeThickness="1.8"
-                StrokeStartLineCap="Round"
-                StrokeEndLineCap="Round"
-                StrokeLineJoin="Round"
-              />
-            </Canvas>
-          </Viewbox>
-        </Button>
-        <Button
           x:Name="ShellThemeButton"
-          Margin="6,0,0,0"
           Style="{StaticResource ShellTopActionButtonStyle}"
           AutomationProperties.AutomationId="ShellThemeButton"
           AutomationProperties.Name="切换主题"

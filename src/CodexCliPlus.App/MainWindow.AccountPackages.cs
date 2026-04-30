@@ -52,6 +52,7 @@ public partial class MainWindow
             CancelUsageStatsSyncDebounce();
             await _persistenceService.ClearUsageSnapshotAsync();
             PostWebUiCommand(new { type = "clearUsageStats" });
+            _changeBroadcastService.Broadcast("usage", "persistence");
             _notificationService.ShowAuto("使用统计已清除。");
         }
         catch (Exception exception)
@@ -111,7 +112,7 @@ public partial class MainWindow
                 );
                 await _managementConfigurationService.PutConfigYamlAsync(migration.Content);
                 _notificationService.ShowAuto(BuildMigrationNotice("账号配置已导入", migration.Report));
-                PostWebUiCommand(new { type = "refreshAll" });
+                _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
                 return;
             }
 
@@ -333,7 +334,7 @@ public partial class MainWindow
             );
         }
 
-        PostWebUiCommand(new { type = "refreshAll" });
+        _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
         _notificationService.ShowAuto("账号配置已导入。");
     }
 

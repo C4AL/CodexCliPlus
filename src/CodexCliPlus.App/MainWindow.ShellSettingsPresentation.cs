@@ -266,7 +266,7 @@ public partial class MainWindow
                 if (attempt > 0)
                 {
                     SettingsModelOverviewText.Text = "可用模型：未加载";
-                    SettingsProviderOverviewText.Text = "提供商概览：正在刷新...";
+                    SettingsProviderOverviewText.Text = "提供商概览：正在同步...";
                     await Task.Delay(TimeSpan.FromMilliseconds(420 * attempt), cancellationToken);
                 }
 

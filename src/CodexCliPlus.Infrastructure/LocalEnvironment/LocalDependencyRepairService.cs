@@ -151,7 +151,16 @@ public sealed class LocalDependencyRepairService
                         [
                             new RepairCommand(
                                 "winget",
-                                "install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements"
+                                [
+                                    "install",
+                                    "--id",
+                                    "OpenJS.NodeJS.LTS",
+                                    "-e",
+                                    "--source",
+                                    "winget",
+                                    "--accept-package-agreements",
+                                    "--accept-source-agreements",
+                                ]
                             ),
                         ],
                         cancellationToken
@@ -162,7 +171,16 @@ public sealed class LocalDependencyRepairService
                         [
                             new RepairCommand(
                                 "winget",
-                                "install --id Microsoft.PowerShell -e --source winget --accept-package-agreements --accept-source-agreements"
+                                [
+                                    "install",
+                                    "--id",
+                                    "Microsoft.PowerShell",
+                                    "-e",
+                                    "--source",
+                                    "winget",
+                                    "--accept-package-agreements",
+                                    "--accept-source-agreements",
+                                ]
                             ),
                         ],
                         cancellationToken
@@ -170,19 +188,19 @@ public sealed class LocalDependencyRepairService
                     LocalDependencyRepairActionIds.InstallWsl => await RunCommandRepairAsync(
                         actionId,
                         "安装 WSL",
-                        [new RepairCommand("wsl.exe", "--install")],
+                        [new RepairCommand("wsl.exe", ["--install"])],
                         cancellationToken
                     ),
                     LocalDependencyRepairActionIds.UpdateWsl => await RunCommandRepairAsync(
                         actionId,
                         "更新 WSL",
-                        [new RepairCommand("wsl.exe", "--update")],
+                        [new RepairCommand("wsl.exe", ["--update"])],
                         cancellationToken
                     ),
                     LocalDependencyRepairActionIds.InstallCodexCli => await RunCommandRepairAsync(
                         actionId,
                         "安装 Codex CLI",
-                        [new RepairCommand("cmd.exe", "/d /c npm install -g @openai/codex")],
+                        [new RepairCommand("cmd.exe", ["/d", "/c", "npm", "install", "-g", "@openai/codex"])],
                         cancellationToken
                     ),
                     LocalDependencyRepairActionIds.RepairUserPath => await RepairUserPathAsync(
@@ -215,7 +233,7 @@ public sealed class LocalDependencyRepairService
         {
             await AppendRepairLogAsync(
                 logPath,
-                $"$ {command.FileName} {command.Arguments}",
+                $"$ {command.FileName} {string.Join(" ", command.Arguments)}",
                 cancellationToken
             );
             var result = await _processRunner.RunAsync(
@@ -453,7 +471,7 @@ public sealed class LocalDependencyRepairService
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"Command '{command.FileName} {command.Arguments}' exited {result.ExitCode}.{Environment.NewLine}{result.StandardOutput}{Environment.NewLine}{result.StandardError}"
+            $"Command '{command.FileName} {string.Join(" ", command.Arguments)}' exited {result.ExitCode}.{Environment.NewLine}{result.StandardOutput}{Environment.NewLine}{result.StandardError}"
         );
     }
 
@@ -549,7 +567,7 @@ public sealed class LocalDependencyRepairService
         out IntPtr result
     );
 
-    private sealed record RepairCommand(string FileName, string Arguments);
+    private sealed record RepairCommand(string FileName, IReadOnlyList<string> Arguments);
 
     private sealed record AllowedPathDirectory(string Path, bool CreateIfMissing = false);
 }

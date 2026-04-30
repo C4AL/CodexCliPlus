@@ -69,6 +69,20 @@ public static class DesktopBridgeScriptFactory
                 usageStatsRefreshed: () => postHostMessage({ type: 'usageStatsRefreshed' }),
                 checkDesktopUpdate: () => postHostMessage({ type: 'checkDesktopUpdate' }),
                 applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' }),
+                managementRequest: (request) => {
+                  const normalized = request && typeof request === 'object' ? request : {};
+                  postHostMessage({
+                    type: 'managementRequest',
+                    requestId: typeof normalized.requestId === 'string' ? normalized.requestId : undefined,
+                    method: typeof normalized.method === 'string' ? normalized.method : 'GET',
+                    path: typeof normalized.path === 'string' ? normalized.path : '/',
+                    body: typeof normalized.body === 'string' ? normalized.body : undefined,
+                    contentType: typeof normalized.contentType === 'string' ? normalized.contentType : 'application/json',
+                    accept: typeof normalized.accept === 'string' ? normalized.accept : 'application/json',
+                    files: Array.isArray(normalized.files) ? normalized.files : undefined,
+                    fields: normalized.fields && typeof normalized.fields === 'object' ? normalized.fields : undefined
+                  });
+                },
                 requestLocalDependencySnapshot: (requestId) => postHostMessage({
                   type: 'requestLocalDependencySnapshot',
                   requestId: typeof requestId === 'string' ? requestId : undefined

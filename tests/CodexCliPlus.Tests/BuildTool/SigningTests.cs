@@ -266,6 +266,16 @@ public sealed class SigningTests : IDisposable
         WriteEntry(archive, $"output/{installerName}", installerBytes);
         WriteEntry(
             archive,
+            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}",
+            CreateExecutableBytes()
+        );
+        WriteEntry(
+            archive,
+            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
+            CreateExecutableBytes()
+        );
+        WriteEntry(
+            archive,
             "app-package/packaging/uninstall-cleanup.json",
             Encoding.UTF8.GetBytes("{}")
         );

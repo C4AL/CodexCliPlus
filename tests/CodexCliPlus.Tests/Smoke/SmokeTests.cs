@@ -397,6 +397,10 @@ public sealed class SmokeTests
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 [$"output/{installerName}"] = SmokeEnvironmentScope.CreatePeStubBytes(),
+                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
+                    SmokeEnvironmentScope.CreatePeStubBytes(),
+                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"] =
+                    SmokeEnvironmentScope.CreatePeStubBytes(),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),

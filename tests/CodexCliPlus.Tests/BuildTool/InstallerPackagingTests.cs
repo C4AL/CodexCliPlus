@@ -19,6 +19,7 @@ public sealed class InstallerPackagingTests : IDisposable
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-success");
         CreatePublishRoot(outputRoot);
+        CreateWebView2Cache(outputRoot);
         CreateRepoOwnedToolchain(repositoryRoot);
 
         using var output = new StringWriter();
@@ -72,7 +73,39 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         Assert.Contains(
             archive.Entries,
+            entry =>
+                entry.FullName
+                == $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
+        );
+        Assert.Contains(
+            archive.Entries,
+            entry =>
+                entry.FullName
+                == $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
+        );
+        Assert.Contains(
+            archive.Entries,
             entry => entry.FullName == "app-package/packaging/uninstall-cleanup.json"
+        );
+
+        var installerPlan = ReadArchiveJson<InstallerPlan>(archive, "mica-setup.json");
+        Assert.True(installerPlan.CleanupInstallerAfterInstallDefault);
+
+        var micaConfig = ReadArchiveJson<JsonElement>(archive, "micasetup.json");
+        Assert.EndsWith(
+            "codexcliplus-display.png",
+            micaConfig.GetProperty("Favicon").GetString(),
+            StringComparison.Ordinal
+        );
+        Assert.EndsWith(
+            "codexcliplus.ico",
+            micaConfig.GetProperty("Icon").GetString(),
+            StringComparison.Ordinal
+        );
+        Assert.EndsWith(
+            "codexcliplus.ico",
+            micaConfig.GetProperty("UnIcon").GetString(),
+            StringComparison.Ordinal
         );
 
         var cleanupManifest = ReadArchiveJson<InstallerCleanupManifest>(
@@ -96,6 +129,29 @@ public sealed class InstallerPackagingTests : IDisposable
             dependencyPrecheck.GetProperty("webView2").GetProperty("required").GetBoolean()
         );
         Assert.True(
+            dependencyPrecheck.GetProperty("webView2").GetProperty("bundledFirst").GetBoolean()
+        );
+        Assert.Equal(
+            "online-bootstrapper-then-bundled-standalone",
+            dependencyPrecheck.GetProperty("webView2").GetProperty("installStrategy").GetString()
+        );
+        Assert.Equal(
+            WebView2RuntimeAssets.BootstrapperFileName,
+            dependencyPrecheck
+                .GetProperty("webView2")
+                .GetProperty("onlineBootstrapper")
+                .GetProperty("fileName")
+                .GetString()
+        );
+        Assert.Equal(
+            WebView2RuntimeAssets.StandaloneX64FileName,
+            dependencyPrecheck
+                .GetProperty("webView2")
+                .GetProperty("bundledStandaloneX64")
+                .GetProperty("fileName")
+                .GetString()
+        );
+        Assert.True(
             dependencyPrecheck.GetProperty("webUi").GetProperty("bundledFirst").GetBoolean()
         );
         Assert.True(
@@ -114,6 +170,7 @@ public sealed class InstallerPackagingTests : IDisposable
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-fallback");
         CreatePublishRoot(outputRoot);
+        CreateWebView2Cache(outputRoot);
         CreateRepoOwnedToolchain(repositoryRoot);
 
         using var output = new StringWriter();
@@ -147,6 +204,15 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         var setupProgram = File.ReadAllText(Path.Combine(distRoot, "Program.cs"));
         var uninstProgram = File.ReadAllText(Path.Combine(distRoot, "Program.un.cs"));
+        var installViewModel = File.ReadAllText(
+            Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs")
+        );
+        var finishPage = File.ReadAllText(
+            Path.Combine(distRoot, "Views", "Inst", "FinishPage.xaml")
+        );
+        var finishViewModel = File.ReadAllText(
+            Path.Combine(distRoot, "ViewModels", "Inst", "FinishViewModel.cs")
+        );
         var uninstallHelper = File.ReadAllText(
             Path.Combine(distRoot, "Helper", "Setup", "UninstallHelper.cs")
         );
@@ -155,11 +221,36 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Contains("BlackblockInc.CodexCliPlus.Setup", setupProgram, StringComparison.Ordinal);
         Assert.Contains("RequestExecutionLevel(\"admin\")", setupProgram, StringComparison.Ordinal);
         Assert.Contains("option.KeepMyData = false;", uninstProgram, StringComparison.Ordinal);
+        Assert.Contains("EnsureCodexCliPlusWebView2RuntimeInstalled", installViewModel, StringComparison.Ordinal);
+        Assert.Contains(WebView2RuntimeAssets.BootstrapperFileName, installViewModel, StringComparison.Ordinal);
+        Assert.Contains(WebView2RuntimeAssets.StandaloneX64FileName, installViewModel, StringComparison.Ordinal);
+        Assert.Contains("无法安装 Microsoft Edge WebView2 Runtime", installViewModel, StringComparison.Ordinal);
+        Assert.Contains("完成后删除安装包", finishPage, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding CleanupInstallerAfterInstall}\"", finishPage, StringComparison.Ordinal);
+        Assert.Contains("CleanupOriginalInstallerAfterInstall", finishViewModel, StringComparison.Ordinal);
+        Assert.Equal(
+            2,
+            CountOccurrences(finishViewModel, "CleanupOriginalInstallerAfterInstall();")
+        );
+        Assert.Contains("ComputeCodexCliPlusSha256", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("TempPathForkHelper.ForkedCli", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("CleanupCodexCliPlusUserData", uninstallHelper, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Option.Current.KeepMyData = true;",
             uninstallHelper,
             StringComparison.Ordinal
+        );
+
+        Assert.True(
+            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "Favicon.png")) >= 256
+        );
+        Assert.True(
+            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconSetup.png"))
+                >= 256
+        );
+        Assert.True(
+            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconUninst.png"))
+                >= 256
         );
     }
 
@@ -216,7 +307,28 @@ public sealed class InstallerPackagingTests : IDisposable
         File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
         File.WriteAllText(Path.Combine(repositoryRoot, "LICENSE.txt"), "license");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "build", "micasetup"));
+        var iconRoot = Path.Combine(repositoryRoot, "resources", "icons");
+        Directory.CreateDirectory(iconRoot);
+        File.WriteAllBytes(
+            Path.Combine(iconRoot, "codexcliplus-display.png"),
+            CreatePngHeaderBytes(256, 256)
+        );
+        File.WriteAllBytes(Path.Combine(iconRoot, "codexcliplus.ico"), [0, 0, 1, 0]);
         return repositoryRoot;
+    }
+
+    private static void CreateWebView2Cache(string outputRoot)
+    {
+        var webView2Root = Path.Combine(outputRoot, "cache", "webview2");
+        Directory.CreateDirectory(webView2Root);
+        File.WriteAllBytes(
+            Path.Combine(webView2Root, WebView2RuntimeAssets.BootstrapperFileName),
+            CreateExecutableBytes()
+        );
+        File.WriteAllBytes(
+            Path.Combine(webView2Root, WebView2RuntimeAssets.StandaloneX64FileName),
+            CreateExecutableBytes()
+        );
     }
 
     private static void CreatePublishRoot(string outputRoot)
@@ -286,6 +398,53 @@ public sealed class InstallerPackagingTests : IDisposable
         bytes[0] = (byte)'M';
         bytes[1] = (byte)'Z';
         return bytes;
+    }
+
+    private static int ReadPngWidth(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        return (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+    }
+
+    private static byte[] CreatePngHeaderBytes(int width, int height)
+    {
+        var bytes = new byte[33];
+        bytes[0] = 0x89;
+        bytes[1] = (byte)'P';
+        bytes[2] = (byte)'N';
+        bytes[3] = (byte)'G';
+        bytes[4] = 0x0D;
+        bytes[5] = 0x0A;
+        bytes[6] = 0x1A;
+        bytes[7] = 0x0A;
+        bytes[12] = (byte)'I';
+        bytes[13] = (byte)'H';
+        bytes[14] = (byte)'D';
+        bytes[15] = (byte)'R';
+        WriteBigEndian(bytes, 16, width);
+        WriteBigEndian(bytes, 20, height);
+        return bytes;
+    }
+
+    private static void WriteBigEndian(byte[] bytes, int offset, int value)
+    {
+        bytes[offset] = (byte)((value >> 24) & 0xFF);
+        bytes[offset + 1] = (byte)((value >> 16) & 0xFF);
+        bytes[offset + 2] = (byte)((value >> 8) & 0xFF);
+        bytes[offset + 3] = (byte)(value & 0xFF);
+    }
+
+    private static int CountOccurrences(string value, string needle)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
     }
 
     private sealed class InstallerProcessRunner(bool forceFallback) : IProcessRunner
@@ -365,7 +524,10 @@ public sealed class InstallerPackagingTests : IDisposable
             Directory.CreateDirectory(distRoot);
             Directory.CreateDirectory(Path.Combine(distRoot, "Helper", "Setup"));
             Directory.CreateDirectory(Path.Combine(distRoot, "Helper", "System"));
+            Directory.CreateDirectory(Path.Combine(distRoot, "Resources", "Images"));
             Directory.CreateDirectory(Path.Combine(distRoot, "ViewModels", "Uninst"));
+            Directory.CreateDirectory(Path.Combine(distRoot, "ViewModels", "Inst"));
+            Directory.CreateDirectory(Path.Combine(distRoot, "Views", "Inst"));
             Directory.CreateDirectory(Path.Combine(distRoot, "Resources", "Setups"));
             File.WriteAllText(Path.Combine(distRoot, "MicaSetup.csproj"), "<Project />");
             File.WriteAllText(Path.Combine(distRoot, "MicaSetup.Uninst.csproj"), "<Project />");
@@ -415,6 +577,114 @@ public sealed class InstallerPackagingTests : IDisposable
             File.WriteAllText(
                 Path.Combine(distRoot, "ViewModels", "Uninst", "MainViewModel.cs"),
                 "private bool isElevated = RuntimeHelper.IsElevated;"
+            );
+            File.WriteAllText(
+                Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs"),
+                """
+                using MicaSetup.Design.ComponentModel;
+                using MicaSetup.Design.Controls;
+                using MicaSetup.Helper;
+                using MicaSetup.Helper.Helper;
+                using System;
+                using System.Collections.Generic;
+                using System.ComponentModel;
+                using System.IO;
+                using System.Threading.Tasks;
+
+                namespace MicaSetup.ViewModels;
+
+                public partial class InstallViewModel : ObservableObject
+                {
+                    public string Message => Option.Current.MessageOfPage2;
+                    private string installInfo = string.Empty;
+                    public string InstallInfo { get => installInfo; set => installInfo = value; }
+
+                    public InstallViewModel()
+                    {
+                        _ = Task.Run(() =>
+                        {
+                            using Stream uninstStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/Uninst.exe");
+                            InstallHelper.CreateUninst(uninstStream);
+                            ApplicationDispatcherHelper.Invoke(Routing.GoToNext);
+                        });
+                    }
+                }
+
+                partial class InstallViewModel
+                {
+                }
+                """
+            );
+            File.WriteAllText(
+                Path.Combine(distRoot, "Views", "Inst", "FinishPage.xaml"),
+                """
+                <UserControl x:Class="MicaSetup.Views.FinishPage"
+                             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Message}" />
+                        <StackPanel Grid.Row="2"
+                                    Margin="0,56,0,0"
+                                    HorizontalAlignment="Center"
+                                    Orientation="Horizontal">
+                            <Button Command="{Binding CloseCommand}" />
+                            <Button Command="{Binding OpenCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </UserControl>
+                """
+            );
+            File.WriteAllText(
+                Path.Combine(distRoot, "ViewModels", "Inst", "FinishViewModel.cs"),
+                """
+                using MicaSetup.Design.Commands;
+                using MicaSetup.Design.ComponentModel;
+                using MicaSetup.Helper;
+                using System;
+                using System.IO;
+                using System.Windows;
+
+                namespace MicaSetup.ViewModels;
+
+                public partial class FinishViewModel : ObservableObject
+                {
+                    public string Message => Option.Current.MessageOfPage3;
+
+                    [RelayCommand]
+                    public void Close()
+                    {
+                        if (ApplicationDispatcherHelper.MainWindow is Window window)
+                        {
+                            SystemCommands.CloseWindow(window);
+                        }
+                    }
+
+                    [RelayCommand]
+                    public void Open()
+                    {
+                        if (ApplicationDispatcherHelper.MainWindow is Window window)
+                        {
+                            try
+                            {
+                                FluentProcess.Create()
+                                    .FileName(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName))
+                                    .WorkingDirectory(Option.Current.InstallLocation)
+                                    .UseShellExecute()
+                                    .Start()
+                                    .Forget();
+                            }
+                            catch (Exception e)
+                            {
+                                Logger.Error(e);
+                            }
+                            SystemCommands.CloseWindow(window);
+                        }
+                    }
+                }
+
+                partial class FinishViewModel
+                {
+                }
+                """
             );
             File.WriteAllText(
                 Path.Combine(distRoot, "Helper", "Setup", "UninstallHelper.cs"),

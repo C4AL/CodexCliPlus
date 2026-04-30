@@ -57,6 +57,16 @@ public sealed class PackageVerifier
         VerifyZip(stagingPackagePath, "mica-setup.json", failures);
         VerifyZip(stagingPackagePath, "micasetup.json", failures);
         VerifyZipExecutable(stagingPackagePath, $"output/{installerName}", failures);
+        VerifyZipExecutable(
+            stagingPackagePath,
+            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}",
+            failures
+        );
+        VerifyZipExecutable(
+            stagingPackagePath,
+            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
+            failures
+        );
         VerifyZip(stagingPackagePath, "app-package/packaging/uninstall-cleanup.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/dependency-precheck.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/update-policy.json", failures);

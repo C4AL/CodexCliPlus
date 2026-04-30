@@ -23,7 +23,8 @@ public static class InstallerMetadata
     public static async Task WriteAsync(
         BuildContext context,
         string appPackageRoot,
-        string installerStageRoot
+        string installerStageRoot,
+        WebView2RuntimeAssets webView2Assets
     )
     {
         var packagingRoot = Path.Combine(appPackageRoot, "packaging");
@@ -38,8 +39,28 @@ public static class InstallerMetadata
                     required = true,
                     runtime = "Microsoft Edge WebView2 Runtime",
                     detection = "CoreWebView2Environment.GetAvailableBrowserVersionString",
-                    bundledFirst = false,
+                    bundledFirst = true,
+                    installStrategy = "online-bootstrapper-then-bundled-standalone",
+                    onlineBootstrapper = new
+                    {
+                        webView2Assets.Bootstrapper.FileName,
+                        webView2Assets.Bootstrapper.PackagedPath,
+                        webView2Assets.Bootstrapper.SourceUrl,
+                        webView2Assets.Bootstrapper.SilentArguments,
+                        webView2Assets.Bootstrapper.Size,
+                        webView2Assets.Bootstrapper.Sha256,
+                    },
+                    bundledStandaloneX64 = new
+                    {
+                        webView2Assets.StandaloneX64.FileName,
+                        webView2Assets.StandaloneX64.PackagedPath,
+                        webView2Assets.StandaloneX64.SourceUrl,
+                        webView2Assets.StandaloneX64.SilentArguments,
+                        webView2Assets.StandaloneX64.Size,
+                        webView2Assets.StandaloneX64.Sha256,
+                    },
                     downloadPage = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+                    failureBehavior = "缺少 WebView2 且自动安装失败时阻止启动，并显示中文原因。",
                     note = "The desktop shell is a WebView2 host and cannot render the vendored official WebUI without the runtime.",
                 },
                 runtime = new

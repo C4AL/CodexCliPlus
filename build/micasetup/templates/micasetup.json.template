@@ -42,6 +42,6 @@
   "OverlayInstallRemoveExt": "exe,dll,pdb,xml,json,yaml,config,7z",
   "UnpackingPassword": null,
   "MessageOfPage1": "CodexCliPlus",
-  "MessageOfPage2": "Installing CodexCliPlus",
-  "MessageOfPage3": "CodexCliPlus has been installed."
+  "MessageOfPage2": "正在安装 CodexCliPlus",
+  "MessageOfPage3": "安装完成"
 }

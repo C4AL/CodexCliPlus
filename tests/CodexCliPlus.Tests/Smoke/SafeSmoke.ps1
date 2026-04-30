@@ -354,12 +354,12 @@ function Invoke-StaticVerification {
         Add-Finding -List $failures -Kind "Missing main window host code-behind" -Detail (Get-DisplayPath -FullPath $mainWindowCodeBehindPath -Root $RepositoryRoot)
     }
     else {
-        $mainWindowCodeBehind = [string]::Join(
-            [Environment]::NewLine,
+        $mainWindowSources = @(
             [System.IO.Directory]::EnumerateFiles($mainWindowSourceRoot, "MainWindow*.cs", [System.IO.SearchOption]::TopDirectoryOnly) |
-                Sort-Object |
-                ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
+            Sort-Object |
+            ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
         )
+        $mainWindowCodeBehind = [string]::Join([Environment]::NewLine, $mainWindowSources)
         foreach ($requiredToken in @(
                 "SetVirtualHostNameToFolderMapping",
                 "AddScriptToExecuteOnDocumentCreatedAsync",
@@ -437,16 +437,16 @@ function Invoke-StaticVerification {
         Add-Finding -List $failures -Kind "Missing BuildTool source" -Detail (Get-DisplayPath -FullPath $buildToolRoot -Root $RepositoryRoot)
     }
     else {
-        $buildTool = [string]::Join(
-            [Environment]::NewLine,
+        $buildToolSources = @(
             [System.IO.Directory]::EnumerateFiles($buildToolRoot, "*.cs", [System.IO.SearchOption]::AllDirectories) |
-                Where-Object {
-                    $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "bin" + [System.IO.Path]::DirectorySeparatorChar) -and
-                    $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "obj" + [System.IO.Path]::DirectorySeparatorChar)
-                } |
-                Sort-Object |
-                ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
+            Where-Object {
+                $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "bin" + [System.IO.Path]::DirectorySeparatorChar) -and
+                $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "obj" + [System.IO.Path]::DirectorySeparatorChar)
+            } |
+            Sort-Object |
+            ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
         )
+        $buildTool = [string]::Join([Environment]::NewLine, $buildToolSources)
         foreach ($requiredToken in @(
                 "build-webui",
                 "WebUiGeneratedDistRoot",

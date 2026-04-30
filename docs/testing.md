@@ -59,8 +59,8 @@ dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj --
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- verify-assets
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- build-webui
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- publish
-dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- package-online-installer
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- package-offline-installer
+dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- package-update
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- verify-package
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- write-checksums
 ```
@@ -84,6 +84,7 @@ $env:WINDOWS_CODESIGN_TIMESTAMP_URL = "http://timestamp.digicert.com"
 - `packaging/dependency-precheck.json`
 - `packaging/update-policy.json`
 - `packaging/uninstall-cleanup.json`
+- `CodexCliPlus.Update.<version>.<rid>.zip`
 
 ## 安全规则
 

@@ -525,7 +525,7 @@ export function AiProvidersClaudeEditPage() {
                         setForm((prev) => ({
                           ...prev,
                           cloak: {
-                            ...(prev.cloak ?? {}),
+                            ...prev.cloak,
                             mode: value,
                           },
                         }))
@@ -544,7 +544,7 @@ export function AiProvidersClaudeEditPage() {
                         setForm((prev) => ({
                           ...prev,
                           cloak: {
-                            ...(prev.cloak ?? {}),
+                            ...prev.cloak,
                             strictMode: value,
                           },
                         }))
@@ -566,7 +566,7 @@ export function AiProvidersClaudeEditPage() {
                         setForm((prev) => ({
                           ...prev,
                           cloak: {
-                            ...(prev.cloak ?? {}),
+                            ...prev.cloak,
                             sensitiveWords: nextWords.length ? nextWords : undefined,
                           },
                         }));

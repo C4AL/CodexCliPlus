@@ -19,6 +19,25 @@
   <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D9707884" />
   <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#35CBD5E1" />
   <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#E6E9EEF5" />
+  <LinearGradientBrush x:Key="ShellGlassSweepBrush" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="#FFFFFFFF" Offset="0" />
+    <GradientStop Color="#33FFFFFF" Offset="0.46" />
+    <GradientStop Color="#00FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush
+    x:Key="NavigationDockRailTrackHighlightBrush"
+    StartPoint="0,0"
+    EndPoint="1,1"
+  >
+    <GradientStop Color="#F4FFFFFF" Offset="0" />
+    <GradientStop Color="#D8FFFFFF" Offset="0.42" />
+    <GradientStop Color="#88D7E3EA" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="ShellProgressShimmerBrush" StartPoint="0,0" EndPoint="1,0">
+    <GradientStop Color="#00FFFFFF" Offset="0" />
+    <GradientStop Color="#CCFFFFFF" Offset="0.5" />
+    <GradientStop Color="#00FFFFFF" Offset="1" />
+  </LinearGradientBrush>
   <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />

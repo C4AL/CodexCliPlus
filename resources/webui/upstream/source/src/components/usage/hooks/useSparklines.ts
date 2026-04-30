@@ -47,8 +47,8 @@ export function useSparklines({ usage, loading, nowMs }: UseSparklinesOptions): 
     const windowMinutes = 60;
     const now = nowMs;
     const windowStart = now - windowMinutes * 60 * 1000;
-    const requestBuckets = new Array(windowMinutes).fill(0);
-    const tokenBuckets = new Array(windowMinutes).fill(0);
+    const requestBuckets = Array.from({ length: windowMinutes }, () => 0);
+    const tokenBuckets = Array.from({ length: windowMinutes }, () => 0);
 
     details.forEach((detail) => {
       const timestamp = detail.__timestampMs ?? 0;

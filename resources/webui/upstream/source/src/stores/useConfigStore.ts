@@ -185,9 +185,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   updateConfigValue: (section, value) => {
     set((state) => {
-      const raw = { ...(state.config?.raw || {}) };
+      const raw = { ...state.config?.raw };
       raw[section] = value;
-      const nextConfig: Config = { ...(state.config || {}), raw };
+      const nextConfig: Config = { ...state.config, raw };
 
       switch (section) {
         case 'debug':

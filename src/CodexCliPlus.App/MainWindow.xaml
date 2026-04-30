@@ -232,15 +232,13 @@
             </TransformGroup>
           </Border.RenderTransform>
           <Grid>
-            <Border Margin="-15" CornerRadius="18" IsHitTestVisible="False" Opacity="0.5">
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Color="#FFFFFFFF" Offset="0" />
-                  <GradientStop Color="#33FFFFFF" Offset="0.46" />
-                  <GradientStop Color="#00FFFFFF" Offset="1" />
-                </LinearGradientBrush>
-              </Border.Background>
-            </Border>
+            <Border
+              Margin="-15"
+              Background="{StaticResource ShellGlassSweepBrush}"
+              CornerRadius="18"
+              IsHitTestVisible="False"
+              Opacity="0.5"
+            />
             <Border
               Margin="-1"
               BorderBrush="{DynamicResource ShellDockGlassHighlightBrush}"
@@ -519,17 +517,10 @@
               Margin="14,0,0,0"
               HorizontalAlignment="Left"
               VerticalAlignment="Center"
+              Background="{StaticResource NavigationDockRailTrackHighlightBrush}"
               CornerRadius="9"
               Opacity="0.78"
-            >
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Color="#F4FFFFFF" Offset="0" />
-                  <GradientStop Color="#D8FFFFFF" Offset="0.42" />
-                  <GradientStop Color="#88D7E3EA" Offset="1" />
-                </LinearGradientBrush>
-              </Border.Background>
-            </Border>
+            />
             <Border
               x:Name="ShellNavigationRail"
               Width="7"
@@ -564,15 +555,11 @@
                 <TranslateTransform X="-6" />
               </Border.RenderTransform>
               <Grid ClipToBounds="True">
-                <Border IsHitTestVisible="False" Opacity="0.38">
-                  <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                      <GradientStop Color="#FFFFFFFF" Offset="0" />
-                      <GradientStop Color="#55FFFFFF" Offset="0.45" />
-                      <GradientStop Color="#00FFFFFF" Offset="1" />
-                    </LinearGradientBrush>
-                  </Border.Background>
-                </Border>
+                <Border
+                  Background="{StaticResource ShellGlassSweepBrush}"
+                  IsHitTestVisible="False"
+                  Opacity="0.38"
+                />
                 <Border
                   Margin="0"
                   BorderBrush="{DynamicResource NavigationDockInnerHighlightBrush}"
@@ -1375,14 +1362,12 @@
                   <ScaleTransform x:Name="PreparationProgressFillScale" ScaleX="0" ScaleY="1" />
                 </Border.RenderTransform>
                 <Grid ClipToBounds="True">
-                  <Border Width="96" HorizontalAlignment="Left" Opacity="0.46">
-                    <Border.Background>
-                      <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#00FFFFFF" Offset="0" />
-                        <GradientStop Color="#CCFFFFFF" Offset="0.5" />
-                        <GradientStop Color="#00FFFFFF" Offset="1" />
-                      </LinearGradientBrush>
-                    </Border.Background>
+                  <Border
+                    Width="96"
+                    HorizontalAlignment="Left"
+                    Background="{StaticResource ShellProgressShimmerBrush}"
+                    Opacity="0.46"
+                  >
                     <Border.RenderTransform>
                       <TranslateTransform X="-110" />
                     </Border.RenderTransform>

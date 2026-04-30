@@ -130,7 +130,7 @@ const buildFallbackWindows = (
       label: matchedWindow
         ? matchedWindow.labelKey
           ? t(matchedWindow.labelKey, {
-              ...(matchedWindow.labelParams ?? {}),
+              ...matchedWindow.labelParams,
               defaultValue: matchedWindow.label,
             })
           : matchedWindow.label

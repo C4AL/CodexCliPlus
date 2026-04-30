@@ -79,7 +79,7 @@ export function OAuthPage({ embedded = false }: OAuthPageProps = {}) {
   const updateProviderState = (provider: OAuthProvider, next: Partial<ProviderState>) => {
     setStates((prev) => ({
       ...prev,
-      [provider]: { ...(prev[provider] ?? {}), ...next },
+      [provider]: { ...prev[provider], ...next },
     }));
   };
 

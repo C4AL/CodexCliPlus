@@ -226,7 +226,7 @@ class ApiClient {
     const response = await this.instance.post<T>(url, formData, {
       ...config,
       headers: {
-        ...(config?.headers || {}),
+        ...config?.headers,
         'Content-Type': 'multipart/form-data'
       }
     });

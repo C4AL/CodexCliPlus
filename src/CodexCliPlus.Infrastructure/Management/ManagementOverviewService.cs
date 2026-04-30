@@ -16,10 +16,13 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     private readonly object _gate = new();
 
     private CacheEntry<ManagementApiResponse<ManagementShellStatusSnapshot>>? _shellStatusCache;
-    private CacheEntry<ManagementApiResponse<ManagementSettingsSummarySnapshot>>?
-        _settingsSummaryCache;
+    private CacheEntry<
+        ManagementApiResponse<ManagementSettingsSummarySnapshot>
+    >? _settingsSummaryCache;
     private Task<ManagementApiResponse<ManagementShellStatusSnapshot>>? _shellStatusInFlight;
-    private Task<ManagementApiResponse<ManagementSettingsSummarySnapshot>>? _settingsSummaryInFlight;
+    private Task<
+        ManagementApiResponse<ManagementSettingsSummarySnapshot>
+    >? _settingsSummaryInFlight;
     private Task<ManagementApiResponse<ManagementOverviewSnapshot>>? _overviewInFlight;
 
     public ManagementOverviewService(
@@ -53,7 +56,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         return await task.WaitAsync(cancellationToken);
     }
 
-    public async Task<ManagementApiResponse<ManagementSettingsSummarySnapshot>> GetSettingsSummaryAsync(
+    public async Task<
+        ManagementApiResponse<ManagementSettingsSummarySnapshot>
+    > GetSettingsSummaryAsync(
         bool forceRefresh = false,
         CancellationToken cancellationToken = default
     )
@@ -154,7 +159,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         }
     }
 
-    private async Task<ManagementApiResponse<ManagementSettingsSummarySnapshot>> BuildSettingsSummaryAsync()
+    private async Task<
+        ManagementApiResponse<ManagementSettingsSummarySnapshot>
+    > BuildSettingsSummaryAsync()
     {
         var connectionTask = _connectionProvider.GetConnectionAsync();
         var configTask = _configurationService.GetConfigAsync();
@@ -341,8 +348,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         lock (_gate)
         {
-            _shellStatusCache =
-                CacheEntry<ManagementApiResponse<ManagementShellStatusSnapshot>>.Create(response);
+            _shellStatusCache = CacheEntry<
+                ManagementApiResponse<ManagementShellStatusSnapshot>
+            >.Create(response);
         }
     }
 
@@ -352,10 +360,9 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         lock (_gate)
         {
-            _settingsSummaryCache =
-                CacheEntry<ManagementApiResponse<ManagementSettingsSummarySnapshot>>.Create(
-                    response
-                );
+            _settingsSummaryCache = CacheEntry<
+                ManagementApiResponse<ManagementSettingsSummarySnapshot>
+            >.Create(response);
         }
     }
 

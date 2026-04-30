@@ -190,10 +190,34 @@ public static class AssetCommands
                 "-w",
                 Path.Combine("internal", "store", "gitstore.go"),
                 Path.Combine("internal", "config", "config.go"),
+                Path.Combine("internal", "config", "codexcliplus_gpt_only.go"),
                 Path.Combine("internal", "config", "codexcliplus_secret_refs.go"),
+                Path.Combine("internal", "watcher", "synthesizer", "config.go"),
+                Path.Combine("internal", "watcher", "synthesizer", "file.go"),
                 Path.Combine("internal", "api", "handlers", "management", "config_basic.go"),
                 Path.Combine("internal", "api", "handlers", "management", "auth_files.go"),
+                Path.Combine("internal", "api", "server.go"),
+                Path.Combine("internal", "cmd", "auth_manager.go"),
+                Path.Combine("internal", "runtime", "executor", "openai_compat_executor.go"),
+                Path.Combine(
+                    "internal",
+                    "runtime",
+                    "executor",
+                    "codexcliplus_prompt_cache_retention.go"
+                ),
+                Path.Combine(
+                    "internal",
+                    "runtime",
+                    "executor",
+                    "helps",
+                    "thinking_providers.go"
+                ),
+                Path.Combine("internal", "translator", "init.go"),
+                Path.Combine("cmd", "server", "main.go"),
                 Path.Combine("sdk", "auth", "filestore.go"),
+                Path.Combine("sdk", "auth", "refresh_registry.go"),
+                Path.Combine("sdk", "cliproxy", "providers.go"),
+                Path.Combine("sdk", "cliproxy", "service.go"),
             ],
             sourceRoot,
             "format patched backend source"
@@ -278,6 +302,7 @@ public static class AssetCommands
     private static void ApplyPatchedBackendSourceChanges(string sourceRoot)
     {
         ApplySecretRefSupportPatch(sourceRoot);
+        ApplyCodexGptOnlyBackendPatch(sourceRoot);
 
         var gitStorePath = Path.Combine(sourceRoot, "internal", "store", "gitstore.go");
         var source = File.ReadAllText(gitStorePath, Encoding.UTF8).Replace("\r\n", "\n");
@@ -296,6 +321,844 @@ public static class AssetCommands
         );
         File.WriteAllText(gitStorePath, source, new UTF8Encoding(false));
     }
+
+    private static void ApplyCodexGptOnlyBackendPatch(string sourceRoot)
+    {
+        PatchCodexGptOnlyConfig(sourceRoot);
+        PatchCodexGptOnlyAuthSynthesis(sourceRoot);
+        PatchCodexGptOnlyRuntimeRegistration(sourceRoot);
+        PatchCodexGptOnlyServerRoutes(sourceRoot);
+        PatchCodexGptOnlyCommandEntrypoints(sourceRoot);
+        PatchOpenAICompatPromptCacheRetention(sourceRoot);
+        File.WriteAllText(
+            Path.Combine(
+                sourceRoot,
+                "internal",
+                "runtime",
+                "executor",
+                "helps",
+                "thinking_providers.go"
+            ),
+            CodexGptOnlyThinkingProvidersGoSource,
+            new UTF8Encoding(false)
+        );
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "internal", "translator", "init.go"),
+            CodexGptOnlyTranslatorInitGoSource,
+            new UTF8Encoding(false)
+        );
+    }
+
+    private static void PatchCodexGptOnlyConfig(string sourceRoot)
+    {
+        var configPath = Path.Combine(sourceRoot, "internal", "config", "config.go");
+        var source = File.ReadAllText(configPath, Encoding.UTF8).Replace("\r\n", "\n");
+        source = ReplaceRequired(
+            source,
+            "if err := ResolveCodexCliPlusSecretRefs(&cfg); err != nil {\n",
+            "cfg.ApplyCodexCliPlusGPTOnlyConfig()\n\n\tif err := ResolveCodexCliPlusSecretRefs(&cfg); err != nil {\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\t// Normalize global OAuth model name aliases.\n\tcfg.SanitizeOAuthModelAlias()\n",
+            "\t// Normalize global OAuth model name aliases.\n\tcfg.SanitizeOAuthModelAlias()\n\n\tcfg.ApplyCodexCliPlusGPTOnlyConfig()\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "persistCfg := cfg\n"
+                + "if protectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(cfg); err != nil {\n"
+                + "\treturn fmt.Errorf(\"failed to protect CodexCliPlus secret refs before config write: %w\", err)\n"
+                + "} else if protectedCfg != nil {\n"
+                + "\tpersistCfg = protectedCfg\n"
+                + "}\n",
+            "persistCfg := cfg\n"
+                + "if gptOnlyCfg, err := CodexCliPlusGPTOnlyConfigForWrite(cfg); err != nil {\n"
+                + "\treturn fmt.Errorf(\"failed to sanitize CodexCliPlus GPT-only config before config write: %w\", err)\n"
+                + "} else if gptOnlyCfg != nil {\n"
+                + "\tpersistCfg = gptOnlyCfg\n"
+                + "}\n"
+                + "if protectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(persistCfg); err != nil {\n"
+                + "\treturn fmt.Errorf(\"failed to protect CodexCliPlus secret refs before config write: %w\", err)\n"
+                + "} else if protectedCfg != nil {\n"
+                + "\tpersistCfg = protectedCfg\n"
+                + "}\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\tremoveLegacyAmpKeys(original.Content[0])\n\tremoveLegacyGenerativeLanguageKeys(original.Content[0])\n",
+            "\tremoveLegacyAmpKeys(original.Content[0])\n\tremoveLegacyGenerativeLanguageKeys(original.Content[0])\n\tPruneCodexCliPlusGPTOnlyConfigYAML(original.Content[0])\n"
+        );
+        File.WriteAllText(configPath, source, new UTF8Encoding(false));
+
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "internal", "config", "codexcliplus_gpt_only.go"),
+            CodexGptOnlyConfigGoSource,
+            new UTF8Encoding(false)
+        );
+
+        var secretRefsPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "config",
+            "codexcliplus_secret_refs.go"
+        );
+        var secretRefs = File.ReadAllText(secretRefsPath, Encoding.UTF8).Replace("\r\n", "\n");
+        secretRefs = ReplaceRequired(
+            secretRefs,
+            "protectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(&cfg)\n"
+                + "\tif err != nil {\n"
+                + "\t\treturn nil, err\n"
+                + "\t}\n",
+            "gptOnlyCfg, err := CodexCliPlusGPTOnlyConfigForWrite(&cfg)\n"
+                + "\tif err != nil {\n"
+                + "\t\treturn nil, err\n"
+                + "\t}\n"
+                + "\tprotectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(gptOnlyCfg)\n"
+                + "\tif err != nil {\n"
+                + "\t\treturn nil, err\n"
+                + "\t}\n"
+        );
+        File.WriteAllText(secretRefsPath, secretRefs, new UTF8Encoding(false));
+    }
+
+    private static void PatchCodexGptOnlyAuthSynthesis(string sourceRoot)
+    {
+        var configSynthPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "watcher",
+            "synthesizer",
+            "config.go"
+        );
+        var configSynth = File.ReadAllText(configSynthPath, Encoding.UTF8).Replace("\r\n", "\n");
+        configSynth = ReplaceRequired(
+            configSynth,
+            "\t// Gemini API Keys\n"
+                + "\tout = append(out, s.synthesizeGeminiKeys(ctx)...)\n"
+                + "\t// Claude API Keys\n"
+                + "\tout = append(out, s.synthesizeClaudeKeys(ctx)...)\n"
+                + "\t// Codex API Keys\n"
+                + "\tout = append(out, s.synthesizeCodexKeys(ctx)...)\n"
+                + "\t// OpenAI-compat\n"
+                + "\tout = append(out, s.synthesizeOpenAICompat(ctx)...)\n"
+                + "\t// Vertex-compat\n"
+                + "\tout = append(out, s.synthesizeVertexCompat(ctx)...)\n",
+            "\t// CodexCliPlus keeps only Codex and OpenAI-compatible/GPT API-key auths.\n"
+                + "\tout = append(out, s.synthesizeCodexKeys(ctx)...)\n"
+                + "\tout = append(out, s.synthesizeOpenAICompat(ctx)...)\n"
+        );
+        File.WriteAllText(configSynthPath, configSynth, new UTF8Encoding(false));
+
+        var fileSynthPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "watcher",
+            "synthesizer",
+            "file.go"
+        );
+        var fileSynth = File.ReadAllText(fileSynthPath, Encoding.UTF8).Replace("\r\n", "\n");
+        fileSynth = ReplaceRequired(
+            fileSynth,
+            "\tif provider == \"gemini\" {\n\t\tprovider = \"gemini-cli\"\n\t}\n",
+            "\tif provider == \"gemini\" {\n\t\tprovider = \"gemini-cli\"\n\t}\n\tif provider != \"codex\" {\n\t\treturn nil\n\t}\n"
+        );
+        File.WriteAllText(fileSynthPath, fileSynth, new UTF8Encoding(false));
+    }
+
+    private static void PatchCodexGptOnlyRuntimeRegistration(string sourceRoot)
+    {
+        var providersPath = Path.Combine(sourceRoot, "sdk", "cliproxy", "providers.go");
+        var providers = File.ReadAllText(providersPath, Encoding.UTF8).Replace("\r\n", "\n");
+        providers = ReplaceRequired(
+            providers,
+            "\tgeminiCount, vertexCompatCount, claudeCount, codexCount, openAICompat := watcher.BuildAPIKeyClients(cfg)\n",
+            "\t_, _, _, codexCount, openAICompat := watcher.BuildAPIKeyClients(cfg)\n\tgeminiCount, vertexCompatCount, claudeCount := 0, 0, 0\n"
+        );
+        File.WriteAllText(providersPath, providers, new UTF8Encoding(false));
+
+        var servicePath = Path.Combine(sourceRoot, "sdk", "cliproxy", "service.go");
+        var service = File.ReadAllText(servicePath, Encoding.UTF8).Replace("\r\n", "\n");
+        service = ReplaceRequired(
+            service,
+            "func newDefaultAuthManager() *sdkAuth.Manager {\n"
+                + "\treturn sdkAuth.NewManager(\n"
+                + "\t\tsdkAuth.GetTokenStore(),\n"
+                + "\t\tsdkAuth.NewGeminiAuthenticator(),\n"
+                + "\t\tsdkAuth.NewCodexAuthenticator(),\n"
+                + "\t\tsdkAuth.NewClaudeAuthenticator(),\n"
+                + "\t)\n"
+                + "}\n",
+            "func newDefaultAuthManager() *sdkAuth.Manager {\n"
+                + "\treturn sdkAuth.NewManager(\n"
+                + "\t\tsdkAuth.GetTokenStore(),\n"
+                + "\t\tsdkAuth.NewCodexAuthenticator(),\n"
+                + "\t)\n"
+                + "}\n"
+        );
+        service = ReplaceRequired(
+            service,
+            "\tswitch strings.ToLower(a.Provider) {\n"
+                + "\tcase \"gemini\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewGeminiExecutor(s.cfg))\n"
+                + "\tcase \"vertex\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewGeminiVertexExecutor(s.cfg))\n"
+                + "\tcase \"gemini-cli\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor(s.cfg))\n"
+                + "\tcase \"aistudio\":\n"
+                + "\t\tif s.wsGateway != nil {\n"
+                + "\t\t\ts.coreManager.RegisterExecutor(executor.NewAIStudioExecutor(s.cfg, a.ID, s.wsGateway))\n"
+                + "\t\t}\n"
+                + "\t\treturn\n"
+                + "\tcase \"antigravity\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewAntigravityExecutor(s.cfg))\n"
+                + "\tcase \"claude\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewClaudeExecutor(s.cfg))\n"
+                + "\tcase \"kimi\":\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewKimiExecutor(s.cfg))\n"
+                + "\tdefault:\n"
+                + "\t\tproviderKey := strings.ToLower(strings.TrimSpace(a.Provider))\n"
+                + "\t\tif providerKey == \"\" {\n"
+                + "\t\t\tproviderKey = \"openai-compatibility\"\n"
+                + "\t\t}\n"
+                + "\t\ts.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor(providerKey, s.cfg))\n"
+                + "\t}\n",
+            "\t// Non-Codex providers are intentionally disabled in the CodexCliPlus GPT-only build.\n\treturn\n"
+        );
+        service = ReplaceRequired(
+            service,
+            "\ts.ensureWebsocketGateway()\n\tif s.server != nil && s.wsGateway != nil {\n",
+            "\t// CodexCliPlus GPT-only builds do not expose AI Studio websocket providers.\n\tif false && s.server != nil && s.wsGateway != nil {\n"
+        );
+        File.WriteAllText(servicePath, service, new UTF8Encoding(false));
+
+        var cmdAuthManagerPath = Path.Combine(sourceRoot, "internal", "cmd", "auth_manager.go");
+        var cmdAuthManager = File.ReadAllText(cmdAuthManagerPath, Encoding.UTF8).Replace("\r\n", "\n");
+        cmdAuthManager = ReplaceRequired(
+            cmdAuthManager,
+            "\tmanager := sdkAuth.NewManager(store,\n"
+                + "\t\tsdkAuth.NewGeminiAuthenticator(),\n"
+                + "\t\tsdkAuth.NewCodexAuthenticator(),\n"
+                + "\t\tsdkAuth.NewClaudeAuthenticator(),\n"
+                + "\t\tsdkAuth.NewAntigravityAuthenticator(),\n"
+                + "\t\tsdkAuth.NewKimiAuthenticator(),\n"
+                + "\t)\n",
+            "\tmanager := sdkAuth.NewManager(store,\n"
+                + "\t\tsdkAuth.NewCodexAuthenticator(),\n"
+                + "\t)\n"
+        );
+        File.WriteAllText(cmdAuthManagerPath, cmdAuthManager, new UTF8Encoding(false));
+
+        var refreshRegistryPath = Path.Combine(sourceRoot, "sdk", "auth", "refresh_registry.go");
+        var refreshRegistry = File.ReadAllText(refreshRegistryPath, Encoding.UTF8).Replace("\r\n", "\n");
+        refreshRegistry = ReplaceFunctionBlockRequired(
+            refreshRegistry,
+            "func init() {",
+            "func init() {\n"
+                + "\tregisterRefreshLead(\"codex\", func() Authenticator { return NewCodexAuthenticator() })\n"
+                + "}\n"
+        );
+        File.WriteAllText(refreshRegistryPath, refreshRegistry, new UTF8Encoding(false));
+    }
+
+    private static void PatchCodexGptOnlyServerRoutes(string sourceRoot)
+    {
+        var serverPath = Path.Combine(sourceRoot, "internal", "api", "server.go");
+        var server = File.ReadAllText(serverPath, Encoding.UTF8).Replace("\r\n", "\n");
+        server = ReplaceRequired(
+            server,
+            "\t// Register Amp module using V2 interface with Context\n"
+                + "\ts.ampModule = ampmodule.NewLegacy(accessManager, AuthMiddleware(accessManager))\n"
+                + "\tctx := modules.Context{\n"
+                + "\t\tEngine:         engine,\n"
+                + "\t\tBaseHandler:    s.handlers,\n"
+                + "\t\tConfig:         cfg,\n"
+                + "\t\tAuthMiddleware: AuthMiddleware(accessManager),\n"
+                + "\t}\n"
+                + "\tif err := modules.RegisterModule(ctx, s.ampModule); err != nil {\n"
+                + "\t\tlog.Errorf(\"Failed to register Amp module: %v\", err)\n"
+                + "\t}\n",
+            "\t// Amp module routes are disabled in the CodexCliPlus GPT-only build.\n"
+                + "\tif false {\n"
+                + "\t\ts.ampModule = ampmodule.NewLegacy(accessManager, AuthMiddleware(accessManager))\n"
+                + "\t\tctx := modules.Context{\n"
+                + "\t\t\tEngine:         engine,\n"
+                + "\t\t\tBaseHandler:    s.handlers,\n"
+                + "\t\t\tConfig:         cfg,\n"
+                + "\t\t\tAuthMiddleware: AuthMiddleware(accessManager),\n"
+                + "\t\t}\n"
+                + "\t\tif err := modules.RegisterModule(ctx, s.ampModule); err != nil {\n"
+                + "\t\t\tlog.Errorf(\"Failed to register Amp module: %v\", err)\n"
+                + "\t\t}\n"
+                + "\t}\n"
+        );
+        server = ReplaceRequired(
+            server,
+            "\t\tv1.GET(\"/models\", s.unifiedModelsHandler(openaiHandlers, claudeCodeHandlers))\n",
+            "\t\tv1.GET(\"/models\", s.unifiedModelsHandler(openaiHandlers, claudeCodeHandlers))\n"
+                + "\t\t_ = geminiHandlers\n"
+                + "\t\t_ = geminiCLIHandlers\n"
+        );
+        server = ReplaceRequired(
+            server,
+            "\t\tv1.POST(\"/messages\", claudeCodeHandlers.ClaudeMessages)\n"
+                + "\t\tv1.POST(\"/messages/count_tokens\", claudeCodeHandlers.ClaudeCountTokens)\n",
+            ""
+        );
+        server = ReplaceRequired(
+            server,
+            "\t// Gemini compatible API routes\n"
+                + "\tv1beta := s.engine.Group(\"/v1beta\")\n"
+                + "\tv1beta.Use(AuthMiddleware(s.accessManager))\n"
+                + "\t{\n"
+                + "\t\tv1beta.GET(\"/models\", geminiHandlers.GeminiModels)\n"
+                + "\t\tv1beta.POST(\"/models/*action\", geminiHandlers.GeminiHandler)\n"
+                + "\t\tv1beta.GET(\"/models/*action\", geminiHandlers.GeminiGetHandler)\n"
+                + "\t}\n\n",
+            "\t// Gemini-compatible API routes are disabled in the CodexCliPlus GPT-only build.\n\n"
+        );
+        server = ReplaceRequired(
+            server,
+            "\ts.engine.POST(\"/v1internal:method\", geminiCLIHandlers.CLIHandler)\n\n",
+            ""
+        );
+        server = RemoveGinRouteBlockRequired(server, "s.engine.GET(\"/anthropic/callback\"");
+        server = RemoveGinRouteBlockRequired(server, "s.engine.GET(\"/google/callback\"");
+        server = RemoveGinRouteBlockRequired(server, "s.engine.GET(\"/antigravity/callback\"");
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.GET(\"/gemini-api-key\"",
+            "mgmt.DELETE(\"/gemini-api-key\""
+        );
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.GET(\"/ampcode\"",
+            "mgmt.DELETE(\"/ampcode/upstream-api-keys\""
+        );
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.GET(\"/claude-api-key\"",
+            "mgmt.DELETE(\"/claude-api-key\""
+        );
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.GET(\"/vertex-api-key\"",
+            "mgmt.DELETE(\"/vertex-api-key\""
+        );
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.POST(\"/vertex/import\"",
+            "mgmt.POST(\"/vertex/import\""
+        );
+        server = RemoveLineBlockRequired(
+            server,
+            "mgmt.GET(\"/anthropic-auth-url\"",
+            "mgmt.GET(\"/kimi-auth-url\"",
+            "\t\tmgmt.GET(\"/codex-auth-url\", s.mgmt.RequestCodexToken)\n"
+        );
+        server = ReplaceRequired(
+            server,
+            "\t\tuserAgent := c.GetHeader(\"User-Agent\")\n\n"
+                + "\t\t// Route to Claude handler if User-Agent starts with \"claude-cli\"\n"
+                + "\t\tif strings.HasPrefix(userAgent, \"claude-cli\") {\n"
+                + "\t\t\t// log.Debugf(\"Routing /v1/models to Claude handler for User-Agent: %s\", userAgent)\n"
+                + "\t\t\tclaudeHandler.ClaudeModels(c)\n"
+                + "\t\t} else {\n"
+                + "\t\t\t// log.Debugf(\"Routing /v1/models to OpenAI handler for User-Agent: %s\", userAgent)\n"
+                + "\t\t\topenaiHandler.OpenAIModels(c)\n"
+                + "\t\t}\n",
+            "\t\t_ = claudeHandler\n\t\topenaiHandler.OpenAIModels(c)\n"
+        );
+        File.WriteAllText(serverPath, server, new UTF8Encoding(false));
+    }
+
+    private static void PatchCodexGptOnlyCommandEntrypoints(string sourceRoot)
+    {
+        var mainPath = Path.Combine(sourceRoot, "cmd", "server", "main.go");
+        var main = File.ReadAllText(mainPath, Encoding.UTF8).Replace("\r\n", "\n");
+        main = ReplaceRequired(
+            main,
+            "\tif vertexImport != \"\" {\n"
+                + "\t\t// Handle Vertex service account import\n"
+                + "\t\tcmd.DoVertexImport(cfg, vertexImport, vertexImportPrefix)\n"
+                + "\t} else if login {\n"
+                + "\t\t// Handle Google/Gemini login\n"
+                + "\t\tcmd.DoLogin(cfg, projectID, options)\n"
+                + "\t} else if antigravityLogin {\n"
+                + "\t\t// Handle Antigravity login\n"
+                + "\t\tcmd.DoAntigravityLogin(cfg, options)\n"
+                + "\t} else if codexLogin {\n",
+            "\tif vertexImport != \"\" || login || antigravityLogin || claudeLogin || kimiLogin {\n"
+                + "\t\t_ = vertexImportPrefix\n"
+                + "\t\t_ = projectID\n"
+                + "\t\tlog.Error(\"unsupported provider command disabled in CodexCliPlus GPT-only build\")\n"
+                + "\t\treturn\n"
+                + "\t} else if codexLogin {\n"
+        );
+        main = ReplaceRequired(
+            main,
+            "\t} else if claudeLogin {\n"
+                + "\t\t// Handle Claude login\n"
+                + "\t\tcmd.DoClaudeLogin(cfg, options)\n"
+                + "\t} else if kimiLogin {\n"
+                + "\t\tcmd.DoKimiLogin(cfg, options)\n",
+            ""
+        );
+        main = ReplaceRequired(
+            main,
+            "misc.StartAntigravityVersionUpdater(context.Background())\n",
+            ""
+        );
+        File.WriteAllText(mainPath, main, new UTF8Encoding(false));
+    }
+
+    private static void PatchOpenAICompatPromptCacheRetention(string sourceRoot)
+    {
+        File.WriteAllText(
+            Path.Combine(
+                sourceRoot,
+                "internal",
+                "runtime",
+                "executor",
+                "codexcliplus_prompt_cache_retention.go"
+            ),
+            CodexGptOnlyPromptCacheRetentionGoSource,
+            new UTF8Encoding(false)
+        );
+
+        var executorPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "runtime",
+            "executor",
+            "openai_compat_executor.go"
+        );
+        var source = File.ReadAllText(executorPath, Encoding.UTF8).Replace("\r\n", "\n");
+        source = ReplaceRequired(
+            source,
+            "\ttranslated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), \"\", translated, originalTranslated, requestedModel, requestPath)\n"
+                + "\tif opts.Alt == \"responses/compact\" {\n",
+            "\ttranslated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), \"\", translated, originalTranslated, requestedModel, requestPath)\n"
+                + "\tcacheRetentionAutoApplied := false\n"
+                + "\ttranslated, cacheRetentionAutoApplied = codexCliPlusApplyPromptCacheRetention(translated, baseModel, to.String())\n"
+                + "\tif opts.Alt == \"responses/compact\" {\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\tdefer func() {\n"
+                + "\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t}\n"
+                + "\t}()\n",
+            "\tdefer func() {\n"
+                + "\t\tif httpResp == nil || httpResp.Body == nil {\n"
+                + "\t\t\treturn\n"
+                + "\t\t}\n"
+                + "\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t}\n"
+                + "\t}()\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\tb, _ := io.ReadAll(httpResp.Body)\n"
+                + "\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\treturn resp, err\n"
+                + "\t}\n",
+            "\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\tb, _ := io.ReadAll(httpResp.Body)\n"
+                + "\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\tif cacheRetentionAutoApplied && codexCliPlusShouldRetryWithoutPromptCacheRetention(httpResp.StatusCode, b) {\n"
+                + "\t\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t\t}\n"
+                + "\t\t\tretryPayload := codexCliPlusRemovePromptCacheRetention(translated)\n"
+                + "\t\t\tretryReq, errRetryReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(retryPayload))\n"
+                + "\t\t\tif errRetryReq == nil {\n"
+                + "\t\t\t\tretryReq.Header = httpReq.Header.Clone()\n"
+                + "\t\t\t\thelps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{\n"
+                + "\t\t\t\t\tURL:       url,\n"
+                + "\t\t\t\t\tMethod:    http.MethodPost,\n"
+                + "\t\t\t\t\tHeaders:   retryReq.Header.Clone(),\n"
+                + "\t\t\t\t\tBody:      retryPayload,\n"
+                + "\t\t\t\t\tProvider:  e.Identifier(),\n"
+                + "\t\t\t\t\tAuthID:    authID,\n"
+                + "\t\t\t\t\tAuthLabel: authLabel,\n"
+                + "\t\t\t\t\tAuthType:  authType,\n"
+                + "\t\t\t\t\tAuthValue: authValue,\n"
+                + "\t\t\t\t})\n"
+                + "\t\t\t\thttpResp = nil\n"
+                + "\t\t\t\thttpResp, err = httpClient.Do(retryReq)\n"
+                + "\t\t\t\tif err != nil {\n"
+                + "\t\t\t\t\thelps.RecordAPIResponseError(ctx, e.cfg, err)\n"
+                + "\t\t\t\t\treturn resp, err\n"
+                + "\t\t\t\t}\n"
+                + "\t\t\t\thelps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())\n"
+                + "\t\t\t\tif httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {\n"
+                + "\t\t\t\t\ttranslated = retryPayload\n"
+                + "\t\t\t\t} else {\n"
+                + "\t\t\t\t\tb, _ = io.ReadAll(httpResp.Body)\n"
+                + "\t\t\t\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\t\t\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\t\t\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\t\t\t\treturn resp, err\n"
+                + "\t\t\t\t}\n"
+                + "\t\t\t}\n"
+                + "\t\t}\n"
+                + "\t\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\t\treturn resp, err\n"
+                + "\t\t}\n"
+                + "\t}\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\ttranslated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), \"\", translated, originalTranslated, requestedModel, requestPath)\n\n"
+                + "\ttranslated, err = thinking.ApplyThinking(translated, req.Model, from.String(), to.String(), e.Identifier())\n",
+            "\ttranslated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), \"\", translated, originalTranslated, requestedModel, requestPath)\n"
+                + "\tcacheRetentionAutoApplied := false\n"
+                + "\ttranslated, cacheRetentionAutoApplied = codexCliPlusApplyPromptCacheRetention(translated, baseModel, to.String())\n\n"
+                + "\ttranslated, err = thinking.ApplyThinking(translated, req.Model, from.String(), to.String(), e.Identifier())\n"
+        );
+        source = ReplaceRequired(
+            source,
+            "\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\tb, _ := io.ReadAll(httpResp.Body)\n"
+                + "\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t}\n"
+                + "\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\treturn nil, err\n"
+                + "\t}\n",
+            "\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\tb, _ := io.ReadAll(httpResp.Body)\n"
+                + "\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\tif cacheRetentionAutoApplied && codexCliPlusShouldRetryWithoutPromptCacheRetention(httpResp.StatusCode, b) {\n"
+                + "\t\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t\t}\n"
+                + "\t\t\tretryPayload := codexCliPlusRemovePromptCacheRetention(translated)\n"
+                + "\t\t\tretryReq, errRetryReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(retryPayload))\n"
+                + "\t\t\tif errRetryReq == nil {\n"
+                + "\t\t\t\tretryReq.Header = httpReq.Header.Clone()\n"
+                + "\t\t\t\tretryReq.Header.Set(\"Accept\", \"text/event-stream\")\n"
+                + "\t\t\t\tretryReq.Header.Set(\"Cache-Control\", \"no-cache\")\n"
+                + "\t\t\t\thelps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{\n"
+                + "\t\t\t\t\tURL:       url,\n"
+                + "\t\t\t\t\tMethod:    http.MethodPost,\n"
+                + "\t\t\t\t\tHeaders:   retryReq.Header.Clone(),\n"
+                + "\t\t\t\t\tBody:      retryPayload,\n"
+                + "\t\t\t\t\tProvider:  e.Identifier(),\n"
+                + "\t\t\t\t\tAuthID:    authID,\n"
+                + "\t\t\t\t\tAuthLabel: authLabel,\n"
+                + "\t\t\t\t\tAuthType:  authType,\n"
+                + "\t\t\t\t\tAuthValue: authValue,\n"
+                + "\t\t\t\t})\n"
+                + "\t\t\t\thttpResp, err = httpClient.Do(retryReq)\n"
+                + "\t\t\t\tif err != nil {\n"
+                + "\t\t\t\t\thelps.RecordAPIResponseError(ctx, e.cfg, err)\n"
+                + "\t\t\t\t\treturn nil, err\n"
+                + "\t\t\t\t}\n"
+                + "\t\t\t\thelps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())\n"
+                + "\t\t\t\tif httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {\n"
+                + "\t\t\t\t\ttranslated = retryPayload\n"
+                + "\t\t\t\t} else {\n"
+                + "\t\t\t\t\tb, _ = io.ReadAll(httpResp.Body)\n"
+                + "\t\t\t\t\thelps.AppendAPIResponseChunk(ctx, e.cfg, b)\n"
+                + "\t\t\t\t\thelps.LogWithRequestID(ctx).Debugf(\"request error, error status: %d, error message: %s\", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get(\"Content-Type\"), b))\n"
+                + "\t\t\t\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\t\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t\t\t\t}\n"
+                + "\t\t\t\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\t\t\t\treturn nil, err\n"
+                + "\t\t\t\t}\n"
+                + "\t\t\t}\n"
+                + "\t\t}\n"
+                + "\t\tif httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {\n"
+                + "\t\t\tif errClose := httpResp.Body.Close(); errClose != nil {\n"
+                + "\t\t\t\tlog.Errorf(\"openai compat executor: close response body error: %v\", errClose)\n"
+                + "\t\t\t}\n"
+                + "\t\t\terr = statusErr{code: httpResp.StatusCode, msg: string(b)}\n"
+                + "\t\t\treturn nil, err\n"
+                + "\t\t}\n"
+                + "\t}\n"
+        );
+        File.WriteAllText(executorPath, source, new UTF8Encoding(false));
+    }
+
+    private const string CodexGptOnlyConfigGoSource =
+        """
+        package config
+
+        import (
+            "strings"
+
+            "gopkg.in/yaml.v3"
+        )
+
+        func (cfg *Config) ApplyCodexCliPlusGPTOnlyConfig() {
+            if cfg == nil {
+                return
+            }
+
+            cfg.GeminiKey = nil
+            cfg.ClaudeKey = nil
+            cfg.VertexCompatAPIKey = nil
+            cfg.AmpCode = AmpCode{}
+            cfg.ClaudeHeaderDefaults = ClaudeHeaderDefaults{}
+            cfg.AntigravitySignatureCacheEnabled = nil
+            cfg.AntigravitySignatureBypassStrict = nil
+            cfg.QuotaExceeded.AntigravityCredits = false
+            cfg.OAuthExcludedModels = codexCliPlusKeepGPTOnlyStringSlices(cfg.OAuthExcludedModels)
+            cfg.OAuthModelAlias = codexCliPlusKeepGPTOnlyModelAliases(cfg.OAuthModelAlias)
+        }
+
+        func CodexCliPlusGPTOnlyConfigForWrite(cfg *Config) (*Config, error) {
+            if cfg == nil {
+                return cfg, nil
+            }
+            data, err := yaml.Marshal(cfg)
+            if err != nil {
+                return nil, err
+            }
+            var out Config
+            if err := yaml.Unmarshal(data, &out); err != nil {
+                return nil, err
+            }
+            out.ApplyCodexCliPlusGPTOnlyConfig()
+            return &out, nil
+        }
+
+        func PruneCodexCliPlusGPTOnlyConfigYAML(root *yaml.Node) {
+            if root == nil || root.Kind != yaml.MappingNode {
+                return
+            }
+
+            for _, key := range []string{
+                "gemini-api-key",
+                "claude-api-key",
+                "vertex-api-key",
+                "ampcode",
+                "claude-header-defaults",
+                "antigravity-signature-cache-enabled",
+                "antigravity-signature-bypass-strict",
+                "generative-language-api-key",
+                "amp-upstream-url",
+                "amp-upstream-api-key",
+                "amp-restrict-management-to-localhost",
+                "amp-model-mappings",
+            } {
+                removeMapKey(root, key)
+            }
+
+            if idx := findMapKeyIndex(root, "quota-exceeded"); idx >= 0 && idx+1 < len(root.Content) {
+                quota := root.Content[idx+1]
+                removeMapKey(quota, "antigravity-credits")
+                if quota == nil || quota.Kind != yaml.MappingNode || len(quota.Content) == 0 {
+                    removeMapKey(root, "quota-exceeded")
+                }
+            }
+
+            codexCliPlusPruneGPTOnlyProviderMapping(root, "oauth-excluded-models")
+            codexCliPlusPruneGPTOnlyProviderMapping(root, "oauth-model-alias")
+        }
+
+        func codexCliPlusKeepGPTOnlyStringSlices(in map[string][]string) map[string][]string {
+            if len(in) == 0 {
+                return nil
+            }
+            out := make(map[string][]string, len(in))
+            for provider, models := range in {
+                key := strings.ToLower(strings.TrimSpace(provider))
+                if !codexCliPlusGPTOnlyProviderAllowed(key) || len(models) == 0 {
+                    continue
+                }
+                out[key] = models
+            }
+            if len(out) == 0 {
+                return nil
+            }
+            return out
+        }
+
+        func codexCliPlusKeepGPTOnlyModelAliases(in map[string][]OAuthModelAlias) map[string][]OAuthModelAlias {
+            if len(in) == 0 {
+                return nil
+            }
+            out := make(map[string][]OAuthModelAlias, len(in))
+            for provider, aliases := range in {
+                key := strings.ToLower(strings.TrimSpace(provider))
+                if !codexCliPlusGPTOnlyProviderAllowed(key) || len(aliases) == 0 {
+                    continue
+                }
+                out[key] = aliases
+            }
+            if len(out) == 0 {
+                return nil
+            }
+            return out
+        }
+
+        func codexCliPlusPruneGPTOnlyProviderMapping(root *yaml.Node, key string) {
+            idx := findMapKeyIndex(root, key)
+            if idx < 0 || idx+1 >= len(root.Content) {
+                return
+            }
+            value := root.Content[idx+1]
+            if value == nil || value.Kind != yaml.MappingNode {
+                removeMapKey(root, key)
+                return
+            }
+            for i := 0; i+1 < len(value.Content); {
+                keyNode := value.Content[i]
+                if keyNode == nil || !codexCliPlusGPTOnlyProviderAllowed(keyNode.Value) {
+                    value.Content = append(value.Content[:i], value.Content[i+2:]...)
+                    continue
+                }
+                i += 2
+            }
+            if len(value.Content) == 0 {
+                removeMapKey(root, key)
+            }
+        }
+
+        func codexCliPlusGPTOnlyProviderAllowed(provider string) bool {
+            switch strings.ToLower(strings.TrimSpace(provider)) {
+            case "codex", "openai", "openai-compatibility":
+                return true
+            default:
+                return false
+            }
+        }
+        """;
+
+    private const string CodexGptOnlyPromptCacheRetentionGoSource =
+        """
+        package executor
+
+        import (
+            "strings"
+
+            "github.com/tidwall/gjson"
+            "github.com/tidwall/sjson"
+        )
+
+        func codexCliPlusApplyPromptCacheRetention(payload []byte, fallbackModel string, protocol string) ([]byte, bool) {
+            normalizedProtocol := strings.ToLower(strings.TrimSpace(protocol))
+            if normalizedProtocol != "openai" && normalizedProtocol != "openai-response" {
+                return payload, false
+            }
+            if len(payload) == 0 {
+                return payload, false
+            }
+
+            existing := gjson.GetBytes(payload, "prompt_cache_retention")
+            if existing.Exists() {
+                mode := strings.ToLower(strings.TrimSpace(existing.String()))
+                if mode != "auto" {
+                    return payload, false
+                }
+                model := codexCliPlusPromptCacheModel(payload, fallbackModel)
+                if !codexCliPlusSupportsExtendedPromptCache(model) {
+                    updated, err := sjson.DeleteBytes(payload, "prompt_cache_retention")
+                    if err != nil {
+                        return payload, false
+                    }
+                    return updated, false
+                }
+                updated, err := sjson.SetBytes(payload, "prompt_cache_retention", "24h")
+                if err != nil {
+                    return payload, false
+                }
+                return updated, true
+            }
+
+            model := codexCliPlusPromptCacheModel(payload, fallbackModel)
+            if !codexCliPlusSupportsExtendedPromptCache(model) {
+                return payload, false
+            }
+            updated, err := sjson.SetBytes(payload, "prompt_cache_retention", "24h")
+            if err != nil {
+                return payload, false
+            }
+            return updated, true
+        }
+
+        func codexCliPlusPromptCacheModel(payload []byte, fallbackModel string) string {
+            if model := strings.TrimSpace(gjson.GetBytes(payload, "model").String()); model != "" {
+                return model
+            }
+            return strings.TrimSpace(fallbackModel)
+        }
+
+        func codexCliPlusSupportsExtendedPromptCache(model string) bool {
+            normalized := strings.ToLower(strings.TrimSpace(model))
+            return strings.HasPrefix(normalized, "gpt-5.1") ||
+                strings.HasPrefix(normalized, "gpt-5") ||
+                strings.HasPrefix(normalized, "gpt-4.1")
+        }
+
+        func codexCliPlusShouldRetryWithoutPromptCacheRetention(status int, body []byte) bool {
+            if status < 400 || len(body) == 0 {
+                return false
+            }
+            text := strings.ToLower(string(body))
+            if !strings.Contains(text, "prompt_cache_retention") {
+                return false
+            }
+            for _, marker := range []string{
+                "unsupported",
+                "not supported",
+                "unknown parameter",
+                "unrecognized",
+                "invalid",
+                "unsupported_parameter",
+                "invalid_request_error",
+            } {
+                if strings.Contains(text, marker) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        func codexCliPlusRemovePromptCacheRetention(payload []byte) []byte {
+            updated, err := sjson.DeleteBytes(payload, "prompt_cache_retention")
+            if err != nil {
+                return payload
+            }
+            return updated
+        }
+        """;
+
+    private const string CodexGptOnlyTranslatorInitGoSource =
+        """
+        package translator
+
+        import (
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/codex/openai/chat-completions"
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/codex/openai/responses"
+
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/openai/openai/chat-completions"
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/openai/openai/responses"
+        )
+        """;
+
+    private const string CodexGptOnlyThinkingProvidersGoSource =
+        """
+        package helps
+
+        import (
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/codex"
+            _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/openai"
+        )
+        """;
 
     private static void ApplySecretRefSupportPatch(string sourceRoot)
     {
@@ -684,12 +1547,12 @@ public static class AssetCommands
         }
 
         func cloneCodexCliPlusConfig(cfg *Config) (*Config, error) {
-            data, err := json.Marshal(cfg)
+            data, err := yaml.Marshal(cfg)
             if err != nil {
                 return nil, err
             }
             var protected Config
-            if err := json.Unmarshal(data, &protected); err != nil {
+            if err := yaml.Unmarshal(data, &protected); err != nil {
                 return nil, err
             }
             return &protected, nil
@@ -934,6 +1797,20 @@ public static class AssetCommands
 
     private static string ReplaceRequired(string source, string oldValue, string newValue)
     {
+        if (source.Contains(oldValue, StringComparison.Ordinal))
+        {
+            return source.Replace(oldValue, newValue, StringComparison.Ordinal);
+        }
+
+        var oldValueWithSpaces = oldValue.Replace("\t", "    ", StringComparison.Ordinal);
+        if (
+            !string.Equals(oldValueWithSpaces, oldValue, StringComparison.Ordinal)
+            && source.Contains(oldValueWithSpaces, StringComparison.Ordinal)
+        )
+        {
+            return source.Replace(oldValueWithSpaces, newValue, StringComparison.Ordinal);
+        }
+
         if (!source.Contains(oldValue, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
@@ -941,7 +1818,129 @@ public static class AssetCommands
             );
         }
 
-        return source.Replace(oldValue, newValue, StringComparison.Ordinal);
+        throw new InvalidDataException(
+            $"Pinned backend source no longer contains expected patch fragment: {oldValue}"
+        );
+    }
+
+    private static string ReplaceFunctionBlockRequired(
+        string source,
+        string functionStart,
+        string replacement
+    )
+    {
+        var startIndex = source.IndexOf(functionStart, StringComparison.Ordinal);
+        if (startIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source no longer contains expected function block: {functionStart}"
+            );
+        }
+
+        var endIndex = source.IndexOf("\n}\n", startIndex, StringComparison.Ordinal);
+        var endLength = 3;
+        if (endIndex < 0)
+        {
+            endIndex = source.IndexOf("\n}", startIndex, StringComparison.Ordinal);
+            endLength = 2;
+        }
+        if (endIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source function block is incomplete: {functionStart}"
+            );
+        }
+
+        return source[..startIndex] + replacement + source[(endIndex + endLength)..];
+    }
+
+    private static string RemoveGinRouteBlockRequired(string source, string routeStartMarker)
+    {
+        var startIndex = source.IndexOf(routeStartMarker, StringComparison.Ordinal);
+        if (startIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source no longer contains expected route block: {routeStartMarker}"
+            );
+        }
+
+        while (startIndex > 0 && source[startIndex - 1] is ' ' or '\t')
+        {
+            startIndex--;
+        }
+
+        var statusIndex = source.IndexOf(
+            "c.String(http.StatusOK, oauthCallbackSuccessHTML)",
+            startIndex,
+            StringComparison.Ordinal
+        );
+        if (statusIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source route block is incomplete: {routeStartMarker}"
+            );
+        }
+
+        var endIndex = source.IndexOf("})", statusIndex, StringComparison.Ordinal);
+        if (endIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source route block is incomplete: {routeStartMarker}"
+            );
+        }
+
+        endIndex += 2;
+        while (endIndex < source.Length && source[endIndex] is '\r' or '\n')
+        {
+            endIndex++;
+        }
+
+        return source[..startIndex] + source[endIndex..];
+    }
+
+    private static string RemoveLineBlockRequired(
+        string source,
+        string startMarker,
+        string endMarker,
+        string replacement = ""
+    )
+    {
+        var startIndex = source.IndexOf(startMarker, StringComparison.Ordinal);
+        if (startIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source no longer contains expected line block: {startMarker}"
+            );
+        }
+
+        while (startIndex > 0 && source[startIndex - 1] is not '\n')
+        {
+            startIndex--;
+        }
+
+        var endMarkerIndex = source.IndexOf(endMarker, startIndex, StringComparison.Ordinal);
+        if (endMarkerIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source line block is incomplete: {startMarker}"
+            );
+        }
+
+        var endIndex = source.IndexOf('\n', endMarkerIndex);
+        if (endIndex < 0)
+        {
+            endIndex = source.Length;
+        }
+        else
+        {
+            endIndex++;
+        }
+        while (endIndex < source.Length && source[endIndex] is '\r' or '\n')
+        {
+            endIndex++;
+        }
+
+        return source[..startIndex] + replacement + source[endIndex..];
     }
 
     private static string InsertBeforeRequiredMarker(

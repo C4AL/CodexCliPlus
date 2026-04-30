@@ -16,9 +16,6 @@ build:
 test:
     dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
 
-test-ui:
-    dotnet test tests/CodexCliPlus.UiTests/CodexCliPlus.UiTests.csproj --configuration Release --verbosity normal
-
 web-lint:
     Push-Location {{web}}; try { npm run lint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
 

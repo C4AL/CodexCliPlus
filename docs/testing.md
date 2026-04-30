@@ -11,12 +11,6 @@ dotnet csharpier check src tests
 
 PR CI 默认排除 `LiveBackend` 与 `Smoke` 分类。它们需要真实后端进程、端口和桌面/系统环境，由 `Backend Integration` 的 nightly/manual workflow 承担。
 
-UI 自动化测试需要本机可用的 WebView2/桌面交互环境：
-
-```powershell
-dotnet test tests\CodexCliPlus.UiTests\CodexCliPlus.UiTests.csproj --configuration Release
-```
-
 ## WebUI 验证
 
 ```powershell

@@ -70,14 +70,18 @@ public partial class MainWindow
         card.Loaded += async (_, _) =>
         {
             AnimateNotificationIn(card);
-            progress.Width = card.ActualWidth;
-            progress.BeginAnimation(
-                FrameworkElement.WidthProperty,
-                new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(2)))
-                {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut },
-                }
-            );
+            if (progress.RenderTransform is ScaleTransform progressScale)
+            {
+                progressScale.ScaleX = 1;
+                progressScale.BeginAnimation(
+                    ScaleTransform.ScaleXProperty,
+                    new DoubleAnimation(0, new Duration(TimeSpan.FromSeconds(2)))
+                    {
+                        EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut },
+                    }
+                );
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(2.15));
             await FadeOutAndRemoveAsync(AutoNotificationStack, card);
         };
@@ -98,8 +102,10 @@ public partial class MainWindow
         var progress = new Border
         {
             Height = 2,
-            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
             Background = new SolidColorBrush(accent),
+            RenderTransformOrigin = new System.Windows.Point(1, 0.5),
+            RenderTransform = new ScaleTransform(1, 1),
         };
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             progress,
@@ -194,6 +200,7 @@ public partial class MainWindow
             BorderBrush = (WpfBrush)FindResource("BorderBrush"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
+            ClipToBounds = true,
             Effect = new DropShadowEffect
             {
                 BlurRadius = 18,
@@ -205,6 +212,7 @@ public partial class MainWindow
             Child = root,
             Tag = progress,
         };
+        card.SizeChanged += (_, _) => UpdateNotificationCardClip(card);
         System.Windows.Automation.AutomationProperties.SetAutomationId(
             card,
             showCloseButton ? "ManualNotificationCard" : "AutoNotificationCard"
@@ -229,6 +237,23 @@ public partial class MainWindow
         }
 
         return card;
+    }
+
+    private static void UpdateNotificationCardClip(Border card)
+    {
+        if (card.ActualWidth <= 0 || card.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var radius = Math.Max(card.CornerRadius.TopLeft, card.CornerRadius.TopRight);
+        radius = Math.Max(radius, card.CornerRadius.BottomLeft);
+        radius = Math.Max(radius, card.CornerRadius.BottomRight);
+        card.Clip = new RectangleGeometry(
+            new Rect(0, 0, card.ActualWidth, card.ActualHeight),
+            radius,
+            radius
+        );
     }
 
     private static WpfColor ResolveNotificationAccent(string? title, bool manual)

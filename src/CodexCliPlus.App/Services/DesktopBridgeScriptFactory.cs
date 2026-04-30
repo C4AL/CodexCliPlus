@@ -124,7 +124,7 @@ public static class DesktopBridgeScriptFactory
                   pointerDown ||
                   dragStarted ||
                   isEditableElement(event.target) ||
-                  event.clientX > 8
+                  event.clientX > 18
                 ) {
                   cancelNavigationHoverIntent();
                   return;
@@ -137,7 +137,7 @@ public static class DesktopBridgeScriptFactory
                 navigationHoverZoneTimer = window.setTimeout(() => {
                   navigationHoverZoneTimer = null;
                   updateNavigationHoverZone(true);
-                }, 180);
+                }, 90);
               }, { passive: true });
               window.addEventListener('mousedown', (event) => {
                 pointerDown = true;

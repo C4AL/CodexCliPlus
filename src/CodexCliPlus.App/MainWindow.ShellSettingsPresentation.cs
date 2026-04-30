@@ -348,15 +348,12 @@ public partial class MainWindow
     private void UpdateSettingsOverlayBaseline()
     {
         UpdateShellThemePresentation();
-        var persistence = _persistenceService.GetStatus();
-        var fallbackSuffix = persistence.UsesFallbackDirectory
-            ? "持久化目录已降级到可写应用数据目录。"
-            : "持久化目录使用安装目录。";
-        var keeperStatus = persistence.UsesKeeperDatabase
-            ? $"统计库：{persistence.UsageEventCount} 条事件，最近同步：{FormatStatusTime(persistence.LastUsageSyncAt)}，数据库：{persistence.UsageDatabasePath}"
-            : $"统计库不可用：{FormatUnknown(persistence.LastPersistenceError)}";
-        SettingsUpdateStatusText.Text =
-            $"当前版本：{CurrentApplicationVersion}。{fallbackSuffix}{Environment.NewLine}{keeperStatus}";
+        SetSettingsUpdateStatus($"当前版本 {CurrentApplicationVersion}");
+    }
+
+    private void SetSettingsUpdateStatus(string status)
+    {
+        SettingsUpdateStatusText.Text = $"更新状态：{status}。";
     }
 
     private string ShellConnectionStatusLabel =>

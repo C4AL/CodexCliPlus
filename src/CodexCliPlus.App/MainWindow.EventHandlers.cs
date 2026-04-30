@@ -326,12 +326,26 @@ public partial class MainWindow
         _notificationService.ShowAuto("已请求刷新。");
     }
 
+    private void ShellBrandDockButton_PreviewMouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e
+    )
+    {
+        _wasShellBrandDockOpenBeforeButtonClick = ShellBrandDockPopup.IsOpen;
+    }
+
     private async void ShellBrandDockButton_Click(object sender, RoutedEventArgs e)
     {
+        var wasOpenBeforeClick = _wasShellBrandDockOpenBeforeButtonClick;
+        _wasShellBrandDockOpenBeforeButtonClick = false;
         UpdateShellDockPresentation();
-        if (ShellBrandDockPopup.IsOpen)
+        if (wasOpenBeforeClick)
         {
-            await HideShellBrandDockPopupAsync();
+            if (ShellBrandDockPopup.IsOpen)
+            {
+                await HideShellBrandDockPopupAsync();
+            }
+
             return;
         }
 
@@ -478,20 +492,22 @@ public partial class MainWindow
         SettingsCheckUpdateButton.IsEnabled = false;
         SettingsApplyUpdateButton.IsEnabled = false;
         SettingsUpdateProgressBar.Visibility = Visibility.Collapsed;
-        SettingsUpdateStatusText.Text = "正在检查更新。";
+        SetSettingsUpdateStatus("检查中");
         try
         {
             var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
-            SettingsUpdateStatusText.Text = result.IsUpdateAvailable
-                ? $"发现新版本：{result.LatestVersion ?? "未知"}。"
-                : $"当前版本：{CurrentApplicationVersion}。{result.Status}";
+            SetSettingsUpdateStatus(
+                result.IsUpdateAvailable
+                    ? $"发现版本 {result.LatestVersion ?? "未知"}"
+                    : $"已是最新 {CurrentApplicationVersion}"
+            );
             SettingsApplyUpdateButton.Tag = result;
             SettingsApplyUpdateButton.IsEnabled = _updateInstallerService.CanPrepareInstaller(
                 result
             );
             if (result.IsUpdateAvailable && !SettingsApplyUpdateButton.IsEnabled)
             {
-                SettingsUpdateStatusText.Text = "发现新版本，但未找到可应用的离线更新包。";
+                SetSettingsUpdateStatus("发现版本，但无可用安装包");
             }
 
             _notificationService.ShowAuto(
@@ -500,7 +516,7 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            SettingsUpdateStatusText.Text = $"检查更新失败：{exception.Message}";
+            SetSettingsUpdateStatus("检查失败");
             _notificationService.ShowManual("检查更新失败", exception.Message);
         }
         finally
@@ -521,14 +537,14 @@ public partial class MainWindow
             var result = SettingsApplyUpdateButton.Tag as UpdateCheckResult;
             if (result is null || !_updateInstallerService.CanPrepareInstaller(result))
             {
-                SettingsUpdateStatusText.Text = "正在重新检查更新。";
+                SetSettingsUpdateStatus("重新检查中");
                 result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
                 SettingsApplyUpdateButton.Tag = result;
             }
 
             if (!_updateInstallerService.CanPrepareInstaller(result))
             {
-                SettingsUpdateStatusText.Text = "没有可应用的更新包。";
+                SetSettingsUpdateStatus("无可用安装包");
                 _notificationService.ShowManual(
                     "应用更新失败",
                     "当前更新结果不包含可应用的离线更新包。"
@@ -536,9 +552,9 @@ public partial class MainWindow
                 return;
             }
 
-            SettingsUpdateStatusText.Text = "正在下载并校验更新包。";
+            SetSettingsUpdateStatus("下载校验中");
             var preparedInstaller = await _updateInstallerService.DownloadInstallerAsync(result);
-            SettingsUpdateStatusText.Text = "正在启动独立更新程序。";
+            SetSettingsUpdateStatus("启动更新程序");
             await SyncPersistenceBeforeExitAsync();
             await _updateInstallerService.LaunchInstallerAsync(preparedInstaller);
             _allowClose = true;
@@ -548,7 +564,7 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            SettingsUpdateStatusText.Text = $"应用更新失败：{exception.Message}";
+            SetSettingsUpdateStatus("应用失败");
             _notificationService.ShowManual("应用更新失败", exception.Message);
         }
         finally

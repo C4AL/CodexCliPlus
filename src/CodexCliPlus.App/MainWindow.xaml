@@ -94,6 +94,7 @@
         Style="{StaticResource ShellBrandDockButtonStyle}"
         AutomationProperties.AutomationId="ShellBrandDockButton"
         AutomationProperties.Name="打开状态面板"
+        PreviewMouseLeftButtonDown="ShellBrandDockButton_PreviewMouseLeftButtonDown"
         Click="ShellBrandDockButton_Click"
         ToolTip="打开状态面板"
         Panel.ZIndex="1"
@@ -552,7 +553,7 @@
               Effect="{x:Null}"
             >
               <Border.RenderTransform>
-                <TranslateTransform X="-6" />
+                <TranslateTransform X="-8" />
               </Border.RenderTransform>
               <Grid ClipToBounds="True">
                 <Border
@@ -590,7 +591,7 @@
                     x:Name="ShellNavConsoleButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"
                     Click="ShellNavigationButton_Click"
-                    CommandParameter="/console"
+                    CommandParameter="/dashboard/overview"
                   >
                     <StackPanel Orientation="Horizontal">
                       <iconPacks:PackIconLucide
@@ -1574,7 +1575,7 @@
                   <TextBlock
                     x:Name="SettingsUpdateStatusText"
                     Margin="0,10,0,12"
-                    Text="当前版本：正在读取。"
+                    Text="更新状态：正在读取。"
                     FontSize="13"
                     Foreground="{DynamicResource SecondaryTextBrush}"
                     TextWrapping="Wrap"

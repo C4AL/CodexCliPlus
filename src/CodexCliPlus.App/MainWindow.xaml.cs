@@ -67,13 +67,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
     private const double NavigationDockRestingWidth = 56;
-    private const double NavigationDockEdgeIntentWidth = 8;
+    private const double NavigationDockEdgeIntentWidth = 18;
     private const double NavigationDockIconsWidth = 92;
     private const double NavigationDockExpandedWidth = 244;
     private const double NavigationDockPanelIconsWidth = 58;
     private const double NavigationDockPanelExpandedWidth = 188;
     private const double NavigationDockPanelRestingHeight = 132;
     private const double NavigationDockPanelOpenHeight = 392;
+    private const double NavigationDockPanelRestingOffset = -8;
+    private const double NavigationDockPanelOpenOffset = -18;
     private const double NavigationDockLabelExpandedWidth = 112;
     private const double NavigationDockMeasuredLabelWidthLimit = 118;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
@@ -131,6 +133,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
     private bool _isShellBrandDockClosing;
+    private bool _wasShellBrandDockOpenBeforeButtonClick;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;

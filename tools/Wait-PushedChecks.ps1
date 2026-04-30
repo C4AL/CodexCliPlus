@@ -19,6 +19,12 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = $Utf8NoBom
+[Console]::OutputEncoding = $Utf8NoBom
+$OutputEncoding = $Utf8NoBom
+$env:GH_NO_UPDATE_NOTIFIER = "1"
+$env:NO_COLOR = "1"
 
 $successConclusions = @("success", "skipped", "neutral")
 $failureConclusions = @("failure", "cancelled", "timed_out", "action_required", "startup_failure")
@@ -42,9 +48,18 @@ function Invoke-GhJson {
         [switch]$TreatMissingAsEmpty
     )
 
-    $output = & gh @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        $message = ($output | Out-String).Trim()
+    $errorFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & gh @Arguments 2> $errorFile
+        $exitCode = $LASTEXITCODE
+        $errorOutput = if (Test-Path -LiteralPath $errorFile) { Get-Content -Raw -LiteralPath $errorFile } else { "" }
+    }
+    finally {
+        Remove-Item -LiteralPath $errorFile -ErrorAction SilentlyContinue
+    }
+
+    if ($exitCode -ne 0) {
+        $message = ($errorOutput | Out-String).Trim()
         if ($TreatMissingAsEmpty -and ($message -match "HTTP 404|HTTP 422|No commit found")) {
             return $null
         }

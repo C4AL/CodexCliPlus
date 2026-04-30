@@ -36,6 +36,7 @@ public static class PackageCommands
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
+        var webView2Assets = await WebView2RuntimeAssets.StageAsync(context, appPackageRoot);
 
         var installerPlan = new InstallerPlan
         {
@@ -48,11 +49,12 @@ public static class PackageCommands
             RequestExecutionLevel = "admin",
             InstallDirectoryHint = $"%ProgramFiles%\\{AppConstants.ProductKey}",
             LaunchAfterInstall = true,
+            CleanupInstallerAfterInstallDefault = true,
             StableReleaseSource = "https://github.com/C4AL/CodexCliPlus/releases/latest",
             BetaChannelReserved = true,
         };
         await WriteJsonAsync(Path.Combine(stageRoot, "mica-setup.json"), installerPlan);
-        await InstallerMetadata.WriteAsync(context, appPackageRoot, stageRoot);
+        await InstallerMetadata.WriteAsync(context, appPackageRoot, stageRoot, webView2Assets);
 
         var toolchain = await MicaSetupToolchain.AcquireAsync(context);
         var archiveExitCode = await CreateMicaPayloadArchiveAsync(

@@ -238,6 +238,8 @@ public sealed class InstallerPlan
 
     public bool LaunchAfterInstall { get; init; }
 
+    public bool CleanupInstallerAfterInstallDefault { get; init; }
+
     public string StableReleaseSource { get; init; } = string.Empty;
 
     public bool BetaChannelReserved { get; init; }
@@ -348,6 +350,12 @@ public sealed class MicaSetupConfig
         string installerOutputPath
     )
     {
+        var displayPngPath = Path.Combine(
+            context.Options.RepositoryRoot,
+            "resources",
+            "icons",
+            "codexcliplus-display.png"
+        );
         var iconPath = Path.Combine(
             context.Options.RepositoryRoot,
             "resources",
@@ -375,7 +383,9 @@ public sealed class MicaSetupConfig
             Version = context.Options.Version,
             TargetFramework = "net472",
             ProductGuid = "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d",
-            Favicon = File.Exists(iconPath) ? iconPath : null,
+            Favicon = File.Exists(displayPngPath)
+                ? displayPngPath
+                : File.Exists(iconPath) ? iconPath : null,
             Icon = File.Exists(iconPath) ? iconPath : null,
             UnIcon = File.Exists(iconPath) ? iconPath : null,
             LicenseFile = File.Exists(licensePath) ? licensePath : null,

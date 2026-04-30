@@ -4,9 +4,32 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - ".github/workflows/ci.yml"
+      - ".config/dotnet-tools.json"
+      - "CodexCliPlus.sln"
+      - "Directory.Build.props"
+      - "global.json"
+      - "build/**"
+      - "src/**"
+      - "tests/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/ci.yml"
+      - ".config/dotnet-tools.json"
+      - "CodexCliPlus.sln"
+      - "Directory.Build.props"
+      - "global.json"
+      - "build/**"
+      - "src/**"
+      - "tests/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,12 +58,19 @@ jobs:
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
       - name: Test
+        if: github.event_name == 'push'
+        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
+
+      - name: Test with coverage
+        if: github.event_name != 'push'
         run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke" --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
 
       - name: Generate coverage report
+        if: github.event_name != 'push'
         run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
 
       - name: Enforce coverage baseline
+        if: github.event_name != 'push'
         shell: pwsh
         run: |
           $summaryPath = "artifacts/coverage/Summary.txt"
@@ -60,6 +90,7 @@ jobs:
           }
 
       - name: Publish coverage summary
+        if: github.event_name != 'push'
         shell: pwsh
         run: |
           $summaryPath = "artifacts/coverage/Summary.txt"
@@ -72,6 +103,7 @@ jobs:
           }
 
       - name: Upload test and coverage artifacts
+        if: ${{ always() && github.event_name != 'push' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: dotnet-test-coverage

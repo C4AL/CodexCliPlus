@@ -26,10 +26,7 @@ public sealed class ManagementDesignSystemTests
             StringComparison.Ordinal
         );
 
-        var buildTool = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"),
-            Encoding.UTF8
-        );
+        var buildTool = ReadBuildToolSources(repositoryRoot);
         Assert.Contains("context.WebUiAssetsRoot", buildTool, StringComparison.Ordinal);
         Assert.Contains("assets\", \"webui", buildTool, StringComparison.Ordinal);
     }
@@ -49,10 +46,7 @@ public sealed class ManagementDesignSystemTests
             ),
             Encoding.UTF8
         );
-        var buildTool = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool", "Program.cs"),
-            Encoding.UTF8
-        );
+        var buildTool = ReadBuildToolSources(repositoryRoot);
         var locator = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -193,5 +187,22 @@ public sealed class ManagementDesignSystemTests
         }
 
         throw new InvalidOperationException("Repository root not found.");
+    }
+
+    private static string ReadBuildToolSources(string repositoryRoot)
+    {
+        var buildToolDirectory = Path.Combine(repositoryRoot, "src", "CodexCliPlus.BuildTool");
+        var sourceFiles = Directory
+            .GetFiles(buildToolDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(path =>
+                !path.Split(Path.DirectorySeparatorChar).Contains("bin")
+                && !path.Split(Path.DirectorySeparatorChar).Contains("obj")
+            )
+            .OrderBy(path => path, StringComparer.Ordinal);
+
+        return string.Join(
+            Environment.NewLine,
+            sourceFiles.Select(path => File.ReadAllText(path, Encoding.UTF8))
+        );
     }
 }

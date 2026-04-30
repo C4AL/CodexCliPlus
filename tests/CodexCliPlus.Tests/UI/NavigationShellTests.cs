@@ -25,10 +25,7 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
-        var hostSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-            Encoding.UTF8
-        );
+        var hostSource = ReadMainWindowSources(repositoryRoot);
         var shellBrandDockPopupXaml = SliceBetween(
             xaml,
             "x:Name=\"ShellBrandDockPopup\"",
@@ -225,10 +222,7 @@ public sealed class NavigationShellTests
     public void DesktopHostInjectsBootstrapAndRedirectsExternalLinks()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var hostSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-            Encoding.UTF8
-        );
+        var hostSource = ReadMainWindowSources(repositoryRoot);
         var bridgeSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -318,10 +312,7 @@ public sealed class NavigationShellTests
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
             Encoding.UTF8
         );
-        var source = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-            Encoding.UTF8
-        );
+        var source = ReadMainWindowSources(repositoryRoot);
         var shellResources = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -477,10 +468,7 @@ public sealed class NavigationShellTests
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
             Encoding.UTF8
         );
-        var hostSource = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-            Encoding.UTF8
-        );
+        var hostSource = ReadMainWindowSources(repositoryRoot);
         var serviceSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -523,10 +511,7 @@ public sealed class NavigationShellTests
     public void FirstRunDesktopSavePathUsesOnlySystemDesktopDirectory()
     {
         var repositoryRoot = FindRepositoryRoot();
-        var source = File.ReadAllText(
-            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml.cs"),
-            Encoding.UTF8
-        );
+        var source = ReadMainWindowSources(repositoryRoot);
 
         Assert.Contains(
             "Environment.SpecialFolder.DesktopDirectory",
@@ -860,6 +845,19 @@ public sealed class NavigationShellTests
         }
 
         return count;
+    }
+
+    private static string ReadMainWindowSources(string repositoryRoot)
+    {
+        var appDirectory = Path.Combine(repositoryRoot, "src", "CodexCliPlus.App");
+        var sourceFiles = Directory
+            .GetFiles(appDirectory, "MainWindow*.cs")
+            .OrderBy(Path.GetFileName, StringComparer.Ordinal);
+
+        return string.Join(
+            Environment.NewLine,
+            sourceFiles.Select(path => File.ReadAllText(path, Encoding.UTF8))
+        );
     }
 
     private static string SliceBetween(string source, string start, string end)

@@ -12,7 +12,6 @@
     "src/pages/AiProvidersVertexEditPage.tsx"
   ],
   "ignoreDependencies": [
-    "@testing-library/react",
     "@typescript-eslint/eslint-plugin",
     "@typescript-eslint/parser",
     "msw",

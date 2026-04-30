@@ -25,7 +25,9 @@ using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
+using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Backend;
+using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
@@ -103,8 +105,12 @@ public partial class MainWindow
                 }
 
                 var yaml = await File.ReadAllTextAsync(dialog.FileName);
-                await _managementConfigurationService.PutConfigYamlAsync(yaml);
-                _notificationService.ShowAuto("账号配置已导入。");
+                var migration = await _configMigrationService.MigrateYamlAsync(
+                    yaml,
+                    $"import/{Path.GetFileName(dialog.FileName)}"
+                );
+                await _managementConfigurationService.PutConfigYamlAsync(migration.Content);
+                _notificationService.ShowAuto(BuildMigrationNotice("账号配置已导入", migration.Report));
                 PostWebUiCommand(new { type = "refreshAll" });
                 return;
             }
@@ -131,30 +137,7 @@ public partial class MainWindow
             return;
         }
 
-        var dialog = new Microsoft.Win32.SaveFileDialog
-        {
-            Title = "导出账号配置",
-            Filter = "JSON 配置|*.json",
-            FileName = $"CodexCliPlus.AccountConfig.{DateTimeOffset.Now:yyyyMMddHHmmss}.json",
-            AddExtension = true,
-            DefaultExt = ".json",
-        };
-
-        if (dialog.ShowDialog(this) != true)
-        {
-            return;
-        }
-
-        try
-        {
-            var payload = await BuildAccountPackagePayloadAsync();
-            await SecureAccountPackageService.WritePlainPackageAsync(payload, dialog.FileName);
-            _notificationService.ShowAuto("账号配置已导出。");
-        }
-        catch (Exception exception)
-        {
-            _notificationService.ShowManual("导出配置失败", exception.Message);
-        }
+        _notificationService.ShowManual("明文导出已禁用", "账号配置只能导出为 .sac v2 安全包。");
     }
 
     private async Task ImportSacPackageAsync()
@@ -253,9 +236,20 @@ public partial class MainWindow
         var authFiles = await _managementAuthService.GetAuthFilesAsync();
         var excludedModels = await _managementAuthService.GetOAuthExcludedModelsAsync();
         var modelAliases = await _managementAuthService.GetOAuthModelAliasesAsync();
+        var exportedSecrets = new Dictionary<string, VaultSecretExport>(
+            StringComparer.OrdinalIgnoreCase
+        );
+        var migratedConfig = string.IsNullOrWhiteSpace(configYaml.Value)
+            ? null
+            : await _configMigrationService.MigrateYamlAsync(
+                configYaml.Value,
+                AppConstants.BackendConfigFileName
+            );
+        AddExportedSecrets(exportedSecrets, migratedConfig?.Secrets);
+
         var payload = new SecureAccountPackagePayload
         {
-            ConfigYaml = configYaml.Value,
+            ConfigYaml = migratedConfig?.Content,
             OAuthExcludedModels = excludedModels.Value.ToDictionary(
                 pair => pair.Key,
                 pair => pair.Value.ToList(),
@@ -276,16 +270,25 @@ public partial class MainWindow
             }
 
             var content = await _managementAuthService.DownloadAuthFileAsync(file.Name);
+            var migratedAuth = await _configMigrationService.MigrateJsonAsync(
+                content.Value,
+                $"auth/{file.Name}"
+            );
+            AddExportedSecrets(exportedSecrets, migratedAuth.Secrets);
             payload.AuthFiles.Add(
-                new SecureAccountPackageAuthFile { Name = file.Name, Content = content.Value }
+                new SecureAccountPackageAuthFile { Name = file.Name, Content = migratedAuth.Content }
             );
         }
 
+        payload.VaultSecrets = exportedSecrets.Values.ToList();
         return payload;
     }
 
     private async Task ApplyAccountPackagePayloadAsync(SecureAccountPackagePayload payload)
     {
+        payload = await EnsureMigratedPackagePayloadAsync(payload);
+        await ImportPayloadSecretsAsync(payload);
+
         if (!string.IsNullOrWhiteSpace(payload.ConfigYaml))
         {
             await _managementConfigurationService.PutConfigYamlAsync(payload.ConfigYaml);
@@ -332,6 +335,119 @@ public partial class MainWindow
 
         PostWebUiCommand(new { type = "refreshAll" });
         _notificationService.ShowAuto("账号配置已导入。");
+    }
+
+    private async Task<SecureAccountPackagePayload> EnsureMigratedPackagePayloadAsync(
+        SecureAccountPackagePayload payload
+    )
+    {
+        if (payload.Version >= 2)
+        {
+            return payload;
+        }
+
+        var exportedSecrets = new Dictionary<string, VaultSecretExport>(
+            StringComparer.OrdinalIgnoreCase
+        );
+
+        if (!string.IsNullOrWhiteSpace(payload.ConfigYaml))
+        {
+            var migratedConfig = await _configMigrationService.MigrateYamlAsync(
+                payload.ConfigYaml,
+                "legacy-package/backend.yaml"
+            );
+            payload.ConfigYaml = migratedConfig.Content;
+            AddExportedSecrets(exportedSecrets, migratedConfig.Secrets);
+        }
+
+        foreach (var authFile in payload.AuthFiles)
+        {
+            if (string.IsNullOrWhiteSpace(authFile.Content))
+            {
+                continue;
+            }
+
+            var migratedAuth = await _configMigrationService.MigrateJsonAsync(
+                authFile.Content,
+                $"legacy-package/auth/{authFile.Name}"
+            );
+            authFile.Content = migratedAuth.Content;
+            AddExportedSecrets(exportedSecrets, migratedAuth.Secrets);
+        }
+
+        payload.Format = "CodexCliPlus.AccountMigrationPackage";
+        payload.Version = 2;
+        payload.PackageId = string.IsNullOrWhiteSpace(payload.PackageId)
+            ? $"sac-import-{Guid.NewGuid():N}"
+            : payload.PackageId;
+        payload.VaultSecrets = exportedSecrets.Values.ToList();
+        return payload;
+    }
+
+    private async Task ImportPayloadSecretsAsync(SecureAccountPackagePayload payload)
+    {
+        foreach (var secret in payload.VaultSecrets)
+        {
+            if (string.IsNullOrWhiteSpace(secret.SecretId) || string.IsNullOrWhiteSpace(secret.Value))
+            {
+                continue;
+            }
+
+            await _secretVault.SaveSecretAsync(
+                secret.Kind,
+                secret.Value,
+                string.IsNullOrWhiteSpace(secret.Source) ? $"package/{payload.PackageId}" : secret.Source,
+                secret.Metadata,
+                secret.SecretId
+            );
+
+            if (secret.Status != SecretStatus.Active)
+            {
+                await _secretVault.SetSecretStatusAsync(secret.SecretId, secret.Status);
+            }
+        }
+
+        foreach (var revocation in payload.Revocations)
+        {
+            if (
+                string.IsNullOrWhiteSpace(revocation.Id)
+                || !string.Equals(revocation.Type, "secret", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                continue;
+            }
+
+            await _secretVault.SetSecretStatusAsync(revocation.Id, SecretStatus.Revoked);
+        }
+    }
+
+    private static void AddExportedSecrets(
+        Dictionary<string, VaultSecretExport> target,
+        IReadOnlyList<VaultSecretExport>? secrets
+    )
+    {
+        if (secrets is null)
+        {
+            return;
+        }
+
+        foreach (var secret in secrets)
+        {
+            if (!string.IsNullOrWhiteSpace(secret.SecretId))
+            {
+                target[secret.SecretId] = secret;
+            }
+        }
+    }
+
+    private static string BuildMigrationNotice(string prefix, SecretMigrationReport report)
+    {
+        if (report.TotalSecrets <= 0)
+        {
+            return $"{prefix}。";
+        }
+
+        return $"{prefix}，已迁移 {report.TotalSecrets} 个敏感值。";
     }
 
     private bool ConfirmAccountConfigImport()

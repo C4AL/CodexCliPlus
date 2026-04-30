@@ -243,6 +243,25 @@ public sealed class BuildToolCommandTests : IDisposable
             output.ToString(),
             StringComparison.Ordinal
         );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "codexcliplus_secret_refs.go"
+                )
+            )
+        );
+        Assert.Contains(
+            "ResolveCodexCliPlusSecretRefs(&cfg)",
+            File.ReadAllText(
+                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+            ),
+            StringComparison.Ordinal
+        );
 
         Assert.Contains(
             runner.Calls,
@@ -1037,6 +1056,60 @@ public sealed class BuildToolCommandTests : IDisposable
 
             var storeRoot = Path.Combine(sourceRoot, "internal", "store");
             Directory.CreateDirectory(storeRoot);
+            var configRoot = Path.Combine(sourceRoot, "internal", "config");
+            Directory.CreateDirectory(configRoot);
+            File.WriteAllText(
+                Path.Combine(configRoot, "config.go"),
+                """
+                package config
+
+                import (
+                    "fmt"
+                    "gopkg.in/yaml.v3"
+                )
+
+                type Config struct {
+                    SDKConfig `yaml:",inline"`
+                    RemoteManagement RemoteManagement `yaml:"remote-management"`
+                    GeminiKey []GeminiKey `yaml:"gemini-api-key"`
+                    CodexKey []CodexKey `yaml:"codex-api-key"`
+                    ClaudeKey []ClaudeKey `yaml:"claude-api-key"`
+                    OpenAICompatibility []OpenAICompatibility `yaml:"openai-compatibility"`
+                    VertexCompatAPIKey []VertexCompatKey `yaml:"vertex-api-key"`
+                    AmpCode AmpCode `yaml:"ampcode"`
+                }
+
+                type SDKConfig struct { APIKeys []string `yaml:"api-keys"` }
+                type RemoteManagement struct { SecretKey string `yaml:"secret-key"` }
+                type GeminiKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type CodexKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type ClaudeKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type VertexCompatKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type OpenAICompatibility struct {
+                    Headers map[string]string `yaml:"headers"`
+                    APIKeyEntries []OpenAICompatibilityAPIKey `yaml:"api-key-entries"`
+                }
+                type OpenAICompatibilityAPIKey struct { APIKey string `yaml:"api-key"` }
+                type AmpCode struct {
+                    UpstreamAPIKey string `yaml:"upstream-api-key"`
+                    UpstreamAPIKeys []AmpUpstreamAPIKeyEntry `yaml:"upstream-api-keys"`
+                }
+                type AmpUpstreamAPIKeyEntry struct {
+                    UpstreamAPIKey string `yaml:"upstream-api-key"`
+                    APIKeys []string `yaml:"api-keys"`
+                }
+
+                func LoadConfigOptional(data []byte, optional bool) (*Config, error) {
+                    var cfg Config
+                    if err := yaml.Unmarshal(data, &cfg); err != nil {
+                        return nil, fmt.Errorf("failed to parse config file: %w", err)
+                    }
+                    // NOTE: Startup legacy key migration is intentionally disabled.
+                    return &cfg, nil
+                }
+                """,
+                Encoding.UTF8
+            );
             File.WriteAllText(
                 Path.Combine(storeRoot, "gitstore.go"),
                 """

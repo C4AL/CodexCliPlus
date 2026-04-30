@@ -31,6 +31,9 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<BackendAssetService>();
         services.AddSingleton<IPathService, AppPathService>();
         services.AddSingleton<ISecureCredentialStore, DpapiCredentialStore>();
+        services.AddSingleton<ISecretVault, DpapiSecretVault>();
+        services.AddSingleton<SensitiveConfigMigrationService>();
+        services.AddSingleton<SecretBrokerService>();
         services.AddSingleton<IAppLogger, FileAppLogger>();
         services.AddSingleton<IAppConfigurationService, JsonAppConfigurationService>();
         services.AddSingleton<IProcessService, SystemProcessService>();

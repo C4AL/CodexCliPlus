@@ -12,6 +12,7 @@ using CodexCliPlus.Infrastructure.Configuration;
 using CodexCliPlus.Infrastructure.Logging;
 using CodexCliPlus.Infrastructure.Management;
 using CodexCliPlus.Infrastructure.Processes;
+using CodexCliPlus.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Tests.Management;
@@ -523,7 +524,8 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             configurationService,
             pathService,
             new SystemProcessService(),
-            logger
+            logger,
+            new SecretBrokerService(new DpapiSecretVault(pathService), logger)
         );
     }
 

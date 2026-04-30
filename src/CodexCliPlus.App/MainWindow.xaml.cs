@@ -26,6 +26,7 @@ using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
+using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
@@ -95,6 +96,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IAppConfigurationService _appConfigurationService;
     private readonly IPathService _pathService;
     private readonly ISecureCredentialStore _credentialStore;
+    private readonly ISecretVault _secretVault;
+    private readonly SensitiveConfigMigrationService _configMigrationService;
     private readonly IBuildInfo _buildInfo;
     private readonly IAppLogger _logger;
     private readonly IUpdateCheckService _updateCheckService;
@@ -148,6 +151,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IAppConfigurationService appConfigurationService,
         IPathService pathService,
         ISecureCredentialStore credentialStore,
+        ISecretVault secretVault,
+        SensitiveConfigMigrationService configMigrationService,
         IBuildInfo buildInfo,
         IAppLogger logger,
         IUpdateCheckService updateCheckService,
@@ -167,6 +172,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _appConfigurationService = appConfigurationService;
         _pathService = pathService;
         _credentialStore = credentialStore;
+        _secretVault = secretVault;
+        _configMigrationService = configMigrationService;
         _buildInfo = buildInfo;
         _logger = logger;
         _updateCheckService = updateCheckService;

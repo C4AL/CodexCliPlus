@@ -8,6 +8,7 @@ using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Infrastructure.Configuration;
 using CodexCliPlus.Infrastructure.Logging;
 using CodexCliPlus.Infrastructure.Processes;
+using CodexCliPlus.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Tests.Backend;
@@ -101,7 +102,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             new ThrowingProcessService(
                 new FileNotFoundException("The system cannot find the file specified.")
             ),
-            logger
+            logger,
+            new SecretBrokerService(new DpapiSecretVault(pathService), logger)
         );
 
         var status = await manager.StartAsync();
@@ -169,7 +171,8 @@ public sealed class BackendProcessManagerIntegrationTests : IDisposable
             configurationService,
             pathService,
             new SystemProcessService(),
-            logger
+            logger,
+            new SecretBrokerService(new DpapiSecretVault(pathService), logger)
         );
     }
 

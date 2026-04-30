@@ -2,7 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\CodexCliPlus.Core\CodexCliPlus.Core.csproj" />
     <ProjectReference Include="..\CodexCliPlus.Infrastructure\CodexCliPlus.Infrastructure.csproj" />
-    <ProjectReference Include="..\CodexCliPlus.Management.DesignSystem\CodexCliPlus.Management.DesignSystem.csproj" />
   </ItemGroup>
 
   <ItemGroup>

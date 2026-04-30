@@ -90,17 +90,35 @@ public sealed class ManagementDesignSystemTests
     }
 
     [Fact]
-    public void AppResourcesStillMergeDesignSystemForLegacyCompileCompatibility()
+    public void LegacyNativeManagementDesignSystemIsNotReferencedByRuntimeShell()
     {
         var repositoryRoot = FindRepositoryRoot();
         var appXaml = File.ReadAllText(
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml"),
             Encoding.UTF8
         );
+        var appProject = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"),
+            Encoding.UTF8
+        );
+        var solution = File.ReadAllText(
+            Path.Combine(repositoryRoot, "CodexCliPlus.sln"),
+            Encoding.UTF8
+        );
 
-        Assert.Contains(
+        Assert.DoesNotContain(
             "CodexCliPlus.Management.DesignSystem;component/Themes/DesignSystem.xaml",
             appXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "CodexCliPlus.Management.DesignSystem",
+            appProject,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "CodexCliPlus.Management.DesignSystem",
+            solution,
             StringComparison.Ordinal
         );
         Assert.Contains(
@@ -108,6 +126,57 @@ public sealed class ManagementDesignSystemTests
             appXaml,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    public void LegacyNativeManagementPageLayerIsRemovedFromRepository()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        string[] removedPaths =
+        [
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Views", "Pages"),
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "ViewModels", "Pages"),
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "Services", "SecondaryRoutes"),
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.Management.DesignSystem"),
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "ManagementNavigationService.cs"
+            ),
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "ManagementRouteCatalog.cs"
+            ),
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.Core",
+                "Abstractions",
+                "Management",
+                "IManagementNavigationService.cs"
+            ),
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.Core",
+                "Models",
+                "Management",
+                "ManagementRouteDefinition.cs"
+            ),
+        ];
+
+        foreach (var removedPath in removedPaths)
+        {
+            Assert.False(
+                Directory.Exists(removedPath) || File.Exists(removedPath),
+                $"Legacy native management artifact should stay removed: {removedPath}"
+            );
+        }
     }
 
     private static string FindRepositoryRoot()

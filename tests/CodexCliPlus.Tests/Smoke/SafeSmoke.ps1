@@ -404,6 +404,26 @@ function Invoke-StaticVerification {
                 Add-Finding -List $failures -Kind "WebView2 package missing" -Detail ("src\CodexCliPlus.App\CodexCliPlus.App.csproj is missing '{0}'." -f $requiredToken)
             }
         }
+
+        if ($appProject -match [Regex]::Escape("CodexCliPlus.Management.DesignSystem")) {
+            Add-Finding -List $failures -Kind "Legacy design system still referenced" -Detail "src\CodexCliPlus.App\CodexCliPlus.App.csproj still references the removed native management design system."
+        }
+    }
+
+    foreach ($removedPath in @(
+            "src\CodexCliPlus.App\Views\Pages",
+            "src\CodexCliPlus.App\ViewModels\Pages",
+            "src\CodexCliPlus.App\Services\SecondaryRoutes",
+            "src\CodexCliPlus.Management.DesignSystem",
+            "src\CodexCliPlus.App\Services\ManagementNavigationService.cs",
+            "src\CodexCliPlus.App\Services\ManagementRouteCatalog.cs",
+            "src\CodexCliPlus.Core\Abstractions\Management\IManagementNavigationService.cs",
+            "src\CodexCliPlus.Core\Models\Management\ManagementRouteDefinition.cs"
+        )) {
+        $fullRemovedPath = Join-Path $RepositoryRoot $removedPath
+        if (Test-Path -LiteralPath $fullRemovedPath) {
+            Add-Finding -List $failures -Kind "Legacy native management artifact still present" -Detail $removedPath
+        }
     }
 
     $buildToolPath = Join-Path $RepositoryRoot "src\CodexCliPlus.BuildTool\Program.cs"

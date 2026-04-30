@@ -217,6 +217,8 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("IManagementNavigationService", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DashboardPageViewModel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DashboardPage", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ManagementNavigationService", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ManagementRouteCatalog", source, StringComparison.Ordinal);
     }
 
     [Fact]

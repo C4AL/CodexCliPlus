@@ -15,6 +15,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Configuration;
+using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Management;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Persistence;
@@ -76,8 +77,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const double NavigationDockLabelExpandedWidth = 112;
     private const double NavigationDockMeasuredLabelWidthLimit = 118;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
-        2500
+        300
     );
+    private static readonly TimeSpan UsageSnapshotSyncCooldown = TimeSpan.FromMinutes(2);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
     private static readonly JsonSerializerOptions WebMessageJsonOptions = new()
     {
@@ -92,6 +94,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IPathService _pathService;
     private readonly ISecureCredentialStore _credentialStore;
     private readonly IBuildInfo _buildInfo;
+    private readonly IAppLogger _logger;
     private readonly IUpdateCheckService _updateCheckService;
     private readonly IUpdateInstallerService _updateInstallerService;
     private readonly IManagementPersistenceService _persistenceService;
@@ -111,9 +114,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private string _shellTheme = "auto";
     private string _shellResolvedTheme = "light";
     private string _activeWebUiPath = "/";
+    private readonly Stopwatch _startupStopwatch = Stopwatch.StartNew();
+    private long _lastStartupMarkMilliseconds;
     private CancellationTokenSource? _firstRunConfirmCountdown;
     private DateTimeOffset? _preparationPanelShownAt;
-    private ManagementOverviewSnapshot? _settingsOverview;
+    private ManagementSettingsSummarySnapshot? _settingsOverview;
     private Window? _settingsWindow;
     private Grid? _settingsWindowRoot;
     private CancellationTokenSource? _settingsOverviewRefreshCts;
@@ -129,6 +134,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
+    private CancellationTokenSource? _postStartupPersistenceCts;
+    private DateTimeOffset _lastUsageSnapshotSyncAt = DateTimeOffset.MinValue;
 
     public MainWindow(
         MainWindowViewModel viewModel,
@@ -139,6 +146,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IPathService pathService,
         ISecureCredentialStore credentialStore,
         IBuildInfo buildInfo,
+        IAppLogger logger,
         IUpdateCheckService updateCheckService,
         IUpdateInstallerService updateInstallerService,
         IManagementPersistenceService persistenceService,
@@ -157,6 +165,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _pathService = pathService;
         _credentialStore = credentialStore;
         _buildInfo = buildInfo;
+        _logger = logger;
         _updateCheckService = updateCheckService;
         _updateInstallerService = updateInstallerService;
         _persistenceService = persistenceService;
@@ -185,10 +194,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         try
         {
+            MarkStartupPhase("window-loaded");
             _isMainWindowActive = IsActive;
             ShowPreparationStep("目录", 5, "正在加载本地配置。", StartupState.Preparing);
             var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
+            MarkStartupPhase("settings-loaded");
             ApplyShellTheme(_settings.ThemeMode);
             UpdateShellThemePresentation();
             UpdateShellConnectionPresentation();
@@ -232,6 +243,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
         CancelUsageStatsSyncDebounce();
+        CancelPostStartupPersistenceImport();
         CloseSettingsWindow();
         TrayIcon.Unregister();
     }
@@ -248,6 +260,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
         CancelUsageStatsSyncDebounce();
+        CancelPostStartupPersistenceImport();
         CloseSettingsWindow();
         GC.SuppressFinalize(this);
     }
@@ -1195,14 +1208,20 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             await _persistenceService.SyncUsageSnapshotAsync();
+            _lastUsageSnapshotSyncAt = DateTimeOffset.UtcNow;
             await _persistenceService.SyncLogsSnapshotAsync();
         }
         catch { }
     }
 
-    private void ScheduleUsageStatsRefreshedSync()
+    private void ScheduleUsageStatsRefreshedSync(bool force = false)
     {
         if (_backendProcessManager.CurrentStatus.State != BackendStateKind.Running)
+        {
+            return;
+        }
+
+        if (!force && DateTimeOffset.UtcNow - _lastUsageSnapshotSyncAt < UsageSnapshotSyncCooldown)
         {
             return;
         }
@@ -1216,9 +1235,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(1200), cts.Token);
                 await _persistenceService.SyncUsageSnapshotAsync(cts.Token);
+                _lastUsageSnapshotSyncAt = DateTimeOffset.UtcNow;
+                MarkStartupPhase("usage-snapshot-synced");
             }
             catch (OperationCanceledException) { }
-            catch { }
+            catch (Exception exception)
+            {
+                _logger.Warn($"Usage snapshot sync failed: {exception.Message}");
+            }
             finally
             {
                 if (ReferenceEquals(_usageStatsSyncDebounceCts, cts))
@@ -1235,6 +1259,54 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     {
         var cts = _usageStatsSyncDebounceCts;
         _usageStatsSyncDebounceCts = null;
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void StartPostStartupPersistenceImport()
+    {
+        CancelPostStartupPersistenceImport();
+        var cts = new CancellationTokenSource();
+        _postStartupPersistenceCts = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250), cts.Token);
+                await _persistenceService.ImportNewerUsageSnapshotAsync(cts.Token);
+                MarkStartupPhase("usage-import-finished");
+                await Dispatcher.InvokeAsync(() => PostWebUiCommand(new { type = "refreshUsage" }));
+                ScheduleUsageStatsRefreshedSync(force: true);
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception exception)
+            {
+                _logger.Warn($"Startup usage import failed: {exception.Message}");
+            }
+            finally
+            {
+                if (ReferenceEquals(_postStartupPersistenceCts, cts))
+                {
+                    _postStartupPersistenceCts = null;
+                }
+
+                cts.Dispose();
+            }
+        });
+    }
+
+    private void CancelPostStartupPersistenceImport()
+    {
+        var cts = _postStartupPersistenceCts;
+        _postStartupPersistenceCts = null;
         if (cts is null)
         {
             return;
@@ -1535,6 +1607,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             await _pathService.EnsureCreatedAsync();
+            MarkStartupPhase("paths-ready");
 
             ShowPreparationStep(
                 "WebView2",
@@ -1543,6 +1616,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 StartupState.Preparing
             );
             EnsureWebView2Runtime();
+            MarkStartupPhase("webview2-runtime-ready");
 
             ShowPreparationStep(
                 "后端资产",
@@ -1551,6 +1625,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 StartupState.Preparing
             );
             var bundle = _webUiAssetLocator.GetRequiredBundle();
+            MarkStartupPhase("webui-assets-ready");
 
             ShowPreparationStep("配置", 55, "正在确认后端配置。", StartupState.Preparing);
             if (
@@ -1565,9 +1640,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
             ShowPreparationStep("核心启动", 72, "正在启动本地后端。", StartupState.Preparing);
             var connection = await _sessionService.GetConnectionAsync();
-
-            ShowPreparationStep("统计同步", 82, "正在同步本地统计快照。", StartupState.Preparing);
-            await _persistenceService.ImportNewerUsageSnapshotAsync();
+            MarkStartupPhase("backend-ready");
 
             ShowPreparationStep("健康检查", 86, "本地后端健康检查已通过。", StartupState.Preparing);
             var payload = new DesktopBootstrapPayload
@@ -1591,9 +1664,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 StartupState.LoadingManagement
             );
             await EnsureWebViewAsync(bundle, payload);
+            MarkStartupPhase("webview-navigation-started");
             await EnsureMinimumPreparationDisplayAsync();
             ShowWebView();
-            _ = _persistenceService.SyncUsageSnapshotAsync();
+            MarkStartupPhase("webview-visible");
+            StartPostStartupPersistenceImport();
         }
         catch (WebView2RuntimeNotFoundException exception)
         {
@@ -1704,6 +1779,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         );
 
         core.NavigationStarting += CoreWebView2_NavigationStarting;
+        core.NavigationCompleted += CoreWebView2_NavigationCompleted;
         core.NewWindowRequested += CoreWebView2_NewWindowRequested;
         core.WebMessageReceived += CoreWebView2_WebMessageReceived;
         core.ProcessFailed += CoreWebView2_ProcessFailed;
@@ -1751,6 +1827,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         e.Cancel = true;
         OpenExternal(uri.ToString());
+    }
+
+    private void CoreWebView2_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e
+    )
+    {
+        MarkStartupPhase(e.IsSuccess ? "webview-navigation-completed" : "webview-navigation-failed");
     }
 
     private void CoreWebView2_NewWindowRequested(
@@ -1931,6 +2015,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                 e.ProcessFailedKind.ToString()
             );
         });
+    }
+
+    private void MarkStartupPhase(string phase)
+    {
+        var elapsed = _startupStopwatch.ElapsedMilliseconds;
+        var delta = elapsed - _lastStartupMarkMilliseconds;
+        _lastStartupMarkMilliseconds = elapsed;
+        _logger.Info(
+            string.Create(
+                CultureInfo.InvariantCulture,
+                $"startup phase={phase} elapsedMs={elapsed} deltaMs={delta}"
+            )
+        );
     }
 
     private void ShowPreparationStep(
@@ -2955,7 +3052,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var overview = await _managementOverviewService.GetOverviewAsync(cts.Token);
+            var overview = await _managementOverviewService.GetShellStatusAsync(
+                cancellationToken: cts.Token
+            );
             _shellBackendVersion = ResolveBackendVersion(
                 overview.Value.ServerVersion,
                 overview.Metadata.Version
@@ -2981,7 +3080,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         var cancellationToken = _settingsOverviewRefreshCts.Token;
 
         UpdateSettingsOverlayBaseline();
-        SettingsModelOverviewText.Text = "可用模型：正在加载...";
+        SettingsModelOverviewText.Text = "可用模型：未加载";
         SettingsProviderOverviewText.Text = "提供商概览：正在加载...";
 
         for (var attempt = 0; attempt < 3; attempt++)
@@ -2990,7 +3089,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
             {
                 if (attempt > 0)
                 {
-                    SettingsModelOverviewText.Text = "可用模型：正在重试加载...";
+                    SettingsModelOverviewText.Text = "可用模型：未加载";
                     SettingsProviderOverviewText.Text = "提供商概览：正在刷新...";
                     await Task.Delay(TimeSpan.FromMilliseconds(420 * attempt), cancellationToken);
                 }
@@ -2999,7 +3098,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     cancellationToken
                 );
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
-                var overview = await _managementOverviewService.GetOverviewAsync(timeoutCts.Token);
+                var overview = await _managementOverviewService.GetSettingsSummaryAsync(
+                    forceRefresh: attempt > 0,
+                    cancellationToken: timeoutCts.Token
+                );
                 if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
                 {
                     return;
@@ -3011,39 +3113,27 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     : overview.Value.ServerVersion;
                 _shellBackendVersion = ResolveBackendVersion(backendVersion, null);
                 UpdateShellDockPresentation();
-                SettingsModelOverviewText.Text =
-                    overview.Value.AvailableModelCount is { } count ? $"可用模型：{count} 个"
-                    : string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
-                        ? "可用模型：正在等待后端模型数据..."
-                    : $"可用模型：{overview.Value.AvailableModelsError}";
+                SettingsModelOverviewText.Text = "可用模型：未加载";
                 SettingsProviderOverviewText.Text =
                     $"代理密钥 {overview.Value.ApiKeyCount} / 认证文件 {overview.Value.AuthFileCount} / Gemini {overview.Value.GeminiKeyCount} / Codex {overview.Value.CodexKeyCount} / Claude {overview.Value.ClaudeKeyCount} / Vertex {overview.Value.VertexKeyCount} / OpenAI 兼容 {overview.Value.OpenAiCompatibilityCount}";
 
-                var needsRetry =
-                    overview.Value.AvailableModelCount is null
-                    && string.IsNullOrWhiteSpace(overview.Value.AvailableModelsError)
-                    && attempt < 2;
-                if (!needsRetry)
-                {
-                    return;
-                }
+                return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
-            catch (Exception exception) when (attempt < 2)
+            catch (Exception) when (attempt < 2)
             {
                 if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
                 {
                     return;
                 }
 
-                SettingsModelOverviewText.Text =
-                    $"可用模型：加载失败，正在重试，{exception.Message}";
+                SettingsModelOverviewText.Text = "可用模型：未加载";
                 SettingsProviderOverviewText.Text = "提供商概览：正在重试";
             }
-            catch (Exception exception)
+            catch (Exception)
             {
                 if (!IsCurrentSettingsOverviewRequest(requestId, cancellationToken))
                 {
@@ -3055,7 +3145,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
                     ? BackendReleaseMetadata.Version
                     : _shellBackendVersion;
                 UpdateShellDockPresentation();
-                SettingsModelOverviewText.Text = $"可用模型：加载失败，{exception.Message}";
+                SettingsModelOverviewText.Text = "可用模型：未加载";
                 SettingsProviderOverviewText.Text = "提供商概览：未加载";
                 return;
             }

@@ -31,6 +31,7 @@ public static class BuildToolApp
         "package-update",
         "verify-package",
         "write-checksums",
+        "clean-artifacts",
     ];
 
     public static async Task<int> ExecuteAsync(
@@ -92,6 +93,7 @@ public static class BuildToolApp
                 "package-update" => await PackageCommands.PackageUpdateAsync(context),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
                 "write-checksums" => await ReleaseArtifactCommands.WriteChecksumsAsync(context),
+                "clean-artifacts" => ArtifactCleanupCommands.CleanAsync(context),
                 _ => 1,
             };
         }
@@ -236,6 +238,8 @@ public sealed class BuildContext(
 
     public string AssetsRoot => Path.Combine(Options.OutputRoot, "assets");
 
+    public string CacheRoot => Path.Combine(Options.OutputRoot, "cache");
+
     public string AssetManifestPath => Path.Combine(AssetsRoot, "asset-manifest.json");
 
     public string WebUiAssetsRoot => Path.Combine(AssetsRoot, "webui");
@@ -287,6 +291,8 @@ public sealed class BuildContext(
     public string WebUiBuildSourceRoot => Path.Combine(WebUiBuildRoot, "source");
 
     public string WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, "dist");
+
+    public string WebUiNodeModulesCacheRoot => Path.Combine(CacheRoot, "webui-node-modules");
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)
@@ -812,6 +818,9 @@ public static class AssetCommands
 
 public static class WebUiCommands
 {
+    private const long MaxIndexHtmlBytes = 512 * 1024;
+    private const long MaxAssetBytesTotal = 24 * 1024 * 1024;
+
     public static async Task<int> BuildVendoredAsync(BuildContext context)
     {
         EnsureVendoredLayout(context);
@@ -825,17 +834,46 @@ public static class WebUiCommands
         );
         SafeFileSystem.CopyDirectory(context.WebUiOverlaySourceRoot, context.WebUiBuildSourceRoot);
 
-        context.Logger.Info("installing vendored WebUI dependencies in temporary worktree");
-        var installExitCode = await context.ProcessRunner.RunAsync(
-            ResolveNpmExecutable(),
-            ["ci"],
-            context.WebUiBuildSourceRoot,
-            context.Logger
+        var dependencyCacheKey = await ComputeSha256Async(context.WebUiSourcePackageLockPath);
+        var cachedNodeModulesRoot = Path.Combine(
+            context.WebUiNodeModulesCacheRoot,
+            dependencyCacheKey,
+            "node_modules"
         );
-        if (installExitCode != 0)
+
+        if (Directory.Exists(cachedNodeModulesRoot))
         {
-            context.Logger.Error($"npm ci failed with exit code {installExitCode}.");
-            return installExitCode;
+            context.Logger.Info("using cached vendored WebUI dependencies");
+            SafeFileSystem.CopyDirectory(
+                cachedNodeModulesRoot,
+                Path.Combine(context.WebUiBuildSourceRoot, "node_modules")
+            );
+        }
+        else
+        {
+            context.Logger.Info("installing vendored WebUI dependencies in temporary worktree");
+            var installExitCode = await context.ProcessRunner.RunAsync(
+                ResolveNpmExecutable(),
+                ["ci"],
+                context.WebUiBuildSourceRoot,
+                context.Logger
+            );
+            if (installExitCode != 0)
+            {
+                context.Logger.Error($"npm ci failed with exit code {installExitCode}.");
+                return installExitCode;
+            }
+
+            var installedNodeModulesRoot = Path.Combine(context.WebUiBuildSourceRoot, "node_modules");
+            if (!Directory.Exists(installedNodeModulesRoot))
+            {
+                context.Logger.Error("npm ci completed without creating node_modules.");
+                return 1;
+            }
+
+            var cacheEntryRoot = Path.Combine(context.WebUiNodeModulesCacheRoot, dependencyCacheKey);
+            SafeFileSystem.CleanDirectory(cacheEntryRoot, context.Options.OutputRoot);
+            SafeFileSystem.CopyDirectory(installedNodeModulesRoot, cachedNodeModulesRoot);
         }
 
         context.Logger.Info("building vendored WebUI");
@@ -851,12 +889,19 @@ public static class WebUiCommands
             return buildExitCode;
         }
 
-        var builtEntryPath = Path.Combine(context.WebUiBuildDistRoot, "index.html");
-        if (!Directory.Exists(context.WebUiBuildDistRoot) || !File.Exists(builtEntryPath))
+        var report = CreateBundleReport(context.WebUiBuildDistRoot);
+        var distValidationError = ValidateBuiltDist(report);
+        if (distValidationError is not null)
         {
-            context.Logger.Error($"vendored WebUI build output is missing: {builtEntryPath}");
+            context.Logger.Error(distValidationError);
             return 1;
         }
+
+        await File.WriteAllTextAsync(
+            Path.Combine(context.WebUiBuildDistRoot, "bundle-report.json"),
+            JsonSerializer.Serialize(report, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
 
         SafeFileSystem.CleanDirectory(context.WebUiGeneratedRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.WebUiBuildDistRoot, context.WebUiGeneratedDistRoot);
@@ -868,6 +913,61 @@ public static class WebUiCommands
         );
         context.Logger.Info($"vendored WebUI dist generated: {context.WebUiGeneratedDistRoot}");
         return 0;
+    }
+
+    private static async Task<string> ComputeSha256Async(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA256.HashDataAsync(stream);
+        return Convert.ToHexStringLower(hash);
+    }
+
+    private static WebUiBundleReport CreateBundleReport(string distRoot)
+    {
+        var indexPath = Path.Combine(distRoot, "index.html");
+        var assetsRoot = Path.Combine(distRoot, "assets");
+        var assets = Directory.Exists(assetsRoot)
+            ? Directory
+                .EnumerateFiles(assetsRoot, "*", SearchOption.AllDirectories)
+                .Select(path => new WebUiBundleAsset(
+                    Path.GetRelativePath(distRoot, path).Replace('\\', '/'),
+                    new FileInfo(path).Length
+                ))
+                .OrderByDescending(asset => asset.Bytes)
+                .ThenBy(asset => asset.Path, StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+            : [];
+
+        return new WebUiBundleReport(
+            File.Exists(indexPath) ? new FileInfo(indexPath).Length : 0,
+            assets.Sum(asset => asset.Bytes),
+            assets
+        );
+    }
+
+    private static string? ValidateBuiltDist(WebUiBundleReport report)
+    {
+        if (report.IndexHtmlBytes <= 0)
+        {
+            return "vendored WebUI build output is missing dist/index.html.";
+        }
+
+        if (report.IndexHtmlBytes > MaxIndexHtmlBytes)
+        {
+            return $"vendored WebUI index.html is too large: {report.IndexHtmlBytes} bytes.";
+        }
+
+        if (report.Assets.Count == 0)
+        {
+            return "vendored WebUI build output is missing dist/assets files.";
+        }
+
+        if (report.AssetBytesTotal > MaxAssetBytesTotal)
+        {
+            return $"vendored WebUI assets are too large: {report.AssetBytesTotal} bytes.";
+        }
+
+        return null;
     }
 
     private static void EnsureVendoredLayout(BuildContext context)
@@ -968,6 +1068,14 @@ public static class WebUiCommands
 
         return null;
     }
+
+    private sealed record WebUiBundleReport(
+        long IndexHtmlBytes,
+        long AssetBytesTotal,
+        IReadOnlyList<WebUiBundleAsset> Assets
+    );
+
+    private sealed record WebUiBundleAsset(string Path, long Bytes);
 }
 
 public static class PublishCommands
@@ -1561,6 +1669,43 @@ public static class ReleaseArtifactCommands
     }
 }
 
+public static class ArtifactCleanupCommands
+{
+    public static int CleanAsync(BuildContext context)
+    {
+        foreach (
+            var directory in new[]
+            {
+                context.PublishRoot,
+                context.PackageRoot,
+                context.InstallerRoot,
+                Path.Combine(context.Options.OutputRoot, "temp"),
+            }
+        )
+        {
+            SafeFileSystem.CleanDirectory(directory, context.Options.OutputRoot);
+        }
+
+        foreach (
+            var file in new[]
+            {
+                context.ChecksumsPath,
+                context.ReleaseManifestPath,
+                Path.Combine(context.PublishRoot, "publish-manifest.json"),
+            }
+        )
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+
+        context.Logger.Info("cleaned BuildTool publish, package, installer, and temp artifacts");
+        return 0;
+    }
+}
+
 public sealed class PackageVerifier
 {
     private readonly BuildContext context;
@@ -1596,6 +1741,11 @@ public sealed class PackageVerifier
         VerifyZip(
             stagingPackagePath,
             "app-package/assets/webui/upstream/dist/index.html",
+            failures
+        );
+        VerifyZipPrefix(
+            stagingPackagePath,
+            "app-package/assets/webui/upstream/dist/assets/",
             failures
         );
         VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/sync.json", failures);
@@ -1655,6 +1805,32 @@ public sealed class PackageVerifier
             if (!found)
             {
                 failures.Add($"Package '{path}' is missing entry '{requiredEntry}'.");
+            }
+        }
+        catch (InvalidDataException exception)
+        {
+            failures.Add($"Package '{path}' is not a readable zip archive: {exception.Message}");
+        }
+    }
+
+    private static void VerifyZipPrefix(string path, string requiredPrefix, List<string> failures)
+    {
+        if (!File.Exists(path))
+        {
+            failures.Add($"Package missing: {path}");
+            return;
+        }
+
+        try
+        {
+            using var archive = ZipFile.OpenRead(path);
+            var found = archive.Entries.Any(entry =>
+                NormalizeEntryName(entry.FullName)
+                    .StartsWith(requiredPrefix, StringComparison.OrdinalIgnoreCase)
+            );
+            if (!found)
+            {
+                failures.Add($"Package '{path}' is missing entries under '{requiredPrefix}'.");
             }
         }
         catch (InvalidDataException exception)
@@ -1889,6 +2065,7 @@ public static class InstallerMetadata
     private static readonly string[] RequiredWebUiFiles =
     [
         "assets/webui/upstream/dist/index.html",
+        "assets/webui/upstream/dist/assets/*",
         "assets/webui/upstream/sync.json",
     ];
 
@@ -1936,7 +2113,7 @@ public static class InstallerMetadata
                     bundledPath = "assets/webui/upstream",
                     requiredFiles = RequiredWebUiFiles,
                     bundledFirst = true,
-                    verifyWithFiles = "assets/webui/upstream/dist/index.html + assets/webui/upstream/sync.json",
+                    verifyWithFiles = "assets/webui/upstream/dist/index.html + assets/webui/upstream/dist/assets/* + assets/webui/upstream/sync.json",
                     note = "The desktop shell serves the vendored official WebUI from local packaged files instead of a remote URL.",
                 },
                 installer = new
@@ -3581,6 +3758,25 @@ public static class SafeFileSystem
                     fullPath
                 );
             }
+        }
+
+        var webUiAssetsRoot = Path.Combine(
+            publishRoot,
+            "assets",
+            "webui",
+            "upstream",
+            "dist",
+            "assets"
+        );
+        if (
+            !Directory.Exists(webUiAssetsRoot)
+            || !Directory.EnumerateFiles(webUiAssetsRoot, "*", SearchOption.AllDirectories).Any()
+        )
+        {
+            throw new FileNotFoundException(
+                $"Publish output is missing WebUI asset files. Run publish first: {webUiAssetsRoot}",
+                webUiAssetsRoot
+            );
         }
     }
 }

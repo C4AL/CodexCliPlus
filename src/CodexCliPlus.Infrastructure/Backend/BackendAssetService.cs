@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
@@ -11,6 +12,13 @@ namespace CodexCliPlus.Infrastructure.Backend;
 
 public sealed class BackendAssetService
 {
+    private static readonly JsonSerializerOptions VersionCacheJsonOptions =
+        new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+        };
+
     private readonly HttpClient _httpClient;
     private readonly IPathService _pathService;
     private readonly IAppLogger _logger;
@@ -111,9 +119,15 @@ public sealed class BackendAssetService
         CancellationToken cancellationToken
     )
     {
+        if (TryReadCachedExecutableVersion(executablePath, out var cachedVersion))
+        {
+            return IsExpectedBackendVersion(cachedVersion);
+        }
+
         var version = await TryReadExecutableVersionAsync(executablePath, cancellationToken);
         if (IsExpectedBackendVersion(version))
         {
+            await WriteExecutableVersionCacheAsync(executablePath, version!, cancellationToken);
             return true;
         }
 
@@ -129,6 +143,79 @@ public sealed class BackendAssetService
         }
 
         return false;
+    }
+
+    private bool TryReadCachedExecutableVersion(string executablePath, out string? version)
+    {
+        version = null;
+        var cachePath = GetExecutableVersionCachePath();
+        if (!File.Exists(cachePath) || !File.Exists(executablePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            var executable = new FileInfo(executablePath);
+            var cache = JsonSerializer.Deserialize<BackendExecutableVersionCache>(
+                File.ReadAllText(cachePath),
+                VersionCacheJsonOptions
+            );
+            if (
+                cache is null
+                || !string.Equals(
+                    Path.GetFullPath(cache.Path),
+                    Path.GetFullPath(executablePath),
+                    StringComparison.OrdinalIgnoreCase
+                )
+                || cache.LastWriteTimeUtcTicks != executable.LastWriteTimeUtc.Ticks
+                || cache.Size != executable.Length
+            )
+            {
+                return false;
+            }
+
+            version = cache.Version;
+            return !string.IsNullOrWhiteSpace(version);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task WriteExecutableVersionCacheAsync(
+        string executablePath,
+        string version,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            var executable = new FileInfo(executablePath);
+            Directory.CreateDirectory(_pathService.Directories.CacheDirectory);
+            var cache = new BackendExecutableVersionCache
+            {
+                Path = Path.GetFullPath(executablePath),
+                LastWriteTimeUtcTicks = executable.LastWriteTimeUtc.Ticks,
+                Size = executable.Length,
+                Version = version,
+            };
+            await File.WriteAllTextAsync(
+                GetExecutableVersionCachePath(),
+                JsonSerializer.Serialize(cache, VersionCacheJsonOptions),
+                cancellationToken
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"Failed to write CLIProxyAPI version cache: {exception.Message}");
+        }
+    }
+
+    private string GetExecutableVersionCachePath()
+    {
+        return Path.Combine(_pathService.Directories.CacheDirectory, "backend-version-cache.json");
     }
 
     private async Task<string?> TryReadExecutableVersionAsync(
@@ -209,6 +296,17 @@ public sealed class BackendAssetService
             BackendReleaseMetadata.Version,
             StringComparison.OrdinalIgnoreCase
         );
+    }
+
+    private sealed class BackendExecutableVersionCache
+    {
+        public string Path { get; init; } = string.Empty;
+
+        public long LastWriteTimeUtcTicks { get; init; }
+
+        public long Size { get; init; }
+
+        public string Version { get; init; } = string.Empty;
     }
 
     private static BackendAssetLayout CreateLayout(string workingDirectory, string executablePath)

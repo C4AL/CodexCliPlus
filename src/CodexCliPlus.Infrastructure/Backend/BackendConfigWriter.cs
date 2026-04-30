@@ -45,6 +45,9 @@ public sealed class BackendConfigWriter
 
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
+        var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
+        var generatedManagementKey = false;
+
         if (string.IsNullOrWhiteSpace(settings.ManagementKey))
         {
             if (settings.SecurityKeyOnboardingCompleted)
@@ -55,6 +58,7 @@ public sealed class BackendConfigWriter
             }
 
             settings.ManagementKey = GenerateManagementKey();
+            generatedManagementKey = true;
         }
         else
         {
@@ -72,14 +76,26 @@ public sealed class BackendConfigWriter
         );
 
         var yaml = BuildYaml(settings.BackendPort, managementKeyHash, authDirectory);
-        await File.WriteAllTextAsync(
-            _pathService.Directories.BackendConfigFilePath,
-            yaml,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
+        if (
+            !await FileContentEqualsAsync(
+                _pathService.Directories.BackendConfigFilePath,
+                yaml,
+                cancellationToken
+            )
+        )
+        {
+            await File.WriteAllTextAsync(
+                _pathService.Directories.BackendConfigFilePath,
+                yaml,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                cancellationToken
+            );
+        }
 
-        await _configurationService.SaveAsync(settings, cancellationToken);
+        if (!settingsFileExists || generatedManagementKey)
+        {
+            await _configurationService.SaveAsync(settings, cancellationToken);
+        }
 
         if (options.ValidatePort && !IsPortAvailable(settings.BackendPort))
         {
@@ -244,6 +260,21 @@ public sealed class BackendConfigWriter
     private static void AppendInvariant(StringBuilder builder, FormattableString value)
     {
         builder.Append(value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static async Task<bool> FileContentEqualsAsync(
+        string path,
+        string expectedContent,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        var currentContent = await File.ReadAllTextAsync(path, cancellationToken);
+        return string.Equals(currentContent, expectedContent, StringComparison.Ordinal);
     }
 
     private static bool IsPortAvailable(int port)

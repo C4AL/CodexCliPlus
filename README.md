@@ -124,13 +124,6 @@ dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj 
 - `packages/CodexCliPlus.Setup.Online.<version>.exe`
 - `packages/CodexCliPlus.Setup.Offline.<version>.exe`
 
-## 文档
-
-- [架构约束](./docs/architecture-freeze.md)
-- [构建与发布](./docs/build-and-release.md)
-- [测试与验收](./docs/testing.md)
-- [管理 API 映射](./docs/management-api-mapping.md)
-- [项目状态与待办](./docs/repository-gap-analysis.md)
 
 ## 许可证
 

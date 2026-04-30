@@ -433,9 +433,142 @@ public partial class MainWindow
                         )
                     );
                     break;
+
+                case "requestLocalDependencySnapshot":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SendLocalDependencySnapshotAsync(ReadRequestId(root))
+                    );
+                    break;
+
+                case "runLocalDependencyRepair":
+                    var actionId =
+                        root.TryGetProperty("actionId", out var actionIdElement)
+                        && actionIdElement.ValueKind == JsonValueKind.String
+                            ? actionIdElement.GetString()
+                            : null;
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await RunLocalDependencyRepairAsync(ReadRequestId(root), actionId)
+                    );
+                    break;
             }
         }
         catch { }
+    }
+
+    private async Task SendLocalDependencySnapshotAsync(string? requestId)
+    {
+        try
+        {
+            var snapshot = await _localDependencyHealthService.CheckAsync();
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencySnapshot",
+                    requestId,
+                    snapshot,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencySnapshot",
+                    requestId,
+                    error = exception.Message,
+                }
+            );
+        }
+    }
+
+    private async Task RunLocalDependencyRepairAsync(string? requestId, string? actionId)
+    {
+        if (
+            string.IsNullOrWhiteSpace(actionId)
+            || !LocalDependencyRepairActionIds.IsKnown(actionId)
+        )
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencyRepairResult",
+                    requestId,
+                    result = new
+                    {
+                        actionId = actionId ?? string.Empty,
+                        succeeded = false,
+                        summary = "未知修复动作。",
+                        detail = "桌面端只接受内置白名单 action id。",
+                    },
+                }
+            );
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            this,
+            "即将以管理员权限启动受控修复进程。修复过程只会执行内置白名单动作，是否继续？",
+            "确认本地环境修复",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning
+        );
+        if (confirm != MessageBoxResult.OK)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencyRepairResult",
+                    requestId,
+                    result = new
+                    {
+                        actionId,
+                        succeeded = false,
+                        summary = "用户取消了修复。",
+                        detail = "未执行任何修复动作。",
+                    },
+                }
+            );
+            return;
+        }
+
+        PostWebUiCommand(
+            new
+            {
+                type = "localDependencyRepairStarted",
+                requestId,
+                actionId,
+            }
+        );
+
+        var result = await _localDependencyRepairService.RunElevatedRepairAsync(actionId);
+        var snapshot = await _localDependencyHealthService.CheckAsync();
+        PostWebUiCommand(
+            new
+            {
+                type = "localDependencyRepairResult",
+                requestId,
+                result,
+                snapshot,
+            }
+        );
+
+        if (result.Succeeded)
+        {
+            _notificationService.ShowAuto(result.Summary);
+        }
+        else
+        {
+            _notificationService.ShowManual(result.Summary, result.Detail);
+        }
+    }
+
+    private static string? ReadRequestId(JsonElement root)
+    {
+        return root.TryGetProperty("requestId", out var requestIdElement)
+            && requestIdElement.ValueKind == JsonValueKind.String
+            ? requestIdElement.GetString()
+            : null;
     }
 
     private void ApplyWebUiShellState(JsonElement root)

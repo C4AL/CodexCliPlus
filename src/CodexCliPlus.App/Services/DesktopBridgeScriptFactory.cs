@@ -68,7 +68,16 @@ public static class DesktopBridgeScriptFactory
                 clearUsageStats: () => postHostMessage({ type: 'clearUsageStats' }),
                 usageStatsRefreshed: () => postHostMessage({ type: 'usageStatsRefreshed' }),
                 checkDesktopUpdate: () => postHostMessage({ type: 'checkDesktopUpdate' }),
-                applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' })
+                applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' }),
+                requestLocalDependencySnapshot: (requestId) => postHostMessage({
+                  type: 'requestLocalDependencySnapshot',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                runLocalDependencyRepair: (actionId, requestId) => postHostMessage({
+                  type: 'runLocalDependencyRepair',
+                  actionId: typeof actionId === 'string' ? actionId : '',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                })
               };
 
               Object.defineProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__', {

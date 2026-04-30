@@ -1,16 +1,28 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Security;
 
 namespace CodexCliPlus.Infrastructure.Diagnostics;
 
 public sealed class DiagnosticsService
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+    };
+
     private readonly IPathService _pathService;
     private readonly IBuildInfo _buildInfo;
 
@@ -23,7 +35,8 @@ public sealed class DiagnosticsService
     public string BuildReport(
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult dependencyStatus
+        DependencyCheckResult dependencyStatus,
+        LocalDependencySnapshot? localDependencySnapshot = null
     )
     {
         var builder = new StringBuilder();
@@ -55,6 +68,17 @@ public sealed class DiagnosticsService
             builder,
             $"Dependency repair mode: {dependencyStatus.RequiresRepairMode}"
         );
+        if (localDependencySnapshot is not null)
+        {
+            AppendInvariantLine(
+                builder,
+                $"Local environment score: {localDependencySnapshot.ReadinessScore}"
+            );
+            AppendInvariantLine(
+                builder,
+                $"Local environment summary: {localDependencySnapshot.Summary}"
+            );
+        }
 
         if (dependencyStatus.Issues.Count > 0)
         {
@@ -84,7 +108,8 @@ public sealed class DiagnosticsService
     public string ExportPackage(
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult dependencyStatus
+        DependencyCheckResult dependencyStatus,
+        LocalDependencySnapshot? localDependencySnapshot = null
     )
     {
         Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
@@ -103,8 +128,19 @@ public sealed class DiagnosticsService
         WriteArchiveEntry(
             archive,
             "report.txt",
-            BuildReport(backendStatus, codexStatus, dependencyStatus)
+            BuildReport(backendStatus, codexStatus, dependencyStatus, localDependencySnapshot)
         );
+        if (localDependencySnapshot is not null)
+        {
+            WriteArchiveEntry(
+                archive,
+                "local-environment.json",
+                SensitiveDataRedactor.Redact(
+                    JsonSerializer.Serialize(localDependencySnapshot, JsonOptions)
+                )
+            );
+        }
+
         AddFileIfPresent(
             archive,
             "desktop.log",
@@ -130,7 +166,8 @@ public sealed class DiagnosticsService
         Exception? exception,
         BackendStatusSnapshot backendStatus,
         CodexStatusSnapshot codexStatus,
-        DependencyCheckResult dependencyStatus
+        DependencyCheckResult dependencyStatus,
+        LocalDependencySnapshot? localDependencySnapshot = null
     )
     {
         Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
@@ -163,7 +200,9 @@ public sealed class DiagnosticsService
 
         builder.AppendLine();
         builder.AppendLine("Environment report:");
-        builder.AppendLine(BuildReport(backendStatus, codexStatus, dependencyStatus));
+        builder.AppendLine(
+            BuildReport(backendStatus, codexStatus, dependencyStatus, localDependencySnapshot)
+        );
 
         File.WriteAllText(
             snapshotPath,

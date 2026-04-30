@@ -10,10 +10,12 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
     [
         ("Program.cs.template", "Program.cs"),
         ("Program.un.cs.template", "Program.un.cs"),
+        (Path.Combine("ViewModels", "Inst", "MainViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "MainViewModel.cs")),
         (Path.Combine("ViewModels", "Inst", "InstallViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "InstallViewModel.cs")),
         (Path.Combine("ViewModels", "Inst", "FinishViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "FinishViewModel.cs")),
         (Path.Combine("ViewModels", "Uninst", "MainViewModel.cs.template"), Path.Combine("ViewModels", "Uninst", "MainViewModel.cs")),
         (Path.Combine("Views", "Inst", "FinishPage.xaml.template"), Path.Combine("Views", "Inst", "FinishPage.xaml")),
+        (Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs.template"), Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs")),
         (Path.Combine("Helper", "Setup", "UninstallHelper.cs.template"), Path.Combine("Helper", "Setup", "UninstallHelper.cs")),
     ];
 
@@ -21,6 +23,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
+        long payloadUncompressedBytes,
         string installerOutputPath
     )
     {
@@ -37,6 +40,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             context,
             micaConfigPath,
             payloadArchivePath,
+            payloadUncompressedBytes,
             installerOutputPath
         );
     }
@@ -45,6 +49,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
+        long payloadUncompressedBytes,
         string installerOutputPath
     )
     {
@@ -68,7 +73,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
         try
         {
-            ApplyRepoOwnedInstallerSource(context, distRoot, payloadArchivePath);
+            ApplyRepoOwnedInstallerSource(context, distRoot, payloadArchivePath, payloadUncompressedBytes);
         }
         catch (Exception exception)
         {
@@ -157,7 +162,8 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
     private static void ApplyRepoOwnedInstallerSource(
         BuildContext context,
         string distRoot,
-        string payloadArchivePath
+        string payloadArchivePath,
+        long payloadUncompressedBytes
     )
     {
         var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
@@ -179,10 +185,14 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
 
         CopyLicenseDocuments(context, Path.Combine(distRoot, "Resources", "Licenses"));
         CopyInstallerImages(context, Path.Combine(distRoot, "Resources", "Images"));
-        RenderRepoOwnedSourceTemplates(context, distRoot);
+        RenderRepoOwnedSourceTemplates(context, distRoot, payloadUncompressedBytes);
     }
 
-    private static void RenderRepoOwnedSourceTemplates(BuildContext context, string distRoot)
+    private static void RenderRepoOwnedSourceTemplates(
+        BuildContext context,
+        string distRoot,
+        long payloadUncompressedBytes
+    )
     {
         var overlayRoot = Path.Combine(
             context.Options.RepositoryRoot,
@@ -196,7 +206,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             throw new DirectoryNotFoundException(overlayRoot);
         }
 
-        var tokens = CreateTemplateTokens(context);
+        var tokens = CreateTemplateTokens(context, payloadUncompressedBytes);
         foreach (var (templateRelativePath, targetRelativePath) in SourceTemplateFiles)
         {
             var templatePath = Path.Combine(overlayRoot, templateRelativePath);
@@ -215,7 +225,10 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         }
     }
 
-    private static Dictionary<string, string> CreateTemplateTokens(BuildContext context)
+    private static Dictionary<string, string> CreateTemplateTokens(
+        BuildContext context,
+        long payloadUncompressedBytes
+    )
     {
         var noticePath = Path.Combine(
             context.Options.RepositoryRoot,
@@ -232,6 +245,9 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
             ["__DISPLAY_VERSION__"] = context.Options.Version,
             ["__AUTO_RUN_LAUNCH_COMMAND__"] = "/autostart",
             ["__IS_USE_LICENSE_FILE__"] = File.Exists(noticePath) ? "true" : "false",
+            ["__PAYLOAD_UNCOMPRESSED_BYTES__"] = payloadUncompressedBytes.ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
         };
     }
 
@@ -260,6 +276,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 "BetterGI.GPL-3.0.txt"
             ),
             (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt"),
+            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "license.txt"),
         };
 
         foreach (var (source, target) in documents)

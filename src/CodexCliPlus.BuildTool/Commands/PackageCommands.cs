@@ -62,6 +62,7 @@ public static class PackageCommands
             webView2Assets,
             packageKind
         );
+        var payloadUncompressedBytes = GetDirectorySize(appPackageRoot);
 
         var toolchain = await MicaSetupToolchain.AcquireAsync(context);
         var archiveExitCode = await CreateMicaPayloadArchiveAsync(
@@ -88,6 +89,7 @@ public static class PackageCommands
             context,
             micaConfigPath,
             payloadArchivePath,
+            payloadUncompressedBytes,
             installerOutputPath
         );
         if (buildExitCode != 0)
@@ -318,6 +320,13 @@ public static class PackageCommands
         return File.Exists(archivePath) ? 0
             : exitCode == 0 ? 1
             : exitCode;
+    }
+
+    private static long GetDirectorySize(string directory)
+    {
+        return Directory
+            .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .Sum(path => new FileInfo(path).Length);
     }
 
     private static Task WriteJsonAsync(string path, object value)

@@ -25,14 +25,16 @@ public sealed class PackageVerifier
     public IReadOnlyList<string> VerifyAll()
     {
         var failures = new List<string>();
-        VerifyInstallerPackage("Offline", failures);
+        VerifyInstallerPackage(InstallerPackageKind.Online, failures);
+        VerifyInstallerPackage(InstallerPackageKind.Offline, failures);
         VerifyUpdatePackage(failures);
 
         return failures;
     }
 
-    private void VerifyInstallerPackage(string packageMoniker, List<string> failures)
+    private void VerifyInstallerPackage(InstallerPackageKind packageKind, List<string> failures)
     {
+        var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
         var installerName =
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe";
         var stagingPackagePath = Path.Combine(
@@ -62,11 +64,22 @@ public sealed class PackageVerifier
             $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}",
             failures
         );
-        VerifyZipExecutable(
-            stagingPackagePath,
-            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
-            failures
-        );
+        if (packageKind == InstallerPackageKind.Offline)
+        {
+            VerifyZipExecutable(
+                stagingPackagePath,
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
+                failures
+            );
+        }
+        else
+        {
+            VerifyZipAbsent(
+                stagingPackagePath,
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
+                failures
+            );
+        }
         VerifyZip(stagingPackagePath, "app-package/packaging/uninstall-cleanup.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/dependency-precheck.json", failures);
         VerifyZip(stagingPackagePath, "app-package/packaging/update-policy.json", failures);
@@ -97,6 +110,35 @@ public sealed class PackageVerifier
             expectedSigned: true,
             failures
         );
+    }
+
+    private static void VerifyZipAbsent(string path, string forbiddenEntry, List<string> failures)
+    {
+        if (!File.Exists(path))
+        {
+            failures.Add($"Package missing: {path}");
+            return;
+        }
+
+        try
+        {
+            using var archive = ZipFile.OpenRead(path);
+            var found = archive.Entries.Any(entry =>
+                string.Equals(
+                    NormalizeEntryName(entry.FullName),
+                    forbiddenEntry,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            );
+            if (found)
+            {
+                failures.Add($"Package '{path}' should not contain entry '{forbiddenEntry}'.");
+            }
+        }
+        catch (InvalidDataException exception)
+        {
+            failures.Add($"Package '{path}' is not a readable zip archive: {exception.Message}");
+        }
     }
 
     private static void VerifyZip(string path, string requiredEntry, List<string> failures)

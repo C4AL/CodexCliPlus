@@ -24,45 +24,56 @@ public static class InstallerMetadata
         BuildContext context,
         string appPackageRoot,
         string installerStageRoot,
-        WebView2RuntimeAssets webView2Assets
+        WebView2RuntimeAssets webView2Assets,
+        InstallerPackageKind packageKind
     )
     {
         var packagingRoot = Path.Combine(appPackageRoot, "packaging");
         Directory.CreateDirectory(packagingRoot);
+        var isOnline = packageKind == InstallerPackageKind.Online;
+        var webView2 = new Dictionary<string, object?>
+        {
+            ["required"] = true,
+            ["runtime"] = "Microsoft Edge WebView2 Runtime",
+            ["detection"] = "CoreWebView2Environment.GetAvailableBrowserVersionString",
+            ["bundledFirst"] = !isOnline,
+            ["installStrategy"] = isOnline
+                ? "online-bootstrapper-only"
+                : "online-bootstrapper-then-bundled-standalone",
+            ["onlineBootstrapper"] = new
+            {
+                webView2Assets.Bootstrapper.FileName,
+                webView2Assets.Bootstrapper.PackagedPath,
+                webView2Assets.Bootstrapper.SourceUrl,
+                webView2Assets.Bootstrapper.SilentArguments,
+                webView2Assets.Bootstrapper.Size,
+                webView2Assets.Bootstrapper.Sha256,
+            },
+            ["downloadPage"] = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
+            ["failureBehavior"] = "缺少 WebView2 且自动安装失败时阻止启动，并显示中文原因。",
+            ["note"] = isOnline
+                ? "Online SKU does not bundle the standalone WebView2 runtime; machines that already have WebView2 should install quickly, while missing runtimes use the bootstrapper."
+                : "Offline SKU bundles the WebView2 standalone runtime for no-network fallback and does not promise a seconds-level install.",
+        };
+        if (!isOnline && webView2Assets.OptionalStandaloneX64 is { } standaloneX64)
+        {
+            webView2["bundledStandaloneX64"] = new
+            {
+                standaloneX64.FileName,
+                standaloneX64.PackagedPath,
+                standaloneX64.SourceUrl,
+                standaloneX64.SilentArguments,
+                standaloneX64.Size,
+                standaloneX64.Sha256,
+            };
+        }
 
         await WriteJsonAsync(
             Path.Combine(packagingRoot, "dependency-precheck.json"),
             new
             {
-                webView2 = new
-                {
-                    required = true,
-                    runtime = "Microsoft Edge WebView2 Runtime",
-                    detection = "CoreWebView2Environment.GetAvailableBrowserVersionString",
-                    bundledFirst = true,
-                    installStrategy = "online-bootstrapper-then-bundled-standalone",
-                    onlineBootstrapper = new
-                    {
-                        webView2Assets.Bootstrapper.FileName,
-                        webView2Assets.Bootstrapper.PackagedPath,
-                        webView2Assets.Bootstrapper.SourceUrl,
-                        webView2Assets.Bootstrapper.SilentArguments,
-                        webView2Assets.Bootstrapper.Size,
-                        webView2Assets.Bootstrapper.Sha256,
-                    },
-                    bundledStandaloneX64 = new
-                    {
-                        webView2Assets.StandaloneX64.FileName,
-                        webView2Assets.StandaloneX64.PackagedPath,
-                        webView2Assets.StandaloneX64.SourceUrl,
-                        webView2Assets.StandaloneX64.SilentArguments,
-                        webView2Assets.StandaloneX64.Size,
-                        webView2Assets.StandaloneX64.Sha256,
-                    },
-                    downloadPage = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
-                    failureBehavior = "缺少 WebView2 且自动安装失败时阻止启动，并显示中文原因。",
-                    note = "The desktop shell is a WebView2 host and cannot render the vendored official WebUI without the runtime.",
-                },
+                installerSku = isOnline ? "online" : "offline",
+                webView2,
                 runtime = new
                 {
                     selfContained = true,
@@ -90,6 +101,7 @@ public static class InstallerMetadata
                 },
                 installer = new
                 {
+                    sku = isOnline ? "online" : "offline",
                     precheck = "Setup payload contains dependency-precheck.json so the installer chain can validate WebView2, bundled backend files, and vendored WebUI assets before launch.",
                     launchAfterInstall = true,
                 },
@@ -104,7 +116,8 @@ public static class InstallerMetadata
                 {
                     enabled = true,
                     source = "release-manifest.json + CodexCliPlus.Update.<version>.<runtime>.zip",
-                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe",
+                    expectedInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe",
+                    fallbackInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe",
                     updateKind = "file-manifest-diff",
                     installedBuildCanLaunchUpdater = true,
                 },

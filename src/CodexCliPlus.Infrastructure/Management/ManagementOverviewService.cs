@@ -204,23 +204,13 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         var usageTask = _usageService.GetUsageAsync(cancellationToken);
         var apiKeysTask = _authService.GetApiKeysAsync(cancellationToken);
         var authFilesTask = _authService.GetAuthFilesAsync(cancellationToken);
-        var geminiTask = _authService.GetGeminiKeysAsync(cancellationToken);
-        var codexTask = _authService.GetCodexKeysAsync(cancellationToken);
-        var claudeTask = _authService.GetClaudeKeysAsync(cancellationToken);
-        var vertexTask = _authService.GetVertexKeysAsync(cancellationToken);
-        var openAiTask = _authService.GetOpenAiCompatibilityAsync(cancellationToken);
 
         await Task.WhenAll(
             connectionTask,
             configTask,
             usageTask,
             apiKeysTask,
-            authFilesTask,
-            geminiTask,
-            codexTask,
-            claudeTask,
-            vertexTask,
-            openAiTask
+            authFilesTask
         );
 
         var connection = await connectionTask;
@@ -228,11 +218,6 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         var usage = await usageTask;
         var apiKeys = await apiKeysTask;
         var authFiles = await authFilesTask;
-        var geminiKeys = await geminiTask;
-        var codexKeys = await codexTask;
-        var claudeKeys = await claudeTask;
-        var vertexKeys = await vertexTask;
-        var openAiProviders = await openAiTask;
 
         string? latestVersion = null;
         string? latestVersionError = null;
@@ -281,11 +266,11 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                 LatestVersionError = latestVersionError,
                 ApiKeyCount = apiKeys.Value.Count,
                 AuthFileCount = authFiles.Value.Count,
-                GeminiKeyCount = geminiKeys.Value.Count,
-                CodexKeyCount = codexKeys.Value.Count,
-                ClaudeKeyCount = claudeKeys.Value.Count,
-                VertexKeyCount = vertexKeys.Value.Count,
-                OpenAiCompatibilityCount = openAiProviders.Value.Count,
+                GeminiKeyCount = config.Value.GeminiApiKeys.Count,
+                CodexKeyCount = config.Value.CodexApiKeys.Count,
+                ClaudeKeyCount = config.Value.ClaudeApiKeys.Count,
+                VertexKeyCount = config.Value.VertexApiKeys.Count,
+                OpenAiCompatibilityCount = config.Value.OpenAiCompatibility.Count,
                 AvailableModelCount = availableModelCount,
                 AvailableModelsError = availableModelsError,
                 Config = config.Value,
@@ -313,11 +298,11 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                     ServerVersion = config.Metadata.Version,
                     ApiKeyCount = apiKeys.Value.Count,
                     AuthFileCount = authFiles.Value.Count,
-                    GeminiKeyCount = geminiKeys.Value.Count,
-                    CodexKeyCount = codexKeys.Value.Count,
-                    ClaudeKeyCount = claudeKeys.Value.Count,
-                    VertexKeyCount = vertexKeys.Value.Count,
-                    OpenAiCompatibilityCount = openAiProviders.Value.Count,
+                    GeminiKeyCount = config.Value.GeminiApiKeys.Count,
+                    CodexKeyCount = config.Value.CodexApiKeys.Count,
+                    ClaudeKeyCount = config.Value.ClaudeApiKeys.Count,
+                    VertexKeyCount = config.Value.VertexApiKeys.Count,
+                    OpenAiCompatibilityCount = config.Value.OpenAiCompatibility.Count,
                     Config = config.Value,
                 }
             )

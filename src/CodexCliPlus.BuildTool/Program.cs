@@ -25,8 +25,10 @@ public static class BuildToolApp
     [
         "fetch-assets",
         "verify-assets",
+        "sync-backend-source",
         "build-webui",
         "publish",
+        "package-online-installer",
         "package-offline-installer",
         "package-update",
         "verify-package",
@@ -85,8 +87,13 @@ public static class BuildToolApp
             {
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
+                "sync-backend-source" => await AssetCommands.SyncBackendSourceAsync(context),
                 "build-webui" => await WebUiCommands.BuildVendoredAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
+                "package-online-installer" => await PackageCommands.PackageInstallerAsync(
+                    context,
+                    InstallerPackageKind.Online
+                ),
                 "package-offline-installer" => await PackageCommands.PackageInstallerAsync(
                     context,
                     InstallerPackageKind.Offline
@@ -299,6 +306,12 @@ public sealed class BuildContext(
     public string WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, "dist");
 
     public string WebUiNodeModulesCacheRoot => Path.Combine(CacheRoot, "webui-node-modules");
+
+    public string BackendSourceRoot =>
+        Path.Combine(Options.RepositoryRoot, "resources", "backend", "source");
+
+    public string BackendSourceManifestPath =>
+        Path.Combine(Options.RepositoryRoot, "resources", "backend", "backend-source-manifest.json");
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)

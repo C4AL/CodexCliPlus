@@ -74,6 +74,7 @@ public partial class MainWindow
         LoadingStatusText.Text = BuildPreparationStatus(progress, state);
         PreparationStepText.Text = $"当前步骤：{step}";
         var normalizedProgress = Math.Clamp(progress, 0, 100);
+        UpdateStartupChecklist(normalizedProgress, state);
         PreparationProgressBar.BeginAnimation(
             RangeBase.ValueProperty,
             new DoubleAnimation(normalizedProgress, new Duration(TimeSpan.FromMilliseconds(320)))
@@ -99,6 +100,18 @@ public partial class MainWindow
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
+    }
+
+    private void UpdateStartupChecklist(double progress, StartupState state)
+    {
+        LoadingWebView2StepText.Text = progress >= 35 ? "WebView2：已就绪" : "WebView2：正在检测";
+        LoadingBackendStepText.Text = progress >= 65 ? "本地后端：正在运行" : "本地后端：等待启动";
+        LoadingSecurityStepText.Text =
+            progress >= 35 ? "管理密钥：已准备" : "管理密钥：等待校验";
+        LoadingWebUiStepText.Text =
+            state == StartupState.LoadingManagement || progress >= 90
+                ? "WebUI 连接：正在接入"
+                : "WebUI 连接：等待后端";
     }
 
     private void ShowUpgradeNotice()

@@ -18,14 +18,11 @@ public static class PackageCommands
         InstallerPackageKind packageKind
     )
     {
-        if (packageKind != InstallerPackageKind.Offline)
-        {
-            throw new NotSupportedException("Only offline installer packaging is supported.");
-        }
-
         SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-        var packageMoniker = "Offline";
-        var packageType = "offline-installer";
+        var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
+        var packageType = packageKind == InstallerPackageKind.Online
+            ? "online-installer"
+            : "offline-installer";
         var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
         var appPackageRoot = Path.Combine(stageRoot, "app-package");
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
@@ -36,7 +33,11 @@ public static class PackageCommands
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
-        var webView2Assets = await WebView2RuntimeAssets.StageAsync(context, appPackageRoot);
+        var webView2Assets = await WebView2RuntimeAssets.StageAsync(
+            context,
+            appPackageRoot,
+            packageKind
+        );
 
         var installerPlan = new InstallerPlan
         {
@@ -54,7 +55,13 @@ public static class PackageCommands
             BetaChannelReserved = true,
         };
         await WriteJsonAsync(Path.Combine(stageRoot, "mica-setup.json"), installerPlan);
-        await InstallerMetadata.WriteAsync(context, appPackageRoot, stageRoot, webView2Assets);
+        await InstallerMetadata.WriteAsync(
+            context,
+            appPackageRoot,
+            stageRoot,
+            webView2Assets,
+            packageKind
+        );
 
         var toolchain = await MicaSetupToolchain.AcquireAsync(context);
         var archiveExitCode = await CreateMicaPayloadArchiveAsync(
@@ -326,5 +333,6 @@ public static class PackageCommands
 
 public enum InstallerPackageKind
 {
+    Online,
     Offline,
 }

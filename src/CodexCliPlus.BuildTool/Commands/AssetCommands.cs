@@ -186,7 +186,12 @@ public static class AssetCommands
         await RunRequiredAsync(
             context,
             "gofmt",
-            ["-w", Path.Combine("internal", "store", "gitstore.go")],
+            [
+                "-w",
+                Path.Combine("internal", "store", "gitstore.go"),
+                Path.Combine("internal", "config", "config.go"),
+                Path.Combine("internal", "config", "codexcliplus_secret_refs.go"),
+            ],
             sourceRoot,
             "format patched backend source"
         );
@@ -269,6 +274,8 @@ public static class AssetCommands
 
     private static void ApplyPatchedBackendSourceChanges(string sourceRoot)
     {
+        ApplySecretRefSupportPatch(sourceRoot);
+
         var gitStorePath = Path.Combine(sourceRoot, "internal", "store", "gitstore.go");
         var source = File.ReadAllText(gitStorePath, Encoding.UTF8).Replace("\r\n", "\n");
         source = ReplaceRequired(
@@ -287,6 +294,199 @@ public static class AssetCommands
         File.WriteAllText(gitStorePath, source, new UTF8Encoding(false));
     }
 
+    private static void ApplySecretRefSupportPatch(string sourceRoot)
+    {
+        var configPath = Path.Combine(sourceRoot, "internal", "config", "config.go");
+        var source = File.ReadAllText(configPath, Encoding.UTF8).Replace("\r\n", "\n");
+        source = InsertBeforeRequiredMarker(
+            source,
+            "// NOTE: Startup legacy key migration is intentionally disabled.",
+            "if err := ResolveCodexCliPlusSecretRefs(&cfg); err != nil {\n"
+                + "\tif optional {\n"
+                + "\t\treturn &Config{}, nil\n"
+                + "\t}\n"
+                + "\treturn nil, fmt.Errorf(\"failed to resolve CodexCliPlus secret refs: %w\", err)\n"
+                + "}\n\n"
+        );
+        File.WriteAllText(configPath, source, new UTF8Encoding(false));
+
+        var resolverPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "config",
+            "codexcliplus_secret_refs.go"
+        );
+        File.WriteAllText(resolverPath, SecretRefResolverGoSource, new UTF8Encoding(false));
+    }
+
+    private const string SecretRefResolverGoSource =
+        """
+        package config
+
+        import (
+            "encoding/json"
+            "fmt"
+            "net/http"
+            "net/url"
+            "os"
+            "strings"
+            "time"
+        )
+
+        const (
+            codexCliPlusSecretBrokerURLEnv   = "CCP_SECRET_BROKER_URL"
+            codexCliPlusSecretBrokerTokenEnv = "CCP_SECRET_BROKER_TOKEN"
+        )
+
+        type codexCliPlusSecretResolver struct {
+            baseURL string
+            token   string
+            client  *http.Client
+        }
+
+        type codexCliPlusSecretResponse struct {
+            Value string `json:"value"`
+        }
+
+        func newCodexCliPlusSecretResolver() *codexCliPlusSecretResolver {
+            baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv(codexCliPlusSecretBrokerURLEnv)), "/")
+            token := strings.TrimSpace(os.Getenv(codexCliPlusSecretBrokerTokenEnv))
+            if baseURL == "" || token == "" {
+                return nil
+            }
+            return &codexCliPlusSecretResolver{
+                baseURL: baseURL,
+                token:   token,
+                client:  &http.Client{Timeout: 5 * time.Second},
+            }
+        }
+
+        func ResolveCodexCliPlusSecretRefs(cfg *Config) error {
+            resolver := newCodexCliPlusSecretResolver()
+            if cfg == nil || resolver == nil {
+                return nil
+            }
+
+            var err error
+            if cfg.RemoteManagement.SecretKey, err = resolver.resolve("remote-management.secret-key", cfg.RemoteManagement.SecretKey); err != nil {
+                return err
+            }
+            for i := range cfg.APIKeys {
+                if cfg.APIKeys[i], err = resolver.resolve(fmt.Sprintf("api-keys[%d]", i), cfg.APIKeys[i]); err != nil {
+                    return err
+                }
+            }
+            for i := range cfg.GeminiKey {
+                if cfg.GeminiKey[i].APIKey, err = resolver.resolve(fmt.Sprintf("gemini-api-key[%d].api-key", i), cfg.GeminiKey[i].APIKey); err != nil {
+                    return err
+                }
+                if err = resolver.resolveMap(fmt.Sprintf("gemini-api-key[%d].headers", i), cfg.GeminiKey[i].Headers); err != nil {
+                    return err
+                }
+            }
+            for i := range cfg.CodexKey {
+                if cfg.CodexKey[i].APIKey, err = resolver.resolve(fmt.Sprintf("codex-api-key[%d].api-key", i), cfg.CodexKey[i].APIKey); err != nil {
+                    return err
+                }
+                if err = resolver.resolveMap(fmt.Sprintf("codex-api-key[%d].headers", i), cfg.CodexKey[i].Headers); err != nil {
+                    return err
+                }
+            }
+            for i := range cfg.ClaudeKey {
+                if cfg.ClaudeKey[i].APIKey, err = resolver.resolve(fmt.Sprintf("claude-api-key[%d].api-key", i), cfg.ClaudeKey[i].APIKey); err != nil {
+                    return err
+                }
+                if err = resolver.resolveMap(fmt.Sprintf("claude-api-key[%d].headers", i), cfg.ClaudeKey[i].Headers); err != nil {
+                    return err
+                }
+            }
+            for i := range cfg.VertexCompatAPIKey {
+                if cfg.VertexCompatAPIKey[i].APIKey, err = resolver.resolve(fmt.Sprintf("vertex-api-key[%d].api-key", i), cfg.VertexCompatAPIKey[i].APIKey); err != nil {
+                    return err
+                }
+                if err = resolver.resolveMap(fmt.Sprintf("vertex-api-key[%d].headers", i), cfg.VertexCompatAPIKey[i].Headers); err != nil {
+                    return err
+                }
+            }
+            for i := range cfg.OpenAICompatibility {
+                if err = resolver.resolveMap(fmt.Sprintf("openai-compatibility[%d].headers", i), cfg.OpenAICompatibility[i].Headers); err != nil {
+                    return err
+                }
+                for j := range cfg.OpenAICompatibility[i].APIKeyEntries {
+                    if cfg.OpenAICompatibility[i].APIKeyEntries[j].APIKey, err = resolver.resolve(fmt.Sprintf("openai-compatibility[%d].api-key-entries[%d].api-key", i, j), cfg.OpenAICompatibility[i].APIKeyEntries[j].APIKey); err != nil {
+                        return err
+                    }
+                }
+            }
+            if cfg.AmpCode.UpstreamAPIKey, err = resolver.resolve("ampcode.upstream-api-key", cfg.AmpCode.UpstreamAPIKey); err != nil {
+                return err
+            }
+            for i := range cfg.AmpCode.UpstreamAPIKeys {
+                if cfg.AmpCode.UpstreamAPIKeys[i].UpstreamAPIKey, err = resolver.resolve(fmt.Sprintf("ampcode.upstream-api-keys[%d].upstream-api-key", i), cfg.AmpCode.UpstreamAPIKeys[i].UpstreamAPIKey); err != nil {
+                    return err
+                }
+                for j := range cfg.AmpCode.UpstreamAPIKeys[i].APIKeys {
+                    if cfg.AmpCode.UpstreamAPIKeys[i].APIKeys[j], err = resolver.resolve(fmt.Sprintf("ampcode.upstream-api-keys[%d].api-keys[%d]", i, j), cfg.AmpCode.UpstreamAPIKeys[i].APIKeys[j]); err != nil {
+                        return err
+                    }
+                }
+            }
+            return nil
+        }
+
+        func (r *codexCliPlusSecretResolver) resolveMap(path string, values map[string]string) error {
+            for key, value := range values {
+                resolved, err := r.resolve(path+"."+key, value)
+                if err != nil {
+                    return err
+                }
+                values[key] = resolved
+            }
+            return nil
+        }
+
+        func (r *codexCliPlusSecretResolver) resolve(path, value string) (string, error) {
+            secretID, ok := codexCliPlusSecretID(value)
+            if !ok {
+                return value, nil
+            }
+            requestURL := r.baseURL + "/v1/secrets/" + url.PathEscape(secretID)
+            req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+            if err != nil {
+                return "", err
+            }
+            req.Header.Set("Authorization", "Bearer "+r.token)
+
+            resp, err := r.client.Do(req)
+            if err != nil {
+                return "", fmt.Errorf("secret_ref %s unavailable for %s: %w", secretID, path, err)
+            }
+            defer resp.Body.Close()
+            if resp.StatusCode != http.StatusOK {
+                return "", fmt.Errorf("secret_ref %s unavailable for %s: %s", secretID, path, resp.Status)
+            }
+            var payload codexCliPlusSecretResponse
+            if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+                return "", err
+            }
+            if strings.TrimSpace(payload.Value) == "" {
+                return "", fmt.Errorf("secret_ref %s for %s resolved to empty value", secretID, path)
+            }
+            return payload.Value, nil
+        }
+
+        func codexCliPlusSecretID(value string) (string, bool) {
+            trimmed := strings.TrimSpace(value)
+            for _, prefix := range []string{"ccp-secret://", "vault://"} {
+                if strings.HasPrefix(strings.ToLower(trimmed), prefix) {
+                    id := strings.TrimSpace(trimmed[len(prefix):])
+                    return id, id != ""
+                }
+            }
+            return "", false
+        }
+        """;
+
     private static string ReplaceRequired(string source, string oldValue, string newValue)
     {
         if (!source.Contains(oldValue, StringComparison.Ordinal))
@@ -297,6 +497,32 @@ public static class AssetCommands
         }
 
         return source.Replace(oldValue, newValue, StringComparison.Ordinal);
+    }
+
+    private static string InsertBeforeRequiredMarker(
+        string source,
+        string marker,
+        string insertion
+    )
+    {
+        var markerIndex = source.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0)
+        {
+            throw new InvalidDataException(
+                $"Pinned backend source no longer contains expected patch marker: {marker}"
+            );
+        }
+
+        var lineStart = source.LastIndexOf('\n', markerIndex);
+        lineStart = lineStart < 0 ? 0 : lineStart + 1;
+        var indent = source[lineStart..markerIndex];
+        var indentedInsertion = string.Join(
+            "\n",
+            insertion.TrimEnd('\n')
+                .Split('\n')
+                .Select(line => line.Length == 0 ? line : indent + line)
+        );
+        return source.Insert(lineStart, indentedInsertion + "\n");
     }
 
     private static async Task DownloadBackendArchiveAsync(string backendTarget, BuildLogger logger)

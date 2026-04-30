@@ -18,6 +18,7 @@ public sealed class BackendProcessManager : IDisposable
     private readonly IPathService _pathService;
     private readonly IProcessService _processService;
     private readonly IAppLogger _logger;
+    private readonly SecretBrokerService _secretBrokerService;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly List<string> _recentLogLines = [];
 
@@ -31,7 +32,8 @@ public sealed class BackendProcessManager : IDisposable
         IAppConfigurationService configurationService,
         IPathService pathService,
         IProcessService processService,
-        IAppLogger logger
+        IAppLogger logger,
+        SecretBrokerService secretBrokerService
     )
     {
         _assetService = assetService;
@@ -41,6 +43,7 @@ public sealed class BackendProcessManager : IDisposable
         _pathService = pathService;
         _processService = processService;
         _logger = logger;
+        _secretBrokerService = secretBrokerService;
     }
 
     public event EventHandler<BackendStatusSnapshot>? StatusChanged;
@@ -89,13 +92,21 @@ public sealed class BackendProcessManager : IDisposable
             CleanupRuntimeArtifacts();
             var settings = await _configurationService.LoadAsync(cancellationToken);
             var runtime = await _configWriter.WriteAsync(settings, cancellationToken);
+            var secretBrokerSession = await _secretBrokerService.StartAsync(cancellationToken);
 
             _stopRequested = false;
             _managedProcess = await _processService.StartAsync(
                 new ManagedProcessStartInfo(
                     assetLayout.ExecutablePath,
                     $"-config \"{runtime.ConfigPath}\"",
-                    assetLayout.WorkingDirectory
+                    assetLayout.WorkingDirectory,
+                    new Dictionary<string, string?>
+                    {
+                        [SecretBrokerService.BrokerUrlEnvironmentVariable] =
+                            secretBrokerSession.BaseUrl,
+                        [SecretBrokerService.BrokerTokenEnvironmentVariable] =
+                            secretBrokerSession.Token,
+                    }
                 ),
                 line => AppendLogLine($"[stdout] {line}"),
                 line => AppendLogLine($"[stderr] {line}"),
@@ -128,6 +139,7 @@ public sealed class BackendProcessManager : IDisposable
                 );
 
                 await StopManagedProcessAsync(cancellationToken);
+                await _secretBrokerService.StopAsync(cancellationToken);
                 return CurrentStatus;
             }
 
@@ -151,6 +163,7 @@ public sealed class BackendProcessManager : IDisposable
         {
             _logger.LogError("Failed to start backend process.", exception);
             await StopManagedProcessAsync(cancellationToken);
+            await _secretBrokerService.StopAsync(cancellationToken);
             CleanupRuntimeArtifacts();
             UpdateStatus(
                 new BackendStatusSnapshot
@@ -179,6 +192,7 @@ public sealed class BackendProcessManager : IDisposable
             var runtime = CurrentStatus.Runtime;
             _stopRequested = true;
             await StopManagedProcessAsync(cancellationToken);
+            await _secretBrokerService.StopAsync(cancellationToken);
             CleanupRuntimeArtifacts();
 
             UpdateStatus(

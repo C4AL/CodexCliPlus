@@ -234,15 +234,7 @@ public sealed class InstallerPackagingTests : IDisposable
             "<html></html>"
         );
         File.WriteAllText(
-            Path.Combine(
-                publishRoot,
-                "assets",
-                "webui",
-                "upstream",
-                "dist",
-                "assets",
-                "app.js"
-            ),
+            Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "assets", "app.js"),
             "console.log('ok');"
         );
         File.WriteAllText(

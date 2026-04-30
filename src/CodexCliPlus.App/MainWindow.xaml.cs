@@ -1834,7 +1834,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         CoreWebView2NavigationCompletedEventArgs e
     )
     {
-        MarkStartupPhase(e.IsSuccess ? "webview-navigation-completed" : "webview-navigation-failed");
+        MarkStartupPhase(
+            e.IsSuccess ? "webview-navigation-completed" : "webview-navigation-failed"
+        );
     }
 
     private void CoreWebView2_NewWindowRequested(

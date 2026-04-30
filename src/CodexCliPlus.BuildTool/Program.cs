@@ -864,14 +864,20 @@ public static class WebUiCommands
                 return installExitCode;
             }
 
-            var installedNodeModulesRoot = Path.Combine(context.WebUiBuildSourceRoot, "node_modules");
+            var installedNodeModulesRoot = Path.Combine(
+                context.WebUiBuildSourceRoot,
+                "node_modules"
+            );
             if (!Directory.Exists(installedNodeModulesRoot))
             {
                 context.Logger.Error("npm ci completed without creating node_modules.");
                 return 1;
             }
 
-            var cacheEntryRoot = Path.Combine(context.WebUiNodeModulesCacheRoot, dependencyCacheKey);
+            var cacheEntryRoot = Path.Combine(
+                context.WebUiNodeModulesCacheRoot,
+                dependencyCacheKey
+            );
             SafeFileSystem.CleanDirectory(cacheEntryRoot, context.Options.OutputRoot);
             SafeFileSystem.CopyDirectory(installedNodeModulesRoot, cachedNodeModulesRoot);
         }

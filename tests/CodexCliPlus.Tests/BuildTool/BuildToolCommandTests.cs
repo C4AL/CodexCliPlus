@@ -157,13 +157,7 @@ public sealed class BuildToolCommandTests : IDisposable
         using var output = new StringWriter();
         using var error = new StringWriter();
         var exitCode = await BuildToolApp.ExecuteAsync(
-            [
-                "clean-artifacts",
-                "--repo-root",
-                repositoryRoot,
-                "--output",
-                outputRoot,
-            ],
+            ["clean-artifacts", "--repo-root", repositoryRoot, "--output", outputRoot],
             output,
             error,
             new RecordingProcessRunner()
@@ -499,8 +493,9 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                     "<html></html>"
                 ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] =
-                    Encoding.UTF8.GetBytes("console.log('ok');"),
+                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
+                    "console.log('ok');"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
@@ -586,7 +581,9 @@ public sealed class BuildToolCommandTests : IDisposable
             File.ReadAllText(Path.Combine(context.WebUiGeneratedDistRoot, "index.html"))
         );
         Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedDistRoot, "assets", "app.js")));
-        Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedDistRoot, "bundle-report.json")));
+        Assert.True(
+            File.Exists(Path.Combine(context.WebUiGeneratedDistRoot, "bundle-report.json"))
+        );
         Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedRoot, "sync.json")));
         Assert.Equal(
             "upstream",
@@ -873,8 +870,9 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                     "<html></html>"
                 ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] =
-                    Encoding.UTF8.GetBytes("console.log('ok');"),
+                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
+                    "console.log('ok');"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),

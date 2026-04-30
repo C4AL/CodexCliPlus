@@ -12,12 +12,11 @@ namespace CodexCliPlus.Infrastructure.Backend;
 
 public sealed class BackendAssetService
 {
-    private static readonly JsonSerializerOptions VersionCacheJsonOptions =
-        new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-        };
+    private static readonly JsonSerializerOptions VersionCacheJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+    };
 
     private readonly HttpClient _httpClient;
     private readonly IPathService _pathService;

@@ -197,63 +197,63 @@ public sealed class ManagementOverviewServiceTests
             );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementGeminiKeyConfiguration>>> GetGeminiKeysAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementGeminiKeyConfiguration>>
+        > GetGeminiKeysAsync(CancellationToken cancellationToken = default)
         {
             ProviderCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementGeminiKeyConfiguration>>(
-                    [new ManagementGeminiKeyConfiguration()]
-                )
+                Response<IReadOnlyList<ManagementGeminiKeyConfiguration>>([
+                    new ManagementGeminiKeyConfiguration(),
+                ])
             );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>> GetCodexKeysAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>
+        > GetCodexKeysAsync(CancellationToken cancellationToken = default)
         {
             ProviderCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>(
-                    [new ManagementProviderKeyConfiguration()]
-                )
+                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>([
+                    new ManagementProviderKeyConfiguration(),
+                ])
             );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>> GetClaudeKeysAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>
+        > GetClaudeKeysAsync(CancellationToken cancellationToken = default)
         {
             ProviderCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>(
-                    [new ManagementProviderKeyConfiguration()]
-                )
+                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>([
+                    new ManagementProviderKeyConfiguration(),
+                ])
             );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>> GetVertexKeysAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementProviderKeyConfiguration>>
+        > GetVertexKeysAsync(CancellationToken cancellationToken = default)
         {
             ProviderCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>(
-                    [new ManagementProviderKeyConfiguration()]
-                )
+                Response<IReadOnlyList<ManagementProviderKeyConfiguration>>([
+                    new ManagementProviderKeyConfiguration(),
+                ])
             );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementOpenAiCompatibilityEntry>>> GetOpenAiCompatibilityAsync(
-            CancellationToken cancellationToken = default
-        )
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementOpenAiCompatibilityEntry>>
+        > GetOpenAiCompatibilityAsync(CancellationToken cancellationToken = default)
         {
             ProviderCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementOpenAiCompatibilityEntry>>(
-                    [new ManagementOpenAiCompatibilityEntry()]
-                )
+                Response<IReadOnlyList<ManagementOpenAiCompatibilityEntry>>([
+                    new ManagementOpenAiCompatibilityEntry(),
+                ])
             );
         }
 
@@ -314,15 +314,15 @@ public sealed class ManagementOverviewServiceTests
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetAuthFileModelsAsync(
-            string name,
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
+        > GetAuthFileModelsAsync(string name, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetModelDefinitionsAsync(
-            string channel,
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
+        > GetModelDefinitionsAsync(string channel, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
         public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceGeminiKeysAsync(
             IReadOnlyList<ManagementGeminiKeyConfiguration> configurations,
@@ -392,18 +392,24 @@ public sealed class ManagementOverviewServiceTests
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceOpenAiCompatibilityAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > ReplaceOpenAiCompatibilityAsync(
             IReadOnlyList<ManagementOpenAiCompatibilityEntry> providers,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateOpenAiCompatibilityAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > UpdateOpenAiCompatibilityAsync(
             int index,
             ManagementOpenAiCompatibilityEntry provider,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> DeleteOpenAiCompatibilityAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > DeleteOpenAiCompatibilityAsync(
             string name,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
@@ -422,18 +428,22 @@ public sealed class ManagementOverviewServiceTests
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping>>> GetAmpUpstreamApiKeysAsync(
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping>>
+        > GetAmpUpstreamApiKeysAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceAmpUpstreamApiKeysAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > ReplaceAmpUpstreamApiKeysAsync(
             IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping> mappings,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementAmpCodeModelMapping>>> GetAmpModelMappingsAsync(
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementAmpCodeModelMapping>>
+        > GetAmpModelMappingsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
         public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceAmpModelMappingsAsync(
             IReadOnlyList<ManagementAmpCodeModelMapping> mappings,
@@ -445,29 +455,39 @@ public sealed class ManagementOverviewServiceTests
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyDictionary<string, IReadOnlyList<string>>>> GetOAuthExcludedModelsAsync(
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<IReadOnlyDictionary<string, IReadOnlyList<string>>>
+        > GetOAuthExcludedModelsAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceOAuthExcludedModelsAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > ReplaceOAuthExcludedModelsAsync(
             IReadOnlyDictionary<string, IReadOnlyList<string>> excludedModels,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> UpdateOAuthExcludedModelsAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > UpdateOAuthExcludedModelsAsync(
             string provider,
             IReadOnlyList<string> models,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<ManagementOperationResult>> DeleteOAuthExcludedModelsAsync(
+        public Task<
+            ManagementApiResponse<ManagementOperationResult>
+        > DeleteOAuthExcludedModelsAsync(
             string provider,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
 
-        public Task<ManagementApiResponse<IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>>> GetOAuthModelAliasesAsync(
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
+        public Task<
+            ManagementApiResponse<
+                IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>
+            >
+        > GetOAuthModelAliasesAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
 
         public Task<ManagementApiResponse<ManagementOperationResult>> ReplaceOAuthModelAliasesAsync(
             IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>> aliases,
@@ -505,10 +525,12 @@ public sealed class ManagementOverviewServiceTests
 
     private sealed class FakeUsageService : IManagementUsageService
     {
-        private readonly TaskCompletionSource usageCalled =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource releaseUsage =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource usageCalled = new(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        private readonly TaskCompletionSource releaseUsage = new(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
 
         public bool BlockUsage { get; set; }
 
@@ -552,10 +574,14 @@ public sealed class ManagementOverviewServiceTests
         )
         {
             GetLatestVersionCalls++;
-            return Task.FromResult(Response(new ManagementLatestVersionInfo { LatestVersion = "10.0.0" }));
+            return Task.FromResult(
+                Response(new ManagementLatestVersionInfo { LatestVersion = "10.0.0" })
+            );
         }
 
-        public Task<ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>> GetAvailableModelsAsync(
+        public Task<
+            ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
+        > GetAvailableModelsAsync(
             string? apiKey = null,
             IReadOnlyDictionary<string, string>? headers = null,
             CancellationToken cancellationToken = default
@@ -563,7 +589,9 @@ public sealed class ManagementOverviewServiceTests
         {
             GetAvailableModelsCalls++;
             return Task.FromResult(
-                Response<IReadOnlyList<ManagementModelDescriptor>>([new ManagementModelDescriptor()])
+                Response<IReadOnlyList<ManagementModelDescriptor>>([
+                    new ManagementModelDescriptor(),
+                ])
             );
         }
 

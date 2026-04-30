@@ -65,11 +65,7 @@ public sealed class BackendAssetServiceTests : IDisposable
             new NullAppLogger(_rootDirectory)
         );
 
-        await InvokeWriteVersionCacheAsync(
-            service,
-            executablePath,
-            BackendReleaseMetadata.Version
-        );
+        await InvokeWriteVersionCacheAsync(service, executablePath, BackendReleaseMetadata.Version);
         var cachedResult = await InvokeIsExecutableVersionCurrentAsync(service, executablePath);
 
         await File.AppendAllTextAsync(executablePath, "changed");
@@ -144,8 +140,7 @@ public sealed class BackendAssetServiceTests : IDisposable
             BindingFlags.Instance | BindingFlags.NonPublic
         );
         Assert.NotNull(method);
-        return await (Task<bool>)
-            method!.Invoke(service, [executablePath, CancellationToken.None])!;
+        return await (Task<bool>)method!.Invoke(service, [executablePath, CancellationToken.None])!;
     }
 
     private sealed class NullAppLogger : IAppLogger

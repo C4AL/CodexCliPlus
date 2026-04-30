@@ -390,8 +390,9 @@ public sealed class SmokeTests
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                     "<html></html>"
                 ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] =
-                    Encoding.UTF8.GetBytes("console.log('ok');"),
+                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
+                    "console.log('ok');"
+                ),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),

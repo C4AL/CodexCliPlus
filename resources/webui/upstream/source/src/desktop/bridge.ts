@@ -10,6 +10,57 @@ export interface DesktopBootstrapPayload {
 export type DesktopTheme = 'auto' | 'white' | 'dark';
 export type DesktopResolvedTheme = 'light' | 'dark';
 export type DesktopConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
+export type LocalDependencyStatus =
+  | 'ready'
+  | 'warning'
+  | 'missing'
+  | 'error'
+  | 'optionalUnavailable'
+  | 'repairing';
+export type LocalDependencySeverity = 'required' | 'optional' | 'repairTool';
+
+export interface LocalDependencyItem {
+  id: string;
+  name: string;
+  status: LocalDependencyStatus;
+  severity: LocalDependencySeverity;
+  version?: string | null;
+  path?: string | null;
+  detail: string;
+  recommendation: string;
+  repairActionId?: string | null;
+}
+
+export interface LocalDependencyRepairCapability {
+  actionId: string;
+  name: string;
+  isAvailable: boolean;
+  requiresElevation: boolean;
+  isOptional: boolean;
+  detail: string;
+}
+
+export interface LocalDependencySnapshot {
+  checkedAt: string;
+  readinessScore: number;
+  summary: string;
+  items: LocalDependencyItem[];
+  repairCapabilities: LocalDependencyRepairCapability[];
+}
+
+export interface LocalDependencyRepairResult {
+  actionId: string;
+  succeeded: boolean;
+  exitCode?: number | null;
+  summary: string;
+  detail: string;
+  logPath?: string | null;
+}
+
+export interface LocalDependencyRepairResponse {
+  result: LocalDependencyRepairResult;
+  snapshot?: LocalDependencySnapshot | null;
+}
 
 export interface DesktopShellState {
   connectionStatus: DesktopConnectionStatus;
@@ -42,6 +93,8 @@ interface DesktopBridge {
   usageStatsRefreshed?: () => void;
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
+  requestLocalDependencySnapshot?: (requestId: string) => void;
+  runLocalDependencyRepair?: (actionId: string, requestId: string) => void;
 }
 
 declare global {
@@ -58,6 +111,16 @@ declare global {
 let desktopBootstrapCache: DesktopBootstrapPayload | null | undefined;
 let desktopCommandListenerReady = false;
 const desktopCommandListeners = new Set<(command: DesktopShellCommand) => void>();
+const pendingLocalDependencyRequests = new Map<
+  string,
+  {
+    resolve: (value: unknown) => void;
+    reject: (reason?: unknown) => void;
+    timer: ReturnType<typeof window.setTimeout>;
+  }
+>();
+const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 30_000;
+const LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS = 35 * 60_000;
 
 function getBridge(): DesktopBridge | null {
   if (typeof window === 'undefined') {
@@ -147,6 +210,140 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+function createDesktopRequestId(prefix: string): string {
+  const random =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${random}`;
+}
+
+function normalizeLocalDependencySnapshot(value: unknown): LocalDependencySnapshot | null {
+  if (!isRecord(value)) return null;
+  const items = Array.isArray(value.items)
+    ? value.items.filter(isRecord).map((item) => ({
+        id: typeof item.id === 'string' ? item.id : '',
+        name: typeof item.name === 'string' ? item.name : '',
+        status: normalizeLocalDependencyStatus(item.status),
+        severity: normalizeLocalDependencySeverity(item.severity),
+        version: typeof item.version === 'string' ? item.version : null,
+        path: typeof item.path === 'string' ? item.path : null,
+        detail: typeof item.detail === 'string' ? item.detail : '',
+        recommendation: typeof item.recommendation === 'string' ? item.recommendation : '',
+        repairActionId: typeof item.repairActionId === 'string' ? item.repairActionId : null,
+      }))
+    : [];
+  const repairCapabilities = Array.isArray(value.repairCapabilities)
+    ? value.repairCapabilities.filter(isRecord).map((capability) => ({
+        actionId: typeof capability.actionId === 'string' ? capability.actionId : '',
+        name: typeof capability.name === 'string' ? capability.name : '',
+        isAvailable: capability.isAvailable === true,
+        requiresElevation: capability.requiresElevation !== false,
+        isOptional: capability.isOptional === true,
+        detail: typeof capability.detail === 'string' ? capability.detail : '',
+      }))
+    : [];
+
+  return {
+    checkedAt: typeof value.checkedAt === 'string' ? value.checkedAt : '',
+    readinessScore:
+      typeof value.readinessScore === 'number' && Number.isFinite(value.readinessScore)
+        ? Math.max(0, Math.min(100, Math.round(value.readinessScore)))
+        : 0,
+    summary: typeof value.summary === 'string' ? value.summary : '',
+    items,
+    repairCapabilities,
+  };
+}
+
+function normalizeLocalDependencyStatus(value: unknown): LocalDependencyStatus {
+  return value === 'ready' ||
+    value === 'warning' ||
+    value === 'missing' ||
+    value === 'error' ||
+    value === 'optionalUnavailable' ||
+    value === 'repairing'
+    ? value
+    : 'error';
+}
+
+function normalizeLocalDependencySeverity(value: unknown): LocalDependencySeverity {
+  return value === 'optional' || value === 'repairTool' ? value : 'required';
+}
+
+function normalizeLocalDependencyRepairResult(value: unknown): LocalDependencyRepairResult | null {
+  if (!isRecord(value)) return null;
+  return {
+    actionId: typeof value.actionId === 'string' ? value.actionId : '',
+    succeeded: value.succeeded === true,
+    exitCode: typeof value.exitCode === 'number' ? value.exitCode : null,
+    summary: typeof value.summary === 'string' ? value.summary : '',
+    detail: typeof value.detail === 'string' ? value.detail : '',
+    logPath: typeof value.logPath === 'string' ? value.logPath : null,
+  };
+}
+
+function settleLocalDependencyRequest(requestId: unknown, value: unknown, error?: unknown): boolean {
+  if (typeof requestId !== 'string') return false;
+  const pending = pendingLocalDependencyRequests.get(requestId);
+  if (!pending) return true;
+  pendingLocalDependencyRequests.delete(requestId);
+  window.clearTimeout(pending.timer);
+  if (error) {
+    pending.reject(new Error(typeof error === 'string' ? error : '本地环境检测失败'));
+  } else {
+    pending.resolve(value);
+  }
+  return true;
+}
+
+function handleLocalDependencyMessage(message: unknown): boolean {
+  if (!isRecord(message) || typeof message.type !== 'string') return false;
+
+  if (message.type === 'localDependencySnapshot') {
+    const snapshot = normalizeLocalDependencySnapshot(message.snapshot);
+    return settleLocalDependencyRequest(
+      message.requestId,
+      snapshot,
+      message.error || (!snapshot ? '本地环境检测结果无效' : undefined)
+    );
+  }
+
+  if (message.type === 'localDependencyRepairStarted') {
+    return true;
+  }
+
+  if (message.type === 'localDependencyRepairResult') {
+    const result = normalizeLocalDependencyRepairResult(message.result);
+    const snapshot = normalizeLocalDependencySnapshot(message.snapshot);
+    return settleLocalDependencyRequest(
+      message.requestId,
+      { result, snapshot },
+      message.error || (!result ? '本地环境修复结果无效' : undefined)
+    );
+  }
+
+  return false;
+}
+
+function registerLocalDependencyRequest<T>(requestId: string, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      pendingLocalDependencyRequests.delete(requestId);
+      reject(new Error('桌面端响应超时'));
+    }, timeoutMs);
+    pendingLocalDependencyRequests.set(requestId, {
+      resolve: (value) => resolve(value as T),
+      reject,
+      timer,
+    });
+  });
+}
+
 function ensureDesktopCommandListener() {
   if (desktopCommandListenerReady || typeof window === 'undefined') {
     return;
@@ -159,6 +356,10 @@ function ensureDesktopCommandListener() {
 
   desktopCommandListenerReady = true;
   webview.addEventListener('message', (event: MessageEvent) => {
+    if (handleLocalDependencyMessage(event.data)) {
+      return;
+    }
+
     const command = normalizeCommand(event.data);
     if (!command) {
       return;
@@ -296,6 +497,54 @@ export function checkDesktopUpdateInDesktopShell(): boolean {
 
 export function applyDesktopUpdateInDesktopShell(): boolean {
   return invokeDesktopBridgeAction('applyDesktopUpdate');
+}
+
+export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapshot> {
+  const bridge = getBridge();
+  if (typeof bridge?.requestLocalDependencySnapshot !== 'function') {
+    return Promise.reject(new Error('本地环境检测需要桌面模式'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('local-env');
+  const request = registerLocalDependencyRequest<LocalDependencySnapshot>(
+    requestId,
+    LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS
+  );
+  try {
+    bridge.requestLocalDependencySnapshot(requestId);
+  } catch (error) {
+    const pending = pendingLocalDependencyRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingLocalDependencyRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function runLocalDependencyRepair(
+  actionId: string
+): Promise<LocalDependencyRepairResponse> {
+  const bridge = getBridge();
+  if (typeof bridge?.runLocalDependencyRepair !== 'function') {
+    return Promise.reject(new Error('本地环境修复需要桌面模式'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('local-env-repair');
+  const request = registerLocalDependencyRequest<LocalDependencyRepairResponse>(
+    requestId,
+    LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS
+  );
+  try {
+    bridge.runLocalDependencyRepair(actionId, requestId);
+  } catch (error) {
+    const pending = pendingLocalDependencyRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingLocalDependencyRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
 }
 
 export function subscribeDesktopShellCommand(

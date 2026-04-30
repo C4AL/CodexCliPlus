@@ -1,6 +1,7 @@
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Management;
+using CodexCliPlus.Core.Abstractions.LocalEnvironment;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Persistence;
 using CodexCliPlus.Core.Abstractions.Processes;
@@ -12,6 +13,7 @@ using CodexCliPlus.Infrastructure.Configuration;
 using CodexCliPlus.Infrastructure.Dependencies;
 using CodexCliPlus.Infrastructure.Diagnostics;
 using CodexCliPlus.Infrastructure.Logging;
+using CodexCliPlus.Infrastructure.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Management;
 using CodexCliPlus.Infrastructure.Paths;
 using CodexCliPlus.Infrastructure.Persistence;
@@ -37,8 +39,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAppLogger, FileAppLogger>();
         services.AddSingleton<IAppConfigurationService, JsonAppConfigurationService>();
         services.AddSingleton<IProcessService, SystemProcessService>();
+        services.AddSingleton<ILocalEnvironmentProcessRunner, SystemLocalEnvironmentProcessRunner>();
         services.AddSingleton<DirectoryAccessService>();
         services.AddSingleton<DependencyHealthService>();
+        services.AddSingleton<LocalDependencyHealthService>();
+        services.AddSingleton<LocalDependencyRepairService>();
         services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<DiagnosticsService>();
         services.AddSingleton<BackendConfigWriter>();

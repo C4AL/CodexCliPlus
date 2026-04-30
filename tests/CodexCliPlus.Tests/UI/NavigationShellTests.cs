@@ -287,6 +287,10 @@ public sealed class NavigationShellTests
         Assert.Contains("navigationHoverZone", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("usageStatsRefreshed", hostSource, StringComparison.Ordinal);
         Assert.Contains("usageStatsRefreshed", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("requestLocalDependencySnapshot", hostSource, StringComparison.Ordinal);
+        Assert.Contains("requestLocalDependencySnapshot", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("runLocalDependencyRepair", hostSource, StringComparison.Ordinal);
+        Assert.Contains("runLocalDependencyRepair", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("ScheduleUsageStatsRefreshedSync", hostSource, StringComparison.Ordinal);
         Assert.Contains("event.clientX > 18", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("setTimeout", bridgeSource, StringComparison.Ordinal);
@@ -915,6 +919,60 @@ public sealed class NavigationShellTests
         Assert.Contains("navigate", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DashboardContainsLocalEnvironmentSnapshotAndRepairSurface()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var dashboardSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "DashboardPage.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var bridgeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "desktop",
+                "bridge.ts"
+            ),
+            Encoding.UTF8
+        );
+        var zhCn = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "i18n",
+                "locales",
+                "zh-CN.json"
+            ),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("requestLocalDependencySnapshot", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("runLocalDependencyRepair", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("local_environment", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains("repairCapabilities", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("localDependencyRepairResult", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("本地环境", zhCn, StringComparison.Ordinal);
+        Assert.Contains("修复入口仅在桌面模式可用", zhCn, StringComparison.Ordinal);
     }
 
     [Fact]

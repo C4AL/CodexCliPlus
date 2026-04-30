@@ -1,6 +1,7 @@
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Infrastructure.DependencyInjection;
+using CodexCliPlus.Infrastructure.LocalEnvironment;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
@@ -19,6 +20,21 @@ public partial class App : System.Windows.Application
         var services = new ServiceCollection();
         services.AddCpadInfrastructure();
         services.AddSingleton<IBuildInfo, BuildInfo>();
+
+        if (TryParseRepairMode(e.Args, out var repairActionId, out var repairStatusPath))
+        {
+            _serviceProvider = services.BuildServiceProvider();
+            var repairService = _serviceProvider.GetRequiredService<LocalDependencyRepairService>();
+            var result = repairService
+                .ExecuteRepairModeAsync(repairActionId, repairStatusPath)
+                .GetAwaiter()
+                .GetResult();
+            _serviceProvider.Dispose();
+            _serviceProvider = null;
+            Shutdown(result.Succeeded ? 0 : 1);
+            return;
+        }
+
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<WebUiAssetLocator>();
         services.AddSingleton<ShellNotificationService>();
@@ -44,5 +60,39 @@ public partial class App : System.Windows.Application
 
         _serviceProvider?.Dispose();
         base.OnExit(e);
+    }
+
+    private static bool TryParseRepairMode(
+        string[] args,
+        out string actionId,
+        out string statusPath
+    )
+    {
+        actionId = string.Empty;
+        statusPath = string.Empty;
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            if (
+                string.Equals(args[index], "--repair", StringComparison.OrdinalIgnoreCase)
+                && index + 1 < args.Length
+            )
+            {
+                actionId = args[index + 1];
+                index++;
+                continue;
+            }
+
+            if (
+                string.Equals(args[index], "--status", StringComparison.OrdinalIgnoreCase)
+                && index + 1 < args.Length
+            )
+            {
+                statusPath = args[index + 1];
+                index++;
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(actionId) && !string.IsNullOrWhiteSpace(statusPath);
     }
 }

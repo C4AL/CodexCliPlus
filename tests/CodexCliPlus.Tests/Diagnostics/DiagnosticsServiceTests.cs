@@ -2,6 +2,7 @@
 using CodexCliPlus.Core.Abstractions.Build;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Diagnostics;
 
 namespace CodexCliPlus.Tests.Diagnostics;
@@ -63,6 +64,26 @@ public sealed class DiagnosticsServiceTests : IDisposable
         );
 
         var service = new DiagnosticsService(pathService, new TestBuildInfo());
+        var localEnvironment = new LocalDependencySnapshot
+        {
+            CheckedAt = new DateTimeOffset(2026, 4, 30, 12, 0, 0, TimeSpan.Zero),
+            ReadinessScore = 99,
+            Summary = "本地 Codex 必备环境已就绪。",
+            Items =
+            [
+                new LocalDependencyItem
+                {
+                    Id = "codex-cli",
+                    Name = "Codex CLI",
+                    Status = LocalDependencyStatus.Ready,
+                    Severity = LocalDependencySeverity.Required,
+                    Version = "codex 0.9.0",
+                    Path = "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd",
+                    Detail = "命令检测通过。",
+                    Recommendation = "无需处理。",
+                },
+            ],
+        };
         var packagePath = service.ExportPackage(
             new BackendStatusSnapshot { Message = "Running" },
             new CodexStatusSnapshot { AuthenticationState = "signed-in" },
@@ -80,13 +101,15 @@ public sealed class DiagnosticsServiceTests : IDisposable
                         CanRepairNow = true,
                     },
                 ],
-            }
+            },
+            localEnvironment
         );
 
         Assert.True(File.Exists(packagePath));
 
         using var archive = ZipFile.OpenRead(packagePath);
         var report = ReadEntryText(archive, "report.txt");
+        var localEnvironmentJson = ReadEntryText(archive, "local-environment.json");
         var log = ReadEntryText(archive, "desktop.log");
         var backendConfig = ReadEntryText(archive, "backend.yaml");
 
@@ -95,6 +118,9 @@ public sealed class DiagnosticsServiceTests : IDisposable
         Assert.Contains("[backend-runtime]", report, StringComparison.Ordinal);
         Assert.Contains("Backend runtime files are missing.", report, StringComparison.Ordinal);
         Assert.Contains("Repair now: True", report, StringComparison.Ordinal);
+        Assert.Contains("Local environment score: 99", report, StringComparison.Ordinal);
+        Assert.Contains("本地 Codex 必备环境已就绪", localEnvironmentJson, StringComparison.Ordinal);
+        Assert.Contains("codex.cmd", localEnvironmentJson, StringComparison.Ordinal);
         Assert.DoesNotContain("test-token", log, StringComparison.Ordinal);
         Assert.Contains("***", log, StringComparison.Ordinal);
         Assert.DoesNotContain("phase6-secret", backendConfig, StringComparison.Ordinal);

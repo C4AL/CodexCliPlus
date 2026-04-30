@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -25,7 +26,9 @@ using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
+using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Backend;
+using CodexCliPlus.Infrastructure.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
@@ -87,6 +90,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private static readonly JsonSerializerOptions WebMessageJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     private readonly MainWindowViewModel _viewModel;
@@ -106,6 +110,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IManagementOverviewService _managementOverviewService;
     private readonly IManagementConfigurationService _managementConfigurationService;
     private readonly IManagementAuthService _managementAuthService;
+    private readonly LocalDependencyHealthService _localDependencyHealthService;
+    private readonly LocalDependencyRepairService _localDependencyRepairService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
 
@@ -161,6 +167,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IManagementOverviewService managementOverviewService,
         IManagementConfigurationService managementConfigurationService,
         IManagementAuthService managementAuthService,
+        LocalDependencyHealthService localDependencyHealthService,
+        LocalDependencyRepairService localDependencyRepairService,
         WebUiAssetLocator webUiAssetLocator,
         ShellNotificationService notificationService
     )
@@ -182,6 +190,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _managementOverviewService = managementOverviewService;
         _managementConfigurationService = managementConfigurationService;
         _managementAuthService = managementAuthService;
+        _localDependencyHealthService = localDependencyHealthService;
+        _localDependencyRepairService = localDependencyRepairService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
 

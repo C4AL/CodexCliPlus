@@ -360,6 +360,183 @@
   background: color-mix(in srgb, var(--primary-color) 16%, var(--bg-secondary));
 }
 
+.localEnvironmentCard {
+  width: 100%;
+  min-height: 156px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.localEnvironmentPanel {
+  margin-top: $spacing-md;
+  padding: $spacing-lg;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  animation: cardEnter 0.24s ease-out both;
+}
+
+.localEnvironmentHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  span {
+    display: inline-flex;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  @media (max-width: $breakpoint-mobile) {
+    flex-direction: column;
+  }
+}
+
+.localEnvironmentError,
+.localEnvironmentNotice {
+  margin-bottom: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.localEnvironmentError {
+  color: $error-color;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.2);
+}
+
+.localEnvironmentNotice {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.localEnvironmentItems {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.localDependencyItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: $spacing-md;
+  align-items: center;
+  padding: $spacing-md;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+
+  @media (max-width: $breakpoint-mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.localDependencyMain {
+  min-width: 0;
+
+  p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  small {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-tertiary);
+  }
+}
+
+.localDependencyTitleRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  min-width: 0;
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+}
+
+.localDependencyMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+
+  span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    padding: 2px 6px;
+    border-radius: $radius-sm;
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-family: $font-mono;
+  }
+}
+
+.localStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.localStatusReady {
+  color: $success-color;
+  background: rgba($success-color, 0.1);
+}
+
+.localStatusWarning {
+  color: $warning-color;
+  background: rgba($warning-color, 0.12);
+}
+
+.localStatusError {
+  color: $error-color;
+  background: rgba($error-color, 0.1);
+}
+
+.localStatusOptional {
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+}
+
 .bentoContent {
   display: flex;
   flex-direction: column;

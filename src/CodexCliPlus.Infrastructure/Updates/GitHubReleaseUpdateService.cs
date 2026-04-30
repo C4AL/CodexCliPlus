@@ -6,6 +6,7 @@ using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
+using NuGet.Versioning;
 
 namespace CodexCliPlus.Infrastructure.Updates;
 
@@ -222,49 +223,15 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
 
     private static int? CompareVersions(string latestVersion, string currentVersion)
     {
-        var latestParts = ParseVersionParts(latestVersion);
-        var currentParts = ParseVersionParts(currentVersion);
-        if (latestParts.Length == 0 || currentParts.Length == 0)
+        if (
+            !NuGetVersion.TryParse(NormalizeVersionSource(latestVersion), out var latest)
+            || !NuGetVersion.TryParse(NormalizeVersionSource(currentVersion), out var current)
+        )
         {
             return null;
         }
 
-        var length = Math.Max(latestParts.Length, currentParts.Length);
-        for (var index = 0; index < length; index++)
-        {
-            var latest = index < latestParts.Length ? latestParts[index] : 0;
-            var current = index < currentParts.Length ? currentParts[index] : 0;
-            if (latest > current)
-            {
-                return 1;
-            }
-
-            if (latest < current)
-            {
-                return -1;
-            }
-        }
-
-        return 0;
-    }
-
-    private static int[] ParseVersionParts(string version)
-    {
-        return version
-            .Split([".", "-", "_", "+", " ", "v", "V"], StringSplitOptions.RemoveEmptyEntries)
-            .Select(segment =>
-                int.TryParse(
-                    segment,
-                    NumberStyles.Integer,
-                    CultureInfo.InvariantCulture,
-                    out var part
-                )
-                    ? part
-                    : (int?)null
-            )
-            .Where(part => part.HasValue)
-            .Select(part => part!.Value)
-            .ToArray();
+        return Math.Sign(VersionComparer.VersionRelease.Compare(latest, current));
     }
 
     private static string NormalizeVersionSource(string? version)

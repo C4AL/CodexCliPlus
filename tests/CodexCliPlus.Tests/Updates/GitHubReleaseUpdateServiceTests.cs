@@ -62,6 +62,47 @@ public sealed class GitHubReleaseUpdateServiceTests
         Assert.Equal("CodexCliPlus.Update.1.2.3.win-x64.zip", result.InstallableAsset!.Name);
     }
 
+    [Theory]
+    [InlineData("v1.2.3", "1.2.3-beta.1", true, "Update available")]
+    [InlineData("v1.2.3-beta.2", "1.2.3-beta.10", false, "Up to date")]
+    [InlineData("v1.2.3+build.2", "1.2.3+build.1", false, "Up to date")]
+    public async Task CheckAsyncComparesSemVerReleaseVersions(
+        string latestTag,
+        string currentVersion,
+        bool expectedUpdateAvailable,
+        string expectedStatus
+    )
+    {
+        using var factory = new FixedHttpClientFactory(_ =>
+            Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        $$"""
+                        {
+                          "tag_name": "{{latestTag}}",
+                          "html_url": "https://github.com/C4AL/CodexCliPlus/releases/tag/{{latestTag}}",
+                          "published_at": "2026-04-23T00:00:00Z",
+                          "assets": []
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json"
+                    ),
+                }
+            )
+        );
+
+        var service = new GitHubReleaseUpdateService(factory);
+
+        var result = await service.CheckAsync(currentVersion);
+
+        Assert.True(result.IsCheckSuccessful);
+        Assert.Equal(latestTag.TrimStart('v', 'V'), result.LatestVersion);
+        Assert.Equal(expectedUpdateAvailable, result.IsUpdateAvailable);
+        Assert.Equal(expectedStatus, result.Status);
+    }
+
     [Fact]
     public async Task CheckAsyncTreatsGithub404AsNoStableRelease()
     {

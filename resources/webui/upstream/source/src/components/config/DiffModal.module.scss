@@ -120,12 +120,78 @@ $diff-hunk-color: #388bfd;
   font-family: $diff-mono;
   font-size: $diff-font-size;
   line-height: $diff-line-height;
+
+  --diff-font-family: #{$diff-mono};
+  --diff-text-color: var(--text-primary);
+  --diff-background-color: var(--bg-primary);
+  --diff-gutter-insert-background-color: color-mix(in srgb, #{$diff-add-color} 12%, var(--bg-primary));
+  --diff-gutter-insert-text-color: color-mix(in srgb, #{$diff-add-color} 60%, var(--text-tertiary));
+  --diff-gutter-delete-background-color: color-mix(in srgb, #{$diff-del-color} 12%, var(--bg-primary));
+  --diff-gutter-delete-text-color: color-mix(in srgb, #{$diff-del-color} 60%, var(--text-tertiary));
+  --diff-code-insert-background-color: color-mix(in srgb, #{$diff-add-color} 8%, var(--bg-primary));
+  --diff-code-delete-background-color: color-mix(in srgb, #{$diff-del-color} 8%, var(--bg-primary));
+
+  :global(.diff-gutter-col) {
+    width: $diff-gutter-width;
+  }
+
+  :global(.diff-line) {
+    min-height: $diff-line-height;
+  }
+
+  :global(.diff-gutter) {
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+    box-sizing: border-box;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    line-height: $diff-line-height;
+    padding: 0 8px;
+  }
+
+  :global(.diff-code) {
+    line-height: $diff-line-height;
+    padding: 0 12px 0 $diff-prefix-width;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  :global(.diff-code-insert)::before,
+  :global(.diff-code-delete)::before,
+  :global(.diff-code-normal)::before {
+    display: inline-block;
+    font-weight: 700;
+    margin-left: -$diff-prefix-width;
+    text-align: center;
+    width: $diff-prefix-width;
+  }
+
+  :global(.diff-code-insert)::before {
+    content: '+';
+    color: $diff-add-color;
+  }
+
+  :global(.diff-code-delete)::before {
+    content: '-';
+    color: $diff-del-color;
+  }
+
+  :global(.diff-code-normal)::before {
+    content: ' ';
+  }
+}
+
+.diffTable {
+  table-layout: fixed;
 }
 
 // ── Hunk ────────────────────────────────────────────────
 
 .hunk + .hunk {
   border-top: 1px solid var(--border-color);
+}
+
+.hunkDecorationCell {
+  padding: 0;
 }
 
 .hunkHeader {

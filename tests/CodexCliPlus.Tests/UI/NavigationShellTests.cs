@@ -134,9 +134,17 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ShellNavRuntimeOverviewButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("x:Name=\"ShellNavConsoleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"运行概览\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"控制台\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains(
@@ -706,6 +714,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var runtimeOverviewPageSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "RuntimeOverviewPage.tsx"
+            ),
+            Encoding.UTF8
+        );
         var logsPageSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -781,15 +802,38 @@ public sealed class NavigationShellTests
         Assert.Contains("command.type === 'navigate'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("t('nav.runtime_overview')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("t('nav.console')", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains(
-            "{ path: '/dashboard/overview', element: route('console-overview', <ConsolePage />) }",
+            "const RuntimeOverviewPage = lazyPage(",
             mainRoutesSource,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "{ path: '/dashboard/overview', element: route('runtime-overview', <RuntimeOverviewPage />) }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "{ path: '/console', element: route('runtime-overview', <RuntimeOverviewPage />) }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("ConsolePage", mainRoutesSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "{ path: '/dashboard/overview', element: <Navigate to=\"/console\" replace /> }",
             mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "export function RuntimeOverviewPage()",
+            runtimeOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "export function ConsolePage()",
+            runtimeOverviewPageSource,
             StringComparison.Ordinal
         );
         Assert.Contains("'requestLog'", logsPageSource, StringComparison.Ordinal);

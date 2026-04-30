@@ -3,7 +3,10 @@ import { Navigate, useRoutes, type Location } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const DashboardPage = lazyPage(() => import('@/pages/DashboardPage'), 'DashboardPage');
-const ConsolePage = lazyPage(() => import('@/pages/ConsolePage'), 'ConsolePage');
+const RuntimeOverviewPage = lazyPage(
+  () => import('@/pages/RuntimeOverviewPage'),
+  'RuntimeOverviewPage'
+);
 const AiProvidersPage = lazyPage(() => import('@/pages/AiProvidersPage'), 'AiProvidersPage');
 const AiProvidersCodexEditPage = lazyPage(
   () => import('@/pages/AiProvidersCodexEditPage'),
@@ -73,8 +76,8 @@ const dashboardRoute = (
 const mainRoutes = [
   { path: '/', element: dashboardRoute },
   { path: '/dashboard', element: dashboardRoute },
-  { path: '/dashboard/overview', element: route('console-overview', <ConsolePage />) },
-  { path: '/console', element: route('console', <ConsolePage />) },
+  { path: '/dashboard/overview', element: route('runtime-overview', <RuntimeOverviewPage />) },
+  { path: '/console', element: route('runtime-overview', <RuntimeOverviewPage />) },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
   {

@@ -588,7 +588,7 @@
                     </StackPanel>
                   </Button>
                   <Button
-                    x:Name="ShellNavConsoleButton"
+                    x:Name="ShellNavRuntimeOverviewButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"
                     Click="ShellNavigationButton_Click"
                     CommandParameter="/dashboard/overview"
@@ -601,7 +601,7 @@
                         VerticalAlignment="Center"
                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                       />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="控制台" />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="运行概览" />
                     </StackPanel>
                   </Button>
                   <Button

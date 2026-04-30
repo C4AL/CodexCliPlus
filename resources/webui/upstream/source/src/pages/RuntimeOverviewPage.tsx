@@ -20,7 +20,7 @@ import {
   formatDurationMs,
   normalizeAuthIndex,
 } from '@/utils/usage';
-import styles from './ConsolePage.module.scss';
+import styles from './RuntimeOverviewPage.module.scss';
 
 const OVERVIEW_RANGE = '24h' as const;
 const RECENT_EVENTS_LIMIT = 5;
@@ -145,7 +145,7 @@ const buildFallbackWindows = (
   });
 };
 
-export function ConsolePage() {
+export function RuntimeOverviewPage() {
   const { t, i18n } = useTranslation();
   const dt = useCallback((zh: string, _en: string) => zh, []);
 
@@ -195,11 +195,11 @@ export function ConsolePage() {
       }
 
       if (configResult.status === 'rejected') {
-        console.warn('Dashboard overview config refresh failed:', configResult.reason);
+        console.warn('Runtime overview config refresh failed:', configResult.reason);
       }
 
       if (usageResult.status === 'rejected') {
-        console.warn('Dashboard overview usage refresh failed:', usageResult.reason);
+        console.warn('Runtime overview usage refresh failed:', usageResult.reason);
       }
 
       if (authFilesResult.status === 'rejected') {

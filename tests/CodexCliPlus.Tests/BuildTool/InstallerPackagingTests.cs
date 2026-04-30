@@ -204,6 +204,9 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         var setupProgram = File.ReadAllText(Path.Combine(distRoot, "Program.cs"));
         var uninstProgram = File.ReadAllText(Path.Combine(distRoot, "Program.un.cs"));
+        var setupMainViewModel = File.ReadAllText(
+            Path.Combine(distRoot, "ViewModels", "Inst", "MainViewModel.cs")
+        );
         var installViewModel = File.ReadAllText(
             Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs")
         );
@@ -216,11 +219,23 @@ public sealed class InstallerPackagingTests : IDisposable
         var uninstallHelper = File.ReadAllText(
             Path.Combine(distRoot, "Helper", "Setup", "UninstallHelper.cs")
         );
+        var archiveFileHelper = File.ReadAllText(
+            Path.Combine(distRoot, "Helper", "Setup", "ArchiveFileHelper.cs")
+        );
+        var renderedLicensePath = Path.Combine(distRoot, "Resources", "Licenses", "license.txt");
 
         Assert.Contains(".UseElevated()", setupProgram, StringComparison.Ordinal);
         Assert.Contains("BlackblockInc.CodexCliPlus.Setup", setupProgram, StringComparison.Ordinal);
         Assert.Contains("RequestExecutionLevel(\"admin\")", setupProgram, StringComparison.Ordinal);
         Assert.Contains("option.KeepMyData = false;", uninstProgram, StringComparison.Ordinal);
+        Assert.Matches(
+            "private const long RequestedPayloadUncompressedBytes = [1-9][0-9]*;",
+            setupMainViewModel
+        );
+        Assert.DoesNotContain("__PAYLOAD_UNCOMPRESSED_BYTES__", setupMainViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArchiveFileHelper.TotalUncompressSize", setupMainViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("publish.7z", setupMainViewModel, StringComparison.Ordinal);
+        Assert.Contains("LoadLicenseInfo", setupMainViewModel, StringComparison.Ordinal);
         Assert.Contains("EnsureCodexCliPlusWebView2RuntimeInstalled", installViewModel, StringComparison.Ordinal);
         Assert.Contains(WebView2RuntimeAssets.BootstrapperFileName, installViewModel, StringComparison.Ordinal);
         Assert.Contains(WebView2RuntimeAssets.StandaloneX64FileName, installViewModel, StringComparison.Ordinal);
@@ -240,6 +255,11 @@ public sealed class InstallerPackagingTests : IDisposable
             uninstallHelper,
             StringComparison.Ordinal
         );
+        Assert.Contains("stream.Position = originalPosition;", archiveFileHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain("using dynamic? archive = type switch", archiveFileHelper, StringComparison.Ordinal);
+        Assert.Contains("long totalUncompressSize = archive.TotalUncompressSize;", archiveFileHelper, StringComparison.Ordinal);
+        Assert.True(File.Exists(renderedLicensePath));
+        Assert.Equal("notice", File.ReadAllText(renderedLicensePath));
 
         Assert.True(
             ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "Favicon.png")) >= 256
@@ -315,6 +335,9 @@ public sealed class InstallerPackagingTests : IDisposable
             CreatePngHeaderBytes(256, 256)
         );
         File.WriteAllBytes(Path.Combine(iconRoot, "codexcliplus.ico"), [0, 0, 1, 0]);
+        var licenseRoot = Path.Combine(repositoryRoot, "resources", "licenses");
+        Directory.CreateDirectory(licenseRoot);
+        File.WriteAllText(Path.Combine(licenseRoot, "NOTICE.txt"), "notice");
         return repositoryRoot;
     }
 
@@ -412,6 +435,28 @@ public sealed class InstallerPackagingTests : IDisposable
             """
         );
         File.WriteAllText(
+            Path.Combine(overlayRoot, "ViewModels", "Inst", "MainViewModel.cs.template"),
+            """
+            public sealed class MainViewModel
+            {
+                private const long RequestedPayloadUncompressedBytes = __PAYLOAD_UNCOMPRESSED_BYTES__;
+                private long requestedFreeSpaceLong = RequestedPayloadUncompressedBytes + 2048000;
+
+                public MainViewModel()
+                {
+                    LicenseInfo = LoadLicenseInfo();
+                }
+
+                public string LicenseInfo { get; set; } = string.Empty;
+
+                private static string LoadLicenseInfo()
+                {
+                    return string.Empty;
+                }
+            }
+            """
+        );
+        File.WriteAllText(
             Path.Combine(overlayRoot, "ViewModels", "Inst", "InstallViewModel.cs.template"),
             $$"""
             private bool EnsureCodexCliPlusWebView2RuntimeInstalled()
@@ -460,6 +505,34 @@ public sealed class InstallerPackagingTests : IDisposable
             public sealed class MainViewModel
             {
                 private bool isElevated = true;
+            }
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "Helper", "Setup", "ArchiveFileHelper.cs.template"),
+            """
+            public static class ArchiveFileHelper
+            {
+                public static object OpenArchive(Stream stream)
+                {
+                    long originalPosition = stream.CanSeek ? stream.Position : 0L;
+                    try
+                    {
+                        return new object();
+                    }
+                    finally
+                    {
+                        if (stream.CanSeek)
+                        {
+                            stream.Position = originalPosition;
+                        }
+                    }
+                }
+
+                public static void ExtractAll(dynamic archive)
+                {
+                    long totalUncompressSize = archive.TotalUncompressSize;
+                }
             }
             """
         );

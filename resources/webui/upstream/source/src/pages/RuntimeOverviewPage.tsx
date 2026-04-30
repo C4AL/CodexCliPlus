@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { IconLayoutDashboard, IconRefreshCw, IconTrendingUp } from '@/components/ui/icons';
+import { IconLayoutDashboard, IconTrendingUp } from '@/components/ui/icons';
 import { CODEX_CONFIG } from '@/components/quota/quotaConfigs';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { authFilesApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useUsageStatsStore } from '@/stores';
 import type { AuthFileItem, CodexQuotaWindow, CredentialInfo } from '@/types';
@@ -163,7 +163,7 @@ export function RuntimeOverviewPage() {
   const [authFilesLoading, setAuthFilesLoading] = useState(false);
   const [authFilesError, setAuthFilesError] = useState<string | null>(null);
   const [quotaByAuthIndex, setQuotaByAuthIndex] = useState<Record<string, OverviewQuotaState>>({});
-  const [refreshing, setRefreshing] = useState(false);
+  const [, setRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
   const requestTokenRef = useRef(0);
@@ -285,6 +285,10 @@ export function RuntimeOverviewPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [refreshOverview]);
+
+  useDesktopDataChanged(['config', 'auth-files', 'quota', 'usage'], () => {
+    void refreshOverview(true);
+  }, connectionStatus === 'connected');
 
   const filteredUsage = useMemo(
     () => filterUsageByTimeRange(usage, OVERVIEW_RANGE),
@@ -450,7 +454,7 @@ export function RuntimeOverviewPage() {
   const lastUpdatedLabel = useMemo(() => {
     const timestamp = lastSyncedAt ?? lastUsageRefreshedAt;
     if (!timestamp) {
-      return dt('尚未刷新', 'Not refreshed yet');
+      return dt('尚未同步', 'Not synced yet');
     }
     return new Date(timestamp).toLocaleString(i18n.language);
   }, [dt, i18n.language, lastSyncedAt, lastUsageRefreshedAt]);
@@ -493,20 +497,9 @@ export function RuntimeOverviewPage() {
         </div>
         <div className={styles.headerActions}>
           <div className={styles.lastUpdated}>
-            {dt('最近刷新：', 'Last refreshed: ')}
+            {dt('最近同步：', 'Last synced: ')}
             <span>{lastUpdatedLabel}</span>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void refreshOverview(true)}
-            loading={refreshing}
-          >
-            <span className={styles.refreshButton}>
-              <IconRefreshCw size={16} />
-              {dt('刷新概览', 'Refresh overview')}
-            </span>
-          </Button>
         </div>
       </div>
 

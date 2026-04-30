@@ -24,7 +24,7 @@ export const useProviderStats = (options: UseProviderStatsOptions = {}) => {
     await loadUsageStats({ staleTimeMs: USAGE_STATS_STALE_TIME_MS });
   }, [loadUsageStats]);
 
-  // 定时器触发时强制刷新共享 usage。
+  // 定时器触发时强制同步共享 usage。
   const refreshKeyStats = useCallback(async () => {
     await loadUsageStats({ force: true, staleTimeMs: USAGE_STATS_STALE_TIME_MS });
   }, [loadUsageStats]);

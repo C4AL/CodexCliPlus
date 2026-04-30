@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -23,6 +24,7 @@ using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
+using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
@@ -77,6 +79,7 @@ public partial class MainWindow
         try
         {
             await _pathService.EnsureCreatedAsync();
+            _changeBroadcastService.Start();
             MarkStartupPhase("paths-ready");
 
             ShowPreparationStep(
@@ -450,9 +453,414 @@ public partial class MainWindow
                         await RunLocalDependencyRepairAsync(ReadRequestId(root), actionId)
                     );
                     break;
+
+                case "managementRequest":
+                    var managementRequest = ReadDesktopManagementRequest(root);
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await HandleDesktopManagementRequestAsync(managementRequest)
+                    );
+                    break;
             }
         }
         catch { }
+    }
+
+    private async Task HandleDesktopManagementRequestAsync(
+        DesktopManagementBridgeRequest request
+    )
+    {
+        var requestId = string.IsNullOrWhiteSpace(request.RequestId)
+            ? Guid.NewGuid().ToString("N")
+            : request.RequestId;
+
+        try
+        {
+            var method = CreateHttpMethod(request.Method);
+            var path = NormalizeManagementPath(request.Path);
+            var accept = string.IsNullOrWhiteSpace(request.Accept)
+                ? "application/json"
+                : NormalizeMediaType(request.Accept);
+            var contentType = NormalizeMediaType(request.ContentType);
+
+            _logger.Info(
+                $"Desktop management request {requestId}: {method.Method} {path}"
+            );
+
+            ManagementApiResponse<string> response;
+            if (request.Files.Count > 0)
+            {
+                var files = await ProtectDesktopManagementFilesAsync(
+                    method,
+                    path,
+                    request.Files
+                );
+                response = await _managementApiClient.SendManagementMultipartAsync(
+                    method,
+                    path,
+                    files,
+                    request.Fields,
+                    accept
+                );
+            }
+            else
+            {
+                var body = await ProtectDesktopManagementBodyAsync(
+                    method,
+                    path,
+                    request.Body,
+                    contentType
+                );
+                response = await _managementApiClient.SendManagementAsync(
+                    method,
+                    path,
+                    body,
+                    contentType,
+                    accept
+                );
+            }
+
+            PostWebUiCommand(
+                new
+                {
+                    type = "managementResponse",
+                    requestId,
+                    ok = true,
+                    status = (int)response.StatusCode,
+                    body = response.Value,
+                    metadata = response.Metadata,
+                }
+            );
+
+            if (!IsReadOnlyMethod(method))
+            {
+                _changeBroadcastService.Broadcast(ResolveManagementChangeScopes(method, path));
+            }
+        }
+        catch (ManagementApiException exception)
+        {
+            _logger.Warn(
+                $"Desktop management request {requestId} failed: {exception.Message}"
+            );
+            PostWebUiCommand(
+                new
+                {
+                    type = "managementResponse",
+                    requestId,
+                    ok = false,
+                    status = exception.StatusCode ?? 500,
+                    body = string.IsNullOrWhiteSpace(exception.ResponseBody)
+                        ? JsonSerializer.Serialize(
+                            new { message = exception.Message },
+                            WebMessageJsonOptions
+                        )
+                        : exception.ResponseBody,
+                    error = exception.Message,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn(
+                $"Desktop management request {requestId} failed before forwarding: {exception.Message}"
+            );
+            PostWebUiCommand(
+                new
+                {
+                    type = "managementResponse",
+                    requestId,
+                    ok = false,
+                    status = 500,
+                    body = JsonSerializer.Serialize(
+                        new { message = exception.Message },
+                        WebMessageJsonOptions
+                    ),
+                    error = exception.Message,
+                }
+            );
+        }
+    }
+
+    private async Task<IReadOnlyList<ManagementMultipartFile>> ProtectDesktopManagementFilesAsync(
+        HttpMethod method,
+        string path,
+        IReadOnlyList<DesktopManagementBridgeFile> files
+    )
+    {
+        var protectedFiles = new List<ManagementMultipartFile>(files.Count);
+        foreach (var file in files)
+        {
+            var content = file.Content;
+            if (
+                !IsReadOnlyMethod(method)
+                && IsSensitiveWritePath(path)
+                && IsTextualContentType(file.ContentType)
+            )
+            {
+                var text = Encoding.UTF8.GetString(content);
+                var migrated = await _configMigrationService.MigrateJsonAsync(
+                    text,
+                    $"desktop-management:{path.TrimStart('/')}:{file.FileName}"
+                );
+                content = Encoding.UTF8.GetBytes(migrated.Content);
+            }
+
+            protectedFiles.Add(
+                new ManagementMultipartFile
+                {
+                    FieldName = string.IsNullOrWhiteSpace(file.FieldName) ? "file" : file.FieldName,
+                    FileName = string.IsNullOrWhiteSpace(file.FileName) ? "upload.json" : file.FileName,
+                    Content = content,
+                    ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                        ? "application/octet-stream"
+                        : NormalizeMediaType(file.ContentType),
+                }
+            );
+        }
+
+        return protectedFiles;
+    }
+
+    private async Task<string?> ProtectDesktopManagementBodyAsync(
+        HttpMethod method,
+        string path,
+        string? body,
+        string contentType
+    )
+    {
+        if (
+            string.IsNullOrWhiteSpace(body)
+            || IsReadOnlyMethod(method)
+            || string.Equals(method.Method, "DELETE", StringComparison.OrdinalIgnoreCase)
+            || !IsSensitiveWritePath(path)
+        )
+        {
+            return body;
+        }
+
+        var source = $"desktop-management:{path.TrimStart('/')}";
+        if (
+            path.StartsWith("/config.yaml", StringComparison.OrdinalIgnoreCase)
+            || contentType.Contains("yaml", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            var migrated = await _configMigrationService.MigrateYamlAsync(body, source);
+            return migrated.Content;
+        }
+
+        if (
+            contentType.Contains("json", StringComparison.OrdinalIgnoreCase)
+            || LooksLikeJson(body)
+        )
+        {
+            var migrated = await _configMigrationService.MigrateJsonAsync(body, source);
+            return migrated.Content;
+        }
+
+        return body;
+    }
+
+    private static DesktopManagementBridgeRequest ReadDesktopManagementRequest(JsonElement root)
+    {
+        var files = new List<DesktopManagementBridgeFile>();
+        if (root.TryGetProperty("files", out var filesElement) && filesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in filesElement.EnumerateArray())
+            {
+                var base64 = ReadString(item, "contentBase64");
+                byte[] content;
+                try
+                {
+                    content = string.IsNullOrWhiteSpace(base64)
+                        ? []
+                        : Convert.FromBase64String(base64);
+                }
+                catch (FormatException)
+                {
+                    content = [];
+                }
+
+                files.Add(
+                    new DesktopManagementBridgeFile(
+                        ReadString(item, "fieldName") ?? "file",
+                        ReadString(item, "fileName") ?? "upload.json",
+                        ReadString(item, "contentType") ?? "application/octet-stream",
+                        content
+                    )
+                );
+            }
+        }
+
+        Dictionary<string, string>? fields = null;
+        if (
+            root.TryGetProperty("fields", out var fieldsElement)
+            && fieldsElement.ValueKind == JsonValueKind.Object
+        )
+        {
+            fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var property in fieldsElement.EnumerateObject())
+            {
+                fields[property.Name] = property.Value.ValueKind == JsonValueKind.String
+                    ? property.Value.GetString() ?? string.Empty
+                    : property.Value.ToString();
+            }
+        }
+
+        return new DesktopManagementBridgeRequest(
+            ReadString(root, "requestId"),
+            ReadString(root, "method") ?? "GET",
+            ReadString(root, "path") ?? "/",
+            ReadString(root, "body"),
+            ReadString(root, "contentType") ?? "application/json",
+            ReadString(root, "accept"),
+            files,
+            fields
+        );
+    }
+
+    private static string? ReadString(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+    }
+
+    private static HttpMethod CreateHttpMethod(string method)
+    {
+        var normalized = string.IsNullOrWhiteSpace(method)
+            ? "GET"
+            : method.Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "GET" => HttpMethod.Get,
+            "POST" => HttpMethod.Post,
+            "PUT" => HttpMethod.Put,
+            "PATCH" => HttpMethod.Patch,
+            "DELETE" => HttpMethod.Delete,
+            "HEAD" => HttpMethod.Head,
+            "OPTIONS" => HttpMethod.Options,
+            _ => throw new InvalidOperationException("不支持的管理请求方法。"),
+        };
+    }
+
+    private static string NormalizeManagementPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new InvalidOperationException("管理请求路径不能为空。");
+        }
+
+        var trimmed = path.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out _))
+        {
+            throw new InvalidOperationException("桌面管理代理只允许相对管理接口路径。");
+        }
+
+        var normalized = trimmed[0] == '/'
+            ? trimmed
+            : $"/{trimmed}";
+        return normalized.Replace(
+            "/generative-language-api-key",
+            "/gemini-api-key",
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
+    private static string NormalizeMediaType(string? value)
+    {
+        var rawValue = value ?? "application/json";
+        var separatorIndex = rawValue.IndexOf(';', StringComparison.Ordinal);
+        var mediaType = (
+            separatorIndex >= 0 ? rawValue[..separatorIndex] : rawValue
+        ).Trim();
+        return string.IsNullOrWhiteSpace(mediaType) ? "application/json" : mediaType;
+    }
+
+    private static bool IsReadOnlyMethod(HttpMethod method)
+    {
+        return method == HttpMethod.Get
+            || method == HttpMethod.Head
+            || method == HttpMethod.Options;
+    }
+
+    private static bool LooksLikeJson(string value)
+    {
+        var trimmed = value.TrimStart();
+        return trimmed.StartsWith('{') || trimmed.StartsWith('[') || trimmed.StartsWith('"');
+    }
+
+    private static bool IsTextualContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return false;
+        }
+
+        return contentType.Contains("json", StringComparison.OrdinalIgnoreCase)
+            || contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSensitiveWritePath(string path)
+    {
+        var queryIndex = path.IndexOf('?', StringComparison.Ordinal);
+        var normalized = (queryIndex >= 0 ? path[..queryIndex] : path).TrimEnd('/');
+        return normalized.Equals("/config.yaml", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/api-keys", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/auth-files", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/gemini-api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/codex-api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/claude-api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/vertex-api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/openai-compatibility", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/ampcode/upstream-api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/ampcode/upstream-api-keys", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string[] ResolveManagementChangeScopes(HttpMethod method, string path)
+    {
+        if (IsReadOnlyMethod(method))
+        {
+            return [];
+        }
+
+        var queryIndex = path.IndexOf('?', StringComparison.Ordinal);
+        var normalized = (queryIndex >= 0 ? path[..queryIndex] : path).TrimEnd('/');
+        var scopes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "config" };
+
+        if (
+            normalized.StartsWith("/api-keys", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("api-key", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/openai-compatibility", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/ampcode", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            scopes.Add("providers");
+            scopes.Add("quota");
+        }
+
+        if (
+            normalized.StartsWith("/auth-files", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/oauth-", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/model-definitions", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            scopes.Add("auth-files");
+            scopes.Add("quota");
+            scopes.Add("providers");
+        }
+
+        if (normalized.StartsWith("/usage", StringComparison.OrdinalIgnoreCase))
+        {
+            scopes.Add("usage");
+            scopes.Add("persistence");
+        }
+
+        if (normalized.StartsWith("/logs", StringComparison.OrdinalIgnoreCase))
+        {
+            scopes.Add("logs");
+        }
+
+        return scopes.ToArray();
     }
 
     private async Task SendLocalDependencySnapshotAsync(string? requestId)
@@ -555,6 +963,7 @@ public partial class MainWindow
 
         if (result.Succeeded)
         {
+            _changeBroadcastService.Broadcast("local-environment");
             _notificationService.ShowAuto(result.Summary);
         }
         else
@@ -569,6 +978,23 @@ public partial class MainWindow
             && requestIdElement.ValueKind == JsonValueKind.String
             ? requestIdElement.GetString()
             : null;
+    }
+
+    private void ManagementChangeBroadcastService_DataChanged(
+        object? sender,
+        ManagementDataChangedEventArgs e
+    )
+    {
+        Dispatcher.InvokeAsync(() =>
+            PostWebUiCommand(
+                new
+                {
+                    type = "dataChanged",
+                    scopes = e.Scopes,
+                    sequence = e.Sequence,
+                }
+            )
+        );
     }
 
     private void ApplyWebUiShellState(JsonElement root)
@@ -655,4 +1081,22 @@ public partial class MainWindow
         UpdateNavigationActiveState();
         PostWebUiCommand(new { type = "navigate", path = _activeWebUiPath });
     }
+
+    private sealed record DesktopManagementBridgeRequest(
+        string? RequestId,
+        string Method,
+        string Path,
+        string? Body,
+        string ContentType,
+        string? Accept,
+        IReadOnlyList<DesktopManagementBridgeFile> Files,
+        IReadOnlyDictionary<string, string>? Fields
+    );
+
+    private sealed record DesktopManagementBridgeFile(
+        string FieldName,
+        string FileName,
+        string ContentType,
+        byte[] Content
+    );
 }

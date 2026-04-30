@@ -9,6 +9,7 @@ import {
   clearUsageStatsInDesktopShell,
   isDesktopMode,
 } from '@/desktop/bridge';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import {
   useAuthStore,
   useConfigStore,
@@ -310,6 +311,11 @@ export function SystemPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.connectionStatus, auth.apiBase]);
 
+  useDesktopDataChanged(['config', 'providers'], () => {
+    apiKeysCache.current = [];
+    void fetchModels({ forceRefresh: true });
+  }, auth.connectionStatus === 'connected');
+
   return (
     <div className={styles.container}>
       <h1 className={styles.pageTitle}>{t('system_info.title')}</h1>
@@ -463,19 +469,7 @@ export function SystemPage() {
           </div>
         </Card>
 
-        <Card
-          title={t('system_info.models_title')}
-          extra={
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => fetchModels({ forceRefresh: true })}
-              loading={modelsLoading}
-            >
-              {t('common.refresh')}
-            </Button>
-          }
-        >
+        <Card title={t('system_info.models_title')}>
           <p className={styles.sectionDescription}>{t('system_info.models_desc')}</p>
           {modelStatus && (
             <div className={`status-badge ${modelStatus.type}`}>{modelStatus.message}</div>

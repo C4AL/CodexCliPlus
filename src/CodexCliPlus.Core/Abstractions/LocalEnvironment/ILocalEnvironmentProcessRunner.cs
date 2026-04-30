@@ -6,7 +6,7 @@ public interface ILocalEnvironmentProcessRunner
 {
     Task<LocalEnvironmentProcessResult> RunAsync(
         string fileName,
-        string arguments,
+        IReadOnlyList<string> arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken = default
     );

@@ -720,15 +720,6 @@ export function AiProvidersCodexEditPage() {
                       readOnly
                       value={modelDiscoveryEndpoint}
                     />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => void fetchCodexModelDiscovery()}
-                      loading={modelDiscoveryFetching}
-                      disabled={disableControls || saving}
-                    >
-                      {t('ai_providers.codex_models_fetch_refresh')}
-                    </Button>
                   </div>
                 </div>
                 <Input

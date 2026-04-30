@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { animate } from 'motion/mini';
 import type { AnimationPlaybackControlsWithThen } from 'motion-dom';
 import { useInterval } from '@/hooks/useInterval';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -350,7 +350,9 @@ export function AuthFilesPage() {
     await Promise.all([loadFiles(), refreshKeyStats(), loadExcluded(), loadModelAlias()]);
   }, [loadFiles, refreshKeyStats, loadExcluded, loadModelAlias]);
 
-  useHeaderRefresh(handleHeaderRefresh);
+  useDesktopDataChanged(['auth-files', 'quota', 'providers'], () => {
+    void handleHeaderRefresh();
+  }, isCurrentLayer && connectionStatus === 'connected');
 
   useEffect(() => {
     if (!isCurrentLayer) return;
@@ -801,9 +803,6 @@ export function AuthFilesPage() {
         title={titleNode}
         extra={
           <div className={styles.headerActions}>
-            <Button variant="secondary" size="sm" onClick={handleHeaderRefresh} disabled={loading}>
-              {t('common.refresh')}
-            </Button>
             <Button
               variant="secondary"
               size="sm"

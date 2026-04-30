@@ -7,7 +7,7 @@ import {
   withoutDisableAllModelsRule,
 } from '@/components/providers/utils';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import type { ProviderKeyConfig } from '@/types';
@@ -97,7 +97,10 @@ export function AiProvidersPage() {
     return () => window.clearTimeout(timer);
   }, [config?.codexApiKeys]);
 
-  useHeaderRefresh(refreshKeyStats, isCurrentLayer);
+  useDesktopDataChanged(['providers', 'config', 'usage'], () => {
+    void loadConfigs();
+    void refreshKeyStats();
+  }, isCurrentLayer);
 
   const openEditor = useCallback(
     (path: string) => {

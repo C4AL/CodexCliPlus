@@ -8,7 +8,7 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
 {
     public async Task<LocalEnvironmentProcessResult> RunAsync(
         string fileName,
-        string arguments,
+        IReadOnlyList<string> arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken = default
     )
@@ -21,7 +21,6 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
         var startInfo = new ProcessStartInfo
         {
             FileName = fileName,
-            Arguments = arguments,
             WorkingDirectory = Environment.CurrentDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -30,6 +29,10 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
 
         using var process = new Process { StartInfo = startInfo };
         if (!process.Start())
@@ -56,7 +59,7 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
             }
 
             throw new TimeoutException(
-                $"Process '{fileName} {arguments}' exceeded {timeout.TotalSeconds:0.#} seconds."
+                $"Process '{fileName} {string.Join(" ", arguments)}' exceeded {timeout.TotalSeconds:0.#} seconds."
             );
         }
         catch (OperationCanceledException)

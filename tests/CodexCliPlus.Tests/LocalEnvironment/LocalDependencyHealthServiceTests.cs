@@ -128,10 +128,10 @@ public sealed class LocalDependencyHealthServiceTests
                 0,
                 "C:\\Program Files\\nodejs\\npm.cmd"
             );
-            fixture.ProcessRunner.Respond("cmd.exe", "npm.cmd\" --version", 0, "10.9.0");
+            fixture.ProcessRunner.Respond("cmd.exe", "npm.cmd --version", 0, "10.9.0");
             fixture.ProcessRunner.Respond(
                 "cmd.exe",
-                "npm.cmd\" config get prefix",
+                "npm.cmd config get prefix",
                 0,
                 "C:\\Users\\Tester\\AppData\\Roaming\\npm"
             );
@@ -141,8 +141,8 @@ public sealed class LocalDependencyHealthServiceTests
                 0,
                 "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd"
             );
-            fixture.ProcessRunner.Respond("cmd.exe", "codex.cmd\" --version", 0, "codex 0.9.0");
-            fixture.ProcessRunner.Respond("cmd.exe", "codex.cmd\" login status", 0, "logged in");
+            fixture.ProcessRunner.Respond("cmd.exe", "codex.cmd --version", 0, "codex 0.9.0");
+            fixture.ProcessRunner.Respond("cmd.exe", "codex.cmd login status", 0, "logged in");
             fixture.ProcessRunner.Respond(
                 "where.exe",
                 "pwsh",
@@ -237,20 +237,23 @@ public sealed class LocalDependencyHealthServiceTests
 
         public Task<LocalEnvironmentProcessResult> RunAsync(
             string fileName,
-            string arguments,
+            IReadOnlyList<string> arguments,
             TimeSpan timeout,
             CancellationToken cancellationToken = default
         )
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var failure = _failures.LastOrDefault(candidate => Matches(candidate, fileName, arguments));
+            var joinedArguments = string.Join(" ", arguments);
+            var failure = _failures.LastOrDefault(candidate =>
+                Matches(candidate, fileName, joinedArguments)
+            );
             if (failure is not null)
             {
                 throw failure.Exception;
             }
 
             var response = _responses.LastOrDefault(candidate =>
-                Matches(candidate, fileName, arguments)
+                Matches(candidate, fileName, joinedArguments)
             );
             if (response is null)
             {

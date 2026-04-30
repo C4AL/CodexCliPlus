@@ -107,6 +107,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IUpdateCheckService _updateCheckService;
     private readonly IUpdateInstallerService _updateInstallerService;
     private readonly IManagementPersistenceService _persistenceService;
+    private readonly IManagementApiClient _managementApiClient;
     private readonly IManagementOverviewService _managementOverviewService;
     private readonly IManagementConfigurationService _managementConfigurationService;
     private readonly IManagementAuthService _managementAuthService;
@@ -114,6 +115,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly LocalDependencyRepairService _localDependencyRepairService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
+    private readonly ManagementChangeBroadcastService _changeBroadcastService;
 
     private AppSettings _settings = new();
     private StartupState _startupState = StartupState.Preparing;
@@ -164,13 +166,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IUpdateCheckService updateCheckService,
         IUpdateInstallerService updateInstallerService,
         IManagementPersistenceService persistenceService,
+        IManagementApiClient managementApiClient,
         IManagementOverviewService managementOverviewService,
         IManagementConfigurationService managementConfigurationService,
         IManagementAuthService managementAuthService,
         LocalDependencyHealthService localDependencyHealthService,
         LocalDependencyRepairService localDependencyRepairService,
         WebUiAssetLocator webUiAssetLocator,
-        ShellNotificationService notificationService
+        ShellNotificationService notificationService,
+        ManagementChangeBroadcastService changeBroadcastService
     )
     {
         _viewModel = viewModel;
@@ -187,6 +191,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _updateCheckService = updateCheckService;
         _updateInstallerService = updateInstallerService;
         _persistenceService = persistenceService;
+        _managementApiClient = managementApiClient;
         _managementOverviewService = managementOverviewService;
         _managementConfigurationService = managementConfigurationService;
         _managementAuthService = managementAuthService;
@@ -194,6 +199,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _localDependencyRepairService = localDependencyRepairService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
+        _changeBroadcastService = changeBroadcastService;
 
         _navigationDockCollapseTimer = new DispatcherTimer
         {
@@ -207,6 +213,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested +=
             ShellNotificationService_NotificationRequested;
+        _changeBroadcastService.DataChanged += ManagementChangeBroadcastService_DataChanged;
         SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
     }
 }

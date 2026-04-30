@@ -8,11 +8,11 @@ import {
   IconCheck,
   IconChevronDown,
   IconChevronUp,
-  IconRefreshCw,
   IconSearch,
 } from '@/components/ui/icons';
 import { VisualConfigEditor } from '@/components/config/VisualConfigEditor';
 import { DiffModal } from '@/components/config/DiffModal';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useVisualConfig } from '@/hooks/useVisualConfig';
 import { useNotificationStore, useAuthStore, useThemeStore, useConfigStore } from '@/stores';
 import { configFileApi } from '@/services/api/configFile';
@@ -35,7 +35,6 @@ function readCommercialModeFromYaml(yamlContent: string): boolean {
 export function ConfigPage() {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
-  const showConfirmation = useNotificationStore((state) => state.showConfirmation);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
 
@@ -399,23 +398,15 @@ export function ConfigPage() {
     return '';
   };
 
-  const handleReload = useCallback(() => {
-    if (!isDirty) {
-      void loadConfig();
-      return;
-    }
-
-    showConfirmation({
-      title: t('common.unsaved_changes_title'),
-      message: t('config_management.reload_confirm_message'),
-      confirmText: t('config_management.reload'),
-      cancelText: t('common.cancel'),
-      variant: 'danger',
-      onConfirm: async () => {
-        await loadConfig();
-      },
-    });
-  }, [isDirty, loadConfig, showConfirmation, t]);
+  useDesktopDataChanged(
+    ['config', 'providers'],
+    () => {
+      if (!isDirty && !saving) {
+        void loadConfig();
+      }
+    },
+    connectionStatus === 'connected'
+  );
 
   const pageEyebrow =
     activeTab === 'visual'
@@ -456,15 +447,6 @@ export function ConfigPage() {
             </button>
           </div>
           <div className={styles.headerActions}>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleReload}
-              disabled={loading || saving}
-            >
-              <IconRefreshCw size={16} />
-              {t('config_management.reload')}
-            </Button>
             <Button
               size="sm"
               onClick={handleSave}

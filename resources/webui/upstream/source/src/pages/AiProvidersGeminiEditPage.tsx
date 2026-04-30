@@ -709,15 +709,6 @@ export function AiProvidersGeminiEditPage() {
                       readOnly
                       value={modelDiscoveryEndpoint}
                     />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => void fetchGeminiModelDiscovery()}
-                      loading={modelDiscoveryFetching}
-                      disabled={disableControls || saving}
-                    >
-                      {t('ai_providers.gemini_models_fetch_refresh')}
-                    </Button>
                   </div>
                 </div>
                 <Input

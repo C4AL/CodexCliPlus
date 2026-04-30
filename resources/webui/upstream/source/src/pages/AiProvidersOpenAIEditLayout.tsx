@@ -489,7 +489,7 @@ export function AiProvidersOpenAIEditLayout() {
           syncedProviders = latest as OpenAIProviderConfig[];
         }
       } catch {
-        // 保存成功后刷新失败时，回退到本地计算结果，避免页面数据为空或回退
+        // 保存成功后同步失败时，回退到本地计算结果，避免页面数据为空或回退
       }
 
       setProviders(syncedProviders);

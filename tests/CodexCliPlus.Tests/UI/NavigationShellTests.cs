@@ -182,7 +182,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("Text=\"桌面宿主\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ShellRefreshButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"ShellRefreshButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellThemeButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("iconPacks:PackIconLucide", xaml, StringComparison.Ordinal);
         Assert.Contains("Kind=\"SunMoon\"", xaml, StringComparison.Ordinal);
@@ -226,6 +226,12 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("var wasOpenBeforeClick", hostSource, StringComparison.Ordinal);
+        Assert.Contains("HideShellBrandDockPopupAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ShellBrandDockTranslateTransform", xaml, StringComparison.Ordinal);
+        Assert.Contains("ShellBrandDockScaleTransform", xaml, StringComparison.Ordinal);
+        Assert.Contains("NavigationDockRailTrack", xaml, StringComparison.Ordinal);
+        Assert.Contains("Opacity=\"0.78\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Opacity=\"0\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -261,6 +267,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var webBridgeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "desktop",
+                "bridge.ts"
+            ),
+            Encoding.UTF8
+        );
 
         Assert.Contains("http://{AppHostName}/index.html", hostSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -279,7 +298,7 @@ public sealed class NavigationShellTests
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("refreshAll", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("refreshAll", hostSource, StringComparison.Ordinal);
         Assert.Contains("setTheme", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigate", hostSource, StringComparison.Ordinal);
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
@@ -291,6 +310,13 @@ public sealed class NavigationShellTests
         Assert.Contains("requestLocalDependencySnapshot", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", hostSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("managementRequest", hostSource, StringComparison.Ordinal);
+        Assert.Contains("managementRequest", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("managementResponse", hostSource, StringComparison.Ordinal);
+        Assert.Contains("dataChanged", hostSource, StringComparison.Ordinal);
+        Assert.Contains("managementResponse", webBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("dataChanged", webBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("ManagementChangeBroadcastService", hostSource, StringComparison.Ordinal);
         Assert.Contains("ScheduleUsageStatsRefreshedSync", hostSource, StringComparison.Ordinal);
         Assert.Contains("event.clientX > 18", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("setTimeout", bridgeSource, StringComparison.Ordinal);

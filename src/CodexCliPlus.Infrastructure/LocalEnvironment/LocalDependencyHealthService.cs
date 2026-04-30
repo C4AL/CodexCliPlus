@@ -99,13 +99,13 @@ public sealed class LocalDependencyHealthService
 
         var versionAttempt = await TryRunExecutableAsync(
             codexPath,
-            "--version",
+            ["--version"],
             ShortCommandTimeout,
             cancellationToken
         );
         var loginAttempt = await TryRunExecutableAsync(
             codexPath,
-            "login status",
+            ["login", "status"],
             LoginCommandTimeout,
             cancellationToken
         );
@@ -173,7 +173,7 @@ public sealed class LocalDependencyHealthService
 
         var attempt = await TryRunExecutableAsync(
             nodePath,
-            "--version",
+            ["--version"],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -231,13 +231,13 @@ public sealed class LocalDependencyHealthService
 
         var versionAttempt = await TryRunExecutableAsync(
             npmPath,
-            "--version",
+            ["--version"],
             ShortCommandTimeout,
             cancellationToken
         );
         var prefixAttempt = await TryRunExecutableAsync(
             npmPath,
-            "config get prefix",
+            ["config", "get", "prefix"],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -316,7 +316,7 @@ public sealed class LocalDependencyHealthService
 
         var attempt = await TryRunExecutableAsync(
             shellPath,
-            "-NoLogo -NoProfile -Command \"$PSVersionTable.PSVersion.ToString()\"",
+            ["-NoLogo", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -476,13 +476,13 @@ public sealed class LocalDependencyHealthService
 
         var statusAttempt = await TryRunExecutableAsync(
             wslPath,
-            "--status",
+            ["--status"],
             ShortCommandTimeout,
             cancellationToken
         );
         var listAttempt = await TryRunExecutableAsync(
             wslPath,
-            "-l -q",
+            ["-l", "-q"],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -542,7 +542,7 @@ public sealed class LocalDependencyHealthService
 
         var attempt = await TryRunExecutableAsync(
             wingetPath,
-            "--version",
+            ["--version"],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -581,7 +581,7 @@ public sealed class LocalDependencyHealthService
     {
         var attempt = await TryRunAsync(
             "where.exe",
-            commandName,
+            [commandName],
             ShortCommandTimeout,
             cancellationToken
         );
@@ -598,7 +598,7 @@ public sealed class LocalDependencyHealthService
 
     private async Task<CommandAttempt> TryRunExecutableAsync(
         string executablePath,
-        string arguments,
+        IReadOnlyList<string> arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken
     )
@@ -607,7 +607,7 @@ public sealed class LocalDependencyHealthService
         {
             return await TryRunAsync(
                 "cmd.exe",
-                $"/d /c \"\"{executablePath}\" {arguments}\"",
+                ["/d", "/c", executablePath, ..arguments],
                 timeout,
                 cancellationToken
             );
@@ -618,7 +618,7 @@ public sealed class LocalDependencyHealthService
 
     private async Task<CommandAttempt> TryRunAsync(
         string fileName,
-        string arguments,
+        IReadOnlyList<string> arguments,
         TimeSpan timeout,
         CancellationToken cancellationToken
     )

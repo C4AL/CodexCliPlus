@@ -88,6 +88,7 @@ public partial class MainWindow
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -=
             ShellNotificationService_NotificationRequested;
+        _changeBroadcastService.DataChanged -= ManagementChangeBroadcastService_DataChanged;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
@@ -105,6 +106,7 @@ public partial class MainWindow
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -=
             ShellNotificationService_NotificationRequested;
+        _changeBroadcastService.DataChanged -= ManagementChangeBroadcastService_DataChanged;
         SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
         _navigationDockCollapseTimer.Tick -= NavigationDockCollapseTimer_Tick;
         _firstRunConfirmCountdown?.Cancel();
@@ -318,12 +320,6 @@ public partial class MainWindow
     private void ShellSidebarButton_Click(object sender, RoutedEventArgs e)
     {
         ExpandNavigationDock(showLabels: true);
-    }
-
-    private void ShellRefreshButton_Click(object sender, RoutedEventArgs e)
-    {
-        PostWebUiCommand(new { type = "refreshAll" });
-        _notificationService.ShowAuto("已请求刷新。");
     }
 
     private void ShellBrandDockButton_PreviewMouseLeftButtonDown(

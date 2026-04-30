@@ -1,14 +1,12 @@
-import { useCallback, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import { type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { CODEX_CONFIG } from '@/components/quota';
-import { useNotificationStore, useQuotaStore } from '@/stores';
+import { useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
-import { getStatusFromError } from '@/utils/quota';
 import {
-  isRuntimeOnlyAuthFile,
   resolveQuotaErrorMessage,
-  type QuotaProviderType
+  type QuotaProviderType,
 } from '@/features/authFiles/constants';
 import { QuotaProgressBar } from '@/features/authFiles/components/QuotaProgressBar';
 import styles from '@/pages/AuthFilesPage.module.scss';
@@ -26,55 +24,12 @@ export type AuthFileQuotaSectionProps = {
 };
 
 export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
-  const { file, quotaType, disableControls } = props;
+  const { file, quotaType } = props;
   const { t } = useTranslation();
-  const showNotification = useNotificationStore((state) => state.showNotification);
 
   const quota = useQuotaStore((state) => {
     return state.codexQuota[file.name] as QuotaState;
   });
-
-  const updateQuotaState = useQuotaStore((state) => {
-    return state.setCodexQuota as unknown as (updater: unknown) => void;
-  });
-
-  const refreshQuotaForFile = useCallback(async () => {
-    if (disableControls) return;
-    if (isRuntimeOnlyAuthFile(file)) return;
-    if (file.disabled) return;
-    if (quota?.status === 'loading') return;
-
-    const config = getQuotaConfig(quotaType) as unknown as {
-      i18nPrefix: string;
-      fetchQuota: (file: AuthFileItem, t: TFunction) => Promise<unknown>;
-      buildLoadingState: () => unknown;
-      buildSuccessState: (data: unknown) => unknown;
-      buildErrorState: (message: string, status?: number) => unknown;
-      renderQuotaItems: (quota: unknown, t: TFunction, helpers: unknown) => unknown;
-    };
-
-    updateQuotaState((prev: Record<string, unknown>) => ({
-      ...prev,
-      [file.name]: config.buildLoadingState()
-    }));
-
-    try {
-      const data = await config.fetchQuota(file, t);
-      updateQuotaState((prev: Record<string, unknown>) => ({
-        ...prev,
-        [file.name]: config.buildSuccessState(data)
-      }));
-      showNotification(t('auth_files.quota_refresh_success', { name: file.name }), 'success');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('common.unknown_error');
-      const status = getStatusFromError(err);
-      updateQuotaState((prev: Record<string, unknown>) => ({
-        ...prev,
-        [file.name]: config.buildErrorState(message, status)
-      }));
-      showNotification(t('auth_files.quota_refresh_failed', { name: file.name, message }), 'error');
-    }
-  }, [disableControls, file, quota?.status, quotaType, showNotification, t, updateQuotaState]);
 
   const config = getQuotaConfig(quotaType) as unknown as {
     i18nPrefix: string;
@@ -82,7 +37,6 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
   };
 
   const quotaStatus = quota?.status ?? 'idle';
-  const canRefreshQuota = !disableControls && !file.disabled;
   const quotaErrorMessage = resolveQuotaErrorMessage(
     t,
     quota?.errorStatus,
@@ -94,18 +48,11 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
       {quotaStatus === 'loading' ? (
         <div className={styles.quotaMessage}>{t(`${config.i18nPrefix}.loading`)}</div>
       ) : quotaStatus === 'idle' ? (
-        <button
-          type="button"
-          className={`${styles.quotaMessage} ${styles.quotaMessageAction}`}
-          onClick={() => void refreshQuotaForFile()}
-          disabled={!canRefreshQuota}
-        >
-          {t(`${config.i18nPrefix}.idle`)}
-        </button>
+        <div className={styles.quotaMessage}>{t(`${config.i18nPrefix}.idle`)}</div>
       ) : quotaStatus === 'error' ? (
         <div className={styles.quotaError}>
           {t(`${config.i18nPrefix}.load_failed`, {
-            message: quotaErrorMessage
+            message: quotaErrorMessage,
           })}
         </div>
       ) : quota ? (

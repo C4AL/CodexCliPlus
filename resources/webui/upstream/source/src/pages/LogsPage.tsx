@@ -13,14 +13,12 @@ import {
   IconCode,
   IconDownload,
   IconEyeOff,
-  IconRefreshCw,
   IconSearch,
   IconSlidersHorizontal,
-  IconTimer,
   IconTrash2,
   IconX,
 } from '@/components/ui/icons';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { configApi } from '@/services/api/config';
@@ -76,7 +74,6 @@ export function LogsPage() {
   const [logState, setLogState] = useState<LogState>({ buffer: [], visibleFrom: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [hideManagementLogs, setHideManagementLogs] = useState(true);
@@ -189,8 +186,6 @@ export function LogsPage() {
     }
   };
 
-  useHeaderRefresh(() => loadLogs(false));
-
   const clearLogs = async () => {
     showConfirmation({
       title: t('logs.clear_confirm_title', { defaultValue: '清空日志' }),
@@ -276,17 +271,17 @@ export function LogsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, connectionStatus, requestLogEnabled]);
 
-  useEffect(() => {
-    if (!autoRefresh || connectionStatus !== 'connected') {
-      return;
-    }
-    const id = window.setInterval(() => {
-      if (document.hidden) return;
-      loadLogs(true);
-    }, 8000);
-    return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, connectionStatus]);
+  useDesktopDataChanged(
+    ['logs'],
+    () => {
+      if (activeTab === 'errors') {
+        void loadErrorLogs();
+        return;
+      }
+      void loadLogs(false);
+    },
+    connectionStatus === 'connected'
+  );
 
   const visibleLines = useMemo(
     () => logState.buffer.slice(logState.visibleFrom),
@@ -688,29 +683,6 @@ export function LogsPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => loadLogs(false)}
-                  disabled={disableControls || loading}
-                  className={styles.actionButton}
-                >
-                  <span className={styles.buttonContent}>
-                    <IconRefreshCw size={16} />
-                    {t('logs.refresh_button')}
-                  </span>
-                </Button>
-                <ToggleSwitch
-                  checked={autoRefresh}
-                  onChange={(value) => setAutoRefresh(value)}
-                  disabled={disableControls}
-                  label={
-                    <span className={styles.switchLabel}>
-                      <IconTimer size={16} />
-                      {t('logs.auto_refresh')}
-                    </span>
-                  }
-                />
-                <Button
-                  variant="secondary"
-                  size="sm"
                   onClick={downloadLogs}
                   disabled={logState.buffer.length === 0}
                   className={styles.actionButton}
@@ -912,19 +884,7 @@ export function LogsPage() {
         )}
 
         {activeTab === 'errors' && (
-          <Card
-            extra={
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={loadErrorLogs}
-                loading={loadingErrors}
-                disabled={disableControls}
-              >
-                {t('common.refresh')}
-              </Button>
-            }
-          >
+          <Card>
             <div className="stack">
               <div className="hint">{t('logs.error_logs_description')}</div>
 
@@ -1049,17 +1009,6 @@ export function LogsPage() {
 
             <div className={styles.traceCandidatesHeader}>
               <h3 className={styles.traceSectionTitle}>{t('logs.trace_candidates_title')}</h3>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  void trace.refreshTraceUsageDetails().catch(() => {});
-                }}
-                loading={trace.traceLoading}
-                disabled={requestLogDownloading}
-              >
-                {t('common.refresh')}
-              </Button>
             </div>
             {trace.traceLoading ? (
               <div className="hint">{t('logs.trace_loading')}</div>

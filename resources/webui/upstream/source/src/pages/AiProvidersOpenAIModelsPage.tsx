@@ -229,15 +229,6 @@ export function AiProvidersOpenAIModelsPage() {
                 readOnly
                 value={endpoint}
               />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void fetchOpenaiModelDiscovery({ allowFallback: true })}
-                loading={fetching}
-                disabled={disableControls || saving}
-              >
-                {t('ai_providers.openai_models_fetch_refresh')}
-              </Button>
             </div>
           </div>
           <Input

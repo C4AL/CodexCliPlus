@@ -156,13 +156,13 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
 
         public Task<LocalEnvironmentProcessResult> RunAsync(
             string fileName,
-            string arguments,
+            IReadOnlyList<string> arguments,
             TimeSpan timeout,
             CancellationToken cancellationToken = default
         )
         {
             cancellationToken.ThrowIfCancellationRequested();
-            Commands.Add((fileName, arguments));
+            Commands.Add((fileName, string.Join(" ", arguments)));
             return Task.FromResult(new LocalEnvironmentProcessResult(0, "ok", ""));
         }
     }

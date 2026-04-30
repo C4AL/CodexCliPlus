@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Models;
@@ -50,6 +51,40 @@ public sealed class SecretBrokerServiceTests : IDisposable
         using var document = JsonDocument.Parse(payload);
         Assert.Equal("broker-secret", document.RootElement.GetProperty("value").GetString());
         Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
+    }
+
+    [Fact]
+    public async Task BrokerCanSaveSecretAndRevealReturnedReference()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var vault = new DpapiSecretVault(pathService);
+        var logger = new FileAppLogger(pathService);
+        using var broker = new SecretBrokerService(vault, logger);
+        var session = await broker.StartAsync();
+        using var client = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{session.BaseUrl}/v1/secrets")
+        {
+            Content = new StringContent(
+                """
+                {"value":"desktop-secret","kind":"ApiKey","source":"unit-test","metadata":{"path":"api-keys[0]"}}
+                """,
+                Encoding.UTF8,
+                "application/json"
+            ),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+
+        var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var document = JsonDocument.Parse(payload);
+        var uri = document.RootElement.GetProperty("uri").GetString();
+        Assert.StartsWith("ccp-secret://", uri);
+        Assert.Equal(
+            "desktop-secret",
+            await vault.RevealSecretAsync(uri!.Replace("ccp-secret://", string.Empty, StringComparison.Ordinal))
+        );
     }
 
     public void Dispose()

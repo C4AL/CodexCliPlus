@@ -278,7 +278,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       newCache.clear();
     }
 
-    // 清除全部缓存一般代表“切换连接/登出/全量刷新”，需要让 in-flight 的旧请求失效
+    // 清除全部缓存一般代表“切换连接/登出/全量同步”，需要让 in-flight 的旧请求失效
     configRequestToken += 1;
     inFlightConfigRequest = null;
 

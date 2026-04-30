@@ -30,6 +30,7 @@ import {
   getDesktopBootstrap,
   isDesktopMode,
   sendShellStateChanged,
+  subscribeDesktopDataChanged,
   subscribeDesktopShellCommand,
 } from '@/desktop/bridge';
 import {
@@ -39,7 +40,6 @@ import {
   useThemeStore,
   useUsageStatsStore,
 } from '@/stores';
-import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import type { Theme } from '@/types';
 
 const sidebarIcons: Record<string, ReactNode> = {
@@ -71,12 +71,6 @@ const headerIconProps: SVGProps<SVGSVGElement> = {
 };
 
 const headerIcons = {
-  refresh: (
-    <svg {...headerIconProps}>
-      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-    </svg>
-  ),
   menu: (
     <svg {...headerIconProps}>
       <path d="M4 7h16" />
@@ -248,6 +242,8 @@ export function MainLayout() {
   const headerRef = useRef<HTMLElement | null>(null);
   const headerHeightCssValue = useRef<string | null>(null);
   const contentCenterCssValue = useRef<string | null>(null);
+  const pendingDataChangedScopes = useRef<Set<string>>(new Set());
+  const dataChangedTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const fullBrandName = t('title.main');
   const abbrBrandName = t('title.abbr');
@@ -504,25 +500,76 @@ export function MainLayout() {
     return 'vertical';
   }, []);
 
-  const handleRefreshAll = useCallback(async () => {
-    clearCache();
-    const results = await Promise.allSettled([
-      fetchConfig(undefined, true),
-      triggerHeaderRefresh(),
-    ]);
-    const rejected = results.find((result) => result.status === 'rejected');
-    if (rejected && rejected.status === 'rejected') {
-      const reason = rejected.reason;
-      const message =
-        typeof reason === 'string' ? reason : reason instanceof Error ? reason.message : '';
-      showNotification(
-        `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
-        'error'
-      );
+  const applyDesktopDataChanged = useCallback(
+    (scopes: string[]) => {
+      const scopeSet = new Set(scopes.map((scope) => scope.toLowerCase()));
+      if (
+        scopeSet.has('config') ||
+        scopeSet.has('providers') ||
+        scopeSet.has('quota') ||
+        scopeSet.has('auth-files') ||
+        scopeSet.has('persistence')
+      ) {
+        clearCache();
+        void fetchConfig(undefined, true).catch(() => {});
+      }
+
+      if (scopeSet.has('usage') || scopeSet.has('persistence')) {
+        void loadUsageStats({ force: true }).catch(() => {});
+      }
+    },
+    [clearCache, fetchConfig, loadUsageStats]
+  );
+
+  useEffect(() => {
+    if (!desktopMode) {
       return;
     }
-    showNotification(t('notification.data_refreshed'), 'success');
-  }, [clearCache, fetchConfig, showNotification, t]);
+
+    const flushPendingScopes = () => {
+      if (dataChangedTimer.current) {
+        window.clearTimeout(dataChangedTimer.current);
+        dataChangedTimer.current = null;
+      }
+      const scopes = Array.from(pendingDataChangedScopes.current);
+      pendingDataChangedScopes.current.clear();
+      if (scopes.length > 0) {
+        applyDesktopDataChanged(scopes);
+      }
+    };
+
+    const scheduleFlush = () => {
+      if (document.hidden) return;
+      if (dataChangedTimer.current) {
+        window.clearTimeout(dataChangedTimer.current);
+      }
+      dataChangedTimer.current = window.setTimeout(flushPendingScopes, 180);
+    };
+
+    const unsubscribe = subscribeDesktopDataChanged((event) => {
+      event.scopes.forEach((scope) => pendingDataChangedScopes.current.add(scope));
+      scheduleFlush();
+    });
+
+    const handleVisible = () => {
+      if (!document.hidden) {
+        flushPendingScopes();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('focus', flushPendingScopes);
+
+    return () => {
+      unsubscribe();
+      if (dataChangedTimer.current) {
+        window.clearTimeout(dataChangedTimer.current);
+        dataChangedTimer.current = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('focus', flushPendingScopes);
+    };
+  }, [applyDesktopDataChanged, desktopMode]);
 
   useEffect(() => {
     if (!desktopMode) {
@@ -530,11 +577,6 @@ export function MainLayout() {
     }
 
     return subscribeDesktopShellCommand((command) => {
-      if (command.type === 'refreshAll') {
-        void handleRefreshAll();
-        return;
-      }
-
       if (command.type === 'setTheme') {
         setTheme(command.theme);
         return;
@@ -565,7 +607,6 @@ export function MainLayout() {
   }, [
     clearUsageStats,
     desktopMode,
-    handleRefreshAll,
     loadUsageStats,
     navigate,
     setTheme,
@@ -645,14 +686,6 @@ export function MainLayout() {
                 onClick={() => setSidebarOpen((prev) => !prev)}
               >
                 {headerIcons.menu}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefreshAll}
-                title={t('header.refresh_all')}
-              >
-                {headerIcons.refresh}
               </Button>
               <div className={`theme-menu ${themeMenuOpen ? 'open' : ''}`} ref={themeMenuRef}>
                 <Button

@@ -246,15 +246,6 @@ export function AiProvidersClaudeModelsPage() {
                 readOnly
                 value={endpoint}
               />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => void fetchClaudeModelDiscovery()}
-                loading={fetching}
-                disabled={disableControls || saving}
-              >
-                {t('ai_providers.claude_models_fetch_refresh')}
-              </Button>
             </div>
           </div>
           <Input

@@ -6,7 +6,6 @@ import {
   IconBot,
   IconFileText,
   IconKey,
-  IconRefreshCw,
   IconSatellite,
   IconShield,
 } from '@/components/ui/icons';
@@ -17,6 +16,7 @@ import {
   type LocalDependencyItem,
   type LocalDependencySnapshot,
 } from '@/desktop/bridge';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useAuthStore, useConfigStore, useModelsStore, useNotificationStore } from '@/stores';
 import { apiKeysApi, providersApi, authFilesApi } from '@/services/api';
 import styles from './DashboardPage.module.scss';
@@ -188,8 +188,7 @@ export function DashboardPage() {
     }
   }, [t]);
 
-  useEffect(() => {
-    const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
       setLoading(true);
       if (typeof performance !== 'undefined') {
         performance.mark('ccp-dashboard-data-start');
@@ -228,8 +227,9 @@ export function DashboardPage() {
           );
         }
       }
-    };
+    }, []);
 
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       if (connectionStatus === 'connected') {
         fetchStats();
@@ -240,7 +240,18 @@ export function DashboardPage() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [connectionStatus, fetchModels]);
+  }, [connectionStatus, fetchModels, fetchStats]);
+
+  useDesktopDataChanged(['config', 'providers', 'auth-files', 'quota'], () => {
+    if (connectionStatus === 'connected') {
+      void fetchStats();
+      void fetchModels();
+    }
+  }, connectionStatus === 'connected');
+
+  useDesktopDataChanged(['local-environment'], () => {
+    void fetchLocalEnvironment();
+  }, isDesktopMode());
 
   useEffect(() => {
     if (!isDesktopMode()) {
@@ -535,16 +546,6 @@ export function DashboardPage() {
                   <span>{t('dashboard.local_environment_checked_at', { time: localCheckedAt })}</span>
                 )}
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void fetchLocalEnvironment()}
-                loading={localEnvironmentLoading}
-              >
-                <IconRefreshCw size={14} />
-                {t('common.refresh')}
-              </Button>
             </div>
             {localEnvironmentError && (
               <div className={styles.localEnvironmentError}>{localEnvironmentError}</div>

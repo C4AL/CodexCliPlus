@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Select } from '@/components/ui/Select';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useThemeStore, useConfigStore } from '@/stores';
 import {
   StatCards,
@@ -139,7 +139,9 @@ export function UsagePage() {
     importing,
   } = useUsageData();
 
-  useHeaderRefresh(loadUsage);
+  useDesktopDataChanged(['usage', 'persistence'], () => {
+    void loadUsage().catch(() => {});
+  });
 
   // Chart lines state
   const [chartLines, setChartLines] = useState<string[]>(loadChartLines);
@@ -289,14 +291,6 @@ export function UsagePage() {
             disabled={loading || exporting}
           >
             {t('usage_stats.import')}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void loadUsage().catch(() => {})}
-            disabled={loading || exporting || importing}
-          >
-            {loading ? t('common.loading') : t('usage_stats.refresh')}
           </Button>
           <input
             ref={importInputRef}

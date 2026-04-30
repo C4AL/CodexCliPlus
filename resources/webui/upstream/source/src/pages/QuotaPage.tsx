@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useAuthStore } from '@/stores';
 import { authFilesApi, configFileApi } from '@/services/api';
 import {
@@ -51,7 +51,9 @@ export function QuotaPage() {
     await Promise.all([loadConfig(), loadFiles()]);
   }, [loadConfig, loadFiles]);
 
-  useHeaderRefresh(handleHeaderRefresh);
+  useDesktopDataChanged(['quota', 'auth-files', 'providers'], () => {
+    void handleHeaderRefresh();
+  }, connectionStatus === 'connected');
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

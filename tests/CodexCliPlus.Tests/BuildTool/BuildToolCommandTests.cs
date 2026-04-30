@@ -262,6 +262,80 @@ public sealed class BuildToolCommandTests : IDisposable
             ),
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "ProtectCodexCliPlusSecretRefsForWrite(cfg)",
+            File.ReadAllText(
+                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ProtectCodexCliPlusConfigYAMLForWrite(data)",
+            File.ReadAllText(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "api",
+                    "handlers",
+                    "management",
+                    "config_basic.go"
+                )
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ProtectCodexCliPlusAuthJSONForWrite(data)",
+            File.ReadAllText(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "api",
+                    "handlers",
+                    "management",
+                    "auth_files.go"
+                )
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ProtectCodexCliPlusAuthJSONForWrite(raw)",
+            File.ReadAllText(
+                Path.Combine(outputRoot, "temp", "backend-source", "sdk", "auth", "filestore.go")
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "func ProtectCodexCliPlusAuthJSONForWrite(data []byte) ([]byte, error)",
+            File.ReadAllText(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "codexcliplus_secret_refs.go"
+                )
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "http.MethodPost",
+            File.ReadAllText(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "codexcliplus_secret_refs.go"
+                )
+            ),
+            StringComparison.Ordinal
+        );
 
         Assert.Contains(
             runner.Calls,
@@ -1058,6 +1132,16 @@ public sealed class BuildToolCommandTests : IDisposable
             Directory.CreateDirectory(storeRoot);
             var configRoot = Path.Combine(sourceRoot, "internal", "config");
             Directory.CreateDirectory(configRoot);
+            var sdkAuthRoot = Path.Combine(sourceRoot, "sdk", "auth");
+            Directory.CreateDirectory(sdkAuthRoot);
+            var managementHandlersRoot = Path.Combine(
+                sourceRoot,
+                "internal",
+                "api",
+                "handlers",
+                "management"
+            );
+            Directory.CreateDirectory(managementHandlersRoot);
             File.WriteAllText(
                 Path.Combine(configRoot, "config.go"),
                 """
@@ -1106,6 +1190,125 @@ public sealed class BuildToolCommandTests : IDisposable
                     }
                     // NOTE: Startup legacy key migration is intentionally disabled.
                     return &cfg, nil
+                }
+
+                func SaveConfigPreserveComments(configFile string, cfg *Config) error {
+                    persistCfg := cfg
+                    data, err := yaml.Marshal(persistCfg)
+                    if err != nil {
+                        return err
+                    }
+                    _ = data
+                    return nil
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(managementHandlersRoot, "config_basic.go"),
+                """
+                package management
+
+                import "github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+
+                func WriteConfig(path string, data []byte) error {
+                    data = config.NormalizeCommentIndentation(data)
+                    _ = path
+                    _ = data
+                    return nil
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(managementHandlersRoot, "auth_files.go"),
+                """
+                package management
+
+                import (
+                    "context"
+                    "fmt"
+                    "os"
+                    "path/filepath"
+
+                    "github.com/gin-gonic/gin"
+                )
+
+                type Handler struct {
+                    cfg *AuthConfig
+                }
+
+                type AuthConfig struct {
+                    AuthDir string
+                }
+
+                func (h *Handler) writeAuthFile(ctx context.Context, name string, data []byte) error {
+                    _ = ctx
+                    dst := filepath.Join(h.cfg.AuthDir, filepath.Base(name))
+                    auth, err := h.buildAuthFromFileData(dst, data)
+                    if err != nil {
+                        return err
+                    }
+                    if errWrite := os.WriteFile(dst, data, 0o600); errWrite != nil {
+                        return fmt.Errorf("failed to write file: %w", errWrite)
+                    }
+                    _ = auth
+                    return nil
+                }
+
+                func (h *Handler) buildAuthFromFileData(path string, data []byte) (string, error) {
+                    return path + string(data), nil
+                }
+
+                func ping(c *gin.Context) {
+                    c.JSON(200, gin.H{"status": "ok"})
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(sdkAuthRoot, "filestore.go"),
+                """
+                package auth
+
+                import (
+                    "context"
+                    "encoding/json"
+                    "fmt"
+                    "os"
+
+                    cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+                )
+
+                type FileTokenStore struct{}
+
+                func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (string, error) {
+                    _ = ctx
+                    path := "auth.json"
+                    switch {
+                    case auth.Storage != nil:
+                        if err := auth.Storage.SaveTokenToFile(path); err != nil {
+                            return "", err
+                        }
+                    case auth.Metadata != nil:
+                        raw, errMarshal := json.Marshal(auth.Metadata)
+                        if errMarshal != nil {
+                            return "", fmt.Errorf("auth filestore: marshal metadata failed: %w", errMarshal)
+                        }
+                        if existing, errRead := os.ReadFile(path); errRead == nil {
+                            if jsonEqual(existing, raw) {
+                                return path, nil
+                            }
+                        }
+                        if errWrite := os.WriteFile(path, raw, 0o600); errWrite != nil {
+                            return "", errWrite
+                        }
+                    }
+                    return path, nil
+                }
+
+                func jsonEqual(left, right []byte) bool {
+                    return string(left) == string(right)
                 }
                 """,
                 Encoding.UTF8

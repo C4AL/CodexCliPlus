@@ -88,8 +88,10 @@ public sealed class ConfigAndLogsPageTests
         );
 
         Assert.Contains("className={styles.headerActions}", configPage, StringComparison.Ordinal);
-        Assert.Contains("onClick={handleReload}", configPage, StringComparison.Ordinal);
         Assert.Contains("onClick={handleSave}", configPage, StringComparison.Ordinal);
+        Assert.Contains("useDesktopDataChanged", configPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("handleReload", configPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("t('config_management.reload')", configPage, StringComparison.Ordinal);
         Assert.DoesNotContain("createPortal(floatingActions", configPage, StringComparison.Ordinal);
         Assert.DoesNotContain("floatingActionContainer", configPage, StringComparison.Ordinal);
         Assert.DoesNotContain("--config-action-bar-height", configPage, StringComparison.Ordinal);

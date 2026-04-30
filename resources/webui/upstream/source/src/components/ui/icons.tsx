@@ -19,7 +19,6 @@ import {
   Info,
   Key,
   LayoutDashboard,
-  RefreshCw,
   Satellite,
   ScrollText,
   Search,
@@ -124,10 +123,6 @@ export function IconScrollText(props: IconProps) {
 
 export function IconInfo(props: IconProps) {
   return renderLucideIcon(Info, props);
-}
-
-export function IconRefreshCw(props: IconProps) {
-  return renderLucideIcon(RefreshCw, props);
 }
 
 export function IconDownload(props: IconProps) {

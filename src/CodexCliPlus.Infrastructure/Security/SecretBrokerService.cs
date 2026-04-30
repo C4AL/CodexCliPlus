@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Security;
+using CodexCliPlus.Core.Models.Security;
 
 namespace CodexCliPlus.Infrastructure.Security;
 
@@ -178,10 +179,29 @@ public sealed class SecretBrokerService : IDisposable
             }
 
             var path = context.Request.Url?.AbsolutePath ?? string.Empty;
+            if (
+                string.Equals(path.TrimEnd('/'), "/v1/secrets", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                await HandleSaveSecretAsync(context, cancellationToken);
+                return;
+            }
+
             const string prefix = "/v1/secrets/";
             if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 await WriteStatusAsync(context.Response, HttpStatusCode.NotFound, cancellationToken);
+                return;
+            }
+
+            if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteStatusAsync(
+                    context.Response,
+                    HttpStatusCode.MethodNotAllowed,
+                    cancellationToken
+                );
                 return;
             }
 
@@ -217,6 +237,57 @@ public sealed class SecretBrokerService : IDisposable
         }
     }
 
+    private async Task HandleSaveSecretAsync(
+        HttpListenerContext context,
+        CancellationToken cancellationToken
+    )
+    {
+        SecretBrokerSaveRequest? request;
+        try
+        {
+            request = await JsonSerializer.DeserializeAsync<SecretBrokerSaveRequest>(
+                context.Request.InputStream,
+                JsonOptions,
+                cancellationToken
+            );
+        }
+        catch (JsonException)
+        {
+            await WriteStatusAsync(context.Response, HttpStatusCode.BadRequest, cancellationToken);
+            return;
+        }
+
+        if (request is null || string.IsNullOrWhiteSpace(request.Value))
+        {
+            await WriteStatusAsync(context.Response, HttpStatusCode.BadRequest, cancellationToken);
+            return;
+        }
+
+        var kind = SecretKind.Unknown;
+        if (!string.IsNullOrWhiteSpace(request.Kind))
+        {
+            Enum.TryParse(request.Kind, ignoreCase: true, out kind);
+        }
+
+        var record = await _secretVault.SaveSecretAsync(
+            kind,
+            request.Value,
+            string.IsNullOrWhiteSpace(request.Source) ? "secret-broker" : request.Source,
+            request.Metadata,
+            string.IsNullOrWhiteSpace(request.SecretId) ? null : request.SecretId,
+            cancellationToken
+        );
+        var uri = new SecretRef(record.SecretId).Uri;
+        var payload = JsonSerializer.SerializeToUtf8Bytes(
+            new { uri, secretId = record.SecretId },
+            JsonOptions
+        );
+        context.Response.StatusCode = (int)HttpStatusCode.Created;
+        context.Response.ContentType = "application/json; charset=utf-8";
+        context.Response.ContentLength64 = payload.Length;
+        await context.Response.OutputStream.WriteAsync(payload, cancellationToken);
+    }
+
     private static async Task WriteStatusAsync(
         HttpListenerResponse response,
         HttpStatusCode status,
@@ -247,3 +318,16 @@ public sealed class SecretBrokerService : IDisposable
 }
 
 public sealed record SecretBrokerSession(string BaseUrl, string Token);
+
+internal sealed class SecretBrokerSaveRequest
+{
+    public string Value { get; init; } = string.Empty;
+
+    public string? Kind { get; init; }
+
+    public string? Source { get; init; }
+
+    public string? SecretId { get; init; }
+
+    public Dictionary<string, string>? Metadata { get; init; }
+}

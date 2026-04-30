@@ -6,6 +6,11 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiClientConfig, ApiError } from '@/types';
 import {
+  isDesktopMode,
+  sendDesktopManagementRequest,
+  type DesktopManagementFile,
+} from '@/desktop/bridge';
+import {
   BUILD_DATE_HEADER_KEYS,
   REQUEST_TIMEOUT_MS,
   VERSION_HEADER_KEYS
@@ -79,6 +84,99 @@ class ApiClient {
       if (match) return match;
     }
     return null;
+  }
+
+  private shouldUseDesktopManagementProxy(method: string): boolean {
+    const normalized = method.trim().toUpperCase();
+    return isDesktopMode() && !['GET', 'HEAD', 'OPTIONS'].includes(normalized);
+  }
+
+  private buildRequestPath(url: string, config?: AxiosRequestConfig): string {
+    const normalizedUrl = url.replace(/\/generative-language-api-key\b/g, '/gemini-api-key');
+    const params = config?.params;
+    if (!params) return normalizedUrl;
+
+    const search = new URLSearchParams();
+    Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((entry) => search.append(key, String(entry)));
+        return;
+      }
+      search.set(key, String(value));
+    });
+    const query = search.toString();
+    if (!query) return normalizedUrl;
+    return `${normalizedUrl}${normalizedUrl.includes('?') ? '&' : '?'}${query}`;
+  }
+
+  private readConfiguredHeader(config: AxiosRequestConfig | undefined, name: string): string | null {
+    const headers = config?.headers as Record<string, unknown> | undefined;
+    return this.readHeader(headers, [name]);
+  }
+
+  private parseDesktopResponseBody<T>(body: string): T {
+    if (!body) return undefined as T;
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      return body as T;
+    }
+  }
+
+  private publishDesktopResponseMetadata(metadata: unknown): void {
+    if (!metadata || typeof metadata !== 'object') return;
+    const record = metadata as Record<string, unknown>;
+    const version = typeof record.version === 'string' ? record.version : null;
+    const buildDate = typeof record.buildDate === 'string' ? record.buildDate : null;
+    if (version || buildDate) {
+      window.dispatchEvent(
+        new CustomEvent('server-version-update', {
+          detail: { version, buildDate }
+        })
+      );
+    }
+  }
+
+  private async sendViaDesktopManagementProxy<T>(
+    method: string,
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
+    const contentType =
+      this.readConfiguredHeader(config, 'Content-Type') ??
+      (typeof data === 'string' ? 'text/plain' : 'application/json');
+    const accept = this.readConfiguredHeader(config, 'Accept') ?? 'application/json';
+    const response = await sendDesktopManagementRequest({
+      method,
+      path: this.buildRequestPath(url, config),
+      body:
+        data === undefined || data === null
+          ? undefined
+          : typeof data === 'string'
+            ? data
+            : JSON.stringify(data),
+      contentType,
+      accept,
+    });
+    this.publishDesktopResponseMetadata(response.metadata);
+    return this.parseDesktopResponseBody<T>(response.body);
+  }
+
+  private async fileToDesktopManagementFile(file: File): Promise<DesktopManagementFile> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+    }
+    return {
+      fieldName: 'file',
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+      contentBase64: btoa(binary),
+    };
   }
 
   /**
@@ -180,6 +278,9 @@ class ApiClient {
    * POST 请求
    */
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy('POST')) {
+      return this.sendViaDesktopManagementProxy<T>('POST', url, data, config);
+    }
     const response = await this.instance.post<T>(url, data, config);
     return response.data;
   }
@@ -188,6 +289,9 @@ class ApiClient {
    * PUT 请求
    */
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy('PUT')) {
+      return this.sendViaDesktopManagementProxy<T>('PUT', url, data, config);
+    }
     const response = await this.instance.put<T>(url, data, config);
     return response.data;
   }
@@ -196,6 +300,9 @@ class ApiClient {
    * PATCH 请求
    */
   async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy('PATCH')) {
+      return this.sendViaDesktopManagementProxy<T>('PATCH', url, data, config);
+    }
     const response = await this.instance.patch<T>(url, data, config);
     return response.data;
   }
@@ -204,6 +311,9 @@ class ApiClient {
    * DELETE 请求
    */
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy('DELETE')) {
+      return this.sendViaDesktopManagementProxy<T>('DELETE', url, config?.data, config);
+    }
     const response = await this.instance.delete<T>(url, config);
     return response.data;
   }
@@ -223,6 +333,26 @@ class ApiClient {
     formData: FormData,
     config?: AxiosRequestConfig
   ): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy('POST')) {
+      const files: DesktopManagementFile[] = [];
+      const fields: Record<string, string> = {};
+      for (const [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          files.push({ ...(await this.fileToDesktopManagementFile(value)), fieldName: key });
+        } else {
+          fields[key] = String(value);
+        }
+      }
+      const response = await sendDesktopManagementRequest({
+        method: 'POST',
+        path: this.buildRequestPath(url, config),
+        files,
+        fields,
+        accept: this.readConfiguredHeader(config, 'Accept') ?? 'application/json',
+      });
+      this.publishDesktopResponseMetadata(response.metadata);
+      return this.parseDesktopResponseBody<T>(response.body);
+    }
     const response = await this.instance.post<T>(url, formData, {
       ...config,
       headers: {
@@ -237,6 +367,17 @@ class ApiClient {
    * 保留对 axios.request 的访问，便于下载等场景
    */
   async requestRaw(config: AxiosRequestConfig): Promise<AxiosResponse> {
+    const method = String(config.method ?? 'GET').toUpperCase();
+    if (config.url && this.shouldUseDesktopManagementProxy(method)) {
+      const data = await this.sendViaDesktopManagementProxy(method, config.url, config.data, config);
+      return {
+        data,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      } as AxiosResponse;
+    }
     return this.instance.request(config);
   }
 }

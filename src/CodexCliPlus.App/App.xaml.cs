@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<WebUiAssetLocator>();
         services.AddSingleton<ShellNotificationService>();
+        services.AddSingleton<ManagementChangeBroadcastService>();
         services.AddSingleton<MainWindow>();
 
         _serviceProvider = services.BuildServiceProvider();

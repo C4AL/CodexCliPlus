@@ -71,8 +71,35 @@ export interface DesktopShellState {
   pathname: string;
 }
 
+export interface DesktopDataChangedEvent {
+  scopes: string[];
+  sequence: number;
+}
+
+export interface DesktopManagementFile {
+  fieldName: string;
+  fileName: string;
+  contentType: string;
+  contentBase64: string;
+}
+
+export interface DesktopManagementRequest {
+  method: string;
+  path: string;
+  body?: string;
+  contentType?: string;
+  accept?: string;
+  files?: DesktopManagementFile[];
+  fields?: Record<string, string>;
+}
+
+export interface DesktopManagementResponse {
+  status: number;
+  body: string;
+  metadata?: unknown;
+}
+
 export type DesktopShellCommand =
-  | { type: 'refreshAll' }
   | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
   | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
   | { type: 'navigate'; path: string }
@@ -93,6 +120,7 @@ interface DesktopBridge {
   usageStatsRefreshed?: () => void;
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
+  managementRequest?: (request: DesktopManagementRequest & { requestId: string }) => void;
   requestLocalDependencySnapshot?: (requestId: string) => void;
   runLocalDependencyRepair?: (actionId: string, requestId: string) => void;
 }
@@ -111,6 +139,15 @@ declare global {
 let desktopBootstrapCache: DesktopBootstrapPayload | null | undefined;
 let desktopCommandListenerReady = false;
 const desktopCommandListeners = new Set<(command: DesktopShellCommand) => void>();
+const desktopDataChangedListeners = new Set<(event: DesktopDataChangedEvent) => void>();
+const pendingManagementRequests = new Map<
+  string,
+  {
+    resolve: (value: DesktopManagementResponse) => void;
+    reject: (reason?: unknown) => void;
+    timer: ReturnType<typeof window.setTimeout>;
+  }
+>();
 const pendingLocalDependencyRequests = new Map<
   string,
   {
@@ -119,6 +156,7 @@ const pendingLocalDependencyRequests = new Map<
     timer: ReturnType<typeof window.setTimeout>;
   }
 >();
+const MANAGEMENT_REQUEST_TIMEOUT_MS = 120_000;
 const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 30_000;
 const LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS = 35 * 60_000;
 
@@ -172,10 +210,6 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
   }
 
   const record = command as Record<string, unknown>;
-  if (record.type === 'refreshAll') {
-    return { type: 'refreshAll' };
-  }
-
   if (record.type === 'setTheme') {
     return {
       type: 'setTheme',
@@ -301,6 +335,66 @@ function settleLocalDependencyRequest(requestId: unknown, value: unknown, error?
   return true;
 }
 
+function normalizeDataChangedEvent(message: unknown): DesktopDataChangedEvent | null {
+  if (!isRecord(message) || message.type !== 'dataChanged') return null;
+  const scopes = Array.isArray(message.scopes)
+    ? message.scopes
+        .map((scope) => (typeof scope === 'string' ? scope.trim() : ''))
+        .filter(Boolean)
+    : [];
+  const sequence =
+    typeof message.sequence === 'number' && Number.isFinite(message.sequence)
+      ? Math.max(0, Math.round(message.sequence))
+      : 0;
+  if (scopes.length === 0) return null;
+  return { scopes: Array.from(new Set(scopes)), sequence };
+}
+
+function handleDataChangedMessage(message: unknown): boolean {
+  const event = normalizeDataChangedEvent(message);
+  if (!event) return false;
+  desktopDataChangedListeners.forEach((listener) => listener(event));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('codexcliplus:dataChanged', { detail: event }));
+  }
+  return true;
+}
+
+function handleManagementResponseMessage(message: unknown): boolean {
+  if (!isRecord(message) || message.type !== 'managementResponse') return false;
+  const requestId = typeof message.requestId === 'string' ? message.requestId : '';
+  if (!requestId) return true;
+  const pending = pendingManagementRequests.get(requestId);
+  if (!pending) return true;
+  pendingManagementRequests.delete(requestId);
+  window.clearTimeout(pending.timer);
+
+  const status =
+    typeof message.status === 'number' && Number.isFinite(message.status)
+      ? Math.round(message.status)
+      : 0;
+  const body = typeof message.body === 'string' ? message.body : '';
+  if (message.ok === true) {
+    pending.resolve({ status, body, metadata: message.metadata });
+    return true;
+  }
+
+  const error = new Error(
+    typeof message.error === 'string' && message.error.trim()
+      ? message.error
+      : '桌面管理代理请求失败'
+  ) as Error & { status?: number; data?: unknown; body?: string };
+  error.status = status;
+  error.body = body;
+  try {
+    error.data = body ? JSON.parse(body) : undefined;
+  } catch {
+    error.data = body;
+  }
+  pending.reject(error);
+  return true;
+}
+
 function handleLocalDependencyMessage(message: unknown): boolean {
   if (!isRecord(message) || typeof message.type !== 'string') return false;
 
@@ -356,7 +450,15 @@ function ensureDesktopCommandListener() {
 
   desktopCommandListenerReady = true;
   webview.addEventListener('message', (event: MessageEvent) => {
+    if (handleManagementResponseMessage(event.data)) {
+      return;
+    }
+
     if (handleLocalDependencyMessage(event.data)) {
+      return;
+    }
+
+    if (handleDataChangedMessage(event.data)) {
       return;
     }
 
@@ -547,6 +649,41 @@ export function runLocalDependencyRepair(
   return request;
 }
 
+export function sendDesktopManagementRequest(
+  request: DesktopManagementRequest
+): Promise<DesktopManagementResponse> {
+  const bridge = getBridge();
+  if (typeof bridge?.managementRequest !== 'function') {
+    return Promise.reject(new Error('桌面管理代理需要桌面模式'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('management');
+  const pending = new Promise<DesktopManagementResponse>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      pendingManagementRequests.delete(requestId);
+      reject(new Error('桌面管理代理响应超时'));
+    }, MANAGEMENT_REQUEST_TIMEOUT_MS);
+    pendingManagementRequests.set(requestId, { resolve, reject, timer });
+  });
+
+  try {
+    bridge.managementRequest({
+      ...request,
+      requestId,
+      method: request.method || 'GET',
+      path: request.path || '/',
+    });
+  } catch (error) {
+    const current = pendingManagementRequests.get(requestId);
+    if (current) window.clearTimeout(current.timer);
+    pendingManagementRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+
+  return pending;
+}
+
 export function subscribeDesktopShellCommand(
   listener: (command: DesktopShellCommand) => void
 ): () => void {
@@ -554,5 +691,15 @@ export function subscribeDesktopShellCommand(
   desktopCommandListeners.add(listener);
   return () => {
     desktopCommandListeners.delete(listener);
+  };
+}
+
+export function subscribeDesktopDataChanged(
+  listener: (event: DesktopDataChangedEvent) => void
+): () => void {
+  ensureDesktopCommandListener();
+  desktopDataChangedListeners.add(listener);
+  return () => {
+    desktopDataChangedListeners.delete(listener);
   };
 }

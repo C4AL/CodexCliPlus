@@ -191,6 +191,9 @@ public static class AssetCommands
                 Path.Combine("internal", "store", "gitstore.go"),
                 Path.Combine("internal", "config", "config.go"),
                 Path.Combine("internal", "config", "codexcliplus_secret_refs.go"),
+                Path.Combine("internal", "api", "handlers", "management", "config_basic.go"),
+                Path.Combine("internal", "api", "handlers", "management", "auth_files.go"),
+                Path.Combine("sdk", "auth", "filestore.go"),
             ],
             sourceRoot,
             "format patched backend source"
@@ -308,7 +311,117 @@ public static class AssetCommands
                 + "\treturn nil, fmt.Errorf(\"failed to resolve CodexCliPlus secret refs: %w\", err)\n"
                 + "}\n\n"
         );
+        if (source.Contains("persistCfg := cfg", StringComparison.Ordinal))
+        {
+            source = ReplaceRequired(
+                source,
+                "persistCfg := cfg\n",
+                "persistCfg := cfg\n"
+                    + "if protectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(cfg); err != nil {\n"
+                    + "\treturn fmt.Errorf(\"failed to protect CodexCliPlus secret refs before config write: %w\", err)\n"
+                    + "} else if protectedCfg != nil {\n"
+                    + "\tpersistCfg = protectedCfg\n"
+                    + "}\n"
+            );
+        }
         File.WriteAllText(configPath, source, new UTF8Encoding(false));
+
+        var configBasicPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "api",
+            "handlers",
+            "management",
+            "config_basic.go"
+        );
+        if (File.Exists(configBasicPath))
+        {
+            var configBasicSource = File.ReadAllText(configBasicPath, Encoding.UTF8).Replace("\r\n", "\n");
+            const string writeConfigMarker =
+                "func WriteConfig(path string, data []byte) error {\n\tdata = config.NormalizeCommentIndentation(data)\n";
+            const string writeConfigMarkerWithSpaces =
+                "func WriteConfig(path string, data []byte) error {\n    data = config.NormalizeCommentIndentation(data)\n";
+            var writeConfigReplacement =
+                "func WriteConfig(path string, data []byte) error {\n\tprotectedData, errProtect := config.ProtectCodexCliPlusConfigYAMLForWrite(data)\n\tif errProtect != nil {\n\t\treturn errProtect\n\t}\n\tdata = config.NormalizeCommentIndentation(protectedData)\n";
+            configBasicSource = ReplaceRequired(
+                configBasicSource,
+                configBasicSource.Contains(writeConfigMarker, StringComparison.Ordinal)
+                    ? writeConfigMarker
+                    : writeConfigMarkerWithSpaces,
+                writeConfigReplacement
+            );
+            File.WriteAllText(configBasicPath, configBasicSource, new UTF8Encoding(false));
+        }
+
+        var authFilesPath = Path.Combine(
+            sourceRoot,
+            "internal",
+            "api",
+            "handlers",
+            "management",
+            "auth_files.go"
+        );
+        if (File.Exists(authFilesPath))
+        {
+            var authFilesSource = File.ReadAllText(authFilesPath, Encoding.UTF8).Replace("\r\n", "\n");
+            if (!authFilesSource.Contains("/internal/config", StringComparison.Ordinal))
+            {
+                authFilesSource = ReplaceRequired(
+                    authFilesSource,
+                    "\"github.com/gin-gonic/gin\"\n",
+                    "\"github.com/gin-gonic/gin\"\n\t\"github.com/router-for-me/CLIProxyAPI/v6/internal/config\"\n"
+                );
+            }
+            const string writeAuthFileMarker =
+                "auth, err := h.buildAuthFromFileData(dst, data)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif errWrite := os.WriteFile(dst, data, 0o600); errWrite != nil {\n";
+            const string writeAuthFileMarkerWithSpaces =
+                "auth, err := h.buildAuthFromFileData(dst, data)\n    if err != nil {\n        return err\n    }\n    if errWrite := os.WriteFile(dst, data, 0o600); errWrite != nil {\n";
+            authFilesSource = ReplaceRequired(
+                authFilesSource,
+                authFilesSource.Contains(writeAuthFileMarker, StringComparison.Ordinal)
+                    ? writeAuthFileMarker
+                    : writeAuthFileMarkerWithSpaces,
+                "protectedData, errProtect := config.ProtectCodexCliPlusAuthJSONForWrite(data)\n\tif errProtect != nil {\n\t\treturn errProtect\n\t}\n\tdata = protectedData\n\tauth, err := h.buildAuthFromFileData(dst, data)\n\tif err != nil {\n\t\treturn err\n\t}\n\tif errWrite := os.WriteFile(dst, data, 0o600); errWrite != nil {\n"
+            );
+            File.WriteAllText(authFilesPath, authFilesSource, new UTF8Encoding(false));
+        }
+
+        var fileStorePath = Path.Combine(sourceRoot, "sdk", "auth", "filestore.go");
+        if (File.Exists(fileStorePath))
+        {
+            var fileStoreSource = File.ReadAllText(fileStorePath, Encoding.UTF8).Replace("\r\n", "\n");
+            if (!fileStoreSource.Contains("/internal/config", StringComparison.Ordinal))
+            {
+                fileStoreSource = ReplaceRequired(
+                    fileStoreSource,
+                    "cliproxyauth \"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth\"\n",
+                    "\"github.com/router-for-me/CLIProxyAPI/v6/internal/config\"\n\tcliproxyauth \"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth\"\n"
+                );
+            }
+            const string storageSaveMarker =
+                "if err = auth.Storage.SaveTokenToFile(path); err != nil {\n\t\t\treturn \"\", err\n\t\t}\n";
+            const string storageSaveMarkerWithShortDeclaration =
+                "if err := auth.Storage.SaveTokenToFile(path); err != nil {\n            return \"\", err\n        }\n";
+            fileStoreSource = ReplaceRequired(
+                fileStoreSource,
+                fileStoreSource.Contains(storageSaveMarker, StringComparison.Ordinal)
+                    ? storageSaveMarker
+                    : storageSaveMarkerWithShortDeclaration,
+                "if err := auth.Storage.SaveTokenToFile(path); err != nil {\n\t\t\treturn \"\", err\n\t\t}\n\t\tif raw, errRead := os.ReadFile(path); errRead == nil {\n\t\t\tprotectedRaw, errProtect := config.ProtectCodexCliPlusAuthJSONForWrite(raw)\n\t\t\tif errProtect != nil {\n\t\t\t\treturn \"\", fmt.Errorf(\"auth filestore: protect storage file failed: %w\", errProtect)\n\t\t\t}\n\t\t\tif !jsonEqual(raw, protectedRaw) {\n\t\t\t\tif errWrite := os.WriteFile(path, protectedRaw, 0o600); errWrite != nil {\n\t\t\t\t\treturn \"\", fmt.Errorf(\"auth filestore: write protected storage file failed: %w\", errWrite)\n\t\t\t\t}\n\t\t\t}\n\t\t} else {\n\t\t\treturn \"\", fmt.Errorf(\"auth filestore: read storage file failed: %w\", errRead)\n\t\t}\n"
+            );
+            const string metadataMarshalMarker =
+                "if errMarshal != nil {\n\t\t\treturn \"\", fmt.Errorf(\"auth filestore: marshal metadata failed: %w\", errMarshal)\n\t\t}\n\t\tif existing, errRead := os.ReadFile(path); errRead == nil {\n";
+            const string metadataMarshalMarkerWithSpaces =
+                "if errMarshal != nil {\n            return \"\", fmt.Errorf(\"auth filestore: marshal metadata failed: %w\", errMarshal)\n        }\n        if existing, errRead := os.ReadFile(path); errRead == nil {\n";
+            fileStoreSource = ReplaceRequired(
+                fileStoreSource,
+                fileStoreSource.Contains(metadataMarshalMarker, StringComparison.Ordinal)
+                    ? metadataMarshalMarker
+                    : metadataMarshalMarkerWithSpaces,
+                "if errMarshal != nil {\n\t\t\treturn \"\", fmt.Errorf(\"auth filestore: marshal metadata failed: %w\", errMarshal)\n\t\t}\n\t\tprotectedRaw, errProtect := config.ProtectCodexCliPlusAuthJSONForWrite(raw)\n\t\tif errProtect != nil {\n\t\t\treturn \"\", fmt.Errorf(\"auth filestore: protect metadata failed: %w\", errProtect)\n\t\t}\n\t\traw = protectedRaw\n\t\tif existing, errRead := os.ReadFile(path); errRead == nil {\n"
+            );
+            File.WriteAllText(fileStorePath, fileStoreSource, new UTF8Encoding(false));
+        }
 
         var resolverPath = Path.Combine(
             sourceRoot,
@@ -324,6 +437,7 @@ public static class AssetCommands
         package config
 
         import (
+            "bytes"
             "encoding/json"
             "fmt"
             "net/http"
@@ -331,6 +445,8 @@ public static class AssetCommands
             "os"
             "strings"
             "time"
+
+            "gopkg.in/yaml.v3"
         )
 
         const (
@@ -346,6 +462,11 @@ public static class AssetCommands
 
         type codexCliPlusSecretResponse struct {
             Value string `json:"value"`
+        }
+
+        type codexCliPlusSecretSaveResponse struct {
+            URI      string `json:"uri"`
+            SecretID string `json:"secretId"`
         }
 
         func newCodexCliPlusSecretResolver() *codexCliPlusSecretResolver {
@@ -432,6 +553,330 @@ public static class AssetCommands
                 }
             }
             return nil
+        }
+
+        func ProtectCodexCliPlusConfigYAMLForWrite(data []byte) ([]byte, error) {
+            resolver := newCodexCliPlusSecretResolver()
+            if resolver == nil || len(bytes.TrimSpace(data)) == 0 {
+                return data, nil
+            }
+            var cfg Config
+            if err := yaml.Unmarshal(data, &cfg); err != nil {
+                return nil, err
+            }
+            protectedCfg, err := ProtectCodexCliPlusSecretRefsForWrite(&cfg)
+            if err != nil {
+                return nil, err
+            }
+            if protectedCfg == nil {
+                return data, nil
+            }
+            protectedData, err := yaml.Marshal(protectedCfg)
+            if err != nil {
+                return nil, err
+            }
+            return protectedData, nil
+        }
+
+        func ProtectCodexCliPlusAuthJSONForWrite(data []byte) ([]byte, error) {
+            resolver := newCodexCliPlusSecretResolver()
+            if resolver == nil || len(bytes.TrimSpace(data)) == 0 {
+                return data, nil
+            }
+
+            var payload any
+            decoder := json.NewDecoder(bytes.NewReader(data))
+            decoder.UseNumber()
+            if err := decoder.Decode(&payload); err != nil {
+                return nil, err
+            }
+
+            changed, err := resolver.protectJSONNode("$", payload, false, "")
+            if err != nil {
+                return nil, err
+            }
+            if !changed {
+                return data, nil
+            }
+
+            protectedData, err := json.MarshalIndent(payload, "", "  ")
+            if err != nil {
+                return nil, err
+            }
+            return append(protectedData, '\n'), nil
+        }
+
+        func ProtectCodexCliPlusSecretRefsForWrite(cfg *Config) (*Config, error) {
+            resolver := newCodexCliPlusSecretResolver()
+            if cfg == nil || resolver == nil {
+                return cfg, nil
+            }
+
+            protected, err := cloneCodexCliPlusConfig(cfg)
+            if err != nil {
+                return nil, err
+            }
+
+            if protected.RemoteManagement.SecretKey, err = resolver.protect("remote-management.secret-key", protected.RemoteManagement.SecretKey, "ManagementKey"); err != nil {
+                return nil, err
+            }
+            for i := range protected.APIKeys {
+                if protected.APIKeys[i], err = resolver.protect("api-keys", protected.APIKeys[i], "ApiKey"); err != nil {
+                    return nil, err
+                }
+            }
+            for i := range protected.GeminiKey {
+                if protected.GeminiKey[i].APIKey, err = resolver.protect(fmt.Sprintf("gemini-api-key[%d].api-key", i), protected.GeminiKey[i].APIKey, "ApiKey"); err != nil {
+                    return nil, err
+                }
+                if err = resolver.protectMap(fmt.Sprintf("gemini-api-key[%d].headers", i), protected.GeminiKey[i].Headers, "Header"); err != nil {
+                    return nil, err
+                }
+            }
+            for i := range protected.CodexKey {
+                if protected.CodexKey[i].APIKey, err = resolver.protect(fmt.Sprintf("codex-api-key[%d].api-key", i), protected.CodexKey[i].APIKey, "ApiKey"); err != nil {
+                    return nil, err
+                }
+                if err = resolver.protectMap(fmt.Sprintf("codex-api-key[%d].headers", i), protected.CodexKey[i].Headers, "Header"); err != nil {
+                    return nil, err
+                }
+            }
+            for i := range protected.ClaudeKey {
+                if protected.ClaudeKey[i].APIKey, err = resolver.protect(fmt.Sprintf("claude-api-key[%d].api-key", i), protected.ClaudeKey[i].APIKey, "ApiKey"); err != nil {
+                    return nil, err
+                }
+                if err = resolver.protectMap(fmt.Sprintf("claude-api-key[%d].headers", i), protected.ClaudeKey[i].Headers, "Header"); err != nil {
+                    return nil, err
+                }
+            }
+            for i := range protected.VertexCompatAPIKey {
+                if protected.VertexCompatAPIKey[i].APIKey, err = resolver.protect(fmt.Sprintf("vertex-api-key[%d].api-key", i), protected.VertexCompatAPIKey[i].APIKey, "ApiKey"); err != nil {
+                    return nil, err
+                }
+                if err = resolver.protectMap(fmt.Sprintf("vertex-api-key[%d].headers", i), protected.VertexCompatAPIKey[i].Headers, "Header"); err != nil {
+                    return nil, err
+                }
+            }
+            for i := range protected.OpenAICompatibility {
+                if err = resolver.protectMap(fmt.Sprintf("openai-compatibility[%d].headers", i), protected.OpenAICompatibility[i].Headers, "Header"); err != nil {
+                    return nil, err
+                }
+                for j := range protected.OpenAICompatibility[i].APIKeyEntries {
+                    if protected.OpenAICompatibility[i].APIKeyEntries[j].APIKey, err = resolver.protect(fmt.Sprintf("openai-compatibility[%d].api-key-entries[%d].api-key", i, j), protected.OpenAICompatibility[i].APIKeyEntries[j].APIKey, "ApiKey"); err != nil {
+                        return nil, err
+                    }
+                }
+            }
+            if protected.AmpCode.UpstreamAPIKey, err = resolver.protect("ampcode.upstream-api-key", protected.AmpCode.UpstreamAPIKey, "ApiKey"); err != nil {
+                return nil, err
+            }
+            for i := range protected.AmpCode.UpstreamAPIKeys {
+                if protected.AmpCode.UpstreamAPIKeys[i].UpstreamAPIKey, err = resolver.protect(fmt.Sprintf("ampcode.upstream-api-keys[%d].upstream-api-key", i), protected.AmpCode.UpstreamAPIKeys[i].UpstreamAPIKey, "ApiKey"); err != nil {
+                    return nil, err
+                }
+                for j := range protected.AmpCode.UpstreamAPIKeys[i].APIKeys {
+                    if protected.AmpCode.UpstreamAPIKeys[i].APIKeys[j], err = resolver.protect(fmt.Sprintf("ampcode.upstream-api-keys[%d].api-keys[%d]", i, j), protected.AmpCode.UpstreamAPIKeys[i].APIKeys[j], "ApiKey"); err != nil {
+                        return nil, err
+                    }
+                }
+            }
+            return protected, nil
+        }
+
+        func cloneCodexCliPlusConfig(cfg *Config) (*Config, error) {
+            data, err := json.Marshal(cfg)
+            if err != nil {
+                return nil, err
+            }
+            var protected Config
+            if err := json.Unmarshal(data, &protected); err != nil {
+                return nil, err
+            }
+            return &protected, nil
+        }
+
+        func (r *codexCliPlusSecretResolver) protectMap(path string, values map[string]string, kind string) error {
+            for key, value := range values {
+                protected, err := r.protect(path+"."+key, value, kind)
+                if err != nil {
+                    return err
+                }
+                values[key] = protected
+            }
+            return nil
+        }
+
+        func (r *codexCliPlusSecretResolver) protect(path, value, kind string) (string, error) {
+            return r.protectWithSource(path, value, kind, "backend-config-write")
+        }
+
+        func (r *codexCliPlusSecretResolver) protectWithSource(path, value, kind, source string) (string, error) {
+            trimmed := strings.TrimSpace(value)
+            if trimmed == "" {
+                return value, nil
+            }
+            if _, ok := codexCliPlusSecretID(trimmed); ok {
+                return value, nil
+            }
+
+            requestURL := r.baseURL + "/v1/secrets"
+            payload := map[string]any{
+                "value":  value,
+                "kind":   kind,
+                "source": source,
+                "metadata": map[string]string{
+                    "path": path,
+                },
+            }
+            body, err := json.Marshal(payload)
+            if err != nil {
+                return "", err
+            }
+            req, err := http.NewRequest(http.MethodPost, requestURL, bytes.NewReader(body))
+            if err != nil {
+                return "", err
+            }
+            req.Header.Set("Authorization", "Bearer "+r.token)
+            req.Header.Set("Content-Type", "application/json")
+            req.Header.Set("Accept", "application/json")
+
+            resp, err := r.client.Do(req)
+            if err != nil {
+                return "", fmt.Errorf("secret save unavailable for %s: %w", path, err)
+            }
+            defer resp.Body.Close()
+            if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+                return "", fmt.Errorf("secret save unavailable for %s: %s", path, resp.Status)
+            }
+            var saved codexCliPlusSecretSaveResponse
+            if err := json.NewDecoder(resp.Body).Decode(&saved); err != nil {
+                return "", err
+            }
+            if strings.TrimSpace(saved.URI) != "" {
+                return saved.URI, nil
+            }
+            if strings.TrimSpace(saved.SecretID) != "" {
+                return "ccp-secret://" + strings.TrimSpace(saved.SecretID), nil
+            }
+            return "", fmt.Errorf("secret save for %s returned empty reference", path)
+        }
+
+        func (r *codexCliPlusSecretResolver) protectJSONNode(path string, value any, parentSensitive bool, parentKey string) (bool, error) {
+            switch node := value.(type) {
+            case map[string]any:
+                changed := false
+                for key, child := range node {
+                    sensitive := parentSensitive || codexCliPlusSensitiveKey(key)
+                    if strings.EqualFold(parentKey, "headers") && codexCliPlusSensitiveHeaderKey(key) {
+                        sensitive = true
+                    }
+                    childPath := path + "." + key
+                    if text, ok := child.(string); ok && sensitive {
+                        protected, err := r.protectWithSource(childPath, text, codexCliPlusSecretKind(key, parentKey), "backend-auth-write")
+                        if err != nil {
+                            return false, err
+                        }
+                        if protected != text {
+                            node[key] = protected
+                            changed = true
+                        }
+                        continue
+                    }
+                    childChanged, err := r.protectJSONNode(childPath, child, sensitive, key)
+                    if err != nil {
+                        return false, err
+                    }
+                    changed = changed || childChanged
+                }
+                return changed, nil
+            case []any:
+                changed := false
+                for i, child := range node {
+                    childPath := fmt.Sprintf("%s[%d]", path, i)
+                    if text, ok := child.(string); ok && parentSensitive {
+                        protected, err := r.protectWithSource(childPath, text, codexCliPlusSecretKind(parentKey, ""), "backend-auth-write")
+                        if err != nil {
+                            return false, err
+                        }
+                        if protected != text {
+                            node[i] = protected
+                            changed = true
+                        }
+                        continue
+                    }
+                    childChanged, err := r.protectJSONNode(childPath, child, parentSensitive, parentKey)
+                    if err != nil {
+                        return false, err
+                    }
+                    changed = changed || childChanged
+                }
+                return changed, nil
+            default:
+                return false, nil
+            }
+        }
+
+        func codexCliPlusSensitiveKey(key string) bool {
+            normalized := codexCliPlusNormalizeKey(key)
+            if normalized == "" {
+                return false
+            }
+            switch normalized {
+            case "api-key", "api-keys", "apikey", "access-token", "refresh-token", "id-token",
+                "token", "tokens", "authorization", "cookie", "secret", "secret-key",
+                "client-secret", "private-key", "upstream-api-key", "upstream-api-keys",
+                "x-api-key", "proxy-authorization":
+                return true
+            }
+            return strings.HasSuffix(normalized, "-token") ||
+                strings.HasSuffix(normalized, "-secret") ||
+                strings.HasSuffix(normalized, "-api-key")
+        }
+
+        func codexCliPlusSensitiveHeaderKey(key string) bool {
+            normalized := strings.ToLower(strings.TrimSpace(key))
+            switch normalized {
+            case "authorization", "cookie", "x-api-key", "x-goog-api-key", "proxy-authorization":
+                return true
+            }
+            return codexCliPlusSensitiveKey(key) ||
+                strings.Contains(normalized, "token") ||
+                strings.Contains(normalized, "secret")
+        }
+
+        func codexCliPlusNormalizeKey(key string) string {
+            normalized := strings.ToLower(strings.TrimSpace(key))
+            normalized = strings.ReplaceAll(normalized, "_", "-")
+            normalized = strings.ReplaceAll(normalized, " ", "-")
+            for strings.Contains(normalized, "--") {
+                normalized = strings.ReplaceAll(normalized, "--", "-")
+            }
+            return normalized
+        }
+
+        func codexCliPlusSecretKind(key, parentKey string) string {
+            normalizedKey := codexCliPlusNormalizeKey(key)
+            normalizedParent := codexCliPlusNormalizeKey(parentKey)
+            switch {
+            case strings.Contains(normalizedKey, "refresh-token"):
+                return "OAuthRefreshToken"
+            case strings.Contains(normalizedKey, "access-token") || strings.Contains(normalizedKey, "id-token"):
+                return "OAuthAccessToken"
+            case strings.Contains(normalizedKey, "authorization") || strings.Contains(normalizedParent, "authorization"):
+                return "AuthorizationHeader"
+            case strings.Contains(normalizedKey, "cookie"):
+                return "Cookie"
+            case strings.Contains(normalizedKey, "api-key"):
+                return "ApiKey"
+            case normalizedParent == "headers":
+                return "Header"
+            case strings.Contains(normalizedKey, "private-key") || strings.Contains(normalizedKey, "secret"):
+                return "ProviderCredential"
+            case strings.Contains(normalizedKey, "token"):
+                return "OAuthToken"
+            default:
+                return "Unknown"
+            }
         }
 
         func (r *codexCliPlusSecretResolver) resolveMap(path string, values map[string]string) error {

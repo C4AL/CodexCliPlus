@@ -454,7 +454,7 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("可以继续。", source, StringComparison.Ordinal);
         Assert.Contains("MinimumPreparationDisplayDuration", source, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromMilliseconds", source, StringComparison.Ordinal);
-        Assert.Contains("2500", source, StringComparison.Ordinal);
+        Assert.Contains("300", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
         Assert.Contains("codexcliplus-display.png", xaml, StringComparison.Ordinal);

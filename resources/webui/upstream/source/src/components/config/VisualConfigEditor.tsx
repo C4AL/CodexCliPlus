@@ -561,8 +561,14 @@ export function VisualConfigEditor({
                         label: t('config_management.visual.sections.network.strategy_round_robin'),
                       },
                       {
-                        value: 'fill-first',
-                        label: t('config_management.visual.sections.network.strategy_fill_first'),
+                        value: 'session-round-robin-optimized',
+                        label: t(
+                          'config_management.visual.sections.network.strategy_session_round_robin'
+                        ),
+                      },
+                      {
+                        value: 'cache-first-optimized',
+                        label: t('config_management.visual.sections.network.strategy_cache_first'),
                       },
                     ]}
                     id={`${routingStrategyLabelId}-select`}
@@ -572,6 +578,7 @@ export function VisualConfigEditor({
                     onChange={(nextValue) =>
                       onChange({
                         routingStrategy: nextValue as VisualConfigValues['routingStrategy'],
+                        routingSessionAffinity: nextValue !== 'round-robin',
                       })
                     }
                   />
@@ -594,12 +601,6 @@ export function VisualConfigEditor({
                   checked={values.forceModelPrefix}
                   disabled={disabled}
                   onChange={(forceModelPrefix) => onChange({ forceModelPrefix })}
-                />
-                <ToggleRow
-                  title={t('config_management.visual.sections.network.session_affinity')}
-                  checked={values.routingSessionAffinity}
-                  disabled={disabled}
-                  onChange={(routingSessionAffinity) => onChange({ routingSessionAffinity })}
                 />
                 <ToggleRow
                   title={t('config_management.visual.sections.network.ws_auth')}

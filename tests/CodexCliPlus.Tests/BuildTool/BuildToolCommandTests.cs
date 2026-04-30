@@ -263,9 +263,30 @@ public sealed class BuildToolCommandTests : IDisposable
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "ProtectCodexCliPlusSecretRefsForWrite(cfg)",
+            "CodexCliPlusGPTOnlyConfigForWrite(cfg)",
             File.ReadAllText(
                 Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ProtectCodexCliPlusSecretRefsForWrite(persistCfg)",
+            File.ReadAllText(
+                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+            ),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ApplyCodexCliPlusGPTOnlyConfig",
+            File.ReadAllText(
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "codexcliplus_gpt_only.go"
+                )
             ),
             StringComparison.Ordinal
         );
@@ -336,6 +357,40 @@ public sealed class BuildToolCommandTests : IDisposable
             ),
             StringComparison.Ordinal
         );
+        var patchedBackendSourceRoot = Path.Combine(outputRoot, "temp", "backend-source");
+        var patchedServer = File.ReadAllText(
+            Path.Combine(patchedBackendSourceRoot, "internal", "api", "server.go")
+        );
+        Assert.DoesNotContain("s.engine.Group(\"/v1beta\")", patchedServer, StringComparison.Ordinal);
+        Assert.DoesNotContain("v1.POST(\"/messages\"", patchedServer, StringComparison.Ordinal);
+        Assert.DoesNotContain("mgmt.GET(\"/gemini-api-key\"", patchedServer, StringComparison.Ordinal);
+        Assert.DoesNotContain("mgmt.GET(\"/claude-api-key\"", patchedServer, StringComparison.Ordinal);
+        Assert.Contains("s.engine.GET(\"/codex/callback\"", patchedServer, StringComparison.Ordinal);
+
+        var patchedPromptCacheRetention = File.ReadAllText(
+            Path.Combine(
+                patchedBackendSourceRoot,
+                "internal",
+                "runtime",
+                "executor",
+                "codexcliplus_prompt_cache_retention.go"
+            )
+        );
+        Assert.Contains("prompt_cache_retention", patchedPromptCacheRetention, StringComparison.Ordinal);
+        Assert.Contains("gpt-5.1", patchedPromptCacheRetention, StringComparison.Ordinal);
+        Assert.Contains("openai-response", patchedPromptCacheRetention, StringComparison.Ordinal);
+        Assert.Contains(
+            "codexCliPlusShouldRetryWithoutPromptCacheRetention",
+            patchedPromptCacheRetention,
+            StringComparison.Ordinal
+        );
+
+        var patchedTranslatorInit = File.ReadAllText(
+            Path.Combine(patchedBackendSourceRoot, "internal", "translator", "init.go")
+        );
+        Assert.DoesNotContain("translator/claude", patchedTranslatorInit, StringComparison.Ordinal);
+        Assert.DoesNotContain("translator/gemini", patchedTranslatorInit, StringComparison.Ordinal);
+        Assert.DoesNotContain("translator/antigravity", patchedTranslatorInit, StringComparison.Ordinal);
 
         Assert.Contains(
             runner.Calls,
@@ -1132,8 +1187,29 @@ public sealed class BuildToolCommandTests : IDisposable
             Directory.CreateDirectory(storeRoot);
             var configRoot = Path.Combine(sourceRoot, "internal", "config");
             Directory.CreateDirectory(configRoot);
+            var apiRoot = Path.Combine(sourceRoot, "internal", "api");
+            Directory.CreateDirectory(apiRoot);
+            var cmdRoot = Path.Combine(sourceRoot, "internal", "cmd");
+            Directory.CreateDirectory(cmdRoot);
+            var serverCmdRoot = Path.Combine(sourceRoot, "cmd", "server");
+            Directory.CreateDirectory(serverCmdRoot);
+            var runtimeExecutorRoot = Path.Combine(sourceRoot, "internal", "runtime", "executor");
+            Directory.CreateDirectory(runtimeExecutorRoot);
+            var runtimeExecutorHelpsRoot = Path.Combine(runtimeExecutorRoot, "helps");
+            Directory.CreateDirectory(runtimeExecutorHelpsRoot);
+            var translatorRoot = Path.Combine(sourceRoot, "internal", "translator");
+            Directory.CreateDirectory(translatorRoot);
+            var watcherSynthesizerRoot = Path.Combine(
+                sourceRoot,
+                "internal",
+                "watcher",
+                "synthesizer"
+            );
+            Directory.CreateDirectory(watcherSynthesizerRoot);
             var sdkAuthRoot = Path.Combine(sourceRoot, "sdk", "auth");
             Directory.CreateDirectory(sdkAuthRoot);
+            var sdkCliproxyRoot = Path.Combine(sourceRoot, "sdk", "cliproxy");
+            Directory.CreateDirectory(sdkCliproxyRoot);
             var managementHandlersRoot = Path.Combine(
                 sourceRoot,
                 "internal",
@@ -1158,9 +1234,15 @@ public sealed class BuildToolCommandTests : IDisposable
                     GeminiKey []GeminiKey `yaml:"gemini-api-key"`
                     CodexKey []CodexKey `yaml:"codex-api-key"`
                     ClaudeKey []ClaudeKey `yaml:"claude-api-key"`
+                    ClaudeHeaderDefaults ClaudeHeaderDefaults `yaml:"claude-header-defaults"`
                     OpenAICompatibility []OpenAICompatibility `yaml:"openai-compatibility"`
                     VertexCompatAPIKey []VertexCompatKey `yaml:"vertex-api-key"`
                     AmpCode AmpCode `yaml:"ampcode"`
+                    QuotaExceeded QuotaExceeded `yaml:"quota-exceeded"`
+                    AntigravitySignatureCacheEnabled *bool `yaml:"antigravity-signature-cache-enabled"`
+                    AntigravitySignatureBypassStrict *bool `yaml:"antigravity-signature-bypass-strict"`
+                    OAuthExcludedModels map[string][]string `yaml:"oauth-excluded-models"`
+                    OAuthModelAlias map[string][]OAuthModelAlias `yaml:"oauth-model-alias"`
                 }
 
                 type SDKConfig struct { APIKeys []string `yaml:"api-keys"` }
@@ -1168,7 +1250,10 @@ public sealed class BuildToolCommandTests : IDisposable
                 type GeminiKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
                 type CodexKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
                 type ClaudeKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type ClaudeHeaderDefaults struct{}
                 type VertexCompatKey struct { APIKey string `yaml:"api-key"`; Headers map[string]string `yaml:"headers"` }
+                type QuotaExceeded struct { AntigravityCredits bool `yaml:"antigravity-credits"` }
+                type OAuthModelAlias struct { Name string `yaml:"name"`; Alias string `yaml:"alias"`; Fork bool `yaml:"fork"` }
                 type OpenAICompatibility struct {
                     Headers map[string]string `yaml:"headers"`
                     APIKeyEntries []OpenAICompatibilityAPIKey `yaml:"api-key-entries"`
@@ -1188,9 +1273,13 @@ public sealed class BuildToolCommandTests : IDisposable
                     if err := yaml.Unmarshal(data, &cfg); err != nil {
                         return nil, fmt.Errorf("failed to parse config file: %w", err)
                     }
+                    // Normalize global OAuth model name aliases.
+                    cfg.SanitizeOAuthModelAlias()
                     // NOTE: Startup legacy key migration is intentionally disabled.
                     return &cfg, nil
                 }
+
+                func (cfg *Config) SanitizeOAuthModelAlias() {}
 
                 func SaveConfigPreserveComments(configFile string, cfg *Config) error {
                     persistCfg := cfg
@@ -1199,8 +1288,16 @@ public sealed class BuildToolCommandTests : IDisposable
                         return err
                     }
                     _ = data
+                    removeLegacyAmpKeys(original.Content[0])
+                    removeLegacyGenerativeLanguageKeys(original.Content[0])
                     return nil
                 }
+
+                type Node struct{}
+                func removeLegacyAmpKeys(root any) {}
+                func removeLegacyGenerativeLanguageKeys(root any) {}
+                func removeMapKey(root any, key string) {}
+                func findMapKeyIndex(root any, key string) int { return -1 }
                 """,
                 Encoding.UTF8
             );
@@ -1262,6 +1359,498 @@ public sealed class BuildToolCommandTests : IDisposable
 
                 func ping(c *gin.Context) {
                     c.JSON(200, gin.H{"status": "ok"})
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(watcherSynthesizerRoot, "config.go"),
+                """
+                package synthesizer
+
+                func (s *ConfigSynthesizer) Synthesize(ctx *SynthesisContext) ([]*Auth, error) {
+                    out := make([]*Auth, 0, 32)
+                    if ctx == nil || ctx.Config == nil {
+                        return out, nil
+                    }
+
+                    // Gemini API Keys
+                    out = append(out, s.synthesizeGeminiKeys(ctx)...)
+                    // Claude API Keys
+                    out = append(out, s.synthesizeClaudeKeys(ctx)...)
+                    // Codex API Keys
+                    out = append(out, s.synthesizeCodexKeys(ctx)...)
+                    // OpenAI-compat
+                    out = append(out, s.synthesizeOpenAICompat(ctx)...)
+                    // Vertex-compat
+                    out = append(out, s.synthesizeVertexCompat(ctx)...)
+
+                    return out, nil
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(watcherSynthesizerRoot, "file.go"),
+                """
+                package synthesizer
+
+                func synthesizeFileAuths(ctx *SynthesisContext, fullPath string, data []byte) []*Auth {
+                    provider := "gemini"
+                    if provider == "gemini" {
+                        provider = "gemini-cli"
+                    }
+                    _ = provider
+                    return nil
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(sdkCliproxyRoot, "providers.go"),
+                """
+                package cliproxy
+
+                func load() {
+                    geminiCount, vertexCompatCount, claudeCount, codexCount, openAICompat := watcher.BuildAPIKeyClients(cfg)
+                    _ = geminiCount
+                    _ = vertexCompatCount
+                    _ = claudeCount
+                    _ = codexCount
+                    _ = openAICompat
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(sdkCliproxyRoot, "service.go"),
+                """
+                package cliproxy
+
+                func newDefaultAuthManager() *sdkAuth.Manager {
+                    return sdkAuth.NewManager(
+                        sdkAuth.GetTokenStore(),
+                        sdkAuth.NewGeminiAuthenticator(),
+                        sdkAuth.NewCodexAuthenticator(),
+                        sdkAuth.NewClaudeAuthenticator(),
+                    )
+                }
+
+                func (s *Service) ensureExecutorsForAuthWithMode(a *coreauth.Auth, forceReplace bool) {
+                    if s == nil || s.coreManager == nil || a == nil {
+                        return
+                    }
+                    if strings.EqualFold(strings.TrimSpace(a.Provider), "codex") {
+                        return
+                    }
+                    // Skip disabled auth entries when (re)binding executors.
+                    // Disabled auths can linger during config reloads (e.g., removed OpenAI-compat entries)
+                    // and must not override active provider executors.
+                    if a.Disabled {
+                        return
+                    }
+                    if compatProviderKey, _, isCompat := openAICompatInfoFromAuth(a); isCompat {
+                        if compatProviderKey == "" {
+                            compatProviderKey = strings.ToLower(strings.TrimSpace(a.Provider))
+                        }
+                        if compatProviderKey == "" {
+                            compatProviderKey = "openai-compatibility"
+                        }
+                        s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor(compatProviderKey, s.cfg))
+                        return
+                    }
+                    switch strings.ToLower(a.Provider) {
+                    case "gemini":
+                        s.coreManager.RegisterExecutor(executor.NewGeminiExecutor(s.cfg))
+                    case "vertex":
+                        s.coreManager.RegisterExecutor(executor.NewGeminiVertexExecutor(s.cfg))
+                    case "gemini-cli":
+                        s.coreManager.RegisterExecutor(executor.NewGeminiCLIExecutor(s.cfg))
+                    case "aistudio":
+                        if s.wsGateway != nil {
+                            s.coreManager.RegisterExecutor(executor.NewAIStudioExecutor(s.cfg, a.ID, s.wsGateway))
+                        }
+                        return
+                    case "antigravity":
+                        s.coreManager.RegisterExecutor(executor.NewAntigravityExecutor(s.cfg))
+                    case "claude":
+                        s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(s.cfg))
+                    case "kimi":
+                        s.coreManager.RegisterExecutor(executor.NewKimiExecutor(s.cfg))
+                    default:
+                        providerKey := strings.ToLower(strings.TrimSpace(a.Provider))
+                        if providerKey == "" {
+                            providerKey = "openai-compatibility"
+                        }
+                        s.coreManager.RegisterExecutor(executor.NewOpenAICompatExecutor(providerKey, s.cfg))
+                    }
+                }
+
+                func (s *Service) Run() {
+                    s.ensureWebsocketGateway()
+                    if s.server != nil && s.wsGateway != nil {
+                    }
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(cmdRoot, "auth_manager.go"),
+                """
+                package cmd
+
+                func newAuthManager() *sdkAuth.Manager {
+                    store := sdkAuth.GetTokenStore()
+                    manager := sdkAuth.NewManager(store,
+                        sdkAuth.NewGeminiAuthenticator(),
+                        sdkAuth.NewCodexAuthenticator(),
+                        sdkAuth.NewClaudeAuthenticator(),
+                        sdkAuth.NewAntigravityAuthenticator(),
+                        sdkAuth.NewKimiAuthenticator(),
+                    )
+                    return manager
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(sdkAuthRoot, "refresh_registry.go"),
+                """
+                package auth
+
+                func init() {
+                    registerRefreshLead("codex", func() Authenticator { return NewCodexAuthenticator() })
+                    registerRefreshLead("claude", func() Authenticator { return NewClaudeAuthenticator() })
+                    registerRefreshLead("gemini", func() Authenticator { return NewGeminiAuthenticator() })
+                    registerRefreshLead("gemini-cli", func() Authenticator { return NewGeminiAuthenticator() })
+                    registerRefreshLead("antigravity", func() Authenticator { return NewAntigravityAuthenticator() })
+                    registerRefreshLead("kimi", func() Authenticator { return NewKimiAuthenticator() })
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(apiRoot, "server.go"),
+                """
+                package api
+
+                func NewServer() {
+                    // Register Amp module using V2 interface with Context
+                    s.ampModule = ampmodule.NewLegacy(accessManager, AuthMiddleware(accessManager))
+                    ctx := modules.Context{
+                        Engine:         engine,
+                        BaseHandler:    s.handlers,
+                        Config:         cfg,
+                        AuthMiddleware: AuthMiddleware(accessManager),
+                    }
+                    if err := modules.RegisterModule(ctx, s.ampModule); err != nil {
+                        log.Errorf("Failed to register Amp module: %v", err)
+                    }
+                }
+
+                func (s *Server) setupRoutes() {
+                    openaiHandlers := openai.NewOpenAIAPIHandler(s.handlers)
+                    geminiHandlers := gemini.NewGeminiAPIHandler(s.handlers)
+                    geminiCLIHandlers := gemini.NewGeminiCLIAPIHandler(s.handlers)
+                    claudeCodeHandlers := claude.NewClaudeCodeAPIHandler(s.handlers)
+                    openaiResponsesHandlers := openai.NewOpenAIResponsesAPIHandler(s.handlers)
+
+                    {
+                        v1.GET("/models", s.unifiedModelsHandler(openaiHandlers, claudeCodeHandlers))
+                        v1.POST("/chat/completions", openaiHandlers.ChatCompletions)
+                        v1.POST("/completions", openaiHandlers.Completions)
+                        v1.POST("/images/generations", openaiHandlers.ImagesGenerations)
+                        v1.POST("/images/edits", openaiHandlers.ImagesEdits)
+                        v1.POST("/messages", claudeCodeHandlers.ClaudeMessages)
+                        v1.POST("/messages/count_tokens", claudeCodeHandlers.ClaudeCountTokens)
+                        v1.GET("/responses", openaiResponsesHandlers.ResponsesWebsocket)
+                        v1.POST("/responses", openaiResponsesHandlers.Responses)
+                        v1.POST("/responses/compact", openaiResponsesHandlers.Compact)
+                    }
+
+                    // Gemini compatible API routes
+                    v1beta := s.engine.Group("/v1beta")
+                    v1beta.Use(AuthMiddleware(s.accessManager))
+                    {
+                        v1beta.GET("/models", geminiHandlers.GeminiModels)
+                        v1beta.POST("/models/*action", geminiHandlers.GeminiHandler)
+                        v1beta.GET("/models/*action", geminiHandlers.GeminiGetHandler)
+                    }
+
+                    s.engine.POST("/v1internal:method", geminiCLIHandlers.CLIHandler)
+
+                    s.engine.GET("/anthropic/callback", func(c *gin.Context) {
+                        code := c.Query("code")
+                        state := c.Query("state")
+                        errStr := c.Query("error")
+                        if errStr == "" {
+                            errStr = c.Query("error_description")
+                        }
+                        if state != "" {
+                            _, _ = managementHandlers.WriteOAuthCallbackFileForPendingSession(s.cfg.AuthDir, "anthropic", state, code, errStr)
+                        }
+                        c.Header("Content-Type", "text/html; charset=utf-8")
+                        c.String(http.StatusOK, oauthCallbackSuccessHTML)
+                    })
+
+                    s.engine.GET("/codex/callback", func(c *gin.Context) {})
+
+                    s.engine.GET("/google/callback", func(c *gin.Context) {
+                        code := c.Query("code")
+                        state := c.Query("state")
+                        errStr := c.Query("error")
+                        if errStr == "" {
+                            errStr = c.Query("error_description")
+                        }
+                        if state != "" {
+                            _, _ = managementHandlers.WriteOAuthCallbackFileForPendingSession(s.cfg.AuthDir, "gemini", state, code, errStr)
+                        }
+                        c.Header("Content-Type", "text/html; charset=utf-8")
+                        c.String(http.StatusOK, oauthCallbackSuccessHTML)
+                    })
+
+                    s.engine.GET("/antigravity/callback", func(c *gin.Context) {
+                        code := c.Query("code")
+                        state := c.Query("state")
+                        errStr := c.Query("error")
+                        if errStr == "" {
+                            errStr = c.Query("error_description")
+                        }
+                        if state != "" {
+                            _, _ = managementHandlers.WriteOAuthCallbackFileForPendingSession(s.cfg.AuthDir, "antigravity", state, code, errStr)
+                        }
+                        c.Header("Content-Type", "text/html; charset=utf-8")
+                        c.String(http.StatusOK, oauthCallbackSuccessHTML)
+                    })
+                }
+
+                func (s *Server) registerManagementRoutes() {
+                    mgmt.GET("/gemini-api-key", s.mgmt.GetGeminiKeys)
+                    mgmt.PUT("/gemini-api-key", s.mgmt.PutGeminiKeys)
+                    mgmt.PATCH("/gemini-api-key", s.mgmt.PatchGeminiKey)
+                    mgmt.DELETE("/gemini-api-key", s.mgmt.DeleteGeminiKey)
+
+                    mgmt.GET("/ampcode", s.mgmt.GetAmpCode)
+                    mgmt.GET("/ampcode/upstream-url", s.mgmt.GetAmpUpstreamURL)
+                    mgmt.PUT("/ampcode/upstream-url", s.mgmt.PutAmpUpstreamURL)
+                    mgmt.PATCH("/ampcode/upstream-url", s.mgmt.PutAmpUpstreamURL)
+                    mgmt.DELETE("/ampcode/upstream-url", s.mgmt.DeleteAmpUpstreamURL)
+                    mgmt.GET("/ampcode/upstream-api-key", s.mgmt.GetAmpUpstreamAPIKey)
+                    mgmt.PUT("/ampcode/upstream-api-key", s.mgmt.PutAmpUpstreamAPIKey)
+                    mgmt.PATCH("/ampcode/upstream-api-key", s.mgmt.PutAmpUpstreamAPIKey)
+                    mgmt.DELETE("/ampcode/upstream-api-key", s.mgmt.DeleteAmpUpstreamAPIKey)
+                    mgmt.GET("/ampcode/restrict-management-to-localhost", s.mgmt.GetAmpRestrictManagementToLocalhost)
+                    mgmt.PUT("/ampcode/restrict-management-to-localhost", s.mgmt.PutAmpRestrictManagementToLocalhost)
+                    mgmt.PATCH("/ampcode/restrict-management-to-localhost", s.mgmt.PutAmpRestrictManagementToLocalhost)
+                    mgmt.GET("/ampcode/model-mappings", s.mgmt.GetAmpModelMappings)
+                    mgmt.PUT("/ampcode/model-mappings", s.mgmt.PutAmpModelMappings)
+                    mgmt.PATCH("/ampcode/model-mappings", s.mgmt.PatchAmpModelMappings)
+                    mgmt.DELETE("/ampcode/model-mappings", s.mgmt.DeleteAmpModelMappings)
+                    mgmt.GET("/ampcode/force-model-mappings", s.mgmt.GetAmpForceModelMappings)
+                    mgmt.PUT("/ampcode/force-model-mappings", s.mgmt.PutAmpForceModelMappings)
+                    mgmt.PATCH("/ampcode/force-model-mappings", s.mgmt.PutAmpForceModelMappings)
+                    mgmt.GET("/ampcode/upstream-api-keys", s.mgmt.GetAmpUpstreamAPIKeys)
+                    mgmt.PUT("/ampcode/upstream-api-keys", s.mgmt.PutAmpUpstreamAPIKeys)
+                    mgmt.PATCH("/ampcode/upstream-api-keys", s.mgmt.PatchAmpUpstreamAPIKeys)
+                    mgmt.DELETE("/ampcode/upstream-api-keys", s.mgmt.DeleteAmpUpstreamAPIKeys)
+
+                    mgmt.GET("/claude-api-key", s.mgmt.GetClaudeKeys)
+                    mgmt.PUT("/claude-api-key", s.mgmt.PutClaudeKeys)
+                    mgmt.PATCH("/claude-api-key", s.mgmt.PatchClaudeKey)
+                    mgmt.DELETE("/claude-api-key", s.mgmt.DeleteClaudeKey)
+
+                    mgmt.GET("/vertex-api-key", s.mgmt.GetVertexCompatKeys)
+                    mgmt.PUT("/vertex-api-key", s.mgmt.PutVertexCompatKeys)
+                    mgmt.PATCH("/vertex-api-key", s.mgmt.PatchVertexCompatKey)
+                    mgmt.DELETE("/vertex-api-key", s.mgmt.DeleteVertexCompatKey)
+
+                    mgmt.POST("/vertex/import", s.mgmt.ImportVertexCredential)
+
+                    mgmt.GET("/anthropic-auth-url", s.mgmt.RequestAnthropicToken)
+                    mgmt.GET("/codex-auth-url", s.mgmt.RequestCodexToken)
+                    mgmt.GET("/gemini-cli-auth-url", s.mgmt.RequestGeminiCLIToken)
+                    mgmt.GET("/antigravity-auth-url", s.mgmt.RequestAntigravityToken)
+                    mgmt.GET("/kimi-auth-url", s.mgmt.RequestKimiToken)
+                    mgmt.POST("/oauth-callback", s.mgmt.PostOAuthCallback)
+                }
+
+                func (s *Server) unifiedModelsHandler(openaiHandler *openai.OpenAIAPIHandler, claudeHandler *claude.ClaudeCodeAPIHandler) gin.HandlerFunc {
+                    return func(c *gin.Context) {
+                        userAgent := c.GetHeader("User-Agent")
+
+                        // Route to Claude handler if User-Agent starts with "claude-cli"
+                        if strings.HasPrefix(userAgent, "claude-cli") {
+                            // log.Debugf("Routing /v1/models to Claude handler for User-Agent: %s", userAgent)
+                            claudeHandler.ClaudeModels(c)
+                        } else {
+                            // log.Debugf("Routing /v1/models to OpenAI handler for User-Agent: %s", userAgent)
+                            openaiHandler.OpenAIModels(c)
+                        }
+                    }
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(serverCmdRoot, "main.go"),
+                """
+                package main
+
+                func main() {
+                    if vertexImport != "" {
+                        // Handle Vertex service account import
+                        cmd.DoVertexImport(cfg, vertexImport, vertexImportPrefix)
+                    } else if login {
+                        // Handle Google/Gemini login
+                        cmd.DoLogin(cfg, projectID, options)
+                    } else if antigravityLogin {
+                        // Handle Antigravity login
+                        cmd.DoAntigravityLogin(cfg, options)
+                    } else if codexLogin {
+                        // Handle Codex login
+                        cmd.DoCodexLogin(cfg, options)
+                    } else if codexDeviceLogin {
+                        // Handle Codex device-code login
+                        cmd.DoCodexDeviceLogin(cfg, options)
+                    } else if claudeLogin {
+                        // Handle Claude login
+                        cmd.DoClaudeLogin(cfg, options)
+                    } else if kimiLogin {
+                        cmd.DoKimiLogin(cfg, options)
+                    } else {
+                        misc.StartAntigravityVersionUpdater(context.Background())
+                        registry.StartModelsUpdater(context.Background())
+                        misc.StartAntigravityVersionUpdater(context.Background())
+                    }
+                }
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(runtimeExecutorHelpsRoot, "thinking_providers.go"),
+                """
+                package helps
+
+                import (
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/antigravity"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/claude"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/codex"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/gemini"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/geminicli"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/kimi"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/thinking/provider/openai"
+                )
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(translatorRoot, "init.go"),
+                """
+                package translator
+
+                import (
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/claude/gemini"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/codex/openai/chat-completions"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/codex/openai/responses"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/openai/openai/chat-completions"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/openai/openai/responses"
+                    _ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/antigravity/claude"
+                )
+                """,
+                Encoding.UTF8
+            );
+            File.WriteAllText(
+                Path.Combine(runtimeExecutorRoot, "openai_compat_executor.go"),
+                """
+                package executor
+
+                func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
+                    translated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", translated, originalTranslated, requestedModel, requestPath)
+                    if opts.Alt == "responses/compact" {
+                    }
+
+                    httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(translated))
+                    if err != nil {
+                        return resp, err
+                    }
+                    var authID, authLabel, authType, authValue string
+                    helps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{
+                        URL:       url,
+                        Method:    http.MethodPost,
+                        Headers:   httpReq.Header.Clone(),
+                        Body:      translated,
+                        Provider:  e.Identifier(),
+                        AuthID:    authID,
+                        AuthLabel: authLabel,
+                        AuthType:  authType,
+                        AuthValue: authValue,
+                    })
+
+                    httpClient := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+                    httpResp, err := httpClient.Do(httpReq)
+                    if err != nil {
+                        helps.RecordAPIResponseError(ctx, e.cfg, err)
+                        return resp, err
+                    }
+                    defer func() {
+                        if errClose := httpResp.Body.Close(); errClose != nil {
+                            log.Errorf("openai compat executor: close response body error: %v", errClose)
+                        }
+                    }()
+                    helps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+                    if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+                        b, _ := io.ReadAll(httpResp.Body)
+                        helps.AppendAPIResponseChunk(ctx, e.cfg, b)
+                        helps.LogWithRequestID(ctx).Debugf("request error, error status: %d, error message: %s", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+                        err = statusErr{code: httpResp.StatusCode, msg: string(b)}
+                        return resp, err
+                    }
+                    return resp, nil
+                }
+
+                func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
+                    translated = helps.ApplyPayloadConfigWithRoot(e.cfg, baseModel, to.String(), "", translated, originalTranslated, requestedModel, requestPath)
+
+                    translated, err = thinking.ApplyThinking(translated, req.Model, from.String(), to.String(), e.Identifier())
+                    if err != nil {
+                        return nil, err
+                    }
+
+                    httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(translated))
+                    if err != nil {
+                        return nil, err
+                    }
+                    var authID, authLabel, authType, authValue string
+                    helps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{
+                        URL:       url,
+                        Method:    http.MethodPost,
+                        Headers:   httpReq.Header.Clone(),
+                        Body:      translated,
+                        Provider:  e.Identifier(),
+                        AuthID:    authID,
+                        AuthLabel: authLabel,
+                        AuthType:  authType,
+                        AuthValue: authValue,
+                    })
+
+                    httpClient := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+                    httpResp, err := httpClient.Do(httpReq)
+                    if err != nil {
+                        helps.RecordAPIResponseError(ctx, e.cfg, err)
+                        return nil, err
+                    }
+                    helps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+                    if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
+                        b, _ := io.ReadAll(httpResp.Body)
+                        helps.AppendAPIResponseChunk(ctx, e.cfg, b)
+                        helps.LogWithRequestID(ctx).Debugf("request error, error status: %d, error message: %s", httpResp.StatusCode, helps.SummarizeErrorBody(httpResp.Header.Get("Content-Type"), b))
+                        if errClose := httpResp.Body.Close(); errClose != nil {
+                            log.Errorf("openai compat executor: close response body error: %v", errClose)
+                        }
+                        err = statusErr{code: httpResp.StatusCode, msg: string(b)}
+                        return nil, err
+                    }
+                    return nil, nil
                 }
                 """,
                 Encoding.UTF8

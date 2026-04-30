@@ -352,13 +352,19 @@ export function DashboardPage() {
     new Date(localEnvironmentSnapshot.checkedAt).toLocaleString(i18n.language);
 
   const routingStrategyRaw = config?.routingStrategy?.trim() || '';
-  const routingStrategyDisplay = !routingStrategyRaw
-    ? '-'
-    : routingStrategyRaw === 'round-robin'
-      ? t('basic_settings.routing_strategy_round_robin')
-      : routingStrategyRaw === 'fill-first'
-        ? t('basic_settings.routing_strategy_fill_first')
-        : routingStrategyRaw;
+  const routingSessionAffinity = Boolean(config?.routingSessionAffinity);
+  const routingStrategyDisplay = (() => {
+    if (!routingStrategyRaw) return '-';
+    if (routingStrategyRaw === 'fill-first' && routingSessionAffinity) {
+      return t('basic_settings.routing_strategy_fill_first');
+    }
+    if (routingStrategyRaw === 'round-robin' && routingSessionAffinity) {
+      return t('basic_settings.routing_strategy_session_round_robin');
+    }
+    if (routingStrategyRaw === 'round-robin') return t('basic_settings.routing_strategy_round_robin');
+    if (routingStrategyRaw === 'fill-first') return t('basic_settings.routing_strategy_fill_first');
+    return routingStrategyRaw;
+  })();
   const routingStrategyBadgeClass = !routingStrategyRaw
     ? styles.configBadgeUnknown
     : routingStrategyRaw === 'round-robin'

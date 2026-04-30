@@ -25,6 +25,7 @@ export interface Config {
   forceModelPrefix?: boolean;
   disableImageGeneration?: boolean | 'chat';
   routingStrategy?: string;
+  routingSessionAffinity?: boolean;
   apiKeys?: string[];
   ampcode?: AmpcodeConfig;
   geminiApiKeys?: GeminiKeyConfig[];

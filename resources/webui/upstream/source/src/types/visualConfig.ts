@@ -46,6 +46,11 @@ export type PayloadFilterRule = {
   params: string[];
 };
 
+export type RoutingMode =
+  | 'round-robin'
+  | 'session-round-robin-optimized'
+  | 'cache-first-optimized';
+
 export interface StreamingConfig {
   keepaliveSeconds: string;
   bootstrapRetries: string;
@@ -78,7 +83,7 @@ export type VisualConfigValues = {
   quotaSwitchProject: boolean;
   quotaSwitchPreviewModel: boolean;
   quotaAntigravityCredits: boolean;
-  routingStrategy: 'round-robin' | 'fill-first';
+  routingStrategy: RoutingMode;
   routingSessionAffinity: boolean;
   routingSessionAffinityTTL: string;
   wsAuth: boolean;

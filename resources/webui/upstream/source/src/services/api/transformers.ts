@@ -436,6 +436,11 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
   if (strategyRaw !== undefined && strategyRaw !== null) {
     config.routingStrategy = String(strategyRaw);
   }
+  if (isRecord(routing)) {
+    config.routingSessionAffinity = normalizeBoolean(
+      routing['session-affinity'] ?? routing.sessionAffinity
+    );
+  }
   const apiKeysRaw = raw['api-keys'] ?? raw.apiKeys;
   if (Array.isArray(apiKeysRaw)) {
     config.apiKeys = apiKeysRaw.map((key) => String(key)).filter((key) => key.trim() !== '');

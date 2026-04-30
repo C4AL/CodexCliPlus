@@ -6,6 +6,7 @@ import type {
   PayloadParamEntry,
   PayloadParamValueType,
   PayloadRule,
+  RoutingMode,
   VisualConfigValues,
   VisualConfigValidationErrors,
   PayloadParamValidationErrorCode,
@@ -15,6 +16,25 @@ import { DEFAULT_VISUAL_VALUES } from '@/types/visualConfig';
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+function resolveRoutingMode(strategy: unknown, sessionAffinity: boolean): RoutingMode {
+  if (strategy === 'fill-first') return 'cache-first-optimized';
+  if (sessionAffinity) return 'session-round-robin-optimized';
+  return 'round-robin';
+}
+
+function routingModeToBackend(mode: RoutingMode): {
+  strategy: 'round-robin' | 'fill-first';
+  sessionAffinity: boolean;
+} {
+  if (mode === 'cache-first-optimized') {
+    return { strategy: 'fill-first', sessionAffinity: true };
+  }
+  if (mode === 'session-round-robin-optimized') {
+    return { strategy: 'round-robin', sessionAffinity: true };
+  }
+  return { strategy: 'round-robin', sessionAffinity: false };
 }
 
 function extractApiKeyValue(raw: unknown): string | null {
@@ -843,6 +863,13 @@ export function useVisualConfig() {
       const routing = asRecord(parsed.routing);
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
+      const routingSessionAffinity = Boolean(
+        routing?.['session-affinity'] ??
+          routing?.sessionAffinity ??
+          routing?.['sessionAffinity']
+      );
+      const routingStrategy = resolveRoutingMode(routing?.strategy, routingSessionAffinity);
+      const routingBackend = routingModeToBackend(routingStrategy);
 
       const newValues: VisualConfigValues = {
         host: typeof parsed.host === 'string' ? parsed.host : '',
@@ -888,12 +915,8 @@ export function useVisualConfig() {
         quotaSwitchPreviewModel: Boolean(quotaExceeded?.['switch-preview-model'] ?? true),
         quotaAntigravityCredits: Boolean(quotaExceeded?.['antigravity-credits'] ?? true),
 
-        routingStrategy: routing?.strategy === 'fill-first' ? 'fill-first' : 'round-robin',
-        routingSessionAffinity: Boolean(
-          routing?.['session-affinity'] ??
-            routing?.sessionAffinity ??
-            routing?.['sessionAffinity']
-        ),
+        routingStrategy,
+        routingSessionAffinity: routingBackend.sessionAffinity,
         routingSessionAffinityTTL:
           typeof routing?.['session-affinity-ttl'] === 'string'
             ? routing['session-affinity-ttl']
@@ -1019,12 +1042,12 @@ export function useVisualConfig() {
         if (
           docHas(doc, ['routing']) ||
           values.routingStrategy !== 'round-robin' ||
-          values.routingSessionAffinity ||
           values.routingSessionAffinityTTL.trim()
         ) {
+          const routingBackend = routingModeToBackend(values.routingStrategy);
           ensureMapInDoc(doc, ['routing']);
-          doc.setIn(['routing', 'strategy'], values.routingStrategy);
-          setBooleanInDoc(doc, ['routing', 'session-affinity'], values.routingSessionAffinity);
+          doc.setIn(['routing', 'strategy'], routingBackend.strategy);
+          setBooleanInDoc(doc, ['routing', 'session-affinity'], routingBackend.sessionAffinity);
           setStringInDoc(
             doc,
             ['routing', 'session-affinity-ttl'],

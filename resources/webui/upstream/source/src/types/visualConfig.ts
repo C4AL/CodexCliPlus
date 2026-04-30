@@ -1,4 +1,5 @@
 export type PayloadParamValueType = 'string' | 'number' | 'boolean' | 'json';
+export type DisableImageGenerationMode = 'false' | 'true' | 'chat';
 export type PayloadParamValidationErrorCode =
   | 'payload_invalid_number'
   | 'payload_invalid_boolean'
@@ -68,6 +69,7 @@ export type VisualConfigValues = {
   loggingToFile: boolean;
   logsMaxTotalSizeMb: string;
   usageStatisticsEnabled: boolean;
+  disableImageGeneration: DisableImageGenerationMode;
   proxyUrl: string;
   forceModelPrefix: boolean;
   requestRetry: string;
@@ -110,6 +112,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   loggingToFile: false,
   logsMaxTotalSizeMb: '',
   usageStatisticsEnabled: false,
+  disableImageGeneration: 'false',
   proxyUrl: '',
   forceModelPrefix: false,
   requestRetry: '',

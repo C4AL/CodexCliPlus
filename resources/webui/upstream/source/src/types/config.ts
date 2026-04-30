@@ -23,6 +23,7 @@ export interface Config {
   logsMaxTotalSizeMb?: number;
   wsAuth?: boolean;
   forceModelPrefix?: boolean;
+  disableImageGeneration?: boolean | 'chat';
   routingStrategy?: string;
   apiKeys?: string[];
   ampcode?: AmpcodeConfig;
@@ -46,6 +47,7 @@ export type RawConfigSection =
   | 'logs-max-total-size-mb'
   | 'ws-auth'
   | 'force-model-prefix'
+  | 'disable-image-generation'
   | 'routing/strategy'
   | 'api-keys'
   | 'ampcode'

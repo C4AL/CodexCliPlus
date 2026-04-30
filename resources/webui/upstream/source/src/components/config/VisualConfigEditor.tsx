@@ -185,6 +185,8 @@ export function VisualConfigEditor({
   const shouldRenderFloatingSidebar = !isMobile && isFloatingSidebar && isCurrentLayer;
   const routingStrategyLabelId = useId();
   const routingStrategyHintId = `${routingStrategyLabelId}-hint`;
+  const imageGenerationModeLabelId = useId();
+  const imageGenerationModeHintId = `${imageGenerationModeLabelId}-hint`;
   const keepaliveInputId = useId();
   const keepaliveHintId = `${keepaliveInputId}-hint`;
   const keepaliveErrorId = `${keepaliveInputId}-error`;
@@ -796,6 +798,46 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   onChange={(usageStatisticsEnabled) => onChange({ usageStatisticsEnabled })}
                 />
+                <FieldShell
+                  label={t('config_management.visual.sections.system.disable_image_generation')}
+                  labelId={imageGenerationModeLabelId}
+                  hint={t('config_management.visual.sections.system.disable_image_generation_desc')}
+                  hintId={imageGenerationModeHintId}
+                >
+                  <Select
+                    value={values.disableImageGeneration}
+                    options={[
+                      {
+                        value: 'false',
+                        label: t(
+                          'config_management.visual.sections.system.disable_image_generation_false'
+                        ),
+                      },
+                      {
+                        value: 'true',
+                        label: t(
+                          'config_management.visual.sections.system.disable_image_generation_true'
+                        ),
+                      },
+                      {
+                        value: 'chat',
+                        label: t(
+                          'config_management.visual.sections.system.disable_image_generation_chat'
+                        ),
+                      },
+                    ]}
+                    id={`${imageGenerationModeLabelId}-select`}
+                    disabled={disabled}
+                    ariaLabelledBy={imageGenerationModeLabelId}
+                    ariaDescribedBy={imageGenerationModeHintId}
+                    onChange={(nextValue) =>
+                      onChange({
+                        disableImageGeneration:
+                          nextValue as VisualConfigValues['disableImageGeneration'],
+                      })
+                    }
+                  />
+                </FieldShell>
               </SectionGrid>
 
               <SectionGrid>

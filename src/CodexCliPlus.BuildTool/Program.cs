@@ -437,7 +437,7 @@ public static class AssetCommands
     private const string BackendSourceRepositoryUrl =
         "https://github.com/router-for-me/CLIProxyAPI.git";
 
-    private const string PatchedBackendBuildDate = "2026-04-29";
+    private const string PatchedBackendBuildDate = "2026-04-30";
 
     private sealed record BackendAssetFileMapping(
         string RepositoryFileName,

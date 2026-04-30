@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useReducer } from 'react';
 import { isMap, parse as parseYaml, parseDocument } from 'yaml';
 import type {
+  DisableImageGenerationMode,
   PayloadFilterRule,
   PayloadParamEntry,
   PayloadParamValueType,
@@ -300,6 +301,37 @@ function parseRawPayloadParamValue(raw: unknown): string {
 function parsePayloadProtocol(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   return raw.trim() ? raw : undefined;
+}
+
+function parseDisableImageGenerationMode(raw: unknown): DisableImageGenerationMode {
+  if (raw === true) return 'true';
+  if (raw === false) return 'false';
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === 'true' || normalized === 'false' || normalized === 'chat') {
+      return normalized;
+    }
+  }
+  return 'false';
+}
+
+function setDisableImageGenerationInDoc(
+  doc: YamlDocument,
+  value: DisableImageGenerationMode
+): void {
+  if (value === 'chat') {
+    doc.setIn(['disable-image-generation'], 'chat');
+    return;
+  }
+
+  if (value === 'true') {
+    doc.setIn(['disable-image-generation'], true);
+    return;
+  }
+
+  if (docHas(doc, ['disable-image-generation'])) {
+    doc.setIn(['disable-image-generation'], false);
+  }
 }
 
 function deleteLegacyApiKeysProvider(doc: YamlDocument): void {
@@ -608,6 +640,12 @@ function getNextDirtyFields(
       nextValues.usageStatisticsEnabled === baselineValues.usageStatisticsEnabled
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'disableImageGeneration')) {
+    updateDirty(
+      'disableImageGeneration',
+      nextValues.disableImageGeneration === baselineValues.disableImageGeneration
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'proxyUrl')) {
     updateDirty('proxyUrl', nextValues.proxyUrl === baselineValues.proxyUrl);
   }
@@ -835,6 +873,9 @@ export function useVisualConfig() {
         loggingToFile: Boolean(parsed['logging-to-file']),
         logsMaxTotalSizeMb: String(parsed['logs-max-total-size-mb'] ?? ''),
         usageStatisticsEnabled: Boolean(parsed['usage-statistics-enabled']),
+        disableImageGeneration: parseDisableImageGenerationMode(
+          parsed['disable-image-generation'] ?? parsed.disableImageGeneration
+        ),
 
         proxyUrl: typeof parsed['proxy-url'] === 'string' ? parsed['proxy-url'] : '',
         forceModelPrefix: Boolean(parsed['force-model-prefix']),
@@ -950,6 +991,7 @@ export function useVisualConfig() {
         setBooleanInDoc(doc, ['logging-to-file'], values.loggingToFile);
         setIntFromStringInDoc(doc, ['logs-max-total-size-mb'], values.logsMaxTotalSizeMb);
         setBooleanInDoc(doc, ['usage-statistics-enabled'], values.usageStatisticsEnabled);
+        setDisableImageGenerationInDoc(doc, values.disableImageGeneration);
 
         setStringInDoc(doc, ['proxy-url'], values.proxyUrl);
         setBooleanInDoc(doc, ['force-model-prefix'], values.forceModelPrefix);

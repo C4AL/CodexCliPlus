@@ -1248,6 +1248,11 @@
           "logging_to_file_desc": "将日志保存到文件",
           "usage_statistics": "使用统计",
           "usage_statistics_desc": "收集使用统计信息",
+          "disable_image_generation": "图片生成",
+          "disable_image_generation_desc": "控制内置图片生成工具和图片接口的可用范围",
+          "disable_image_generation_false": "启用",
+          "disable_image_generation_true": "全部禁用",
+          "disable_image_generation_chat": "仅聊天禁用",
           "logs_max_size": "日志文件大小限制 (MB)"
         },
         "network": {

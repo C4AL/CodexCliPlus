@@ -239,6 +239,14 @@ export function UsagePage() {
   );
   const hasPrices = Object.keys(modelPrices).length > 0;
 
+  useEffect(() => {
+    if (loading || typeof performance === 'undefined') {
+      return;
+    }
+
+    performance.mark('ccp-usage-stable');
+  }, [loading, usage, error]);
+
   return (
     <div className={styles.container}>
       {loading && !usage && (

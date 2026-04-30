@@ -370,6 +370,14 @@ export function LogsPage() {
     showRawLogs,
   });
 
+  useEffect(() => {
+    if (loading || typeof performance === 'undefined') {
+      return;
+    }
+
+    performance.mark('ccp-logs-stable');
+  }, [loading, logState.buffer.length, error]);
+
   const copyLogLine = async (raw: string) => {
     const ok = await copyToClipboard(raw);
     if (ok) {

@@ -253,6 +253,11 @@ public sealed class SigningTests : IDisposable
         );
         WriteEntry(
             archive,
+            "app-package/assets/webui/upstream/dist/assets/app.js",
+            Encoding.UTF8.GetBytes("console.log('ok');")
+        );
+        WriteEntry(
+            archive,
             "app-package/assets/webui/upstream/sync.json",
             Encoding.UTF8.GetBytes("{}")
         );

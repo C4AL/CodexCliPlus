@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Abstractions.Paths;
@@ -164,6 +164,47 @@ public sealed class BackendConfigWriterTests : IDisposable
             StringComparison.Ordinal
         );
         Assert.False(File.Exists(pathService.Directories.BackendConfigFilePath));
+    }
+
+    [Fact]
+    public async Task WriteAsyncDoesNotRewriteUnchangedConfigOrSettings()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var configurationService = new JsonAppConfigurationService(pathService);
+        var writer = new BackendConfigWriter(configurationService, pathService);
+        var settings = new AppSettings
+        {
+            ManagementKey = "stable-management-key",
+            SecurityKeyOnboardingCompleted = false,
+        };
+        var options = new BackendConfigWriteOptions
+        {
+            AllowManagementKeyRotation = true,
+            ValidatePort = false,
+        };
+
+        await writer.WriteAsync(settings, options);
+        var yamlTimestamp = DateTime.UtcNow.AddMinutes(-10);
+        var settingsTimestamp = DateTime.UtcNow.AddMinutes(-9);
+        File.SetLastWriteTimeUtc(pathService.Directories.BackendConfigFilePath, yamlTimestamp);
+        File.SetLastWriteTimeUtc(pathService.Directories.SettingsFilePath, settingsTimestamp);
+        var expectedYamlTimestamp = File.GetLastWriteTimeUtc(
+            pathService.Directories.BackendConfigFilePath
+        );
+        var expectedSettingsTimestamp = File.GetLastWriteTimeUtc(
+            pathService.Directories.SettingsFilePath
+        );
+
+        await writer.WriteAsync(settings, options);
+
+        Assert.Equal(
+            expectedYamlTimestamp,
+            File.GetLastWriteTimeUtc(pathService.Directories.BackendConfigFilePath)
+        );
+        Assert.Equal(
+            expectedSettingsTimestamp,
+            File.GetLastWriteTimeUtc(pathService.Directories.SettingsFilePath)
+        );
     }
 
     private static TcpListener? TryListenOnDefaultPort()

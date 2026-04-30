@@ -58,6 +58,17 @@ function App() {
     document.documentElement.lang = language;
   }, [language]);
 
+  useEffect(() => {
+    if (typeof performance === 'undefined') {
+      return;
+    }
+
+    performance.mark('ccp-app-mounted');
+    if (performance.getEntriesByName('ccp-entry-start').length > 0) {
+      performance.measure('ccp-entry-to-app-mounted', 'ccp-entry-start', 'ccp-app-mounted');
+    }
+  }, []);
+
   return <RouterProvider router={router} />;
 }
 

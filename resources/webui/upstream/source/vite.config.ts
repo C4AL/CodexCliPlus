@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { viteSingleFile } from 'vite-plugin-singlefile';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import fs from 'fs';
@@ -21,7 +20,7 @@ function tryRunGit(args: string[]): string | null {
     const value = execFileSync('git', args, {
       cwd: __dirname,
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     return value || null;
   } catch {
@@ -44,8 +43,7 @@ function getVersion(): string {
 
   // 3. Try git tag
   const gitTag =
-    tryRunGit(['describe', '--tags', '--exact-match']) ??
-    tryRunGit(['describe', '--tags']);
+    tryRunGit(['describe', '--tags', '--exact-match']) ?? tryRunGit(['describe', '--tags']);
   if (gitTag) {
     return gitTag;
   }
@@ -63,44 +61,73 @@ function getVersion(): string {
   return 'dev';
 }
 
+const manualChunkGroups = [
+  {
+    name: 'charts',
+    packages: ['chart.js', 'react-chartjs-2'],
+  },
+  {
+    name: 'editor',
+    packages: [
+      '@uiw/react-codemirror',
+      '@codemirror/lang-yaml',
+      '@codemirror/merge',
+      '@codemirror/search',
+      '@codemirror/state',
+      '@codemirror/view',
+      'yaml',
+    ],
+  },
+];
+
+function getManualChunkName(id: string): string | undefined {
+  const normalizedId = id.replace(/\\/g, '/');
+  if (!normalizedId.includes('/node_modules/')) {
+    return undefined;
+  }
+
+  for (const group of manualChunkGroups) {
+    if (group.packages.some((pkg) => normalizedId.includes(`/node_modules/${pkg}/`))) {
+      return group.name;
+    }
+  }
+
+  return undefined;
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    viteSingleFile({
-      removeViteModuleLoader: true
-    })
-  ],
+  plugins: [react()],
   define: {
-    __APP_VERSION__: JSON.stringify(getVersion())
+    __APP_VERSION__: JSON.stringify(getVersion()),
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   css: {
     modules: {
       localsConvention: 'camelCase',
-      generateScopedName: '[name]__[local]___[hash:base64:5]'
+      generateScopedName: '[name]__[local]___[hash:base64:5]',
     },
     preprocessorOptions: {
       scss: {
-        additionalData: `@use "@/styles/variables.scss" as *;`
-      }
-    }
+        additionalData: `@use "@/styles/variables.scss" as *;`,
+      },
+    },
   },
   build: {
     target: 'es2020',
     outDir: path.resolve(__dirname, '../dist'),
     emptyOutDir: true,
-    assetsInlineLimit: 100000000,
-    chunkSizeWarningLimit: 100000000,
-    cssCodeSplit: false,
+    assetsInlineLimit: 4096,
+    chunkSizeWarningLimit: 900,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: undefined
-      }
-    }
-  }
+        manualChunks: getManualChunkName,
+      },
+    },
+  },
 });

@@ -4,6 +4,10 @@ import '@/styles/global.scss';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import App from './App.tsx';
 
+if (typeof performance !== 'undefined') {
+  performance.mark('ccp-entry-start');
+}
+
 document.title = 'CodexCliPlus';
 document.documentElement.setAttribute('translate', 'no');
 document.documentElement.classList.add('notranslate');

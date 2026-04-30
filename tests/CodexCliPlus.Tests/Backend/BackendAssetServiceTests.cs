@@ -1,4 +1,5 @@
-﻿using CodexCliPlus.Core.Abstractions.Logging;
+using System.Reflection;
+using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
@@ -47,6 +48,37 @@ public sealed class BackendAssetServiceTests : IDisposable
         Assert.False(File.Exists(legacyPath));
     }
 
+    [Fact]
+    public async Task IsExecutableVersionCurrentAsyncUsesMatchingVersionCache()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        await pathService.EnsureCreatedAsync();
+        var executablePath = Path.Combine(
+            pathService.Directories.BackendDirectory,
+            BackendExecutableNames.ManagedExecutableFileName
+        );
+        await File.WriteAllTextAsync(executablePath, "not a runnable executable");
+
+        var service = new BackendAssetService(
+            new HttpClient(),
+            pathService,
+            new NullAppLogger(_rootDirectory)
+        );
+
+        await InvokeWriteVersionCacheAsync(
+            service,
+            executablePath,
+            BackendReleaseMetadata.Version
+        );
+        var cachedResult = await InvokeIsExecutableVersionCurrentAsync(service, executablePath);
+
+        await File.AppendAllTextAsync(executablePath, "changed");
+        var staleCacheResult = await InvokeIsExecutableVersionCurrentAsync(service, executablePath);
+
+        Assert.True(cachedResult);
+        Assert.False(staleCacheResult);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_rootDirectory))
@@ -84,6 +116,36 @@ public sealed class BackendAssetServiceTests : IDisposable
             Directory.CreateDirectory(Directories.RuntimeDirectory);
             return Task.CompletedTask;
         }
+    }
+
+    private static async Task InvokeWriteVersionCacheAsync(
+        BackendAssetService service,
+        string executablePath,
+        string version
+    )
+    {
+        var method = typeof(BackendAssetService).GetMethod(
+            "WriteExecutableVersionCacheAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.NotNull(method);
+        var task = (Task)
+            method!.Invoke(service, [executablePath, version, CancellationToken.None])!;
+        await task;
+    }
+
+    private static async Task<bool> InvokeIsExecutableVersionCurrentAsync(
+        BackendAssetService service,
+        string executablePath
+    )
+    {
+        var method = typeof(BackendAssetService).GetMethod(
+            "IsExecutableVersionCurrentAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+        Assert.NotNull(method);
+        return await (Task<bool>)
+            method!.Invoke(service, [executablePath, CancellationToken.None])!;
     }
 
     private sealed class NullAppLogger : IAppLogger

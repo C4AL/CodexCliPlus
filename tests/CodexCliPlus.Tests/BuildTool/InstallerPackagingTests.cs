@@ -60,6 +60,10 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         Assert.Contains(
             archive.Entries,
+            entry => entry.FullName == "app-package/assets/webui/upstream/dist/assets/app.js"
+        );
+        Assert.Contains(
+            archive.Entries,
             entry => entry.FullName == "app-package/assets/webui/upstream/sync.json"
         );
         Assert.Contains(
@@ -222,9 +226,24 @@ public sealed class InstallerPackagingTests : IDisposable
         File.WriteAllBytes(Path.Combine(publishRoot, "CodexCliPlus.exe"), CreateExecutableBytes());
         File.WriteAllText(Path.Combine(publishRoot, "appsettings.json"), "{}");
         Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist"));
+        Directory.CreateDirectory(
+            Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "assets")
+        );
         File.WriteAllText(
             Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "index.html"),
             "<html></html>"
+        );
+        File.WriteAllText(
+            Path.Combine(
+                publishRoot,
+                "assets",
+                "webui",
+                "upstream",
+                "dist",
+                "assets",
+                "app.js"
+            ),
+            "console.log('ok');"
         );
         File.WriteAllText(
             Path.Combine(publishRoot, "assets", "webui", "upstream", "sync.json"),

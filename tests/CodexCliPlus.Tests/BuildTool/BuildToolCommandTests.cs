@@ -31,6 +31,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("write-checksums", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("clean-artifacts", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -126,6 +127,56 @@ public sealed class BuildToolCommandTests : IDisposable
             )
         );
         Assert.Contains("asset verification passed", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task CleanArtifactsClearsGeneratedOutputsButKeepsAssetsAndCaches()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out-clean");
+        var publishRoot = Path.Combine(outputRoot, "publish", "win-x64");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        var installerRoot = Path.Combine(outputRoot, "installer", "win-x64");
+        var tempRoot = Path.Combine(outputRoot, "temp");
+        var cacheRoot = Path.Combine(outputRoot, "cache");
+        var assetsRoot = Path.Combine(outputRoot, "assets");
+        Directory.CreateDirectory(publishRoot);
+        Directory.CreateDirectory(packageRoot);
+        Directory.CreateDirectory(installerRoot);
+        Directory.CreateDirectory(tempRoot);
+        Directory.CreateDirectory(cacheRoot);
+        Directory.CreateDirectory(assetsRoot);
+        File.WriteAllText(Path.Combine(publishRoot, "app.txt"), "publish");
+        File.WriteAllText(Path.Combine(packageRoot, "package.txt"), "package");
+        File.WriteAllText(Path.Combine(installerRoot, "installer.txt"), "installer");
+        File.WriteAllText(Path.Combine(tempRoot, "temp.txt"), "temp");
+        File.WriteAllText(Path.Combine(cacheRoot, "cache.txt"), "cache");
+        File.WriteAllText(Path.Combine(assetsRoot, "asset.txt"), "asset");
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "clean-artifacts",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        Assert.False(File.Exists(Path.Combine(publishRoot, "app.txt")));
+        Assert.False(File.Exists(Path.Combine(packageRoot, "package.txt")));
+        Assert.False(File.Exists(Path.Combine(installerRoot, "installer.txt")));
+        Assert.False(File.Exists(Path.Combine(tempRoot, "temp.txt")));
+        Assert.True(File.Exists(Path.Combine(cacheRoot, "cache.txt")));
+        Assert.True(File.Exists(Path.Combine(assetsRoot, "asset.txt")));
+        Assert.Contains("cleaned BuildTool", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -448,6 +499,8 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                     "<html></html>"
                 ),
+                ["app-package/assets/webui/upstream/dist/assets/app.js"] =
+                    Encoding.UTF8.GetBytes("console.log('ok');"),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
@@ -532,6 +585,8 @@ public sealed class BuildToolCommandTests : IDisposable
             "overlay",
             File.ReadAllText(Path.Combine(context.WebUiGeneratedDistRoot, "index.html"))
         );
+        Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedDistRoot, "assets", "app.js")));
+        Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedDistRoot, "bundle-report.json")));
         Assert.True(File.Exists(Path.Combine(context.WebUiGeneratedRoot, "sync.json")));
         Assert.Equal(
             "upstream",
@@ -540,6 +595,39 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.True(
             File.Exists(Path.Combine(context.WebUiBuildSourceRoot, "node_modules", ".installed"))
         );
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task BuildVendoredReusesCachedNodeModulesForSamePackageLock()
+    {
+        var repositoryRoot = CreateRepositoryWithVendoredWebUiOverlay();
+        var outputRoot = Path.Combine(_rootDirectory, "out-cache");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var logger = new BuildLogger(output, error);
+        var runner = new OverlayRecordingProcessRunner();
+        var context = new BuildContext(
+            new BuildOptions(
+                "build-webui",
+                repositoryRoot,
+                outputRoot,
+                "Release",
+                "win-x64",
+                "9.9.9"
+            ),
+            logger,
+            runner,
+            new NoOpSigningService()
+        );
+
+        Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
+        Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
+
+        Assert.Equal(3, runner.Calls.Count);
+        Assert.Equal(1, runner.Calls.Count(call => call.Arguments.SequenceEqual(["ci"])));
+        Assert.Equal(2, runner.Calls.Count(call => call.Arguments.SequenceEqual(["run", "build"])));
+        Assert.Contains("using cached vendored WebUI dependencies", output.ToString());
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -785,6 +873,8 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                     "<html></html>"
                 ),
+                ["app-package/assets/webui/upstream/dist/assets/app.js"] =
+                    Encoding.UTF8.GetBytes("console.log('ok');"),
                 ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
@@ -875,6 +965,9 @@ public sealed class BuildToolCommandTests : IDisposable
                     Path.Combine(distRoot, "index.html"),
                     File.ReadAllText(mergedMarkerPath)
                 );
+                var assetsRoot = Path.Combine(distRoot, "assets");
+                Directory.CreateDirectory(assetsRoot);
+                File.WriteAllText(Path.Combine(assetsRoot, "app.js"), "console.log('ok');");
                 return Task.FromResult(0);
             }
 

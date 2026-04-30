@@ -4,6 +4,16 @@ namespace CodexCliPlus.Core.Abstractions.Management;
 
 public interface IManagementOverviewService
 {
+    Task<ManagementApiResponse<ManagementShellStatusSnapshot>> GetShellStatusAsync(
+        bool forceRefresh = false,
+        CancellationToken cancellationToken = default
+    );
+
+    Task<ManagementApiResponse<ManagementSettingsSummarySnapshot>> GetSettingsSummaryAsync(
+        bool forceRefresh = false,
+        CancellationToken cancellationToken = default
+    );
+
     Task<ManagementApiResponse<ManagementOverviewSnapshot>> GetOverviewAsync(
         CancellationToken cancellationToken = default
     );

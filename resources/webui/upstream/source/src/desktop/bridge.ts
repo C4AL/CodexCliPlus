@@ -25,7 +25,8 @@ export type DesktopShellCommand =
   | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
   | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
   | { type: 'navigate'; path: string }
-  | { type: 'clearUsageStats' };
+  | { type: 'clearUsageStats' }
+  | { type: 'refreshUsage' };
 
 interface DesktopBridge {
   isDesktopMode?: () => boolean;
@@ -48,10 +49,7 @@ declare global {
     __CODEXCLIPLUS_DESKTOP_BRIDGE__?: DesktopBridge;
     chrome?: {
       webview?: {
-        addEventListener?: (
-          type: 'message',
-          listener: (event: MessageEvent) => void
-        ) => void;
+        addEventListener?: (type: 'message', listener: (event: MessageEvent) => void) => void;
       };
     };
   }
@@ -69,13 +67,16 @@ function getBridge(): DesktopBridge | null {
   return window.__CODEXCLIPLUS_DESKTOP_BRIDGE__ ?? null;
 }
 
-function normalizePayload(payload: DesktopBootstrapPayload | null | undefined): DesktopBootstrapPayload | null {
+function normalizePayload(
+  payload: DesktopBootstrapPayload | null | undefined
+): DesktopBootstrapPayload | null {
   if (!payload || payload.desktopMode !== true) {
     return null;
   }
 
   const apiBase = typeof payload.apiBase === 'string' ? payload.apiBase.trim() : '';
-  const managementKey = typeof payload.managementKey === 'string' ? payload.managementKey.trim() : '';
+  const managementKey =
+    typeof payload.managementKey === 'string' ? payload.managementKey.trim() : '';
   if (!apiBase || !managementKey) {
     return null;
   }
@@ -86,7 +87,7 @@ function normalizePayload(payload: DesktopBootstrapPayload | null | undefined): 
     managementKey,
     theme: normalizeDesktopTheme(payload.theme),
     resolvedTheme: normalizeResolvedTheme(payload.resolvedTheme),
-    sidebarCollapsed: payload.sidebarCollapsed === true
+    sidebarCollapsed: payload.sidebarCollapsed === true,
   };
 }
 
@@ -137,6 +138,10 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
 
   if (record.type === 'clearUsageStats') {
     return { type: 'clearUsageStats' };
+  }
+
+  if (record.type === 'refreshUsage') {
+    return { type: 'refreshUsage' };
   }
 
   return null;

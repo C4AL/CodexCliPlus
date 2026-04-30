@@ -206,6 +206,7 @@ export function MainLayout() {
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setTheme = useThemeStore((state) => state.setTheme);
   const clearUsageStats = useUsageStatsStore((state) => state.clearUsageStats);
+  const loadUsageStats = useUsageStatsStore((state) => state.loadUsageStats);
 
   const desktopMode = isDesktopMode();
   const [desktopBootstrap] = useState(() => getDesktopBootstrap());
@@ -488,9 +489,23 @@ export function MainLayout() {
       if (command.type === 'clearUsageStats') {
         clearUsageStats();
         showNotification(t('system_info.clear_usage_success'), 'success');
+        return;
+      }
+
+      if (command.type === 'refreshUsage') {
+        void loadUsageStats({ force: true }).catch(() => {});
       }
     });
-  }, [clearUsageStats, desktopMode, handleRefreshAll, navigate, setTheme, showNotification, t]);
+  }, [
+    clearUsageStats,
+    desktopMode,
+    handleRefreshAll,
+    loadUsageStats,
+    navigate,
+    setTheme,
+    showNotification,
+    t,
+  ]);
 
   useEffect(() => {
     if (!desktopMode) {
@@ -505,145 +520,156 @@ export function MainLayout() {
       sidebarCollapsed,
       pathname: location.pathname,
     });
-  }, [apiBase, connectionStatus, desktopMode, location.pathname, resolvedTheme, sidebarCollapsed, theme]);
+  }, [
+    apiBase,
+    connectionStatus,
+    desktopMode,
+    location.pathname,
+    resolvedTheme,
+    sidebarCollapsed,
+    theme,
+  ]);
 
   return (
     <div className={`app-shell${desktopMode ? ' desktop-shell' : ''}`}>
       {!desktopMode && (
-      <header className="main-header" ref={headerRef}>
-        <div className="left">
-          <button
-            className="sidebar-toggle-header"
-            onClick={() => setSidebarCollapsed((prev) => !prev)}
-            title={
-              sidebarCollapsed
-                ? t('sidebar.expand', { defaultValue: '展开' })
-                : t('sidebar.collapse', { defaultValue: '收起' })
-            }
-          >
-            {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
-          </button>
-          <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus logo" className="brand-logo" />
-          <div
-            className={`brand-header ${brandExpanded ? 'expanded' : 'collapsed'}`}
-            onClick={handleBrandClick}
-            title={brandExpanded ? undefined : fullBrandName}
-          >
-            <span className="brand-full">{fullBrandName}</span>
-            <span className="brand-abbr">{abbrBrandName}</span>
-          </div>
-        </div>
-
-        <div className="right">
-          <div className="connection">
-            <span className={`status-badge ${statusClass}`}>
-              {t(
-                connectionStatus === 'connected'
-                  ? 'common.connected_status'
-                  : connectionStatus === 'connecting'
-                    ? 'common.connecting_status'
-                    : 'common.disconnected_status'
-              )}
-            </span>
-            <span className="base">{apiBase || '-'}</span>
+        <header className="main-header" ref={headerRef}>
+          <div className="left">
+            <button
+              className="sidebar-toggle-header"
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              title={
+                sidebarCollapsed
+                  ? t('sidebar.expand', { defaultValue: '展开' })
+                  : t('sidebar.collapse', { defaultValue: '收起' })
+              }
+            >
+              {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
+            </button>
+            <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus logo" className="brand-logo" />
+            <div
+              className={`brand-header ${brandExpanded ? 'expanded' : 'collapsed'}`}
+              onClick={handleBrandClick}
+              title={brandExpanded ? undefined : fullBrandName}
+            >
+              <span className="brand-full">{fullBrandName}</span>
+              <span className="brand-abbr">{abbrBrandName}</span>
+            </div>
           </div>
 
-          <div className="header-actions">
-            <Button
-              className="mobile-menu-btn"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen((prev) => !prev)}
-            >
-              {headerIcons.menu}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleRefreshAll}
-              title={t('header.refresh_all')}
-            >
-              {headerIcons.refresh}
-            </Button>
-            <div className={`theme-menu ${themeMenuOpen ? 'open' : ''}`} ref={themeMenuRef}>
+          <div className="right">
+            <div className="connection">
+              <span className={`status-badge ${statusClass}`}>
+                {t(
+                  connectionStatus === 'connected'
+                    ? 'common.connected_status'
+                    : connectionStatus === 'connecting'
+                      ? 'common.connecting_status'
+                      : 'common.disconnected_status'
+                )}
+              </span>
+              <span className="base">{apiBase || '-'}</span>
+            </div>
+
+            <div className="header-actions">
+              <Button
+                className="mobile-menu-btn"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+              >
+                {headerIcons.menu}
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleThemeMenu}
-                title={t('theme.switch')}
-                aria-label={t('theme.switch')}
-                aria-haspopup="menu"
-                aria-expanded={themeMenuOpen}
+                onClick={handleRefreshAll}
+                title={t('header.refresh_all')}
               >
-                {theme === 'auto'
-                  ? headerIcons.autoTheme
-                  : theme === 'dark'
-                    ? headerIcons.moon
-                    : theme === 'white'
-                      ? headerIcons.whiteTheme
-                      : headerIcons.sun}
+                {headerIcons.refresh}
               </Button>
-              {themeMenuOpen && (
-                <div
-                  className="notification entering theme-menu-popover"
-                  role="menu"
+              <div className={`theme-menu ${themeMenuOpen ? 'open' : ''}`} ref={themeMenuRef}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleThemeMenu}
+                  title={t('theme.switch')}
                   aria-label={t('theme.switch')}
+                  aria-haspopup="menu"
+                  aria-expanded={themeMenuOpen}
                 >
-                  {THEME_CARDS.map((tc) => (
-                    <button
-                      key={tc.key}
-                      type="button"
-                      className={`theme-card ${theme === tc.key ? 'active' : ''}`}
-                      onClick={() => handleThemeSelect(tc.key)}
-                      role="menuitemradio"
-                      aria-checked={theme === tc.key}
-                    >
-                      <div
-                        className="theme-card-preview"
-                        style={{
-                          background: tc.colors.bg,
-                          border: `1px solid ${tc.colors.border}`,
-                        }}
+                  {theme === 'auto'
+                    ? headerIcons.autoTheme
+                    : theme === 'dark'
+                      ? headerIcons.moon
+                      : theme === 'white'
+                        ? headerIcons.whiteTheme
+                        : headerIcons.sun}
+                </Button>
+                {themeMenuOpen && (
+                  <div
+                    className="notification entering theme-menu-popover"
+                    role="menu"
+                    aria-label={t('theme.switch')}
+                  >
+                    {THEME_CARDS.map((tc) => (
+                      <button
+                        key={tc.key}
+                        type="button"
+                        className={`theme-card ${theme === tc.key ? 'active' : ''}`}
+                        onClick={() => handleThemeSelect(tc.key)}
+                        role="menuitemradio"
+                        aria-checked={theme === tc.key}
                       >
                         <div
-                          className="theme-card-header"
+                          className="theme-card-preview"
                           style={{
-                            background: tc.colors.card,
-                            borderBottom: `1px solid ${tc.colors.border}`,
+                            background: tc.colors.bg,
+                            border: `1px solid ${tc.colors.border}`,
                           }}
-                        />
-                        <div className="theme-card-body">
+                        >
                           <div
-                            className="theme-card-sidebar"
+                            className="theme-card-header"
                             style={{
                               background: tc.colors.card,
-                              borderRight: `1px solid ${tc.colors.border}`,
+                              borderBottom: `1px solid ${tc.colors.border}`,
                             }}
                           />
-                          <div className="theme-card-content" style={{ background: tc.colors.bg }}>
+                          <div className="theme-card-body">
                             <div
-                              className="theme-card-line"
-                              style={{ background: tc.colors.textMuted }}
+                              className="theme-card-sidebar"
+                              style={{
+                                background: tc.colors.card,
+                                borderRight: `1px solid ${tc.colors.border}`,
+                              }}
                             />
                             <div
-                              className="theme-card-line short"
-                              style={{ background: tc.colors.textMuted }}
-                            />
+                              className="theme-card-content"
+                              style={{ background: tc.colors.bg }}
+                            >
+                              <div
+                                className="theme-card-line"
+                                style={{ background: tc.colors.textMuted }}
+                              />
+                              <div
+                                className="theme-card-line short"
+                                style={{ background: tc.colors.textMuted }}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <span className="theme-card-label">{t(tc.labelKey)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                        <span className="theme-card-label">{t(tc.labelKey)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
+                {headerIcons.logout}
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={logout} title={t('header.logout')}>
-              {headerIcons.logout}
-            </Button>
           </div>
-        </div>
-      </header>
+        </header>
       )}
 
       <div className="main-body">

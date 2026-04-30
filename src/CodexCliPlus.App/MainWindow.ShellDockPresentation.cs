@@ -595,7 +595,7 @@ public partial class MainWindow
             var button in new[]
             {
                 ShellNavDashboardButton,
-                ShellNavConsoleButton,
+                ShellNavRuntimeOverviewButton,
                 ShellNavConfigButton,
                 ShellNavAccountButton,
                 ShellNavAuthFilesButton,

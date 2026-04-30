@@ -4,9 +4,20 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - ".github/workflows/tooling.yml"
+      - "resources/webui/**"
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/tooling.yml"
+      - "resources/webui/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -48,10 +59,12 @@ jobs:
         run: npm run build
 
       - name: Coverage web
+        if: github.event_name != 'push'
         working-directory: resources/webui/upstream/source
         run: npm run coverage -- --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html
 
       - name: Enforce web coverage baseline
+        if: github.event_name != 'push'
         working-directory: resources/webui/upstream/source
         shell: pwsh
         run: |
@@ -68,7 +81,7 @@ jobs:
           }
 
       - name: Upload web coverage artifacts
-        if: always()
+        if: ${{ always() && github.event_name != 'push' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: web-coverage

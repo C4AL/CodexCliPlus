@@ -1,16 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreFiles": [
-    "src/pages/AiProvidersAmpcodeEditPage.tsx",
-    "src/pages/AiProvidersClaudeEditLayout.tsx",
-    "src/pages/AiProvidersClaudeEditPage.tsx",
-    "src/pages/AiProvidersClaudeModelsPage.tsx",
-    "src/pages/AiProvidersGeminiEditPage.tsx",
-    "src/pages/AiProvidersOpenAIEditLayout.tsx",
-    "src/pages/AiProvidersOpenAIEditPage.tsx",
-    "src/pages/AiProvidersOpenAIModelsPage.tsx",
-    "src/pages/AiProvidersVertexEditPage.tsx"
-  ],
   "ignoreDependencies": [
     "@typescript-eslint/eslint-plugin",
     "@typescript-eslint/parser",

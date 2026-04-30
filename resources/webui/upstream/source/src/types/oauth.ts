@@ -1,15 +1,9 @@
 /**
  * OAuth 相关类型
- * 基于原项目 src/modules/oauth.js
  */
 
-// OAuth 提供商类型
-export type OAuthProvider =
-  | 'codex'
-  | 'anthropic'
-  | 'antigravity'
-  | 'gemini-cli'
-  | 'kimi';
+// OAuth 账号类型
+export type OAuthProvider = 'codex';
 
 // OAuth 流程状态
 export interface OAuthFlow {

@@ -177,7 +177,7 @@ export function OAuthPage({ embedded = false }: OAuthPageProps = {}) {
       const errorMessage =
         status === 404
           ? t('auth_login.oauth_callback_upgrade_hint', {
-              defaultValue: '请更新 CLI Proxy API 或检查连接。',
+              defaultValue: '请更新本地后端或检查连接。',
             })
           : message || undefined;
       updateProviderState(provider, {

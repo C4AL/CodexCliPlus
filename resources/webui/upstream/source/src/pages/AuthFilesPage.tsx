@@ -552,9 +552,9 @@ export function AuthFilesPage() {
     t,
   ]);
 
-  const handleOtherCpaImport = useCallback(() => {
-    if (isDesktopMode() && importAccountConfigInDesktopShell('cpa')) {
-      showNotification(t('auth_files.import_cpa_requested'), 'info');
+  const handlePlainConfigImport = useCallback(() => {
+    if (isDesktopMode() && importAccountConfigInDesktopShell('config')) {
+      showNotification(t('auth_files.import_plain_config_requested'), 'info');
       return;
     }
     showNotification(t('auth_files.desktop_bridge_required'), 'warning');
@@ -1049,8 +1049,8 @@ export function AuthFilesPage() {
               >
                 {t('auth_files.import_json_button')}
               </Button>
-              <Button variant="secondary" size="sm" onClick={handleOtherCpaImport}>
-                {t('auth_files.import_cpa_button')}
+              <Button variant="secondary" size="sm" onClick={handlePlainConfigImport}>
+                {t('auth_files.import_plain_config_button')}
               </Button>
               <Button variant="secondary" size="sm" onClick={handleSacImport}>
                 {t('auth_files.import_sac_button')}

@@ -569,7 +569,7 @@ function invokeDesktopBridgeAction(name: keyof DesktopBridge, ...args: string[])
   }
 }
 
-export function importAccountConfigInDesktopShell(mode: 'json' | 'cpa' = 'json'): boolean {
+export function importAccountConfigInDesktopShell(mode: 'json' | 'config' = 'json'): boolean {
   return invokeDesktopBridgeAction('importAccountConfig', mode);
 }
 

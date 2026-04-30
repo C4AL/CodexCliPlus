@@ -236,6 +236,21 @@ public sealed class UiTextLocalizationTests
         Assert.DoesNotContain("AiProvidersOpenAI", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersVertex", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersAmpcode", routeSource, StringComparison.Ordinal);
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersGeminiEditPage.tsx"))
+        );
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersClaudeEditPage.tsx"))
+        );
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersOpenAIEditPage.tsx"))
+        );
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersVertexEditPage.tsx"))
+        );
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersAmpcodeEditPage.tsx"))
+        );
 
         Assert.Contains("CodexSection", providersPage, StringComparison.Ordinal);
         Assert.Contains("OAuthPage embedded", providersPage, StringComparison.Ordinal);
@@ -262,6 +277,7 @@ public sealed class UiTextLocalizationTests
         Assert.DoesNotContain("CLAUDE_CONFIG", quotaPage, StringComparison.Ordinal);
         Assert.DoesNotContain("GEMINI_CLI_CONFIG", quotaPage, StringComparison.Ordinal);
         Assert.Contains("CODEX_PROVIDER_FILTER = 'codex'", authFilesPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("import_cpa", authFilesPage, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FindRepositoryRoot()

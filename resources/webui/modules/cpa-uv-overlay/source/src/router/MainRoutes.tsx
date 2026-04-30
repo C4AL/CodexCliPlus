@@ -13,49 +13,17 @@ const DashboardOverviewPage = lazyPage(
   () => import("@/pages/DashboardOverviewPage"),
   "DashboardOverviewPage",
 );
+const RuntimeOverviewPage = lazyPage(
+  () => import("@/pages/RuntimeOverviewPage"),
+  "RuntimeOverviewPage",
+);
 const AiProvidersPage = lazyPage(
   () => import("@/pages/AiProvidersPage"),
   "AiProvidersPage",
 );
-const AiProvidersAmpcodeEditPage = lazyPage(
-  () => import("@/pages/AiProvidersAmpcodeEditPage"),
-  "AiProvidersAmpcodeEditPage",
-);
-const AiProvidersClaudeEditLayout = lazyPage(
-  () => import("@/pages/AiProvidersClaudeEditLayout"),
-  "AiProvidersClaudeEditLayout",
-);
-const AiProvidersClaudeEditPage = lazyPage(
-  () => import("@/pages/AiProvidersClaudeEditPage"),
-  "AiProvidersClaudeEditPage",
-);
-const AiProvidersClaudeModelsPage = lazyPage(
-  () => import("@/pages/AiProvidersClaudeModelsPage"),
-  "AiProvidersClaudeModelsPage",
-);
 const AiProvidersCodexEditPage = lazyPage(
   () => import("@/pages/AiProvidersCodexEditPage"),
   "AiProvidersCodexEditPage",
-);
-const AiProvidersGeminiEditPage = lazyPage(
-  () => import("@/pages/AiProvidersGeminiEditPage"),
-  "AiProvidersGeminiEditPage",
-);
-const AiProvidersOpenAIEditLayout = lazyPage(
-  () => import("@/pages/AiProvidersOpenAIEditLayout"),
-  "AiProvidersOpenAIEditLayout",
-);
-const AiProvidersOpenAIEditPage = lazyPage(
-  () => import("@/pages/AiProvidersOpenAIEditPage"),
-  "AiProvidersOpenAIEditPage",
-);
-const AiProvidersOpenAIModelsPage = lazyPage(
-  () => import("@/pages/AiProvidersOpenAIModelsPage"),
-  "AiProvidersOpenAIModelsPage",
-);
-const AiProvidersVertexEditPage = lazyPage(
-  () => import("@/pages/AiProvidersVertexEditPage"),
-  "AiProvidersVertexEditPage",
 );
 const AuthFilesPage = lazyPage(
   () => import("@/pages/AuthFilesPage"),
@@ -69,7 +37,6 @@ const AuthFilesOAuthModelAliasEditPage = lazyPage(
   () => import("@/pages/AuthFilesOAuthModelAliasEditPage"),
   "AuthFilesOAuthModelAliasEditPage",
 );
-const OAuthPage = lazyPage(() => import("@/pages/OAuthPage"), "OAuthPage");
 const QuotaPage = lazyPage(() => import("@/pages/QuotaPage"), "QuotaPage");
 const UsagePage = lazyPage(() => import("@/pages/UsagePage"), "UsagePage");
 const ConfigPage = lazyPage(() => import("@/pages/ConfigPage"), "ConfigPage");
@@ -141,16 +108,12 @@ const mainRoutes = [
     element: route("dashboard-overview", <DashboardOverviewPage />),
   },
   { path: "/dashboard", element: dashboardRoute },
+  {
+    path: "/console",
+    element: route("runtime-overview", <RuntimeOverviewPage />),
+  },
   { path: "/settings", element: <Navigate to="/config" replace /> },
   { path: "/api-keys", element: <Navigate to="/config" replace /> },
-  {
-    path: "/ai-providers/gemini/new",
-    element: route("ai-providers-gemini-edit", <AiProvidersGeminiEditPage />),
-  },
-  {
-    path: "/ai-providers/gemini/:index",
-    element: route("ai-providers-gemini-edit", <AiProvidersGeminiEditPage />),
-  },
   {
     path: "/ai-providers/codex/new",
     element: route("ai-providers-codex-edit", <AiProvidersCodexEditPage />),
@@ -160,116 +123,12 @@ const mainRoutes = [
     element: route("ai-providers-codex-edit", <AiProvidersCodexEditPage />),
   },
   {
-    path: "/ai-providers/claude/new",
-    element: route(
-      "ai-providers-claude-layout",
-      <AiProvidersClaudeEditLayout />,
-    ),
-    children: [
-      {
-        index: true,
-        element: route(
-          "ai-providers-claude-edit",
-          <AiProvidersClaudeEditPage />,
-        ),
-      },
-      {
-        path: "models",
-        element: route(
-          "ai-providers-claude-models",
-          <AiProvidersClaudeModelsPage />,
-        ),
-      },
-    ],
-  },
-  {
-    path: "/ai-providers/claude/:index",
-    element: route(
-      "ai-providers-claude-layout",
-      <AiProvidersClaudeEditLayout />,
-    ),
-    children: [
-      {
-        index: true,
-        element: route(
-          "ai-providers-claude-edit",
-          <AiProvidersClaudeEditPage />,
-        ),
-      },
-      {
-        path: "models",
-        element: route(
-          "ai-providers-claude-models",
-          <AiProvidersClaudeModelsPage />,
-        ),
-      },
-    ],
-  },
-  {
-    path: "/ai-providers/vertex/new",
-    element: route("ai-providers-vertex-edit", <AiProvidersVertexEditPage />),
-  },
-  {
-    path: "/ai-providers/vertex/:index",
-    element: route("ai-providers-vertex-edit", <AiProvidersVertexEditPage />),
-  },
-  {
-    path: "/ai-providers/openai/new",
-    element: route(
-      "ai-providers-openai-layout",
-      <AiProvidersOpenAIEditLayout />,
-    ),
-    children: [
-      {
-        index: true,
-        element: route(
-          "ai-providers-openai-edit",
-          <AiProvidersOpenAIEditPage />,
-        ),
-      },
-      {
-        path: "models",
-        element: route(
-          "ai-providers-openai-models",
-          <AiProvidersOpenAIModelsPage />,
-        ),
-      },
-    ],
-  },
-  {
-    path: "/ai-providers/openai/:index",
-    element: route(
-      "ai-providers-openai-layout",
-      <AiProvidersOpenAIEditLayout />,
-    ),
-    children: [
-      {
-        index: true,
-        element: route(
-          "ai-providers-openai-edit",
-          <AiProvidersOpenAIEditPage />,
-        ),
-      },
-      {
-        path: "models",
-        element: route(
-          "ai-providers-openai-models",
-          <AiProvidersOpenAIModelsPage />,
-        ),
-      },
-    ],
-  },
-  {
-    path: "/ai-providers/ampcode",
-    element: route("ai-providers-ampcode-edit", <AiProvidersAmpcodeEditPage />),
-  },
-  {
     path: "/ai-providers",
     element: route("ai-providers", <AiProvidersPage />),
   },
   {
     path: "/ai-providers/*",
-    element: route("ai-providers", <AiProvidersPage />),
+    element: <Navigate to="/ai-providers" replace />,
   },
   { path: "/auth-files", element: route("auth-files", <AuthFilesPage />) },
   {
@@ -286,7 +145,7 @@ const mainRoutes = [
       <AuthFilesOAuthModelAliasEditPage />,
     ),
   },
-  { path: "/oauth", element: route("oauth", <OAuthPage />) },
+  { path: "/oauth", element: <Navigate to="/ai-providers" replace /> },
   { path: "/quota", element: route("quota", <QuotaPage />) },
   { path: "/usage", element: route("usage", <UsagePage />) },
   { path: "/config", element: route("config", <ConfigPage />) },

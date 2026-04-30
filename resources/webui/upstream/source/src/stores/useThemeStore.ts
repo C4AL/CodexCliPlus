@@ -57,17 +57,24 @@ const resolveTheme = (theme: Theme): AppliedTheme => {
 };
 
 const applyTheme = (resolved: AppliedTheme) => {
+  const root = document.documentElement;
   if (resolved === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    if (root.getAttribute('data-theme') !== 'dark') {
+      root.setAttribute('data-theme', 'dark');
+    }
     return;
   }
 
   if (resolved === 'white') {
-    document.documentElement.setAttribute('data-theme', 'white');
+    if (root.getAttribute('data-theme') !== 'white') {
+      root.setAttribute('data-theme', 'white');
+    }
     return;
   }
 
-  document.documentElement.removeAttribute('data-theme');
+  if (root.hasAttribute('data-theme')) {
+    root.removeAttribute('data-theme');
+  }
 };
 
 export const useThemeStore = create<ThemeState>()(
@@ -79,10 +86,19 @@ export const useThemeStore = create<ThemeState>()(
       setTheme: (theme) => {
         const normalizedTheme = normalizeThemeValue(theme);
         const resolved = resolveTheme(normalizedTheme);
+        const normalizedResolved = normalizeResolvedTheme(resolved);
         applyTheme(resolved);
+        const current = get();
+        if (
+          current.theme === normalizedTheme &&
+          current.resolvedTheme === normalizedResolved
+        ) {
+          return;
+        }
+
         set({
           theme: normalizedTheme,
-          resolvedTheme: normalizeResolvedTheme(resolved),
+          resolvedTheme: normalizedResolved,
         });
       },
 
@@ -111,8 +127,11 @@ export const useThemeStore = create<ThemeState>()(
           const { theme: currentTheme } = get();
           if (currentTheme === 'auto') {
             const resolved = resolveAutoTheme();
+            const normalizedResolved = normalizeResolvedTheme(resolved);
             applyTheme(resolved);
-            set({ resolvedTheme: normalizeResolvedTheme(resolved) });
+            if (get().resolvedTheme !== normalizedResolved) {
+              set({ resolvedTheme: normalizedResolved });
+            }
           }
         };
 

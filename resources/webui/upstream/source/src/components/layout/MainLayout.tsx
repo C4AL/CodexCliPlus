@@ -4,8 +4,10 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
+  type MutableRefObject,
 } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +25,7 @@ import {
   IconSidebarSystem,
   IconSidebarUsage,
 } from '@/components/ui/icons';
-import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
+import { LOGO_JPEG_URL } from '@/assets/logo';
 import {
   getDesktopBootstrap,
   isDesktopMode,
@@ -51,6 +53,8 @@ const sidebarIcons: Record<string, ReactNode> = {
   logs: <IconSidebarLogs size={18} />,
   system: <IconSidebarSystem size={18} />,
 };
+
+const DESKTOP_MODE = isDesktopMode();
 
 // Header action icons - smaller size for header buttons
 const headerIconProps: SVGProps<SVGSVGElement> = {
@@ -188,6 +192,28 @@ const THEME_CARDS: Array<{
   },
 ];
 
+const setRootCssVariableIfChanged = (
+  name: string,
+  value: string,
+  lastValueRef: MutableRefObject<string | null>
+) => {
+  if (lastValueRef.current === value) {
+    return;
+  }
+
+  document.documentElement.style.setProperty(name, value);
+  lastValueRef.current = value;
+};
+
+const removeRootCssVariable = (name: string, lastValueRef: MutableRefObject<string | null>) => {
+  if (lastValueRef.current === null) {
+    return;
+  }
+
+  document.documentElement.style.removeProperty(name);
+  lastValueRef.current = null;
+};
+
 export function MainLayout() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
@@ -208,7 +234,7 @@ export function MainLayout() {
   const clearUsageStats = useUsageStatsStore((state) => state.clearUsageStats);
   const loadUsageStats = useUsageStatsStore((state) => state.loadUsageStats);
 
-  const desktopMode = isDesktopMode();
+  const desktopMode = DESKTOP_MODE;
   const [desktopBootstrap] = useState(() => getDesktopBootstrap());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -220,6 +246,8 @@ export function MainLayout() {
   const themeMenuRef = useRef<HTMLDivElement | null>(null);
   const brandCollapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
+  const headerHeightCssValue = useRef<string | null>(null);
+  const contentCenterCssValue = useRef<string | null>(null);
 
   const fullBrandName = t('title.main');
   const abbrBrandName = t('title.abbr');
@@ -228,68 +256,90 @@ export function MainLayout() {
   // 将顶栏高度写入 CSS 变量，确保侧栏/内容区计算一致，防止滚动时抖动
   useLayoutEffect(() => {
     if (desktopMode) {
-      document.documentElement.style.setProperty('--header-height', '0px');
+      setRootCssVariableIfChanged('--header-height', '0px', headerHeightCssValue);
       return () => {
-        document.documentElement.style.removeProperty('--header-height');
+        removeRootCssVariable('--header-height', headerHeightCssValue);
       };
     }
 
+    let animationFrame: number | null = null;
     const updateHeaderHeight = () => {
       const height = headerRef.current?.offsetHeight;
       if (height) {
-        document.documentElement.style.setProperty('--header-height', `${height}px`);
+        setRootCssVariableIfChanged('--header-height', `${height}px`, headerHeightCssValue);
       }
+    };
+    const scheduleHeaderHeightUpdate = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        updateHeaderHeight();
+      });
     };
 
     updateHeaderHeight();
 
     const resizeObserver =
       typeof ResizeObserver !== 'undefined' && headerRef.current
-        ? new ResizeObserver(updateHeaderHeight)
+        ? new ResizeObserver(scheduleHeaderHeightUpdate)
         : null;
     if (resizeObserver && headerRef.current) {
       resizeObserver.observe(headerRef.current);
     }
 
-    window.addEventListener('resize', updateHeaderHeight);
+    window.addEventListener('resize', scheduleHeaderHeightUpdate);
 
     return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      window.removeEventListener('resize', updateHeaderHeight);
+      window.removeEventListener('resize', scheduleHeaderHeightUpdate);
     };
   }, [desktopMode]);
 
   // 将主内容区的中心点写入 CSS 变量，供底部浮层（配置面板操作栏、提供商导航）对齐到内容区
   useLayoutEffect(() => {
+    let animationFrame: number | null = null;
     const updateContentCenter = () => {
       const el = contentRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      document.documentElement.style.setProperty('--content-center-x', `${centerX}px`);
+      const centerX = Math.round((rect.left + rect.width / 2) * 100) / 100;
+      setRootCssVariableIfChanged('--content-center-x', `${centerX}px`, contentCenterCssValue);
+    };
+    const scheduleContentCenterUpdate = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        updateContentCenter();
+      });
     };
 
     updateContentCenter();
 
     const resizeObserver =
       typeof ResizeObserver !== 'undefined' && contentRef.current
-        ? new ResizeObserver(updateContentCenter)
+        ? new ResizeObserver(scheduleContentCenterUpdate)
         : null;
 
     if (resizeObserver && contentRef.current) {
       resizeObserver.observe(contentRef.current);
     }
 
-    window.addEventListener('resize', updateContentCenter);
+    window.addEventListener('resize', scheduleContentCenterUpdate);
 
     return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      window.removeEventListener('resize', updateContentCenter);
-      document.documentElement.style.removeProperty('--content-center-x');
+      window.removeEventListener('resize', scheduleContentCenterUpdate);
+      removeRootCssVariable('--content-center-x', contentCenterCssValue);
     };
   }, []);
 
@@ -372,53 +422,59 @@ export function MainLayout() {
           ? 'error'
           : 'muted';
 
-  const navItems = [
-    { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
-    { path: '/console', label: t('nav.console'), icon: sidebarIcons.console },
-    { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
-    { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
-    { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
-    { path: '/quota', label: t('nav.quota_management'), icon: sidebarIcons.quota },
-    { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
-    ...(desktopMode || config?.loggingToFile
-      ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }]
-      : []),
-    ...(desktopMode
-      ? []
-      : [{ path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }]),
-  ];
-  const navOrder = navItems.map((item) => item.path);
-  const getRouteOrder = (pathname: string) => {
-    const trimmedPath =
-      pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-    const normalizedPath = trimmedPath === '/dashboard' ? '/' : trimmedPath;
+  const navItems = useMemo(
+    () => [
+      { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
+      { path: '/console', label: t('nav.console'), icon: sidebarIcons.console },
+      { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
+      { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
+      { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
+      { path: '/quota', label: t('nav.quota_management'), icon: sidebarIcons.quota },
+      { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
+      ...(desktopMode || config?.loggingToFile
+        ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }]
+        : []),
+      ...(desktopMode
+        ? []
+        : [{ path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }]),
+    ],
+    [config?.loggingToFile, desktopMode, t]
+  );
+  const navOrder = useMemo(() => navItems.map((item) => item.path), [navItems]);
+  const getRouteOrder = useCallback(
+    (pathname: string) => {
+      const trimmedPath =
+        pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+      const normalizedPath = trimmedPath === '/dashboard' ? '/' : trimmedPath;
 
-    const aiProvidersIndex = navOrder.indexOf('/ai-providers');
-    if (aiProvidersIndex !== -1) {
-      if (normalizedPath === '/ai-providers') return aiProvidersIndex;
-      if (normalizedPath.startsWith('/ai-providers/')) {
-        if (normalizedPath.startsWith('/ai-providers/codex')) return aiProvidersIndex + 0.1;
-        return aiProvidersIndex + 0.05;
+      const aiProvidersIndex = navOrder.indexOf('/ai-providers');
+      if (aiProvidersIndex !== -1) {
+        if (normalizedPath === '/ai-providers') return aiProvidersIndex;
+        if (normalizedPath.startsWith('/ai-providers/')) {
+          if (normalizedPath.startsWith('/ai-providers/codex')) return aiProvidersIndex + 0.1;
+          return aiProvidersIndex + 0.05;
+        }
       }
-    }
 
-    const authFilesIndex = navOrder.indexOf('/auth-files');
-    if (authFilesIndex !== -1) {
-      if (normalizedPath === '/auth-files') return authFilesIndex;
-      if (normalizedPath.startsWith('/auth-files/')) {
-        if (normalizedPath.startsWith('/auth-files/oauth-excluded')) return authFilesIndex + 0.1;
-        if (normalizedPath.startsWith('/auth-files/oauth-model-alias')) return authFilesIndex + 0.2;
-        return authFilesIndex + 0.05;
+      const authFilesIndex = navOrder.indexOf('/auth-files');
+      if (authFilesIndex !== -1) {
+        if (normalizedPath === '/auth-files') return authFilesIndex;
+        if (normalizedPath.startsWith('/auth-files/')) {
+          if (normalizedPath.startsWith('/auth-files/oauth-excluded')) return authFilesIndex + 0.1;
+          if (normalizedPath.startsWith('/auth-files/oauth-model-alias')) return authFilesIndex + 0.2;
+          return authFilesIndex + 0.05;
+        }
       }
-    }
 
-    const exactIndex = navOrder.indexOf(normalizedPath);
-    if (exactIndex !== -1) return exactIndex;
-    const nestedIndex = navOrder.findIndex(
-      (path) => path !== '/' && normalizedPath.startsWith(`${path}/`)
-    );
-    return nestedIndex === -1 ? null : nestedIndex;
-  };
+      const exactIndex = navOrder.indexOf(normalizedPath);
+      if (exactIndex !== -1) return exactIndex;
+      const nestedIndex = navOrder.findIndex(
+        (path) => path !== '/' && normalizedPath.startsWith(`${path}/`)
+      );
+      return nestedIndex === -1 ? null : nestedIndex;
+    },
+    [navOrder]
+  );
 
   const getTransitionVariant = useCallback((fromPathname: string, toPathname: string) => {
     const normalize = (pathname: string) => {
@@ -546,7 +602,7 @@ export function MainLayout() {
             >
               {sidebarCollapsed ? headerIcons.chevronRight : headerIcons.chevronLeft}
             </button>
-            <img src={INLINE_LOGO_JPEG} alt="CodexCliPlus logo" className="brand-logo" />
+            <img src={LOGO_JPEG_URL} alt="CodexCliPlus logo" className="brand-logo" />
             <div
               className={`brand-header ${brandExpanded ? 'expanded' : 'collapsed'}`}
               onClick={handleBrandClick}

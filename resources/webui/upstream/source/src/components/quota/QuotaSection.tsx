@@ -99,6 +99,7 @@ export function QuotaSection<TState extends QuotaStatusState, TData>({
     }
 
     autoRefreshTimerRef.current = window.setInterval(() => {
+      if (document.hidden) return;
       setCountdown((current) => {
         if (current === null) return null;
         if (current <= 1) {

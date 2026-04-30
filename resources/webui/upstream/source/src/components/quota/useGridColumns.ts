@@ -5,36 +5,50 @@ import { useState, useEffect, useCallback } from 'react';
  * Returns [columns, refCallback].
  */
 export function useGridColumns(
-    itemMinWidth: number,
-    gap: number = 16
+  itemMinWidth: number,
+  gap: number = 16
 ): [number, (node: HTMLDivElement | null) => void] {
-    const [columns, setColumns] = useState(1);
-    const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [columns, setColumns] = useState(1);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
 
-    const refCallback = useCallback((node: HTMLDivElement | null) => {
-        setElement(node);
-    }, []);
+  const refCallback = useCallback((node: HTMLDivElement | null) => {
+    setElement(node);
+  }, []);
 
-    useEffect(() => {
-        if (!element) return;
+  useEffect(() => {
+    if (!element) return;
 
-        const updateColumns = () => {
-            const containerWidth = element.clientWidth;
-            const effectiveItemWidth = itemMinWidth + gap;
-            const count = Math.floor((containerWidth + gap) / effectiveItemWidth);
-            setColumns(Math.max(1, count));
-        };
-
+    let animationFrame: number | null = null;
+    const updateColumns = () => {
+      const containerWidth = element.clientWidth;
+      const effectiveItemWidth = itemMinWidth + gap;
+      const count = Math.floor((containerWidth + gap) / effectiveItemWidth);
+      const nextColumns = Math.max(1, count);
+      setColumns((current) => (current === nextColumns ? current : nextColumns));
+    };
+    const scheduleUpdate = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
         updateColumns();
+      });
+    };
 
-        const observer = new ResizeObserver(() => {
-            updateColumns();
-        });
+    updateColumns();
 
-        observer.observe(element);
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(scheduleUpdate);
+    observer?.observe(element);
+    window.addEventListener('resize', scheduleUpdate);
 
-        return () => observer.disconnect();
-    }, [element, itemMinWidth, gap]);
+    return () => {
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      observer?.disconnect();
+      window.removeEventListener('resize', scheduleUpdate);
+    };
+  }, [element, itemMinWidth, gap]);
 
-    return [columns, refCallback];
+  return [columns, refCallback];
 }

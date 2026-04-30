@@ -281,6 +281,7 @@ export function LogsPage() {
       return;
     }
     const id = window.setInterval(() => {
+      if (document.hidden) return;
       loadLogs(true);
     }, 8000);
     return () => window.clearInterval(id);

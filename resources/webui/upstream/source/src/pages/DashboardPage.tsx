@@ -24,8 +24,8 @@ interface ProviderStats {
 
 type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
-function getTimeOfDay(): TimeOfDay {
-  const hour = new Date().getHours();
+function getTimeOfDay(date = new Date()): TimeOfDay {
+  const hour = date.getHours();
   if (hour >= 5 && hour < 12) return 'morning';
   if (hour >= 12 && hour < 17) return 'afternoon';
   if (hour >= 17 && hour < 21) return 'evening';
@@ -74,8 +74,13 @@ export function DashboardPage() {
   // Update time every 60 seconds
   useEffect(() => {
     const id = setInterval(() => {
-      setTimeOfDay(getTimeOfDay());
-      setCurrentTime(new Date());
+      if (document.hidden) return;
+      const nextTime = new Date();
+      setTimeOfDay((current) => {
+        const nextTimeOfDay = getTimeOfDay(nextTime);
+        return current === nextTimeOfDay ? current : nextTimeOfDay;
+      });
+      setCurrentTime(nextTime);
     }, 60_000);
     return () => clearInterval(id);
   }, []);

@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, type ComponentType, type ReactElement } from 'react';
 import { Navigate, useRoutes, type Location } from 'react-router-dom';
-import { DashboardPage } from '@/pages/DashboardPage';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
+const DashboardPage = lazyPage(() => import('@/pages/DashboardPage'), 'DashboardPage');
 const ConsolePage = lazyPage(() => import('@/pages/ConsolePage'), 'ConsolePage');
 const AiProvidersPage = lazyPage(() => import('@/pages/AiProvidersPage'), 'AiProvidersPage');
 const AiProvidersCodexEditPage = lazyPage(
@@ -64,7 +64,9 @@ const route = (name: string, element: ReactElement) => (
 
 const dashboardRoute = (
   <RoutePerformanceMarker name="dashboard">
-    <DashboardPage />
+    <Suspense fallback={<RouteFallback />}>
+      <DashboardPage />
+    </Suspense>
   </RoutePerformanceMarker>
 );
 

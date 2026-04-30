@@ -8,52 +8,52 @@ public static class AboutCatalog
     [
         new(
             "CodexCliPlus",
-            "Minimal Windows desktop shell",
+            "轻量 Windows 桌面外壳",
             "C4AL/CodexCliPlus",
             "MIT",
-            "WPF shell for windowing, tray behavior, backend lifecycle, secure storage, updates, and the local WebView2 host."
+            "提供窗口、托盘行为、后端生命周期、安全存储、更新和本地 WebView2 宿主所需的 WPF 桌面外壳。"
         ),
         new(
             "CLIProxyAPI 后端",
-            "Managed backend and Management API contract",
+            "托管后端与管理 API 契约",
             "router-for-me/CLIProxyAPI",
             "MIT",
-            "Backend binaries and API semantics are used through local process hosting and HTTP management calls."
+            "通过本地进程托管和 HTTP 管理调用使用后端二进制文件与 API 语义。"
         ),
         new(
             "CodexCliPlus 管理界面",
-            "Vendored upstream frontend",
+            "内置上游前端",
             "router-for-me/Cli-Proxy-API-Management-Center",
             "MIT",
-            "The upstream frontend is vendored into the repository, built locally, and embedded as packaged static assets for the desktop WebView2 host."
+            "上游前端随仓库内置，在本地构建后作为打包静态资源嵌入桌面 WebView2 宿主。"
         ),
         new(
             "BetterGI",
-            "Desktop shell UI and resource derivative",
+            "桌面外壳 UI 与资源派生来源",
             "babalae/better-genshin-impact",
             "GPL-3.0",
-            "CodexCliPlus redistributes BetterGI-derived shell resources, fonts, and supporting WPF assets under GPL-3.0-compliant packaging."
+            "CodexCliPlus 按 GPL-3.0 合规打包方式再分发派生自 BetterGI 的外壳资源、字体和配套 WPF 资产。"
         ),
         new(
             ".NET WPF, WebView2, and CommunityToolkit.Mvvm",
-            "Desktop framework and host integration",
+            "桌面框架与宿主集成",
             "Microsoft .NET ecosystem",
             "MIT",
-            "Provides the native desktop framework, WebView2 host integration, and MVVM helpers used by the minimal desktop shell."
+            "提供轻量桌面外壳使用的原生桌面框架、WebView2 宿主集成和 MVVM 辅助能力。"
         ),
         new(
             "MahApps.Metro.IconPacks.Lucide",
-            "Desktop shell Lucide icon controls",
+            "桌面外壳 Lucide 图标控件",
             "MahApps/MahApps.Metro.IconPacks and lucide-icons/lucide",
             "MIT / ISC",
-            "Provides WPF Lucide icon controls for the desktop shell theme button, risk indicator, and status dock."
+            "为桌面外壳的主题按钮、风险指示器和状态栏提供 WPF Lucide 图标控件。"
         ),
         new(
             "cpa-usage-keeper",
-            "Local SQLite usage event persistence design",
+            "本地 SQLite 用量事件持久化设计",
             "Willxup/cpa-usage-keeper@06117c79ca254a5fe5113d05768f17c335d62596",
             "MIT",
-            "CodexCliPlus ports the keeper schema, event flattening, SHA-256 de-duplication, watermark overlap filtering, and raw export backup retention into the .NET desktop host."
+            "CodexCliPlus 将 keeper 表结构、事件扁平化、SHA-256 去重、水位重叠过滤和原始导出备份保留逻辑移植到 .NET 桌面宿主。"
         ),
     ];
 

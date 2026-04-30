@@ -19,14 +19,14 @@ public sealed class AboutCatalogTests
             sources,
             item =>
                 item.Name == "CodexCliPlus 管理界面"
-                && item.Notes.Contains("vendored", StringComparison.OrdinalIgnoreCase)
+                && item.Notes.Contains("内置", StringComparison.Ordinal)
         );
         Assert.Contains(
             sources,
             item =>
                 item.Name == "BetterGI"
                 && item.License == "GPL-3.0"
-                && item.Notes.Contains("shell resources", StringComparison.OrdinalIgnoreCase)
+                && item.Notes.Contains("外壳资源", StringComparison.Ordinal)
         );
         Assert.Contains(
             sources,

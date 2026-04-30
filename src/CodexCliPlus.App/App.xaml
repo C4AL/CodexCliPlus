@@ -11,7 +11,6 @@
         <ui:ThemesDictionary Theme="Light" />
         <ui:ControlsDictionary />
         <vio:ControlsDictionary />
-        <ResourceDictionary Source="/CodexCliPlus.Management.DesignSystem;component/Themes/DesignSystem.xaml" />
         <ResourceDictionary Source="/Views/Controls/WpfUi/FaFontIconStyle.xaml" />
       </ResourceDictionary.MergedDictionaries>
 

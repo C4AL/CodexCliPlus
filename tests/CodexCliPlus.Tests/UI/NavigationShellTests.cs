@@ -134,11 +134,7 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "x:Name=\"ShellNavRuntimeOverviewButton\"",
-            xaml,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("x:Name=\"ShellNavRuntimeOverviewButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"ShellNavConsoleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
@@ -310,6 +306,9 @@ public sealed class NavigationShellTests
         Assert.Contains("requestLocalDependencySnapshot", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", hostSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("hasHostBridge", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("return false", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("桌面桥接通道未就绪", webBridgeSource, StringComparison.Ordinal);
         Assert.Contains("managementRequest", hostSource, StringComparison.Ordinal);
         Assert.Contains("managementRequest", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("managementResponse", hostSource, StringComparison.Ordinal);
@@ -585,9 +584,21 @@ public sealed class NavigationShellTests
 
         Assert.Contains("Text=\"更新状态：正在读取。\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SetSettingsUpdateStatus", hostSource, StringComparison.Ordinal);
-        Assert.Contains("SetSettingsUpdateStatus(\"检查中\")", hostSource, StringComparison.Ordinal);
-        Assert.Contains("SetSettingsUpdateStatus(\"检查失败\")", hostSource, StringComparison.Ordinal);
-        Assert.Contains("SetSettingsUpdateStatus(\"应用失败\")", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "SetSettingsUpdateStatus(\"检查中\")",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "SetSettingsUpdateStatus(\"检查失败\")",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "SetSettingsUpdateStatus(\"应用失败\")",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "SettingsUpdateStatusText.Text = $\"检查更新失败：{exception.Message}\"",
             hostSource,
@@ -992,7 +1003,11 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
 
-        Assert.Contains("requestLocalDependencySnapshot", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "requestLocalDependencySnapshot",
+            dashboardSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("runLocalDependencyRepair", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("local_environment", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("repairCapabilities", bridgeSource, StringComparison.Ordinal);

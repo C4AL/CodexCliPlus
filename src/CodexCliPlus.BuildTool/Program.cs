@@ -31,6 +31,7 @@ public static class BuildToolApp
         "package-update",
         "verify-package",
         "write-checksums",
+        "export-public-release",
         "clean-artifacts",
     ];
 
@@ -93,6 +94,9 @@ public static class BuildToolApp
                 "package-update" => await PackageCommands.PackageUpdateAsync(context),
                 "verify-package" => await PackageCommands.VerifyPackagesAsync(context),
                 "write-checksums" => await ReleaseArtifactCommands.WriteChecksumsAsync(context),
+                "export-public-release" => await ReleaseArtifactCommands.ExportPublicReleaseAsync(
+                    context
+                ),
                 "clean-artifacts" => ArtifactCleanupCommands.CleanAsync(context),
                 _ => 1,
             };
@@ -257,6 +261,8 @@ public sealed class BuildContext(
     public string ChecksumsPath => Path.Combine(Options.OutputRoot, "SHA256SUMS.txt");
 
     public string ReleaseManifestPath => Path.Combine(Options.OutputRoot, "release-manifest.json");
+
+    public string PublicReleaseRoot => Path.Combine(Options.OutputRoot, "public-release");
 
     public string InstallerRoot => Path.Combine(Options.OutputRoot, "installer", Options.Runtime);
 

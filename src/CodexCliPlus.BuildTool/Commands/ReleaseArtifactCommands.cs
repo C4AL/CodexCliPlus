@@ -15,7 +15,7 @@ public static class ReleaseArtifactCommands
 {
     public static async Task<int> WriteChecksumsAsync(BuildContext context)
     {
-        var files = EnumerateReleaseFiles(context)
+        var files = EnumeratePublicPackageFiles(context)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(
                 path => ToRepositoryRelativePath(context, path),
@@ -85,32 +85,68 @@ public static class ReleaseArtifactCommands
         return 0;
     }
 
-    private static IEnumerable<string> EnumerateReleaseFiles(BuildContext context)
+    public static async Task<int> ExportPublicReleaseAsync(BuildContext context)
+    {
+        if (!File.Exists(context.ChecksumsPath) || !File.Exists(context.ReleaseManifestPath))
+        {
+            var checksumExitCode = await WriteChecksumsAsync(context);
+            if (checksumExitCode != 0)
+            {
+                return checksumExitCode;
+            }
+        }
+
+        SafeFileSystem.CleanDirectory(context.PublicReleaseRoot, context.Options.OutputRoot);
+        Directory.CreateDirectory(context.PublicReleaseRoot);
+
+        var files = EnumeratePublicPackageFiles(context)
+            .Concat([context.ChecksumsPath, context.ReleaseManifestPath])
+            .Where(File.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (files.Length == 0)
+        {
+            context.Logger.Error("No public release files found for export.");
+            return 1;
+        }
+
+        foreach (var file in files)
+        {
+            File.Copy(
+                file,
+                Path.Combine(context.PublicReleaseRoot, Path.GetFileName(file)),
+                overwrite: true
+            );
+            context.Logger.Info($"public release file: {Path.GetFileName(file)}");
+        }
+
+        context.Logger.Info($"public release export: {context.PublicReleaseRoot}");
+        return 0;
+    }
+
+    private static IEnumerable<string> EnumeratePublicPackageFiles(BuildContext context)
     {
         foreach (var file in EnumerateFilesIfExists(context.PackageRoot))
         {
-            yield return file;
-        }
-
-        foreach (
-            var file in new[]
-            {
-                context.AssetManifestPath,
-                Path.Combine(context.PublishRoot, "publish-manifest.json"),
-            }
-        )
-        {
-            if (File.Exists(file))
+            if (IsPublicPackageFile(context, file))
             {
                 yield return file;
             }
         }
+    }
 
-        var sbomRoot = Path.Combine(context.Options.RepositoryRoot, "artifacts", "sbom");
-        foreach (var file in EnumerateFilesIfExists(sbomRoot))
-        {
-            yield return file;
-        }
+    private static bool IsPublicPackageFile(BuildContext context, string path)
+    {
+        var fileName = Path.GetFileName(path);
+        var offlineInstallerName =
+            $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe";
+        var updatePackageName =
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
+
+        return string.Equals(fileName, offlineInstallerName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileName, updatePackageName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<string> EnumerateFilesIfExists(string directory)

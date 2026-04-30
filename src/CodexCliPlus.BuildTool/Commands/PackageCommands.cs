@@ -285,7 +285,7 @@ public static class PackageCommands
 
         var exitCode = await context.ProcessRunner.RunAsync(
             toolchain.SevenZipPath,
-            ["a", archivePath, ".\\*", "-t7z", "-mx=5", "-mf=BCJ2", "-r", "-y"],
+            ["a", archivePath, ".\\*", "-t7z", "-mx=1", "-mf=BCJ2", "-mmt=on", "-r", "-y"],
             appPackageRoot,
             context.Logger
         );

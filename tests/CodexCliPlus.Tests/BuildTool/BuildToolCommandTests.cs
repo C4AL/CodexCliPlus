@@ -31,6 +31,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("write-checksums", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("export-public-release", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("clean-artifacts", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -258,21 +259,42 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains(
             "ResolveCodexCliPlusSecretRefs(&cfg)",
             File.ReadAllText(
-                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "config.go"
+                )
             ),
             StringComparison.Ordinal
         );
         Assert.Contains(
             "CodexCliPlusGPTOnlyConfigForWrite(cfg)",
             File.ReadAllText(
-                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "config.go"
+                )
             ),
             StringComparison.Ordinal
         );
         Assert.Contains(
             "ProtectCodexCliPlusSecretRefsForWrite(persistCfg)",
             File.ReadAllText(
-                Path.Combine(outputRoot, "temp", "backend-source", "internal", "config", "config.go")
+                Path.Combine(
+                    outputRoot,
+                    "temp",
+                    "backend-source",
+                    "internal",
+                    "config",
+                    "config.go"
+                )
             ),
             StringComparison.Ordinal
         );
@@ -361,11 +383,27 @@ public sealed class BuildToolCommandTests : IDisposable
         var patchedServer = File.ReadAllText(
             Path.Combine(patchedBackendSourceRoot, "internal", "api", "server.go")
         );
-        Assert.DoesNotContain("s.engine.Group(\"/v1beta\")", patchedServer, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "s.engine.Group(\"/v1beta\")",
+            patchedServer,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("v1.POST(\"/messages\"", patchedServer, StringComparison.Ordinal);
-        Assert.DoesNotContain("mgmt.GET(\"/gemini-api-key\"", patchedServer, StringComparison.Ordinal);
-        Assert.DoesNotContain("mgmt.GET(\"/claude-api-key\"", patchedServer, StringComparison.Ordinal);
-        Assert.Contains("s.engine.GET(\"/codex/callback\"", patchedServer, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "mgmt.GET(\"/gemini-api-key\"",
+            patchedServer,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "mgmt.GET(\"/claude-api-key\"",
+            patchedServer,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "s.engine.GET(\"/codex/callback\"",
+            patchedServer,
+            StringComparison.Ordinal
+        );
 
         var patchedPromptCacheRetention = File.ReadAllText(
             Path.Combine(
@@ -376,7 +414,11 @@ public sealed class BuildToolCommandTests : IDisposable
                 "codexcliplus_prompt_cache_retention.go"
             )
         );
-        Assert.Contains("prompt_cache_retention", patchedPromptCacheRetention, StringComparison.Ordinal);
+        Assert.Contains(
+            "prompt_cache_retention",
+            patchedPromptCacheRetention,
+            StringComparison.Ordinal
+        );
         Assert.Contains("gpt-5.1", patchedPromptCacheRetention, StringComparison.Ordinal);
         Assert.Contains("openai-response", patchedPromptCacheRetention, StringComparison.Ordinal);
         Assert.Contains(
@@ -390,7 +432,11 @@ public sealed class BuildToolCommandTests : IDisposable
         );
         Assert.DoesNotContain("translator/claude", patchedTranslatorInit, StringComparison.Ordinal);
         Assert.DoesNotContain("translator/gemini", patchedTranslatorInit, StringComparison.Ordinal);
-        Assert.DoesNotContain("translator/antigravity", patchedTranslatorInit, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "translator/antigravity",
+            patchedTranslatorInit,
+            StringComparison.Ordinal
+        );
 
         Assert.Contains(
             runner.Calls,
@@ -551,6 +597,14 @@ public sealed class BuildToolCommandTests : IDisposable
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
             "installer"
         );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
+            "internal staging package"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            "update"
+        );
         Directory.CreateDirectory(Path.Combine(outputRoot, "assets"));
         await File.WriteAllTextAsync(
             Path.Combine(outputRoot, "assets", "asset-manifest.json"),
@@ -589,8 +643,69 @@ public sealed class BuildToolCommandTests : IDisposable
             checksums,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "artifacts/buildtool/packages/CodexCliPlus.Update.9.9.9.win-x64.zip",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "artifacts/buildtool/packages/CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("asset-manifest.json", checksums, StringComparison.Ordinal);
+        Assert.DoesNotContain("publish-manifest.json", checksums, StringComparison.Ordinal);
         Assert.Contains("\"version\": \"9.9.9\"", manifest, StringComparison.Ordinal);
         Assert.Contains("\"sha256\"", manifest, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ExportPublicReleaseCopiesOnlyInstallableAssetsAndMetadata()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
+            "installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
+            "internal staging package"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            "update"
+        );
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "export-public-release",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        var publicRoot = Path.Combine(outputRoot, "public-release");
+        Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe")));
+        Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip")));
+        Assert.True(File.Exists(Path.Combine(publicRoot, "SHA256SUMS.txt")));
+        Assert.True(File.Exists(Path.Combine(publicRoot, "release-manifest.json")));
+        Assert.False(
+            File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"))
+        );
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -648,10 +763,12 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["output/CodexCliPlus.Setup.Offline.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
-                    CreateStubExecutableBytes(),
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"] =
-                    CreateStubExecutableBytes(),
+                [
+                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
+                ] = CreateStubExecutableBytes(),
+                [
+                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
+                ] = CreateStubExecutableBytes(),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
@@ -1029,10 +1146,12 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
                 [$"output/{installerName}"] = installerBytes,
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
-                    CreateStubExecutableBytes(),
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"] =
-                    CreateStubExecutableBytes(),
+                [
+                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
+                ] = CreateStubExecutableBytes(),
+                [
+                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
+                ] = CreateStubExecutableBytes(),
                 ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),

@@ -121,8 +121,8 @@ interface DesktopBridge {
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
   managementRequest?: (request: DesktopManagementRequest & { requestId: string }) => void;
-  requestLocalDependencySnapshot?: (requestId: string) => void;
-  runLocalDependencyRepair?: (actionId: string, requestId: string) => void;
+  requestLocalDependencySnapshot?: (requestId: string) => boolean | void;
+  runLocalDependencyRepair?: (actionId: string, requestId: string) => boolean | void;
 }
 
 declare global {
@@ -614,7 +614,10 @@ export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapsho
     LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS
   );
   try {
-    bridge.requestLocalDependencySnapshot(requestId);
+    const posted = bridge.requestLocalDependencySnapshot(requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再检测。');
+    }
   } catch (error) {
     const pending = pendingLocalDependencyRequests.get(requestId);
     if (pending) window.clearTimeout(pending.timer);
@@ -639,7 +642,10 @@ export function runLocalDependencyRepair(
     LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS
   );
   try {
-    bridge.runLocalDependencyRepair(actionId, requestId);
+    const posted = bridge.runLocalDependencyRepair(actionId, requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再修复。');
+    }
   } catch (error) {
     const pending = pendingLocalDependencyRequests.get(requestId);
     if (pending) window.clearTimeout(pending.timer);

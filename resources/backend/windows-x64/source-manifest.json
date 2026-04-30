@@ -9,7 +9,7 @@
   "sourceCommit": "6ba7c810a78c9afa88550a80b90c48b24e8b4852",
   "buildKind": "local-patched",
   "buildDate": "2026-04-30",
-  "managedExecutableSha256": "89e26543c4dd651d02b0b7ffae012345762145ea089c01ec25d342700886778b",
+  "managedExecutableSha256": "56c7f125e8304065eb03df444a56cbedeb408182efa4decc2d435dadeae18265",
   "remoteArchiveFallbackEnabled": false,
   "upstreamExecutableName": "cli-proxy-api.exe",
   "managedExecutableName": "ccp-core.exe",

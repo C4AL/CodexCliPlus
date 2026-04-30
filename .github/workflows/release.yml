@@ -122,25 +122,18 @@ jobs:
       - name: Write checksums
         run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
 
+      - name: Export public release files
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- export-public-release --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+
       - name: Generate artifact attestations
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
         with:
           subject-path: |
-            artifacts/buildtool/packages/*
-            artifacts/buildtool/SHA256SUMS.txt
-            artifacts/buildtool/release-manifest.json
-            artifacts/buildtool/assets/asset-manifest.json
-            artifacts/buildtool/publish/win-x64/publish-manifest.json
-            artifacts/sbom/*
+            artifacts/buildtool/public-release/*
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: codexcliplus-release
           path: |
-            artifacts/buildtool/packages
-            artifacts/buildtool/SHA256SUMS.txt
-            artifacts/buildtool/release-manifest.json
-            artifacts/buildtool/assets/asset-manifest.json
-            artifacts/buildtool/publish/win-x64/publish-manifest.json
-            artifacts/sbom
+            artifacts/buildtool/public-release

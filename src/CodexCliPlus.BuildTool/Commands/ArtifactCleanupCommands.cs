@@ -20,6 +20,7 @@ public static class ArtifactCleanupCommands
             {
                 context.PublishRoot,
                 context.PackageRoot,
+                context.PublicReleaseRoot,
                 context.InstallerRoot,
                 Path.Combine(context.Options.OutputRoot, "temp"),
             }

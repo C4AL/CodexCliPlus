@@ -20,14 +20,20 @@ public static class DesktopBridgeScriptFactory
               const payload = Object.freeze({{payloadJson}});
               let bootstrap = payload;
 
+              const hasHostBridge = () =>
+                Boolean(window.chrome?.webview && typeof window.chrome.webview.postMessage === 'function');
+
               const postHostMessage = (message) => {
-                if (window.chrome?.webview && typeof window.chrome.webview.postMessage === 'function') {
-                  window.chrome.webview.postMessage(message);
+                if (!hasHostBridge()) {
+                  return false;
                 }
+
+                window.chrome.webview.postMessage(message);
+                return true;
               };
 
               const bridge = {
-                isDesktopMode: () => true,
+                isDesktopMode: () => hasHostBridge(),
                 consumeBootstrap: () => {
                   if (!bootstrap) {
                     return null;

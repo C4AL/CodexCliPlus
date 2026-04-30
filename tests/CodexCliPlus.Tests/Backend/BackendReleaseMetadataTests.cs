@@ -31,7 +31,7 @@ public sealed class BackendReleaseMetadataTests
             BackendReleaseMetadata.SourceCommit
         );
         Assert.Equal(
-            "89e26543c4dd651d02b0b7ffae012345762145ea089c01ec25d342700886778b",
+            "56c7f125e8304065eb03df444a56cbedeb408182efa4decc2d435dadeae18265",
             BackendReleaseMetadata.BundledExecutableSha256
         );
         Assert.False(BackendReleaseMetadata.RemoteArchiveFallbackEnabled);

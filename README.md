@@ -5,8 +5,6 @@
 <h1 align="center">CodexCliPlus</h1>
 
 <p align="center">
-  由 CLIProxyAPI 驱动的 Windows 版 Codex CLI 管理平台
-  <br />
   基于 CLIProxyAPI 的 Codex Windows CLI 一站式管理增强平台
   <br />
   C# / WPF / WebView2 / .NET 10 + CLIProxyAPI Go 后端 + Codex CLI 增强层

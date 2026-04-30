@@ -31,8 +31,8 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-assets
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- build-webui
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- publish
-dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-online-installer
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-offline-installer
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-update
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-package
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums
 ```
@@ -60,15 +60,15 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-assets --version <version>
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- build-webui --version <version>
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- publish --configuration Release --runtime win-x64 --version <version>
-dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-online-installer --configuration Release --runtime win-x64 --version <version>
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-offline-installer --configuration Release --runtime win-x64 --version <version>
+dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- package-update --configuration Release --runtime win-x64 --version <version>
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- verify-package --configuration Release --runtime win-x64 --version <version>
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version <version>
 ```
 
 `build-webui` 会从 `resources/webui/upstream/source` 构建 WebUI，并把产物写入 `artifacts/buildtool/assets/webui/upstream`。`publish` 会校验后端资产、刷新 WebUI 生成产物，再执行桌面端 self-contained publish，并把后端、WebUI、许可证和发布清单复制到输出目录。
 
-`publish` 会签名桌面主程序；`package-online-installer` 和 `package-offline-installer` 会签名安装器 exe。zip、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录 `signed`、`signatureKind`、`signatureMetadataPath` 和 `attestationExpected`。
+`publish` 会签名桌面主程序；`package-offline-installer` 会签名安装器 exe；`package-update` 会生成更新包并写入签名或未签名侧车元数据。zip、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录 `signed`、`signatureKind`、`signatureMetadataPath` 和 `attestationExpected`。
 
 ## 输出结构
 
@@ -78,14 +78,10 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 - `publish/<rid>/assets/backend/windows-x64/ccp-core.exe`
 - `publish/<rid>/assets/webui/upstream/dist/index.html`
 - `publish/<rid>/assets/webui/upstream/sync.json`
-- `packages/CodexCliPlus.Setup.Online.<version>.exe`
-- `packages/CodexCliPlus.Setup.Online.<version>.exe.signature.json`
-- `packages/CodexCliPlus.Setup.Online.<version>.<rid>.zip`
-- `packages/CodexCliPlus.Setup.Online.<version>.<rid>.zip.signature.json`
 - `packages/CodexCliPlus.Setup.Offline.<version>.exe`
-- `packages/CodexCliPlus.Setup.Offline.<version>.exe.signature.json`
 - `packages/CodexCliPlus.Setup.Offline.<version>.<rid>.zip`
-- `packages/CodexCliPlus.Setup.Offline.<version>.<rid>.zip.signature.json`
+- `packages/CodexCliPlus.Update.<version>.<rid>.zip`
+- `packages/*.signature.json` 或 `packages/*.unsigned.json`
 - `SHA256SUMS.txt`
 - `release-manifest.json`
 
@@ -105,6 +101,6 @@ gh attestation verify .\CodexCliPlus.Setup.Offline.<version>.exe --repo C4AL/Cod
 - `ccp-core.exe` 是 CodexCliPlus 的托管后端资产名，不能在发布目录中改回 `cli-proxy-api.exe`。
 - `resources/webui/upstream/source` 和 `resources/webui/upstream/sync.json` 是 WebUI 来源契约；`resources/webui/upstream/dist` 是本地生成目录，不再作为源码跟踪内容。
 - `resources/source-manifest.json` 记录字体、图标和 WebUI logo 的来源、许可证、大小与 SHA-256；变更这些资源必须同步更新 manifest。
-- 在线安装器用于后续在线依赖/更新路径，离线安装器用于捆绑优先的完整校验路径。
+- 离线安装器用于捆绑优先的完整校验路径；更新包用于已安装版本的文件级更新路径。
 - `verify-package` 是包结构和关键可执行文件校验，不等同于完整安装、卸载和更新验收。
 - 稳定更新元数据指向 `https://github.com/C4AL/CodexCliPlus/releases/latest`；Beta 仍为保留渠道。

@@ -13,10 +13,6 @@ const DashboardOverviewPage = lazyPage(
   () => import("@/pages/DashboardOverviewPage"),
   "DashboardOverviewPage",
 );
-const RuntimeOverviewPage = lazyPage(
-  () => import("@/pages/RuntimeOverviewPage"),
-  "RuntimeOverviewPage",
-);
 const AiProvidersPage = lazyPage(
   () => import("@/pages/AiProvidersPage"),
   "AiProvidersPage",
@@ -110,7 +106,7 @@ const mainRoutes = [
   { path: "/dashboard", element: dashboardRoute },
   {
     path: "/console",
-    element: route("runtime-overview", <RuntimeOverviewPage />),
+    element: route("dashboard-overview", <DashboardOverviewPage />),
   },
   { path: "/settings", element: <Navigate to="/config" replace /> },
   { path: "/api-keys", element: <Navigate to="/config" replace /> },

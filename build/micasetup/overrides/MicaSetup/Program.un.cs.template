@@ -3,19 +3,20 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 using MicaSetup.Attributes;
+using MicaSetup.Core;
 using MicaSetup.Design.Controls;
 using MicaSetup.Extension.DependencyInjection;
 using MicaSetup.Services;
 using MicaSetup.Views;
 
 [assembly: Guid("__PRODUCT_GUID__")]
-[assembly: AssemblyTitle("CodexCliPlus Uninstall")]
+[assembly: AssemblyTitle("CodexCliPlus 卸载程序")]
 [assembly: AssemblyProduct("CodexCliPlus")]
-[assembly: AssemblyDescription("CodexCliPlus Uninstall")]
+[assembly: AssemblyDescription("CodexCliPlus 卸载程序")]
 [assembly: AssemblyCompany("__PUBLISHER__")]
 [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
 [assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
-[assembly: RequestExecutionLevel("user")]
+[assembly: RequestExecutionLevel("admin")]
 
 namespace MicaSetup;
 
@@ -29,6 +30,7 @@ internal static class Program
             .UseLogger(false)
             .UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall")
             .UseTempPathFork()
+            .UseElevated()
             .UseDpiAware()
             .UseOptions(option =>
             {
@@ -39,7 +41,7 @@ internal static class Program
                 option.IsCreateStartMenu = true;
                 option.IsCreateQuickLaunch = false;
                 option.IsCreateAsAutoRun = false;
-                option.IsUseRegistryPreferX86 = null;
+                option.IsUseRegistryPreferX86 = null!;
                 option.IsAllowFirewall = false;
                 option.IsRefreshExplorer = true;
                 option.IsInstallCertificate = false;
@@ -53,16 +55,15 @@ internal static class Program
                 option.DisplayIcon = option.ExeName;
                 option.DisplayVersion = "__DISPLAY_VERSION__";
                 option.Publisher = "__PUBLISHER__";
-                option.SetupName = option.AppName + " Uninstall";
+                option.SetupName = option.AppName + " 卸载程序";
                 option.MessageOfPage1 = "CodexCliPlus";
-                option.MessageOfPage2 = "Removing CodexCliPlus";
-                option.MessageOfPage3 = "CodexCliPlus has been removed.";
+                option.MessageOfPage2 = "正在卸载 CodexCliPlus";
+                option.MessageOfPage3 = "卸载完成";
             })
             .UseServices(service =>
             {
-                // Optional future hook:
-                // Load cleanup-manifest.json here, surface a keep-user-data choice,
-                // then execute the selected cleanup profile before exit.
+                service.AddSingleton<ITrService, TrService>();
+                service.AddScoped<IExplorerService, ExplorerService>();
             })
             .CreateApp()
             .UseLocale()

@@ -421,9 +421,19 @@
 }
 
 .localEnvironmentError {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   color: $error-color;
   background: rgba($error-color, 0.08);
   border: 1px solid rgba($error-color, 0.2);
+}
+
+.localEnvironmentErrorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .localEnvironmentNotice {

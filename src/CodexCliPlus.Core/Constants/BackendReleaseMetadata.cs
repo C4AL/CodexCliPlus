@@ -20,7 +20,7 @@ public static class BackendReleaseMetadata
     public const string SourceCommit = "6ba7c810a78c9afa88550a80b90c48b24e8b4852";
 
     public const string BundledExecutableSha256 =
-        "56c7f125e8304065eb03df444a56cbedeb408182efa4decc2d435dadeae18265";
+        "616a2d914bb7da2f16d6b3bf7e7d469e569b66b86892ae27b0059223d6f62a65";
 
     public static bool RemoteArchiveFallbackEnabled => false;
 }

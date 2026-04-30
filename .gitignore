@@ -9,8 +9,26 @@ resources/backend/windows-x64/*
 !resources/backend/windows-x64/README.md
 !resources/backend/windows-x64/README_CN.md
 !resources/backend/windows-x64/config.example.yaml
-!resources/backend/windows-x64/ccp-core.exe
 !resources/backend/windows-x64/source-manifest.json
+!resources/backend/backend-source-manifest.json
+!resources/backend/source/
+!resources/backend/source/**
+resources/backend/source/.dockerignore
+resources/backend/source/.env.example
+resources/backend/source/.github/
+resources/backend/source/.gitignore
+resources/backend/source/.goreleaser.yml
+resources/backend/source/AGENTS.md
+resources/backend/source/assets/
+resources/backend/source/Dockerfile
+resources/backend/source/README*.md
+resources/backend/source/auths/
+resources/backend/source/docker-*.*
+resources/backend/source/docker-compose.yml
+resources/backend/source/docs/
+resources/backend/source/examples/
+resources/backend/source/ccp-core.exe
+resources/backend/source/cli-proxy-api.exe
 
 resources/webui/upstream/dist/
 resources/webui/upstream/source/node_modules/

@@ -1,0 +1,23 @@
+{
+  "component": "CLIProxyAPI",
+  "sourceUrl": "https://github.com/router-for-me/CLIProxyAPI",
+  "version": "6.9.45",
+  "releaseTag": "v6.9.45",
+  "sourceCommit": "6ba7c810a78c9afa88550a80b90c48b24e8b4852",
+  "sourceRoot": "resources/backend/source",
+  "buildKind": "repo-source",
+  "compatibilityPatchVersion": "codexcliplus-2026.04.30",
+  "goVersion": "go1.26.2",
+  "generatedArtifact": {
+    "fileName": "ccp-core.exe",
+    "runtime": "win-x64",
+    "sha256": "616a2d914bb7da2f16d6b3bf7e7d469e569b66b86892ae27b0059223d6f62a65",
+    "size": 25052160
+  },
+  "upgradedAtUtc": "2026-04-30T16:00:00Z",
+  "notes": [
+    "Normal build output is generated from resources/backend/source.",
+    "The upstream archive entry cli-proxy-api.exe remains an input name only; CodexCliPlus packages ccp-core.exe.",
+    "Use BuildTool sync-backend-source for intentional upstream source comparison before updating this manifest."
+  ]
+}

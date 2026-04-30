@@ -91,6 +91,7 @@ public sealed class SigningTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out-verify-signed");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
+        await CreateSignedInstallerPackageAsync(packageRoot, "Online");
         await CreateSignedInstallerPackageAsync(packageRoot, "Offline");
         CreateUpdatePackage(packageRoot);
         var context = CreateContext(repositoryRoot, outputRoot, new RecordingProcessRunner());
@@ -107,6 +108,7 @@ public sealed class SigningTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out-verify-unsigned");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
+        CreateUnsignedInstallerPackage(packageRoot, "Online");
         CreateUnsignedInstallerPackage(packageRoot, "Offline");
         CreateUpdatePackage(packageRoot);
         var context = CreateContext(repositoryRoot, outputRoot, new RecordingProcessRunner());
@@ -269,11 +271,14 @@ public sealed class SigningTests : IDisposable
             $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}",
             CreateExecutableBytes()
         );
-        WriteEntry(
-            archive,
-            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
-            CreateExecutableBytes()
-        );
+        if (installerName.Contains(".Offline.", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteEntry(
+                archive,
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
+                CreateExecutableBytes()
+            );
+        }
         WriteEntry(
             archive,
             "app-package/packaging/uninstall-cleanup.json",

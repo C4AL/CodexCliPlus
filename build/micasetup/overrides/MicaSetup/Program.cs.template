@@ -9,13 +9,13 @@ using MicaSetup.Services;
 using MicaSetup.Views;
 
 [assembly: Guid("__PRODUCT_GUID__")]
-[assembly: AssemblyTitle("CodexCliPlus Setup")]
+[assembly: AssemblyTitle("CodexCliPlus 安装程序")]
 [assembly: AssemblyProduct("CodexCliPlus")]
-[assembly: AssemblyDescription("CodexCliPlus Setup")]
+[assembly: AssemblyDescription("CodexCliPlus 安装程序")]
 [assembly: AssemblyCompany("__PUBLISHER__")]
 [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
 [assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
-[assembly: RequestExecutionLevel("user")]
+[assembly: RequestExecutionLevel("admin")]
 
 namespace MicaSetup;
 
@@ -28,6 +28,7 @@ internal static class Program
             .UseLogger(false)
             .UseSingleInstance("BlackblockInc.CodexCliPlus.Setup")
             .UseTempPathFork()
+            .UseElevated()
             .UseDpiAware()
             .UseOptions(option =>
             {
@@ -39,13 +40,13 @@ internal static class Program
                 option.IsCreateQuickLaunch = false;
                 option.IsCreateRegistryKeys = true;
                 option.IsCreateAsAutoRun = false;
-                option.IsCustomizeVisiableAutoRun = false;
+                option.IsCustomizeVisiableAutoRun = true;
                 option.AutoRunLaunchCommand = "__AUTO_RUN_LAUNCH_COMMAND__";
                 option.IsUseFolderPickerPreferClassic = false;
                 option.IsUseInstallPathPreferX86 = false;
-                option.IsUseInstallPathPreferAppDataLocalPrograms = true;
+                option.IsUseInstallPathPreferAppDataLocalPrograms = false;
                 option.IsUseInstallPathPreferAppDataRoaming = false;
-                option.IsUseRegistryPreferX86 = null;
+                option.IsUseRegistryPreferX86 = null!;
                 option.IsAllowFullFolderSecurity = true;
                 option.IsAllowFirewall = false;
                 option.IsRefreshExplorer = true;
@@ -62,16 +63,16 @@ internal static class Program
                 option.DisplayIcon = option.ExeName;
                 option.DisplayVersion = "__DISPLAY_VERSION__";
                 option.Publisher = "__PUBLISHER__";
-                option.SetupName = option.AppName + " Setup";
+                option.SetupName = option.AppName + " 安装程序";
                 option.MessageOfPage1 = "CodexCliPlus";
-                option.MessageOfPage2 = "Installing CodexCliPlus";
-                option.MessageOfPage3 = "CodexCliPlus has been installed.";
+                option.MessageOfPage2 = "正在安装 CodexCliPlus";
+                option.MessageOfPage3 = "安装完成";
             })
             .UseServices(service =>
             {
-                // Optional future hook:
-                // Register cleanup-manifest aware services here when the source-build route
-                // needs custom install or post-install behavior beyond micasetup.json.
+                service.AddSingleton<ITrService, TrService>();
+                service.AddScoped<IDotNetVersionService, DotNetVersionService>();
+                service.AddScoped<IExplorerService, ExplorerService>();
             })
             .CreateApp()
             .UseLocale()

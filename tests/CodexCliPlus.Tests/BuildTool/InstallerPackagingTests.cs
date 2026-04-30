@@ -165,7 +165,7 @@ public sealed class InstallerPackagingTests : IDisposable
     }
 
     [Fact]
-    public async Task PackageInstallerFallsBackToPatchedTemplateWhenMakemicaOutputIsInvalid()
+    public async Task PackageInstallerUsesRepoOwnedSourceBuildWhenMakemicaOutputIsInvalid()
     {
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-fallback");
@@ -307,6 +307,7 @@ public sealed class InstallerPackagingTests : IDisposable
         File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
         File.WriteAllText(Path.Combine(repositoryRoot, "LICENSE.txt"), "license");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "build", "micasetup"));
+        CreateRepoOwnedMicaSourceTemplates(repositoryRoot);
         var iconRoot = Path.Combine(repositoryRoot, "resources", "icons");
         Directory.CreateDirectory(iconRoot);
         File.WriteAllBytes(
@@ -378,6 +379,100 @@ public sealed class InstallerPackagingTests : IDisposable
                 "micasetup-tools-version.txt"
             ),
             "repo-owned-test"
+        );
+    }
+
+    private static void CreateRepoOwnedMicaSourceTemplates(string repositoryRoot)
+    {
+        var overlayRoot = Path.Combine(
+            repositoryRoot,
+            "build",
+            "micasetup",
+            "overrides",
+            "MicaSetup"
+        );
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "ViewModels", "Inst"));
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "ViewModels", "Uninst"));
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "Views", "Inst"));
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "Helper", "Setup"));
+
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "Program.cs.template"),
+            """
+            [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
+            [assembly: RequestExecutionLevel("admin")]
+            Hosting.CreateBuilder().UseElevated().UseSingleInstance("BlackblockInc.CodexCliPlus.Setup").UseOptions(option => { option.DisplayVersion = "__DISPLAY_VERSION__"; });
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "Program.un.cs.template"),
+            """
+            [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
+            Hosting.CreateBuilder().UseElevated().UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall").UseOptions(option => { option.ExeName = "CodexCliPlus.exe"; option.KeepMyData = false; });
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "ViewModels", "Inst", "InstallViewModel.cs.template"),
+            $$"""
+            private bool EnsureCodexCliPlusWebView2RuntimeInstalled()
+            {
+                string bootstrapperPath = "{{WebView2RuntimeAssets.BootstrapperFileName}}";
+                string standalonePath = "{{WebView2RuntimeAssets.StandaloneX64FileName}}";
+                string reason = "无法安装 Microsoft Edge WebView2 Runtime";
+                return bootstrapperPath.Length + standalonePath.Length + reason.Length > 0;
+            }
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "Views", "Inst", "FinishPage.xaml.template"),
+            """
+            <CheckBox Content="完成后删除安装包" IsChecked="{Binding CleanupInstallerAfterInstall}" />
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "ViewModels", "Inst", "FinishViewModel.cs.template"),
+            """
+            public sealed class FinishViewModel
+            {
+                public void Close()
+                {
+                    CleanupOriginalInstallerAfterInstall();
+                }
+
+                public void Open()
+                {
+                    CleanupOriginalInstallerAfterInstall();
+                }
+
+                private void CleanupOriginalInstallerAfterInstall()
+                {
+                    _ = TempPathForkHelper.ForkedCli;
+                    _ = ComputeCodexCliPlusSha256("setup.exe");
+                }
+
+                private static string ComputeCodexCliPlusSha256(string path) => path;
+            }
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "ViewModels", "Uninst", "MainViewModel.cs.template"),
+            """
+            public sealed class MainViewModel
+            {
+                private bool isElevated = true;
+            }
+            """
+        );
+        File.WriteAllText(
+            Path.Combine(overlayRoot, "Helper", "Setup", "UninstallHelper.cs.template"),
+            """
+            public static class UninstallHelper
+            {
+                private static void CleanupCodexCliPlusUserData()
+                {
+                }
+            }
+            """
         );
     }
 

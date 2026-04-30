@@ -66,6 +66,7 @@ public sealed class ManagementOverviewServiceTests
 
         Assert.Same(results[0], results[1]);
         Assert.Equal(1, services.Usage.GetUsageCalls);
+        Assert.Equal(0, services.Auth.ProviderCalls);
         Assert.Equal(1, services.System.GetAvailableModelsCalls);
     }
 

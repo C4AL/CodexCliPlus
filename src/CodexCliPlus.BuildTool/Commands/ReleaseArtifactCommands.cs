@@ -44,8 +44,10 @@ public static class ReleaseArtifactCommands
                 new
                 {
                     path = relativePath,
+                    fileName = Path.GetFileName(file),
                     size = new FileInfo(file).Length,
                     sha256,
+                    purpose = GetPublicArtifactPurpose(context, file),
                     signed = signature?.Metadata.HasSignature ?? false,
                     signatureKind = signature?.Metadata.SignatureKind ?? "none",
                     signatureMetadataPath,
@@ -100,7 +102,7 @@ public static class ReleaseArtifactCommands
         Directory.CreateDirectory(context.PublicReleaseRoot);
 
         var files = EnumeratePublicPackageFiles(context)
-            .Concat([context.ChecksumsPath, context.ReleaseManifestPath])
+            .Concat([context.ReleaseManifestPath])
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
@@ -140,13 +142,55 @@ public static class ReleaseArtifactCommands
     private static bool IsPublicPackageFile(BuildContext context, string path)
     {
         var fileName = Path.GetFileName(path);
+        var onlineInstallerName =
+            $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe";
         var offlineInstallerName =
             $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe";
         var updatePackageName =
             $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
 
-        return string.Equals(fileName, offlineInstallerName, StringComparison.OrdinalIgnoreCase)
+        return string.Equals(fileName, onlineInstallerName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileName, offlineInstallerName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileName, updatePackageName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetPublicArtifactPurpose(BuildContext context, string path)
+    {
+        var fileName = Path.GetFileName(path);
+        if (
+            string.Equals(
+                fileName,
+                $"{AppConstants.InstallerNamePrefix}.Online.{context.Options.Version}.exe",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return "推荐安装器：不内置 WebView2 Standalone，适合已有 WebView2 或可联网安装的电脑。";
+        }
+
+        if (
+            string.Equals(
+                fileName,
+                $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return "离线安装器：内置 WebView2 Standalone，适合无网或缺少运行时的兜底安装。";
+        }
+
+        if (
+            string.Equals(
+                fileName,
+                $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip",
+                StringComparison.OrdinalIgnoreCase
+            )
+        )
+        {
+            return "桌面端增量更新包：由已安装应用的更新器使用，不面向首次安装。";
+        }
+
+        return "公开发布产物";
     }
 
     private static IEnumerable<string> EnumerateFilesIfExists(string directory)

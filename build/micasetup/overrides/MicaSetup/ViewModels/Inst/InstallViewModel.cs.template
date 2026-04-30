@@ -1,0 +1,402 @@
+using MicaSetup.Design.ComponentModel;
+using MicaSetup.Design.Controls;
+using MicaSetup.Helper;
+using MicaSetup.Helper.Helper;
+using MicaSetup.Services;
+using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
+
+namespace MicaSetup.ViewModels;
+
+#pragma warning disable CS0162
+
+public partial class InstallViewModel : ObservableObject
+{
+    public string Message => Option.Current.MessageOfPage2;
+
+    [ObservableProperty]
+    private string installInfo = string.Empty;
+
+    [ObservableProperty]
+    private double installProgress = 0d;
+
+    public InstallViewModel()
+    {
+        Option.Current.Installing = true;
+        InstallInfo = "Preparing".Tr();
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(200).ConfigureAwait(true);
+
+            try
+            {
+                using Stream archiveStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/publish.7z");
+                InstallInfo = "ProgressTipsInstalling".Tr();
+                InstallHelper.Install(archiveStream, (progress, key) =>
+                {
+                    ApplicationDispatcherHelper.BeginInvoke(() =>
+                    {
+                        InstallProgress = progress * 100d;
+                        InstallInfo = key;
+                    });
+                });
+
+                using Stream uninstStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/Uninst.exe");
+                InstallHelper.CreateUninst(uninstStream);
+
+                if (!EnsureCodexCliPlusWebView2RuntimeInstalled())
+                {
+                    Option.Current.Installing = false;
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e);
+            }
+
+            if (Option.Current.IsAllowFullFolderSecurity)
+            {
+                try
+                {
+                    if (RuntimeHelper.IsElevated)
+                    {
+                        SecurityControlHelper.AllowFullFolderSecurity(Option.Current.InstallLocation);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e);
+                }
+            }
+
+            if (Option.Current.IsAllowFirewall)
+            {
+                try
+                {
+                    if (RuntimeHelper.IsElevated)
+                    {
+                        FirewallHelper.AllowApplication(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName));
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e);
+                }
+            }
+
+            if (false)
+            {
+                try
+                {
+                    IDotNetVersionService dotNetService = ServiceManager.GetService<IDotNetVersionService>();
+                    DotNetInstallInfo info = dotNetService.GetInfo(new Version(4, 8));
+
+                    try
+                    {
+                        if (dotNetService.GetNetFrameworkVersion() < info.Version)
+                        {
+                            InstallInfo = $"{"Preparing".Tr()} {info.Name}";
+                            if (!dotNetService.InstallNetFramework(info.Version, (t, e) =>
+                            {
+                                ApplicationDispatcherHelper.BeginInvoke(() =>
+                                {
+                                    InstallInfo = $"{t switch { ProgressType.Download => "Downloading".Tr(), _ or ProgressType.Install => "Installing".Tr() }} {info.Name}";
+                                    InstallProgress = e.ProgressPercentage;
+                                });
+                            }))
+                            {
+                                ApplicationDispatcherHelper.BeginInvoke(() =>
+                                {
+                                    _ = MessageBox.Info(null!, "ComponentInstallFailedTips".Tr(info.Name));
+                                    _ = FluentProcess.Start("explorer.exe", info.ThankYouUrl);
+                                });
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Error(e);
+                        ApplicationDispatcherHelper.BeginInvoke(() =>
+                        {
+                            _ = MessageBox.Info(null!, "ComponentInstallFailedTips".Tr(info.Name) + Environment.NewLine + e.Message);
+                            _ = FluentProcess.Start("explorer.exe", info.ThankYouUrl);
+                        });
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e);
+                }
+            }
+
+            InstallInfo = "InstallFinishTips".Tr();
+            Option.Current.Installing = false;
+            await Task.Delay(200).ConfigureAwait(false);
+
+            if (Option.Current.IsRefreshExplorer)
+            {
+                try
+                {
+                    ServiceManager.GetService<IExplorerService>()?.Refresh();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(e);
+                }
+            }
+
+            ApplicationDispatcherHelper.Invoke(Routing.GoToNext);
+        });
+    }
+
+    private bool EnsureCodexCliPlusWebView2RuntimeInstalled()
+    {
+        InstallInfo = "正在检查 WebView2 运行时";
+        if (IsCodexCliPlusWebView2RuntimeInstalled())
+        {
+            return true;
+        }
+
+        string webView2Root = Path.Combine(Option.Current.InstallLocation, "packaging", "dependencies", "webview2");
+        string bootstrapperPath = Path.Combine(webView2Root, "MicrosoftEdgeWebview2Setup.exe");
+        string standalonePath = Path.Combine(webView2Root, "MicrosoftEdgeWebView2RuntimeInstallerX64.exe");
+
+        InstallInfo = "正在安装 WebView2 运行时（在线）";
+        int? bootstrapperExitCode = RunCodexCliPlusWebView2Installer(bootstrapperPath, "/silent /install");
+        if (WaitForCodexCliPlusWebView2Runtime())
+        {
+            return true;
+        }
+
+        InstallInfo = "正在安装 WebView2 运行时（离线）";
+        int? standaloneExitCode = RunCodexCliPlusWebView2Installer(standalonePath, "/silent /install");
+        if (WaitForCodexCliPlusWebView2Runtime())
+        {
+            return true;
+        }
+
+        string reason = "无法安装 Microsoft Edge WebView2 Runtime。"
+            + $"在线安装退出码：{FormatCodexCliPlusExitCode(bootstrapperExitCode)}；"
+            + $"离线安装退出码：{FormatCodexCliPlusExitCode(standaloneExitCode)}。"
+            + "请确认安装包完整，或手动安装 WebView2 Runtime 后再启动 CodexCliPlus。";
+        Logger.Error(reason);
+        InstallInfo = "WebView2 运行时安装失败";
+        ApplicationDispatcherHelper.Invoke(() =>
+        {
+            _ = MessageBox.Info(null!, reason);
+        });
+        return false;
+    }
+
+    private static bool WaitForCodexCliPlusWebView2Runtime()
+    {
+        for (int attempt = 0; attempt < 12; attempt++)
+        {
+            if (IsCodexCliPlusWebView2RuntimeInstalled())
+            {
+                return true;
+            }
+
+            System.Threading.Thread.Sleep(500);
+        }
+
+        return false;
+    }
+
+    private static int? RunCodexCliPlusWebView2Installer(string fileName, string arguments)
+    {
+        if (!File.Exists(fileName))
+        {
+            Logger.Error($"[WebView2] installer missing: {fileName}");
+            return null;
+        }
+
+        try
+        {
+            Logger.Information($"[WebView2] start installer: {fileName} {arguments}");
+            using Process? process = Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                WorkingDirectory = Path.GetDirectoryName(fileName) ?? Option.Current.InstallLocation,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            if (process is null)
+            {
+                Logger.Error($"[WebView2] installer did not start: {fileName}");
+                return null;
+            }
+
+            if (!process.WaitForExit(10 * 60 * 1000))
+            {
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception killException)
+                {
+                    Logger.Error(killException);
+                }
+
+                Logger.Error($"[WebView2] installer timed out: {fileName}");
+                return -1;
+            }
+
+            Logger.Information($"[WebView2] installer exit code: {process.ExitCode}");
+            return process.ExitCode;
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+            return null;
+        }
+    }
+
+    private static string FormatCodexCliPlusExitCode(int? exitCode)
+    {
+        return exitCode.HasValue ? exitCode.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "未启动";
+    }
+
+    private static bool IsCodexCliPlusWebView2RuntimeInstalled()
+    {
+        return HasCodexCliPlusWebView2RegistryVersion() || HasCodexCliPlusWebView2Executable();
+    }
+
+    private static bool HasCodexCliPlusWebView2RegistryVersion()
+    {
+        const string clientKey = @"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+        const string clientKeyWow64 = @"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+
+        return HasCodexCliPlusWebView2RegistryVersion(RegistryHive.LocalMachine, RegistryView.Registry64, clientKey)
+            || HasCodexCliPlusWebView2RegistryVersion(RegistryHive.LocalMachine, RegistryView.Registry32, clientKey)
+            || HasCodexCliPlusWebView2RegistryVersion(RegistryHive.LocalMachine, RegistryView.Registry64, clientKeyWow64)
+            || HasCodexCliPlusWebView2RegistryVersion(RegistryHive.CurrentUser, RegistryView.Registry64, clientKey)
+            || HasCodexCliPlusWebView2RegistryVersion(RegistryHive.CurrentUser, RegistryView.Registry32, clientKey);
+    }
+
+    private static bool HasCodexCliPlusWebView2RegistryVersion(RegistryHive hive, RegistryView view, string keyPath)
+    {
+        try
+        {
+            using RegistryKey baseKey = RegistryKey.OpenBaseKey(hive, view);
+            using RegistryKey? key = baseKey.OpenSubKey(keyPath);
+            string? version = key?.GetValue("pv") as string;
+            return !string.IsNullOrWhiteSpace(version)
+                && !string.Equals(version, "0.0.0.0", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+            return false;
+        }
+    }
+
+    private static bool HasCodexCliPlusWebView2Executable()
+    {
+        foreach (string root in EnumerateCodexCliPlusWebView2InstallRoots())
+        {
+            try
+            {
+                if (!Directory.Exists(root))
+                {
+                    continue;
+                }
+
+                foreach (string _ in Directory.EnumerateFiles(root, "msedgewebview2.exe", SearchOption.AllDirectories))
+                {
+                    return true;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e);
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumerateCodexCliPlusWebView2InstallRoots()
+    {
+        string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        if (!string.IsNullOrWhiteSpace(programFilesX86))
+        {
+            yield return Path.Combine(programFilesX86, "Microsoft", "EdgeWebView", "Application");
+        }
+
+        string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (!string.IsNullOrWhiteSpace(programFiles))
+        {
+            yield return Path.Combine(programFiles, "Microsoft", "EdgeWebView", "Application");
+        }
+
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            yield return Path.Combine(localAppData, "Microsoft", "EdgeWebView", "Application");
+        }
+    }
+}
+
+partial class InstallViewModel
+{
+    public string InstallInfo
+    {
+        get => installInfo;
+        set
+        {
+            if (!EqualityComparer<string>.Default.Equals(installInfo, value))
+            {
+                OnInstallInfoChanging(value);
+                OnInstallInfoChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("InstallInfo"));
+                installInfo = value;
+                OnInstallInfoChanged(value);
+                OnInstallInfoChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("InstallInfo"));
+            }
+        }
+    }
+
+    public double InstallProgress
+    {
+        get => installProgress;
+        set
+        {
+            if (!EqualityComparer<double>.Default.Equals(installProgress, value))
+            {
+                OnInstallProgressChanging(value);
+                OnInstallProgressChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("InstallProgress"));
+                installProgress = value;
+                OnInstallProgressChanged(value);
+                OnInstallProgressChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("InstallProgress"));
+            }
+        }
+    }
+
+    partial void OnInstallInfoChanging(string value);
+
+    partial void OnInstallInfoChanging(string? oldValue, string newValue);
+
+    partial void OnInstallInfoChanged(string value);
+
+    partial void OnInstallInfoChanged(string? oldValue, string newValue);
+
+    partial void OnInstallProgressChanging(double value);
+
+    partial void OnInstallProgressChanging(double oldValue, double newValue);
+
+    partial void OnInstallProgressChanged(double value);
+
+    partial void OnInstallProgressChanged(double oldValue, double newValue);
+}

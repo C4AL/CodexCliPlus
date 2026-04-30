@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Reflection;
 using System.Text;
 using CodexCliPlus.BuildTool;
 using CodexCliPlus.Core.Constants;
@@ -29,6 +28,9 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Contains("fetch-assets", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("sync-backend-source", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("package-online-installer", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("package-offline-installer", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("write-checksums", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("export-public-release", output.ToString(), StringComparison.Ordinal);
@@ -210,11 +212,11 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task FetchAssetsBuildsPatchedBackendFromPinnedSourceWhenRepositoryResourcesAreIncomplete()
+    public async Task FetchAssetsBuildsManagedBackendFromRepositoryOwnedSourceWithoutCloningUpstream()
     {
-        var repositoryRoot = CreateRepositoryWithoutBackendAssets();
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
         var outputRoot = Path.Combine(_rootDirectory, "out-build");
-        var runner = new PatchedBackendBuildProcessRunner();
+        var runner = new BackendSourceBuildProcessRunner();
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -240,219 +242,26 @@ public sealed class BuildToolCommandTests : IDisposable
         );
         Assert.True(File.Exists(Path.Combine(backendRoot, "LICENSE")));
         Assert.Contains(
-            "building patched backend from source",
+            "asset built from source",
             output.ToString(),
             StringComparison.Ordinal
         );
-        Assert.True(
-            File.Exists(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "codexcliplus_secret_refs.go"
-                )
-            )
-        );
-        Assert.Contains(
-            "ResolveCodexCliPlusSecretRefs(&cfg)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "config.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "CodexCliPlusGPTOnlyConfigForWrite(cfg)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "config.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "ProtectCodexCliPlusSecretRefsForWrite(persistCfg)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "config.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "ApplyCodexCliPlusGPTOnlyConfig",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "codexcliplus_gpt_only.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "ProtectCodexCliPlusConfigYAMLForWrite(data)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "api",
-                    "handlers",
-                    "management",
-                    "config_basic.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "ProtectCodexCliPlusAuthJSONForWrite(data)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "api",
-                    "handlers",
-                    "management",
-                    "auth_files.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "ProtectCodexCliPlusAuthJSONForWrite(raw)",
-            File.ReadAllText(
-                Path.Combine(outputRoot, "temp", "backend-source", "sdk", "auth", "filestore.go")
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "func ProtectCodexCliPlusAuthJSONForWrite(data []byte) ([]byte, error)",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "codexcliplus_secret_refs.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "http.MethodPost",
-            File.ReadAllText(
-                Path.Combine(
-                    outputRoot,
-                    "temp",
-                    "backend-source",
-                    "internal",
-                    "config",
-                    "codexcliplus_secret_refs.go"
-                )
-            ),
-            StringComparison.Ordinal
-        );
-        var patchedBackendSourceRoot = Path.Combine(outputRoot, "temp", "backend-source");
-        var patchedServer = File.ReadAllText(
-            Path.Combine(patchedBackendSourceRoot, "internal", "api", "server.go")
+        Assert.False(
+            Directory.Exists(Path.Combine(outputRoot, "temp", "backend-source")),
+            "fetch-assets should build from resources/backend/source directly."
         );
         Assert.DoesNotContain(
-            "s.engine.Group(\"/v1beta\")",
-            patchedServer,
-            StringComparison.Ordinal
-        );
-        Assert.DoesNotContain("v1.POST(\"/messages\"", patchedServer, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "mgmt.GET(\"/gemini-api-key\"",
-            patchedServer,
-            StringComparison.Ordinal
-        );
-        Assert.DoesNotContain(
-            "mgmt.GET(\"/claude-api-key\"",
-            patchedServer,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "s.engine.GET(\"/codex/callback\"",
-            patchedServer,
-            StringComparison.Ordinal
-        );
-
-        var patchedPromptCacheRetention = File.ReadAllText(
-            Path.Combine(
-                patchedBackendSourceRoot,
-                "internal",
-                "runtime",
-                "executor",
-                "codexcliplus_prompt_cache_retention.go"
-            )
-        );
-        Assert.Contains(
-            "prompt_cache_retention",
-            patchedPromptCacheRetention,
-            StringComparison.Ordinal
-        );
-        Assert.Contains("gpt-5.1", patchedPromptCacheRetention, StringComparison.Ordinal);
-        Assert.Contains("openai-response", patchedPromptCacheRetention, StringComparison.Ordinal);
-        Assert.Contains(
-            "codexCliPlusShouldRetryWithoutPromptCacheRetention",
-            patchedPromptCacheRetention,
-            StringComparison.Ordinal
-        );
-
-        var patchedTranslatorInit = File.ReadAllText(
-            Path.Combine(patchedBackendSourceRoot, "internal", "translator", "init.go")
-        );
-        Assert.DoesNotContain("translator/claude", patchedTranslatorInit, StringComparison.Ordinal);
-        Assert.DoesNotContain("translator/gemini", patchedTranslatorInit, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "translator/antigravity",
-            patchedTranslatorInit,
-            StringComparison.Ordinal
-        );
-
-        Assert.Contains(
             runner.Calls,
             call => call.FileName == "git" && call.Arguments[0] == "clone"
         );
-        Assert.Contains(
+        var goModDownloadCall = Assert.Single(
             runner.Calls,
-            call =>
-                call.FileName == "git"
-                && call.Arguments.SequenceEqual(["checkout", BackendReleaseMetadata.SourceCommit])
+            call => call.FileName == "go" && call.Arguments.SequenceEqual(["mod", "download"])
         );
-        var goGetCall = Assert.Single(
-            runner.Calls,
-            call => call.FileName == "go" && call.Arguments.Count > 0 && call.Arguments[0] == "get"
+        Assert.Equal(
+            Path.Combine(repositoryRoot, "resources", "backend", "source"),
+            goModDownloadCall.WorkingDirectory
         );
-        Assert.Contains("github.com/go-git/go-git/v6@v6.0.0-alpha.2", goGetCall.Arguments);
 
         var goBuildCall = Assert.Single(
             runner.Calls,
@@ -460,6 +269,10 @@ public sealed class BuildToolCommandTests : IDisposable
                 call.FileName == "go" && call.Arguments.Count > 0 && call.Arguments[0] == "build"
         );
         Assert.Contains("-trimpath", goBuildCall.Arguments);
+        var ldflagsIndex = goBuildCall.Arguments.ToList().IndexOf("-ldflags") + 1;
+        Assert.True(ldflagsIndex > 0);
+        Assert.Contains("main.Version=6.9.45", goBuildCall.Arguments[ldflagsIndex]);
+        Assert.DoesNotContain("'main.Version", goBuildCall.Arguments[ldflagsIndex]);
         Assert.Equal("0", goBuildCall.Environment["CGO_ENABLED"]);
         Assert.Equal("windows", goBuildCall.Environment["GOOS"]);
         Assert.Equal("amd64", goBuildCall.Environment["GOARCH"]);
@@ -480,46 +293,55 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public void BackendArchiveExtractionMapsUpstreamExecutableToManagedName()
+    public async Task SyncBackendSourceClonesPinnedUpstreamAndWritesComparisonReport()
     {
-        var backendTarget = Path.Combine(_rootDirectory, "archive-assets");
-        Directory.CreateDirectory(backendTarget);
-        using var archiveStream = new MemoryStream();
-        using (var archive = new ZipArchive(archiveStream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            WriteZipEntry(
-                archive,
-                BackendExecutableNames.UpstreamExecutableFileName,
-                "upstream binary"
-            );
-            WriteZipEntry(archive, "LICENSE", "license");
-            WriteZipEntry(archive, "README.md", "readme");
-            WriteZipEntry(archive, "README_CN.md", "readme cn");
-            WriteZipEntry(archive, "config.example.yaml", "config");
-        }
-
-        archiveStream.Position = 0;
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out-sync");
+        var runner = new BackendSourceBuildProcessRunner();
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        InvokeExtractBackendArchive(archiveStream, backendTarget, new BuildLogger(output, error));
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "sync-backend-source",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+            ],
+            output,
+            error,
+            runner
+        );
 
-        Assert.True(
-            File.Exists(
-                Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)
-            )
+        Assert.Equal(0, exitCode);
+        Assert.Contains(
+            runner.Calls,
+            call => call.FileName == "git" && call.Arguments[0] == "clone"
         );
-        Assert.False(
-            File.Exists(
-                Path.Combine(backendTarget, BackendExecutableNames.UpstreamExecutableFileName)
-            )
+        Assert.Contains(
+            runner.Calls,
+            call =>
+                call.FileName == "git"
+                && call.Arguments.SequenceEqual(["checkout", BackendReleaseMetadata.SourceCommit])
         );
-        Assert.Equal(
-            "upstream binary",
-            File.ReadAllText(
-                Path.Combine(backendTarget, BackendExecutableNames.ManagedExecutableFileName)
-            )
+        Assert.Contains(
+            runner.Calls,
+            call =>
+                call.FileName == "go"
+                && call.Arguments.Count > 1
+                && call.Arguments[0] == "test"
+                && call.Arguments.Contains("./internal/api/handlers/management")
+                && call.Arguments.Contains("./internal/translator/codex/openai/responses")
         );
+        var reportPath = Path.Combine(outputRoot, "backend-source-sync-report.json");
+        Assert.True(File.Exists(reportPath));
+        var report = await File.ReadAllTextAsync(reportPath);
+        Assert.Contains("\"sourceCommit\":", report, StringComparison.Ordinal);
+        Assert.Contains("backend source sync report", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
     }
 
     [Fact]
@@ -550,12 +372,18 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task VerifyPackageAcceptsOfflineInstallerAndUpdatePackage()
+    public async Task VerifyPackageAcceptsOnlineOfflineInstallersAndUpdatePackage()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
+        CreateInstallerPackage(
+            packageRoot,
+            "Online",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         CreateInstallerPackage(
             packageRoot,
             "Offline",
@@ -594,8 +422,16 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"),
+            "online installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip"),
+            "online internal staging package"
+        );
+        await File.WriteAllTextAsync(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
-            "installer"
+            "offline installer"
         );
         await File.WriteAllTextAsync(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
@@ -639,6 +475,11 @@ public sealed class BuildToolCommandTests : IDisposable
             Path.Combine(outputRoot, "release-manifest.json")
         );
         Assert.Contains(
+            "artifacts/buildtool/packages/CodexCliPlus.Setup.Online.9.9.9.exe",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "artifacts/buildtool/packages/CodexCliPlus.Setup.Offline.9.9.9.exe",
             checksums,
             StringComparison.Ordinal
@@ -649,10 +490,17 @@ public sealed class BuildToolCommandTests : IDisposable
             StringComparison.Ordinal
         );
         Assert.DoesNotContain(
+            "artifacts/buildtool/packages/CodexCliPlus.Setup.Online.9.9.9.win-x64.zip",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
             "artifacts/buildtool/packages/CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip",
             checksums,
             StringComparison.Ordinal
         );
+        Assert.Contains("CodexCliPlus.Setup.Online.9.9.9.exe", manifest, StringComparison.Ordinal);
+        Assert.Contains("CodexCliPlus.Setup.Offline.9.9.9.exe", manifest, StringComparison.Ordinal);
         Assert.DoesNotContain("asset-manifest.json", checksums, StringComparison.Ordinal);
         Assert.DoesNotContain("publish-manifest.json", checksums, StringComparison.Ordinal);
         Assert.Contains("\"version\": \"9.9.9\"", manifest, StringComparison.Ordinal);
@@ -668,8 +516,16 @@ public sealed class BuildToolCommandTests : IDisposable
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
         await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"),
+            "online installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip"),
+            "online internal staging package"
+        );
+        await File.WriteAllTextAsync(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
-            "installer"
+            "offline installer"
         );
         await File.WriteAllTextAsync(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
@@ -699,10 +555,14 @@ public sealed class BuildToolCommandTests : IDisposable
 
         Assert.Equal(0, exitCode);
         var publicRoot = Path.Combine(outputRoot, "public-release");
+        Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Online.9.9.9.exe")));
         Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe")));
         Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip")));
-        Assert.True(File.Exists(Path.Combine(publicRoot, "SHA256SUMS.txt")));
         Assert.True(File.Exists(Path.Combine(publicRoot, "release-manifest.json")));
+        Assert.False(File.Exists(Path.Combine(publicRoot, "SHA256SUMS.txt")));
+        Assert.False(
+            File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip"))
+        );
         Assert.False(
             File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"))
         );
@@ -716,6 +576,12 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
+        CreateInstallerPackage(
+            packageRoot,
+            "Online",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         CreateInstallerPackage(packageRoot, "Offline", new byte[80], CreateStubExecutableBytes());
         CreateUpdatePackage(packageRoot);
         using var output = new StringWriter();
@@ -747,6 +613,12 @@ public sealed class BuildToolCommandTests : IDisposable
         var outputRoot = Path.Combine(_rootDirectory, "out");
         var packageRoot = Path.Combine(outputRoot, "packages");
         Directory.CreateDirectory(packageRoot);
+        CreateInstallerPackage(
+            packageRoot,
+            "Online",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"));
         CreateZipWithExecutableEntries(
             Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
@@ -989,23 +861,8 @@ public sealed class BuildToolCommandTests : IDisposable
         var repositoryRoot = Path.Combine(_rootDirectory, "repo");
         Directory.CreateDirectory(repositoryRoot);
         File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
-        var assetRoot = Path.Combine(repositoryRoot, "resources", "backend", "windows-x64");
-        Directory.CreateDirectory(assetRoot);
-        foreach (var fileName in AssetCommands.RequiredFiles)
-        {
-            File.WriteAllText(Path.Combine(assetRoot, fileName), $"{fileName} content");
-        }
-
-        return repositoryRoot;
-    }
-
-    private string CreateRepositoryWithoutBackendAssets()
-    {
-        var repositoryRoot = Path.Combine(_rootDirectory, "repo-missing-backend-assets");
-        Directory.CreateDirectory(repositoryRoot);
-        File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
-        Directory.CreateDirectory(
-            Path.Combine(repositoryRoot, "resources", "backend", "windows-x64")
+        BackendSourceBuildProcessRunner.CreatePinnedBackendSource(
+            Path.Combine(repositoryRoot, "resources", "backend", "source")
         );
         return repositoryRoot;
     }
@@ -1042,45 +899,6 @@ public sealed class BuildToolCommandTests : IDisposable
         File.WriteAllText(Path.Combine(overlayRoot, "source", "src", "message.txt"), "overlay");
 
         return repositoryRoot;
-    }
-
-    private static void CreateZipWithEntry(string packagePath, string entryName)
-    {
-        CreateZipWithEntries(packagePath, entryName);
-    }
-
-    private static void InvokeExtractBackendArchive(
-        Stream archiveStream,
-        string backendTarget,
-        BuildLogger logger
-    )
-    {
-        var method = typeof(AssetCommands).GetMethod(
-            "ExtractBackendArchive",
-            BindingFlags.Static | BindingFlags.NonPublic
-        );
-        Assert.NotNull(method);
-        method!.Invoke(null, [archiveStream, backendTarget, logger]);
-    }
-
-    private static void WriteZipEntry(ZipArchive archive, string entryName, string content)
-    {
-        var entry = archive.CreateEntry(entryName);
-        using var stream = entry.Open();
-        using var writer = new StreamWriter(stream);
-        writer.Write(content);
-    }
-
-    private static void CreateZipWithEntries(string packagePath, params string[] entryNames)
-    {
-        using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
-        foreach (var entryName in entryNames)
-        {
-            var entry = archive.CreateEntry(entryName);
-            using var stream = entry.Open();
-            using var writer = new StreamWriter(stream);
-            writer.Write("test");
-        }
     }
 
     private static void CreateZipWithExecutableEntries(
@@ -1131,32 +949,33 @@ public sealed class BuildToolCommandTests : IDisposable
         byte[] installerBytes
     )
     {
-        CreateZipWithExecutableEntries(
-            packagePath,
-            new Dictionary<string, byte[]>
-            {
-                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
-                    "<html></html>"
-                ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
-                    "console.log('ok');"
-                ),
-                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                [$"output/{installerName}"] = installerBytes,
-                [
-                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
-                ] = CreateStubExecutableBytes(),
-                [
-                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
-                ] = CreateStubExecutableBytes(),
-                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
-            }
-        );
+        var entries = new Dictionary<string, byte[]>
+        {
+            ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
+            ["app-package/assets/webui/upstream/dist/index.html"] =
+                Encoding.UTF8.GetBytes("<html></html>"),
+            ["app-package/assets/webui/upstream/dist/assets/app.js"] =
+                Encoding.UTF8.GetBytes("console.log('ok');"),
+            ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
+            [$"output/{installerName}"] = installerBytes,
+            [
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
+            ] = CreateStubExecutableBytes(),
+            ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+        };
+
+        if (installerName.Contains(".Offline.", StringComparison.OrdinalIgnoreCase))
+        {
+            entries[
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
+            ] = CreateStubExecutableBytes();
+        }
+
+        CreateZipWithExecutableEntries(packagePath, entries);
     }
 
     private static void CreateStubExecutable(string path)
@@ -1184,6 +1003,14 @@ public sealed class BuildToolCommandTests : IDisposable
         )
         {
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
+            if (fileName == "go" && arguments.Count > 0 && arguments[0] == "build")
+            {
+                var outputIndex = arguments.ToList().IndexOf("-o") + 1;
+                Assert.True(outputIndex > 0);
+                Directory.CreateDirectory(Path.GetDirectoryName(arguments[outputIndex])!);
+                File.WriteAllBytes(arguments[outputIndex], CreateStubExecutableBytes());
+            }
+
             return Task.FromResult(0);
         }
     }
@@ -1248,7 +1075,7 @@ public sealed class BuildToolCommandTests : IDisposable
         }
     }
 
-    private sealed class PatchedBackendBuildProcessRunner : IProcessRunner
+    private sealed class BackendSourceBuildProcessRunner : IProcessRunner
     {
         public List<ProcessCall> Calls { get; } = [];
 
@@ -1275,7 +1102,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 fileName == "git"
                 && arguments.Count >= 4
                 && arguments[0] == "clone"
-                && arguments[1] == "--no-checkout"
+                && arguments.Contains("--no-checkout")
             )
             {
                 CreatePinnedBackendSource(arguments[^1]);
@@ -1293,7 +1120,7 @@ public sealed class BuildToolCommandTests : IDisposable
             return Task.FromResult(0);
         }
 
-        private static void CreatePinnedBackendSource(string sourceRoot)
+        public static void CreatePinnedBackendSource(string sourceRoot)
         {
             Directory.CreateDirectory(sourceRoot);
             File.WriteAllText(Path.Combine(sourceRoot, "LICENSE"), "license");

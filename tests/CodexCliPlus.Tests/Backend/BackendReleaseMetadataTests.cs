@@ -31,7 +31,7 @@ public sealed class BackendReleaseMetadataTests
             BackendReleaseMetadata.SourceCommit
         );
         Assert.Equal(
-            "56c7f125e8304065eb03df444a56cbedeb408182efa4decc2d435dadeae18265",
+            "616a2d914bb7da2f16d6b3bf7e7d469e569b66b86892ae27b0059223d6f62a65",
             BackendReleaseMetadata.BundledExecutableSha256
         );
         Assert.False(BackendReleaseMetadata.RemoteArchiveFallbackEnabled);
@@ -45,7 +45,7 @@ public sealed class BackendReleaseMetadataTests
     }
 
     [Fact]
-    public void BackendSourceManifestMatchesPinnedRuntimeMetadata()
+    public void BackendWindowsManifestMatchesPinnedRuntimeMetadata()
     {
         var repositoryRoot = FindRepositoryRoot();
         var manifestPath = Path.Combine(
@@ -88,6 +88,41 @@ public sealed class BackendReleaseMetadataTests
     }
 
     [Fact]
+    public void BackendSourceManifestDescribesRepositoryOwnedSourceBuild()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var manifestPath = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "backend",
+            "backend-source-manifest.json"
+        );
+        using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
+        var root = document.RootElement;
+        var artifact = root.GetProperty("generatedArtifact");
+
+        Assert.Equal("CLIProxyAPI", root.GetProperty("component").GetString());
+        Assert.Equal(BackendReleaseMetadata.Version, root.GetProperty("version").GetString());
+        Assert.Equal(BackendReleaseMetadata.ReleaseTag, root.GetProperty("releaseTag").GetString());
+        Assert.Equal(
+            BackendReleaseMetadata.SourceCommit,
+            root.GetProperty("sourceCommit").GetString()
+        );
+        Assert.Equal("resources/backend/source", root.GetProperty("sourceRoot").GetString());
+        Assert.Equal("repo-source", root.GetProperty("buildKind").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("compatibilityPatchVersion").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("goVersion").GetString()));
+        Assert.Equal(
+            BackendExecutableNames.ManagedExecutableFileName,
+            artifact.GetProperty("fileName").GetString()
+        );
+        Assert.Equal(
+            BackendReleaseMetadata.BundledExecutableSha256,
+            artifact.GetProperty("sha256").GetString()
+        );
+    }
+
+    [Fact]
     public void RuntimeAndBuildToolUseSharedBackendReleaseMetadata()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -119,21 +154,10 @@ public sealed class BackendReleaseMetadataTests
             runtimeSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "BackendReleaseMetadata.ArchiveUrl",
-            buildToolSource,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "BackendReleaseMetadata.ArchiveSha256",
-            buildToolSource,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "BackendReleaseMetadata.RemoteArchiveFallbackEnabled",
-            buildToolSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("BackendReleaseMetadata.SourceCommit", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains("BackendSourceRoot", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains("go\",", buildToolSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"git\", [\"clone\"", buildToolSource, StringComparison.Ordinal);
         Assert.Contains(
             "BackendExecutableNames.ManagedExecutableFileName",
             runtimeSource,

@@ -159,7 +159,8 @@ export function DashboardPage() {
 
   const fetchLocalEnvironment = useCallback(async () => {
     if (!isDesktopMode()) {
-      setLocalEnvironmentError(t('dashboard.local_environment_desktop_required'));
+      setLocalEnvironmentError('');
+      setLocalEnvironmentSnapshot(null);
       return;
     }
 
@@ -175,6 +176,22 @@ export function DashboardPage() {
       setLocalEnvironmentLoading(false);
     }
   }, [t]);
+
+  const copyLocalEnvironmentDiagnostics = useCallback(async () => {
+    if (!localEnvironmentError) return;
+    const diagnostic = [
+      `time=${new Date().toISOString()}`,
+      `desktopMode=${isDesktopMode() ? 'true' : 'false'}`,
+      `message=${localEnvironmentError}`,
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(diagnostic);
+      showNotification(t('dashboard.local_environment_diagnostics_copied'), 'success');
+    } catch {
+      showNotification(diagnostic, 'warning');
+    }
+  }, [localEnvironmentError, showNotification, t]);
 
   const fetchStats = useCallback(async () => {
       setLoading(true);
@@ -350,6 +367,7 @@ export function DashboardPage() {
   const localCheckedAt =
     localEnvironmentSnapshot?.checkedAt &&
     new Date(localEnvironmentSnapshot.checkedAt).toLocaleString(i18n.language);
+  const localEnvironmentDesktopMode = isDesktopMode();
 
   const routingStrategyRaw = config?.routingStrategy?.trim() || '';
   const routingSessionAffinity = Boolean(config?.routingSessionAffinity);
@@ -468,7 +486,11 @@ export function DashboardPage() {
             className={`${styles.bentoCard} ${styles.localEnvironmentCard}`}
             onClick={() => {
               setLocalEnvironmentOpen((open) => !open);
-              if (!localEnvironmentSnapshot && !localEnvironmentLoading) {
+              if (
+                localEnvironmentDesktopMode &&
+                !localEnvironmentSnapshot &&
+                !localEnvironmentLoading
+              ) {
                 void fetchLocalEnvironment();
               }
             }}
@@ -482,7 +504,9 @@ export function DashboardPage() {
               </span>
               <span className={styles.bentoLabel}>{t('dashboard.local_environment')}</span>
               <span className={styles.bentoSublabel}>
-                {localEnvironmentSnapshot
+                {!localEnvironmentDesktopMode
+                  ? t('dashboard.local_environment_desktop_only')
+                  : localEnvironmentSnapshot
                   ? t('dashboard.local_environment_sublabel', {
                       ready: localRequiredReady,
                       total: localRequiredItems.length,
@@ -500,7 +524,9 @@ export function DashboardPage() {
                 <h3>{t('dashboard.local_environment_detail')}</h3>
                 <p>
                   {localEnvironmentSnapshot?.summary ??
-                    t('dashboard.local_environment_desktop_required')}
+                    (localEnvironmentDesktopMode
+                      ? t('dashboard.local_environment_click_to_check')
+                      : t('dashboard.local_environment_desktop_unavailable_summary'))}
                 </p>
                 {localCheckedAt && (
                   <span>{t('dashboard.local_environment_checked_at', { time: localCheckedAt })}</span>
@@ -508,11 +534,33 @@ export function DashboardPage() {
               </div>
             </div>
             {localEnvironmentError && (
-              <div className={styles.localEnvironmentError}>{localEnvironmentError}</div>
+              <div className={styles.localEnvironmentError}>
+                <strong>{t('dashboard.local_environment_bridge_error_title')}</strong>
+                <span>{localEnvironmentError}</span>
+                <div className={styles.localEnvironmentErrorActions}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void fetchLocalEnvironment()}
+                    loading={localEnvironmentLoading}
+                  >
+                    {t('dashboard.local_environment_bridge_retry')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void copyLocalEnvironmentDiagnostics()}
+                  >
+                    {t('dashboard.local_environment_copy_diagnostics')}
+                  </Button>
+                </div>
+              </div>
             )}
-            {!isDesktopMode() && (
+            {!localEnvironmentDesktopMode && (
               <div className={styles.localEnvironmentNotice}>
-                {t('dashboard.local_environment_repair_desktop_only')}
+                {t('dashboard.local_environment_desktop_required')}
               </div>
             )}
             {localEnvironmentSnapshot && (
@@ -535,7 +583,7 @@ export function DashboardPage() {
                       <p>{item.detail}</p>
                       {item.recommendation && <small>{item.recommendation}</small>}
                     </div>
-                    {item.repairActionId && isDesktopMode() && (
+                    {item.repairActionId && localEnvironmentDesktopMode && (
                       <Button
                         type="button"
                         variant="secondary"

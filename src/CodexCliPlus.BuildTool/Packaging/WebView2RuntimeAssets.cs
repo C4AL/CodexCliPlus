@@ -26,9 +26,13 @@ public sealed class WebView2RuntimeAssets
     public WebView2RuntimeAsset StandaloneX64 =>
         Assets.Single(asset => asset.FileName == StandaloneX64FileName);
 
+    public WebView2RuntimeAsset? OptionalStandaloneX64 =>
+        Assets.FirstOrDefault(asset => asset.FileName == StandaloneX64FileName);
+
     public static async Task<WebView2RuntimeAssets> StageAsync(
         BuildContext context,
         string appPackageRoot,
+        InstallerPackageKind packageKind,
         CancellationToken cancellationToken = default
     )
     {
@@ -41,7 +45,10 @@ public sealed class WebView2RuntimeAssets
         Directory.CreateDirectory(stagedRoot);
 
         var assets = new List<WebView2RuntimeAsset>();
-        foreach (var descriptor in Descriptors)
+        var descriptors = packageKind == InstallerPackageKind.Online
+            ? Descriptors.Where(descriptor => descriptor.FileName == BootstrapperFileName)
+            : Descriptors;
+        foreach (var descriptor in descriptors)
         {
             var cachedPath = Path.Combine(cachedRoot, descriptor.FileName);
             if (WindowsExecutableValidation.ValidateFile(cachedPath) is not null)

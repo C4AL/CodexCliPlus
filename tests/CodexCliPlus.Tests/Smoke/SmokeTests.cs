@@ -339,7 +339,7 @@ public sealed class SmokeTests
     }
 
     [Fact]
-    public async Task InstallerArtifactSmokeValidatesOfflineInstallerAndUpdateOutputs()
+    public async Task InstallerArtifactSmokeValidatesOnlineOfflineInstallerAndUpdateOutputs()
     {
         using var scope = new SmokeEnvironmentScope();
         var outputRoot = Path.Combine(scope.OutputDirectory, "buildtool");
@@ -348,6 +348,7 @@ public sealed class SmokeTests
 
         Directory.CreateDirectory(packageRoot);
 
+        CreateInstallerSmokePackage(packageRoot, "Online", version);
         CreateInstallerSmokePackage(packageRoot, "Offline", version);
         CreateUpdateSmokePackage(packageRoot, version);
 
@@ -382,29 +383,34 @@ public sealed class SmokeTests
     {
         var installerName = $"CodexCliPlus.Setup.{moniker}.{version}.exe";
         SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, installerName));
+        var entries = new Dictionary<string, byte[]>
+        {
+            ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
+            ["app-package/assets/webui/upstream/dist/index.html"] =
+                Encoding.UTF8.GetBytes("<html></html>"),
+            ["app-package/assets/webui/upstream/dist/assets/app.js"] =
+                Encoding.UTF8.GetBytes("console.log('ok');"),
+            ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
+            [$"output/{installerName}"] = SmokeEnvironmentScope.CreatePeStubBytes(),
+            [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
+                SmokeEnvironmentScope.CreatePeStubBytes(),
+            ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
+            ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+        };
+
+        if (moniker.Equals("Offline", StringComparison.OrdinalIgnoreCase))
+        {
+            entries[
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
+            ] = SmokeEnvironmentScope.CreatePeStubBytes();
+        }
+
         SmokeEnvironmentScope.CreateZipWithByteEntries(
             Path.Combine(packageRoot, $"CodexCliPlus.Setup.{moniker}.{version}.win-x64.zip"),
-            new Dictionary<string, byte[]>
-            {
-                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
-                    "<html></html>"
-                ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
-                    "console.log('ok');"
-                ),
-                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                [$"output/{installerName}"] = SmokeEnvironmentScope.CreatePeStubBytes(),
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
-                    SmokeEnvironmentScope.CreatePeStubBytes(),
-                [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"] =
-                    SmokeEnvironmentScope.CreatePeStubBytes(),
-                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
-            }
+            entries
         );
     }
 

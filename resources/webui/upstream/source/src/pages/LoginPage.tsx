@@ -88,6 +88,17 @@ export function LoginPage() {
 
   const desktopMode = useMemo(() => isDesktopMode(), []);
   const detectedBase = useMemo(() => detectApiBaseFromLocation(), []);
+  const activeApiBase = apiBase || detectedBase;
+  const connectionModeLabel = desktopMode
+    ? t('login.connection_desktop_bridge')
+    : t('login.connection_browser');
+  const autoLoginLabel = autoLoading
+    ? t('login.auto_login_checking')
+    : autoLoginSuccess
+      ? t('login.auto_login_success')
+      : storedRememberPassword
+        ? t('login.auto_login_saved')
+        : t('login.auto_login_manual');
 
   useEffect(() => {
     const init = async () => {
@@ -179,6 +190,17 @@ export function LoginPage() {
     [loading, handleSubmit]
   );
 
+  const handleClearDraft = useCallback(() => {
+    setManagementKey('');
+    setError('');
+  }, []);
+
+  const handleUseDetectedBase = useCallback(() => {
+    setApiBase(detectedBase);
+    setShowCustomBase(false);
+    setError('');
+  }, [detectedBase]);
+
   if (isAuthenticated && !autoLoading && !autoLoginSuccess) {
     const redirect = (location.state as RedirectState | null)?.from?.pathname || '/';
     return <Navigate to={redirect} replace />;
@@ -192,7 +214,12 @@ export function LoginPage() {
       {/* 左侧品牌展示区 */}
       <div className={styles.brandPanel}>
         <div className={styles.brandContent}>
+          <img src={LOGO_JPEG_URL} alt="CodexCliPlus" className={styles.brandLogo} />
           <span className={styles.brandWord}>CodexCliPlus</span>
+          <div className={styles.brandStatus}>
+            <span>{connectionModeLabel}</span>
+            <strong>{activeApiBase || '-'}</strong>
+          </div>
         </div>
       </div>
 
@@ -225,14 +252,34 @@ export function LoginPage() {
                 </div>
               </div>
 
+              <div className={styles.connectionBox}>
+                <div className={styles.connectionHeader}>
+                  <div>
+                    <div className={styles.label}>{t('login.connection_current')}</div>
+                    <div className={styles.value}>{activeApiBase}</div>
+                  </div>
+                  <span className={styles.connectionBadge}>{connectionModeLabel}</span>
+                </div>
+                <div className={styles.hint}>
+                  {desktopMode ? t('login.desktop_connection_hint') : t('login.connection_auto_hint')}
+                </div>
+              </div>
+
+              <div className={styles.statusGrid}>
+                <div>
+                  <span>{t('login.status_key')}</span>
+                  <strong>
+                    {managementKey.trim() ? t('login.status_key_ready') : t('login.status_key_empty')}
+                  </strong>
+                </div>
+                <div>
+                  <span>{t('login.status_auto_login')}</span>
+                  <strong>{autoLoginLabel}</strong>
+                </div>
+              </div>
+
               {!desktopMode && (
                 <>
-                  <div className={styles.connectionBox}>
-                    <div className={styles.label}>{t('login.connection_current')}</div>
-                    <div className={styles.value}>{apiBase || detectedBase}</div>
-                    <div className={styles.hint}>{t('login.connection_auto_hint')}</div>
-                  </div>
-
                   <div className={styles.toggleAdvanced}>
                     <SelectionCheckbox
                       checked={showCustomBase}
@@ -252,47 +299,52 @@ export function LoginPage() {
                       hint={t('login.custom_connection_hint')}
                     />
                   )}
-
-                  <Input
-                    autoFocus
-                    label={t('login.management_key_label')}
-                    placeholder={t('login.management_key_placeholder')}
-                    type={showKey ? 'text' : 'password'}
-                    value={managementKey}
-                    onChange={(e) => setManagementKey(e.target.value)}
-                    onKeyDown={handleSubmitKeyDown}
-                    rightElement={
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setShowKey((prev) => !prev)}
-                        aria-label={
-                          showKey
-                            ? t('login.hide_key', { defaultValue: '隐藏密钥' })
-                            : t('login.show_key', { defaultValue: '显示密钥' })
-                        }
-                        title={
-                          showKey
-                            ? t('login.hide_key', { defaultValue: '隐藏密钥' })
-                            : t('login.show_key', { defaultValue: '显示密钥' })
-                        }
-                      >
-                        {showKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                      </button>
-                    }
-                  />
-
-                  <div className={styles.toggleAdvanced}>
-                    <SelectionCheckbox
-                      checked={rememberPassword}
-                      onChange={setRememberPassword}
-                      ariaLabel={t('login.remember_password_label')}
-                      label={t('login.remember_password_label')}
-                      labelClassName={styles.toggleLabel}
-                    />
-                  </div>
                 </>
               )}
+
+              <Input
+                autoFocus
+                label={t('login.management_key_label')}
+                placeholder={t('login.management_key_placeholder')}
+                type={showKey ? 'text' : 'password'}
+                value={managementKey}
+                onChange={(e) => setManagementKey(e.target.value)}
+                onKeyDown={handleSubmitKeyDown}
+                rightElement={
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowKey((prev) => !prev)}
+                    aria-label={
+                      showKey
+                        ? t('login.hide_key', { defaultValue: '隐藏密钥' })
+                        : t('login.show_key', { defaultValue: '显示密钥' })
+                    }
+                    title={
+                      showKey
+                        ? t('login.hide_key', { defaultValue: '隐藏密钥' })
+                        : t('login.show_key', { defaultValue: '显示密钥' })
+                    }
+                  >
+                    {showKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                  </button>
+                }
+              />
+
+              <div className={styles.toggleAdvanced}>
+                <SelectionCheckbox
+                  checked={desktopMode ? false : rememberPassword}
+                  disabled={desktopMode}
+                  onChange={setRememberPassword}
+                  ariaLabel={t('login.remember_password_label')}
+                  label={
+                    desktopMode
+                      ? t('login.remember_desktop_managed')
+                      : t('login.remember_password_label')
+                  }
+                  labelClassName={styles.toggleLabel}
+                />
+              </div>
 
               <Button fullWidth onClick={handleSubmit} loading={loading}>
                 {loading
@@ -301,6 +353,17 @@ export function LoginPage() {
                     ? t('login.desktop_retry_button')
                     : t('login.submit_button')}
               </Button>
+
+              <div className={styles.recoveryActions}>
+                <button type="button" onClick={handleClearDraft}>
+                  {t('login.clear_key')}
+                </button>
+                {!desktopMode && (
+                  <button type="button" onClick={handleUseDetectedBase}>
+                    {t('login.use_detected_address')}
+                  </button>
+                )}
+              </div>
 
               {error && <div className={styles.errorBox}>{error}</div>}
             </div>

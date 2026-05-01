@@ -14,6 +14,7 @@ public sealed class NavigationShellTests
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
             Encoding.UTF8
         );
+        var startupFlowXaml = ReadStartupFlowXaml(repositoryRoot);
         var shellResources = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -43,25 +44,43 @@ public sealed class NavigationShellTests
             xaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"LoginPanel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<controls:StartupFlowView", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"StartupFlow\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoginPanel\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"FirstRunKeyPanel\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingPanel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LoginPanel\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"UpgradeNoticePanel\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunKeyPanel\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManagementKeyPasswordBox\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"RememberManagementKeyCheckBox\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunSecurityKeyTextBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FirstRunKeyPanel\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"LoadingPanel\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ManagementKeyPasswordBox\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"RememberManagementKeyCheckBox\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"FirstRunSecurityKeyTextBox\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains("MinimizeWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("CloseWindowButton_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("Activated=\"Window_Activated\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Deactivated=\"Window_Deactivated\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("复制密钥", xaml, StringComparison.Ordinal);
-        Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
-        Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
-        Assert.Contains("忘记安全密钥/重置", xaml, StringComparison.Ordinal);
+        Assert.Contains("复制密钥", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("保存到桌面", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("进入管理界面", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("忘记安全密钥/重置", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("当前步骤：", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", shellResources, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", shellResources, StringComparison.Ordinal);
@@ -134,8 +153,16 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"ShellNavDashboardOverviewButton\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"ShellNavRuntimeOverviewButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ShellNavDashboardOverviewButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"ShellNavRuntimeOverviewButton\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("x:Name=\"ShellNavConsoleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
@@ -416,7 +443,11 @@ public sealed class NavigationShellTests
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
             Encoding.UTF8
         );
-        var source = ReadMainWindowSources(repositoryRoot);
+        var startupFlowXaml = ReadStartupFlowXaml(repositoryRoot);
+        var source =
+            ReadMainWindowSources(repositoryRoot)
+            + Environment.NewLine
+            + ReadStartupFlowSource(repositoryRoot);
         var shellResources = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -439,103 +470,155 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "Source=\"/Views/Resources/StartupFlowResources.xaml\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "x:Key=\"ShellRaisedPanelStyle\"",
             shellResources,
             StringComparison.Ordinal
         );
         Assert.Contains("MahApps.Metro.IconPacks.Lucide", appProject, StringComparison.Ordinal);
         Assert.Contains(
-            "Style=\"{StaticResource ShellRaisedPanelStyle}\"",
-            xaml,
+            "Style=\"{StaticResource StartupFlowCardStyle}\"",
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"FirstRunSaveToDesktopButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"保存到桌面\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunCopyKeyButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"复制密钥\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("AutomationProperties.Name=\"静默登录\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"FirstRunSaveToDesktopButton\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Content=\"保存到桌面\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"FirstRunCopyKeyButton\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Content=\"复制密钥\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "AutomationProperties.Name=\"静默登录\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "MouseLeftButtonDown=\"SilentLoginLabel_MouseLeftButtonDown\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("Content=\"本机记住安全密钥\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Content=\"本机记住安全密钥\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Name=\"FirstRunSilentLoginRiskIndicator\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"LoginSilentLoginRiskIndicator\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Kind=\"CircleAlert\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("仅在受信任的个人设备上使用", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"LoginSilentLoginRiskIndicator\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Kind=\"CircleAlert\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("仅在受信任的个人设备上使用", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellInlineIconButtonStyle\"",
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("Padding=\"10,8,48,8\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"10,8,48,8\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellIconViewboxStyle\"",
             shellResources,
             StringComparison.Ordinal
         );
         Assert.Contains("Stretch\" Value=\"Uniform\"", shellResources, StringComparison.Ordinal);
-        Assert.Contains("M12,5 L18,11 L12,17", xaml, StringComparison.Ordinal);
-        Assert.Contains("M8,8 L18,8 L18,18 L8,18 Z", xaml, StringComparison.Ordinal);
-        Assert.Contains("StrokeThickness=\"1.8\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Kind=\"Save\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Kind=\"Copy\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("M12,5 L18,11 L12,17", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "M8,8 L18,8 L18,18 L8,18 Z",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Key=\"ShellTextToolTipStyle\"",
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("Segoe MDL2 Assets", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Segoe MDL2 Assets", startupFlowXaml, StringComparison.Ordinal);
         Assert.True(
-            xaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal)
-                < xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal)
+            startupFlowXaml.IndexOf("x:Name=\"FirstRunCopyKeyButton\"", StringComparison.Ordinal)
+                < startupFlowXaml.IndexOf(
+                    "x:Name=\"FirstRunSaveToDesktopButton\"",
+                    StringComparison.Ordinal
+                )
         );
         Assert.True(
-            xaml.IndexOf("x:Name=\"FirstRunSaveToDesktopButton\"", StringComparison.Ordinal)
-                < xaml.IndexOf(
+            startupFlowXaml.IndexOf(
+                "x:Name=\"FirstRunSaveToDesktopButton\"",
+                StringComparison.Ordinal
+            )
+                < startupFlowXaml.IndexOf(
                     "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
                     StringComparison.Ordinal
                 )
         );
-        Assert.Contains("<ColumnDefinition Width=\"360\" />", xaml, StringComparison.Ordinal);
-        Assert.Contains("<ColumnDefinition Width=\"Auto\" />", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<ColumnDefinition Width=\"76\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("MinWidth=\"360\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"",
-            xaml,
+            "<ColumnDefinition Width=\"Auto\" />",
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("TextWrapping=\"NoWrap\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("HorizontalScrollBarVisibility=\"Hidden\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("VerticalScrollBarVisibility=\"Disabled\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "<ColumnDefinition Width=\"76\" />",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("TextWrapping=\"NoWrap\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "HorizontalScrollBarVisibility=\"Hidden\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "VerticalScrollBarVisibility=\"Disabled\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "FirstRunSecurityKeyTextBox.ScrollToHome()",
             source,
             StringComparison.Ordinal
         );
-        Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"FirstRunConfirmCloseButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Right\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"FirstRunConfirmCloseButton\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "Style=\"{StaticResource DialogCloseButtonStyle}\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains("CornerRadius=\"0,16,0,8\"", shellResources, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "x:Name=\"FirstRunConfirmCancelButton\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("Content=\"返回\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Content=\"确认进入\"", xaml, StringComparison.Ordinal);
-        Assert.Contains(
-            "FirstRunConfirmContinueButton.Content = $\"确认 ({seconds})\"",
-            source,
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("Content=\"返回\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"确认进入\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("buttonText: $\"确认 ({seconds})\"", source, StringComparison.Ordinal);
         Assert.Contains(
             "_settings.ManagementKey = string.Empty;",
             source,
@@ -546,7 +629,11 @@ public sealed class NavigationShellTests
             source,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("FirstRunActionStatusText", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "FirstRunActionStatusText",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("ShowFirstRunStatus", source, StringComparison.Ordinal);
         Assert.DoesNotContain("可以继续。", source, StringComparison.Ordinal);
         Assert.Contains("MinimumPreparationDisplayDuration", source, StringComparison.Ordinal);
@@ -560,22 +647,54 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("ScaleTransform.ScaleXProperty", source, StringComparison.Ordinal);
-        Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
-        Assert.Contains("codexcliplus-display.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("LoadingBrandBadge", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("codexcliplus-display.png", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Source=\"pack://application:,,,/Resources/Icons/codexcliplus.ico\"",
-            xaml,
+            startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"PreparationProgressTrack\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PreparationProgressBar\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"PreparationProgressFillScale\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ClipToBounds=\"True\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"PreparationStepText\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"LoadingWebView2StepText\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"LoadingBackendStepText\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"LoadingSecurityStepText\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"LoadingWebUiStepText\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"PreparationProgressTrack\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"PreparationProgressBar\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"PreparationProgressFillScale\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ClipToBounds=\"True\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"PreparationStepText\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"LoadingWebView2StepText\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"LoadingBackendStepText\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"LoadingSecurityStepText\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "x:Name=\"LoadingWebUiStepText\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -919,7 +1038,11 @@ public sealed class NavigationShellTests
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("t('nav.dashboard_overview')", mainLayoutSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("t('nav.runtime_overview')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "t('nav.runtime_overview')",
+            mainLayoutSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("t('nav.console')", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -937,18 +1060,22 @@ public sealed class NavigationShellTests
             mainRoutesSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "path: \"/console\"",
-            overlayMainRoutesSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("path: \"/console\"", overlayMainRoutesSource, StringComparison.Ordinal);
         Assert.Contains(
             "element: <Navigate to=\"/dashboard/overview\" replace />",
             overlayMainRoutesSource,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("RuntimeOverviewPage", overlayMainRoutesSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("runtime-overview", overlayMainRoutesSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "RuntimeOverviewPage",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "runtime-overview",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("ConsolePage", mainRoutesSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "{ path: '/dashboard/overview', element: <Navigate to=\"/console\" replace /> }",
@@ -1168,6 +1295,36 @@ public sealed class NavigationShellTests
         return string.Join(
             Environment.NewLine,
             sourceFiles.Select(path => File.ReadAllText(path, Encoding.UTF8))
+        );
+    }
+
+    private static string ReadStartupFlowXaml(string repositoryRoot)
+    {
+        return File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Controls",
+                "StartupFlowView.xaml"
+            ),
+            Encoding.UTF8
+        );
+    }
+
+    private static string ReadStartupFlowSource(string repositoryRoot)
+    {
+        return File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Controls",
+                "StartupFlowView.xaml.cs"
+            ),
+            Encoding.UTF8
         );
     }
 

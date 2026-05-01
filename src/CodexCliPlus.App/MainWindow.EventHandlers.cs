@@ -211,26 +211,23 @@ public partial class MainWindow
         }
     }
 
-    private async void LoginButton_Click(object sender, RoutedEventArgs e)
+    private void BindStartupFlowEvents()
+    {
+        StartupFlow.LoginSubmitted += StartupFlow_LoginSubmitted;
+        StartupFlow.ResetRequested += StartupFlow_ResetRequested;
+        StartupFlow.FirstRunCopyRequested += StartupFlow_FirstRunCopyRequested;
+        StartupFlow.FirstRunSaveRequested += StartupFlow_FirstRunSaveRequested;
+        StartupFlow.FirstRunConfirmationRequested += StartupFlow_FirstRunConfirmationRequested;
+        StartupFlow.FirstRunConfirmationAccepted += StartupFlow_FirstRunConfirmationAccepted;
+        StartupFlow.FirstRunConfirmationCancelled += StartupFlow_FirstRunConfirmationCancelled;
+    }
+
+    private async void StartupFlow_LoginSubmitted(object? sender, EventArgs e)
     {
         await SignInAsync();
     }
 
-    private async void ManagementKeyPasswordBox_KeyDown(
-        object sender,
-        System.Windows.Input.KeyEventArgs e
-    )
-    {
-        if (e.Key != Key.Enter)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        await SignInAsync();
-    }
-
-    private void FirstRunCopyKeyButton_Click(object sender, RoutedEventArgs e)
+    private void StartupFlow_FirstRunCopyRequested(object? sender, EventArgs e)
     {
         try
         {
@@ -243,7 +240,7 @@ public partial class MainWindow
         }
     }
 
-    private async void FirstRunSaveToDesktopButton_Click(object sender, RoutedEventArgs e)
+    private async void StartupFlow_FirstRunSaveRequested(object? sender, EventArgs e)
     {
         try
         {
@@ -262,22 +259,22 @@ public partial class MainWindow
         }
     }
 
-    private async void FirstRunEnterManagementButton_Click(object sender, RoutedEventArgs e)
+    private async void StartupFlow_FirstRunConfirmationRequested(object? sender, EventArgs e)
     {
         await BeginFirstRunConfirmationAsync();
     }
 
-    private async void FirstRunConfirmContinueButton_Click(object sender, RoutedEventArgs e)
+    private async void StartupFlow_FirstRunConfirmationAccepted(object? sender, EventArgs e)
     {
         await CompleteFirstRunAsync();
     }
 
-    private void FirstRunConfirmCloseButton_Click(object sender, RoutedEventArgs e)
+    private void StartupFlow_FirstRunConfirmationCancelled(object? sender, EventArgs e)
     {
         CancelFirstRunConfirmation();
     }
 
-    private async void ForgotSecurityKeyButton_Click(object sender, RoutedEventArgs e)
+    private async void StartupFlow_ResetRequested(object? sender, EventArgs e)
     {
         var firstConfirm = MessageBox.Show(
             this,
@@ -401,15 +398,6 @@ public partial class MainWindow
         e.Handled = true;
     }
 
-    private void SilentLoginLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: WpfCheckBox checkBox })
-        {
-            checkBox.IsChecked = checkBox.IsChecked != true;
-            e.Handled = true;
-        }
-    }
-
     private async void SettingsFollowSystemCheckBox_Changed(object sender, RoutedEventArgs e)
     {
         if (_suppressFollowSystemChange)
@@ -454,7 +442,7 @@ public partial class MainWindow
             _settings.ManagementKey = string.Empty;
             _settings.RememberManagementKey = false;
             await _appConfigurationService.SaveAsync(_settings);
-            RememberManagementKeyCheckBox.IsChecked = false;
+            StartupFlow.RememberManagementKey = false;
             await HideSettingsOverlayAsync();
             ShowLogin("本地登录信息已清理，请重新输入安全密钥。");
             _notificationService.ShowAuto("本地登录信息已清理。");

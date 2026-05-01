@@ -58,38 +58,22 @@ public partial class MainWindow
     private void ShowPreparationStep(double progress, string description, StartupState state)
     {
         _startupState = state;
-        if (LoadingPanel.Visibility != Visibility.Visible || _preparationPanelShownAt is null)
+        if (!StartupFlow.IsLoadingVisible || _preparationPanelShownAt is null)
         {
             _preparationPanelShownAt = DateTimeOffset.UtcNow;
         }
 
-        LoadingTitleText.Text =
+        var title =
             state == StartupState.LoadingManagement ? "正在进入管理界面" : "正在准备桌面管理界面";
-        LoadingDescriptionText.Text = description;
-        LoadingStatusText.Text = BuildPreparationStatus(progress, state);
-        var normalizedProgress = Math.Clamp(progress, 0, 100);
-        PreparationProgressBar.BeginAnimation(
-            RangeBase.ValueProperty,
-            new DoubleAnimation(normalizedProgress, new Duration(TimeSpan.FromMilliseconds(320)))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            }
-        );
-        PreparationProgressFillScale.BeginAnimation(
-            ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(
-                normalizedProgress / 100,
-                new Duration(TimeSpan.FromMilliseconds(420))
-            )
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-            }
+        StartupFlow.ShowLoading(
+            progress,
+            title,
+            description,
+            BuildPreparationStatus(progress, state)
         );
 
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Collapsed;
-        LoadingPanel.Visibility = Visibility.Visible;
+        StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
@@ -106,9 +90,7 @@ public partial class MainWindow
             $"已从 {previousVersion} 升级到 {CurrentApplicationVersion}";
 
         UpgradeNoticePanel.Visibility = Visibility.Visible;
-        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Collapsed;
-        LoadingPanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
@@ -119,13 +101,11 @@ public partial class MainWindow
         _startupState = StartupState.FirstRunKeyReveal;
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        FirstRunKeyPanel.Visibility = Visibility.Visible;
-        LoginPanel.Visibility = Visibility.Collapsed;
-        LoadingPanel.Visibility = Visibility.Collapsed;
+        StartupFlow.ShowFirstRunKey(_firstRunManagementKey, remember: false);
+        StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
-        FirstRunSecurityKeyTextBox.Focus();
     }
 
     private void ShowLogin(string? errorMessage = null)
@@ -135,31 +115,16 @@ public partial class MainWindow
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Visible;
-        LoadingPanel.Visibility = Visibility.Collapsed;
+        StartupFlow.ShowLogin(errorMessage, _settings.RememberManagementKey);
+        StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
-        LoginButton.IsEnabled = true;
-        ForgotSecurityKeyButton.IsEnabled = true;
-        RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
-        if (string.IsNullOrWhiteSpace(errorMessage))
-        {
-            LoginErrorText.Visibility = Visibility.Collapsed;
-        }
-        else
-        {
-            ShowLoginError(errorMessage);
-        }
-
-        ManagementKeyPasswordBox.Focus();
     }
 
     private void ShowLoginError(string message)
     {
-        LoginErrorText.Text = message;
-        LoginErrorText.Visibility = Visibility.Visible;
+        StartupFlow.SetLoginError(message);
     }
 
     private void ShowBlocker(string title, string description, string detail)
@@ -172,10 +137,8 @@ public partial class MainWindow
         BlockerDescriptionText.Text = description;
         BlockerDetailText.Text = detail;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Visible;
-        LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
     }
@@ -186,10 +149,8 @@ public partial class MainWindow
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        FirstRunKeyPanel.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
-        LoadingPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Visible;
         UpdateNavigationDockPopupVisibility();
     }

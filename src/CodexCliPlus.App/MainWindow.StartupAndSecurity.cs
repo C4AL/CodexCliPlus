@@ -67,7 +67,7 @@ public partial class MainWindow
 
     private async Task ContinueAfterStartupGateAsync()
     {
-        RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
+        StartupFlow.RememberManagementKey = _settings.RememberManagementKey;
 
         if (_settings.RememberManagementKey && !string.IsNullOrWhiteSpace(_settings.ManagementKey))
         {
@@ -105,12 +105,6 @@ public partial class MainWindow
             }
         );
 
-        FirstRunSecurityKeyTextBox.Text = _firstRunManagementKey;
-        FirstRunSecurityKeyTextBox.CaretIndex = 0;
-        FirstRunSecurityKeyTextBox.ScrollToHome();
-        FirstRunRememberSecurityKeyCheckBox.IsChecked = false;
-        FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
-        FirstRunEnterManagementButton.IsEnabled = true;
         await EnsureMinimumPreparationDisplayAsync();
         ShowFirstRunKeyReveal();
     }
@@ -123,10 +117,11 @@ public partial class MainWindow
             return;
         }
 
-        FirstRunConfirmPanel.Visibility = Visibility.Visible;
-        FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmCloseButton.IsEnabled = true;
-        FirstRunConfirmContinueButton.Content = $"确认 ({FirstRunConfirmationSeconds})";
+        StartupFlow.SetFirstRunConfirmVisible(
+            visible: true,
+            buttonText: $"确认 ({FirstRunConfirmationSeconds})",
+            canConfirm: false
+        );
 
         _firstRunConfirmCountdown?.Cancel();
         _firstRunConfirmCountdown?.Dispose();
@@ -137,12 +132,19 @@ public partial class MainWindow
         {
             for (var seconds = FirstRunConfirmationSeconds; seconds > 0; seconds--)
             {
-                FirstRunConfirmContinueButton.Content = $"确认 ({seconds})";
+                StartupFlow.SetFirstRunConfirmVisible(
+                    visible: true,
+                    buttonText: $"确认 ({seconds})",
+                    canConfirm: false
+                );
                 await Task.Delay(TimeSpan.FromSeconds(1), token);
             }
 
-            FirstRunConfirmContinueButton.Content = "确认";
-            FirstRunConfirmContinueButton.IsEnabled = true;
+            StartupFlow.SetFirstRunConfirmVisible(
+                visible: true,
+                buttonText: "确认",
+                canConfirm: true
+            );
         }
         catch (TaskCanceledException) { }
     }
@@ -155,23 +157,26 @@ public partial class MainWindow
             return;
         }
 
-        FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmCloseButton.IsEnabled = false;
+        StartupFlow.SetFirstRunConfirmActions(canConfirm: false, canClose: false);
 
         try
         {
             _firstRunConfirmCountdown?.Cancel();
             _settings.ManagementKey = _firstRunManagementKey;
-            _settings.RememberManagementKey = FirstRunRememberSecurityKeyCheckBox.IsChecked == true;
+            _settings.RememberManagementKey = StartupFlow.FirstRunRememberManagementKey;
             _settings.SecurityKeyOnboardingCompleted = true;
             _settings.LastSeenApplicationVersion = CurrentApplicationVersion;
             await _appConfigurationService.SaveAsync(_settings);
 
-            RememberManagementKeyCheckBox.IsChecked = _settings.RememberManagementKey;
-            FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+            StartupFlow.RememberManagementKey = _settings.RememberManagementKey;
+            StartupFlow.SetFirstRunConfirmVisible(
+                visible: false,
+                buttonText: "确认",
+                canConfirm: false
+            );
 
             _firstRunManagementKey = string.Empty;
-            FirstRunSecurityKeyTextBox.Text = string.Empty;
+            StartupFlow.ClearFirstRunKey();
             if (_settings.RememberManagementKey)
             {
                 await InitializeHostAsync(restartBackend: false);
@@ -184,35 +189,37 @@ public partial class MainWindow
         }
         catch (Exception exception)
         {
-            FirstRunConfirmContinueButton.IsEnabled = true;
-            FirstRunConfirmCloseButton.IsEnabled = true;
+            StartupFlow.SetFirstRunConfirmActions(canConfirm: true, canClose: true);
             _notificationService.ShowManual("初始化失败", exception.Message);
-            FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
+            StartupFlow.SetFirstRunConfirmVisible(
+                visible: false,
+                buttonText: "确认",
+                canConfirm: false
+            );
         }
     }
 
     private void CancelFirstRunConfirmation()
     {
         _firstRunConfirmCountdown?.Cancel();
-        FirstRunConfirmPanel.Visibility = Visibility.Collapsed;
-        FirstRunConfirmContinueButton.IsEnabled = false;
-        FirstRunConfirmContinueButton.Content = "确认";
-        FirstRunConfirmCloseButton.IsEnabled = true;
+        StartupFlow.SetFirstRunConfirmVisible(
+            visible: false,
+            buttonText: "确认",
+            canConfirm: false
+        );
     }
 
     private async Task SignInAsync()
     {
-        var managementKey = ManagementKeyPasswordBox.Password.Trim();
+        var managementKey = StartupFlow.ManagementKey;
         if (string.IsNullOrWhiteSpace(managementKey))
         {
             ShowLoginError("请输入安全密钥。");
-            ManagementKeyPasswordBox.Focus();
             return;
         }
 
-        LoginButton.IsEnabled = false;
-        ForgotSecurityKeyButton.IsEnabled = false;
-        LoginErrorText.Visibility = Visibility.Collapsed;
+        StartupFlow.SetLoginBusy(true);
+        StartupFlow.SetLoginError(null);
 
         try
         {
@@ -229,7 +236,7 @@ public partial class MainWindow
             }
 
             _settings.ManagementKey = managementKey;
-            _settings.RememberManagementKey = RememberManagementKeyCheckBox.IsChecked == true;
+            _settings.RememberManagementKey = StartupFlow.RememberManagementKey;
             _settings.SecurityKeyOnboardingCompleted = true;
             await _appConfigurationService.SaveAsync(_settings);
             await InitializeHostAsync(restartBackend: false);
@@ -240,18 +247,16 @@ public partial class MainWindow
         }
         finally
         {
-            if (LoginPanel.Visibility == Visibility.Visible)
+            if (StartupFlow.IsLoginVisible)
             {
-                LoginButton.IsEnabled = true;
-                ForgotSecurityKeyButton.IsEnabled = true;
+                StartupFlow.SetLoginBusy(false);
             }
         }
     }
 
     private async Task ResetSecurityKeyAsync()
     {
-        LoginButton.IsEnabled = false;
-        ForgotSecurityKeyButton.IsEnabled = false;
+        StartupFlow.SetLoginBusy(true);
         ShowPreparationStep(20, "正在重置安全密钥和本地认证状态。", StartupState.Preparing);
 
         try
@@ -285,7 +290,7 @@ public partial class MainWindow
             }
 
             _firstRunManagementKey = string.Empty;
-            ManagementKeyPasswordBox.Password = string.Empty;
+            StartupFlow.ClearLoginPassword();
             _settings = await _appConfigurationService.LoadAsync();
             await BeginFirstRunKeyRevealAsync();
         }

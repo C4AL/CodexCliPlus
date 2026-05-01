@@ -1,0 +1,576 @@
+<UserControl
+  x:Class="CodexCliPlus.Views.Controls.StartupFlowView"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+  FontFamily="{StaticResource TextThemeFontFamily}"
+>
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Views/Resources/ShellResources.xaml" />
+        <ResourceDictionary Source="/Views/Resources/StartupFlowResources.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+
+  <Grid
+    x:Name="StartupFlowRoot"
+    Background="{DynamicResource ApplicationBackgroundBrush}"
+    AutomationProperties.AutomationId="StartupFlowView"
+  >
+    <Border
+      x:Name="StartupStepHost"
+      Width="640"
+      MaxWidth="640"
+      Style="{StaticResource StartupFlowCardStyle}"
+      HorizontalAlignment="Center"
+      VerticalAlignment="Center"
+      ClipToBounds="True"
+    >
+      <Border.RenderTransform>
+        <TranslateTransform x:Name="StartupStepTranslateTransform" />
+      </Border.RenderTransform>
+      <Grid>
+        <Grid
+          x:Name="LoadingPanel"
+          Visibility="Collapsed"
+          AutomationProperties.AutomationId="LoadingPanel"
+        >
+          <StackPanel>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid Width="58" Height="58" SnapsToDevicePixels="True" UseLayoutRounding="True">
+                <Border
+                  Width="58"
+                  Height="58"
+                  Background="{DynamicResource AccentSoftBrush}"
+                  CornerRadius="18"
+                  Opacity="0.36"
+                >
+                  <Border.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                      <BeginStoryboard>
+                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                          <DoubleAnimation
+                            Storyboard.TargetProperty="Opacity"
+                            From="0.24"
+                            To="0.58"
+                            Duration="0:0:0.9"
+                          />
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </EventTrigger>
+                  </Border.Triggers>
+                </Border>
+                <Border
+                  x:Name="LoadingBrandBadge"
+                  Width="48"
+                  Height="48"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Background="{DynamicResource AccentSoftBrush}"
+                  CornerRadius="14"
+                >
+                  <Border.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                      <BeginStoryboard>
+                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                          <DoubleAnimation
+                            Storyboard.TargetProperty="Opacity"
+                            From="0.82"
+                            To="1"
+                            Duration="0:0:0.8"
+                          />
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </EventTrigger>
+                  </Border.Triggers>
+                </Border>
+                <Image
+                  Width="32"
+                  Height="32"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  RenderOptions.BitmapScalingMode="HighQuality"
+                  SnapsToDevicePixels="True"
+                  Source="pack://application:,,,/Resources/Icons/codexcliplus-display.png"
+                />
+                <Ellipse
+                  Width="7"
+                  Height="7"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="0,0,5,5"
+                  Fill="{DynamicResource AccentBrush}"
+                  Stroke="{DynamicResource SurfaceBrush}"
+                  StrokeThickness="1"
+                >
+                  <Ellipse.Triggers>
+                    <EventTrigger RoutedEvent="Loaded">
+                      <BeginStoryboard>
+                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                          <DoubleAnimation
+                            Storyboard.TargetProperty="Opacity"
+                            From="0.42"
+                            To="1"
+                            Duration="0:0:0.8"
+                          />
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </EventTrigger>
+                  </Ellipse.Triggers>
+                </Ellipse>
+              </Grid>
+              <StackPanel Grid.Column="1" Margin="16,5,0,0">
+                <TextBlock
+                  Text="CodexCliPlus"
+                  FontSize="15"
+                  FontWeight="SemiBold"
+                  Foreground="{DynamicResource SecondaryTextBrush}"
+                />
+                <TextBlock
+                  x:Name="LoadingStatusText"
+                  Margin="0,7,0,0"
+                  Text="正在启动桌面宿主"
+                  FontSize="13"
+                  Foreground="{DynamicResource AccentBrush}"
+                  TextWrapping="Wrap"
+                />
+              </StackPanel>
+            </Grid>
+
+            <TextBlock
+              x:Name="LoadingTitleText"
+              Margin="0,24,0,0"
+              Style="{StaticResource StartupFlowTitleTextStyle}"
+              Text="正在准备桌面管理界面"
+            />
+            <TextBlock
+              x:Name="LoadingDescriptionText"
+              Style="{StaticResource StartupFlowDescriptionTextStyle}"
+              Text="正在准备本地后端和桌面桥接。"
+            />
+            <Border
+              x:Name="PreparationProgressTrack"
+              Height="8"
+              Margin="0,24,0,0"
+              CornerRadius="4"
+              ClipToBounds="True"
+              Background="{DynamicResource SurfaceAltBrush}"
+              AutomationProperties.AutomationId="PreparationProgressTrack"
+            >
+              <Grid ClipToBounds="True">
+                <Border Opacity="0.28" Background="{DynamicResource AccentSoftBrush}" />
+                <Border
+                  x:Name="PreparationProgressFill"
+                  Width="{Binding ActualWidth, ElementName=PreparationProgressTrack}"
+                  Height="8"
+                  HorizontalAlignment="Left"
+                  Background="{DynamicResource AccentBrush}"
+                  CornerRadius="4"
+                  RenderTransformOrigin="0,0.5"
+                >
+                  <Border.RenderTransform>
+                    <ScaleTransform x:Name="PreparationProgressFillScale" ScaleX="0" ScaleY="1" />
+                  </Border.RenderTransform>
+                  <Grid ClipToBounds="True">
+                    <Border
+                      Width="96"
+                      HorizontalAlignment="Left"
+                      Background="{StaticResource ShellProgressShimmerBrush}"
+                      Opacity="0.46"
+                    >
+                      <Border.RenderTransform>
+                        <TranslateTransform X="-110" />
+                      </Border.RenderTransform>
+                      <Border.Triggers>
+                        <EventTrigger RoutedEvent="Loaded">
+                          <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever">
+                              <DoubleAnimation
+                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                From="-110"
+                                To="660"
+                                Duration="0:0:1.45"
+                              >
+                                <DoubleAnimation.EasingFunction>
+                                  <SineEase EasingMode="EaseInOut" />
+                                </DoubleAnimation.EasingFunction>
+                              </DoubleAnimation>
+                            </Storyboard>
+                          </BeginStoryboard>
+                        </EventTrigger>
+                      </Border.Triggers>
+                    </Border>
+                  </Grid>
+                </Border>
+                <ProgressBar
+                  x:Name="PreparationProgressBar"
+                  Height="8"
+                  Minimum="0"
+                  Maximum="100"
+                  AutomationProperties.AutomationId="PreparationProgressBar"
+                  Background="Transparent"
+                  BorderBrush="Transparent"
+                  Foreground="Transparent"
+                  Opacity="0.01"
+                  Value="0"
+                />
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <Grid
+          x:Name="FirstRunKeyPanel"
+          Visibility="Collapsed"
+          AutomationProperties.AutomationId="FirstRunKeyPanel"
+        >
+          <StackPanel>
+            <TextBlock
+              Style="{StaticResource StartupFlowTitleTextStyle}"
+              Text="首次初始化安全密钥"
+            />
+            <TextBlock
+              Style="{StaticResource StartupFlowDescriptionTextStyle}"
+              Text="请立即保存下面的安全密钥。完整内容只会在本页显示一次。"
+            />
+
+            <Border
+              Margin="0,26,0,0"
+              Padding="18"
+              CornerRadius="10"
+              Background="{DynamicResource SurfaceAltBrush}"
+              BorderBrush="{DynamicResource BorderBrush}"
+              BorderThickness="1"
+            >
+              <StackPanel>
+                <TextBlock Style="{StaticResource StartupFlowLabelTextStyle}" Text="安全密钥" />
+                <TextBlock
+                  Margin="0,5,0,14"
+                  Style="{StaticResource StartupFlowHintTextStyle}"
+                  Text="复制或保存到桌面后再继续。未选择静默登录时，初始化完成后需要手动输入这串密钥。"
+                />
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <Grid Grid.Column="0" Height="40" MinWidth="360">
+                    <TextBox
+                      x:Name="FirstRunSecurityKeyTextBox"
+                      Height="40"
+                      Padding="10,8,48,8"
+                      HorizontalAlignment="Stretch"
+                      FontFamily="Consolas"
+                      FontSize="15"
+                      HorizontalScrollBarVisibility="Hidden"
+                      IsReadOnly="True"
+                      AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
+                      TextWrapping="NoWrap"
+                      VerticalContentAlignment="Center"
+                      VerticalScrollBarVisibility="Disabled"
+                    />
+                    <Button
+                      x:Name="FirstRunCopyKeyButton"
+                      Style="{StaticResource ShellInlineIconButtonStyle}"
+                      HorizontalAlignment="Right"
+                      Margin="0,0,5,0"
+                      Click="FirstRunCopyKeyButton_Click"
+                      AutomationProperties.AutomationId="FirstRunCopyKeyButton"
+                      AutomationProperties.Name="复制密钥"
+                    >
+                      <Button.ToolTip>
+                        <ToolTip
+                          Style="{StaticResource ShellTextToolTipStyle}"
+                          AutomationProperties.Name="复制密钥"
+                          Content="复制密钥"
+                        />
+                      </Button.ToolTip>
+                      <iconPacks:PackIconLucide
+                        Kind="Copy"
+                        Width="17"
+                        Height="17"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                    </Button>
+                  </Grid>
+                  <Button
+                    x:Name="FirstRunSaveToDesktopButton"
+                    Grid.Column="1"
+                    Margin="9,0,0,0"
+                    Style="{StaticResource ShellIconButtonStyle}"
+                    Width="34"
+                    Height="34"
+                    Click="FirstRunSaveToDesktopButton_Click"
+                    AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
+                    AutomationProperties.Name="保存到桌面"
+                  >
+                    <Button.ToolTip>
+                      <ToolTip
+                        Style="{StaticResource ShellTextToolTipStyle}"
+                        AutomationProperties.Name="保存到桌面"
+                        Content="保存到桌面"
+                      />
+                    </Button.ToolTip>
+                    <iconPacks:PackIconLucide
+                      Kind="Save"
+                      Width="17"
+                      Height="17"
+                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                    />
+                  </Button>
+                </Grid>
+
+                <StackPanel Margin="0,16,0,0" Orientation="Horizontal" VerticalAlignment="Center">
+                  <CheckBox
+                    x:Name="FirstRunRememberSecurityKeyCheckBox"
+                    VerticalAlignment="Center"
+                    IsChecked="False"
+                    AutomationProperties.AutomationId="FirstRunRememberSecurityKeyCheckBox"
+                    AutomationProperties.Name="静默登录"
+                  />
+                  <TextBlock
+                    Margin="4,0,0,0"
+                    VerticalAlignment="Center"
+                    Cursor="Hand"
+                    Foreground="{DynamicResource PrimaryTextBrush}"
+                    MouseLeftButtonDown="SilentLoginLabel_MouseLeftButtonDown"
+                    Tag="{Binding ElementName=FirstRunRememberSecurityKeyCheckBox}"
+                    Text="静默登录"
+                  />
+                  <Button
+                    x:Name="FirstRunSilentLoginRiskIndicator"
+                    Style="{StaticResource SilentLoginRiskIconStyle}"
+                    AutomationProperties.AutomationId="FirstRunSilentLoginRiskIndicator"
+                    AutomationProperties.Name="静默登录风险提示"
+                    ToolTipService.ShowDuration="20000"
+                  >
+                    <Button.ToolTip>
+                      <ToolTip
+                        Style="{StaticResource ShellRiskToolTipStyle}"
+                        AutomationProperties.Name="静默登录风险提示"
+                      >
+                        <TextBlock
+                          MaxWidth="290"
+                          Text="启用后会把安全密钥保存在本机凭据存储中，启动时可自动进入管理界面。仅在受信任的个人设备上使用；共用设备、远程桌面或系统账户不安全时请关闭。"
+                          TextWrapping="Wrap"
+                          Foreground="#B42318"
+                        />
+                      </ToolTip>
+                    </Button.ToolTip>
+                    <iconPacks:PackIconLucide
+                      Kind="CircleAlert"
+                      Width="17"
+                      Height="17"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Foreground="#B42318"
+                    />
+                  </Button>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <Grid Margin="0,20,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel
+                Grid.Column="0"
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Left"
+              >
+                <iconPacks:PackIconLucide
+                  Kind="Info"
+                  Width="16"
+                  Height="16"
+                  Foreground="{DynamicResource SecondaryTextBrush}"
+                  VerticalAlignment="Center"
+                />
+                <TextBlock
+                  Margin="8,0,0,0"
+                  Style="{StaticResource StartupFlowHintTextStyle}"
+                  Text="确认前请确保密钥已复制、保存或已启用静默登录。"
+                />
+              </StackPanel>
+              <Button
+                x:Name="FirstRunEnterManagementButton"
+                Grid.Column="1"
+                Style="{StaticResource StartupPrimaryButtonStyle}"
+                Click="FirstRunEnterManagementButton_Click"
+                AutomationProperties.AutomationId="FirstRunEnterManagementButton"
+                Content="进入管理界面"
+              />
+            </Grid>
+          </StackPanel>
+        </Grid>
+
+        <Grid
+          x:Name="LoginPanel"
+          Visibility="Collapsed"
+          AutomationProperties.AutomationId="LoginPanel"
+        >
+          <StackPanel>
+            <TextBlock
+              Style="{StaticResource StartupFlowTitleTextStyle}"
+              Text="登录 CodexCliPlus"
+            />
+            <TextBlock
+              Style="{StaticResource StartupFlowDescriptionTextStyle}"
+              Text="请输入安全密钥以进入桌面管理界面。"
+            />
+            <TextBlock
+              Margin="0,28,0,0"
+              Style="{StaticResource StartupFlowLabelTextStyle}"
+              Text="安全密钥"
+            />
+            <PasswordBox
+              x:Name="ManagementKeyPasswordBox"
+              Height="40"
+              Margin="0,8,0,0"
+              KeyDown="ManagementKeyPasswordBox_KeyDown"
+              AutomationProperties.AutomationId="ManagementKeyPasswordBox"
+            />
+            <StackPanel Margin="0,16,0,0" Orientation="Horizontal" VerticalAlignment="Center">
+              <CheckBox
+                x:Name="RememberManagementKeyCheckBox"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="RememberManagementKeyCheckBox"
+                AutomationProperties.Name="静默登录"
+              />
+              <TextBlock
+                Margin="4,0,0,0"
+                VerticalAlignment="Center"
+                Cursor="Hand"
+                Foreground="{DynamicResource PrimaryTextBrush}"
+                MouseLeftButtonDown="SilentLoginLabel_MouseLeftButtonDown"
+                Tag="{Binding ElementName=RememberManagementKeyCheckBox}"
+                Text="静默登录"
+              />
+              <Button
+                x:Name="LoginSilentLoginRiskIndicator"
+                Style="{StaticResource SilentLoginRiskIconStyle}"
+                AutomationProperties.AutomationId="LoginSilentLoginRiskIndicator"
+                AutomationProperties.Name="静默登录风险提示"
+                ToolTipService.ShowDuration="20000"
+              >
+                <Button.ToolTip>
+                  <ToolTip
+                    Style="{StaticResource ShellRiskToolTipStyle}"
+                    AutomationProperties.Name="静默登录风险提示"
+                  >
+                    <TextBlock
+                      MaxWidth="290"
+                      Text="启用后会把安全密钥保存在本机凭据存储中，启动时可自动进入管理界面。仅在受信任的个人设备上使用；共用设备、远程桌面或系统账户不安全时请关闭。"
+                      TextWrapping="Wrap"
+                      Foreground="#B42318"
+                    />
+                  </ToolTip>
+                </Button.ToolTip>
+                <iconPacks:PackIconLucide
+                  Kind="CircleAlert"
+                  Width="17"
+                  Height="17"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Foreground="#B42318"
+                />
+              </Button>
+            </StackPanel>
+            <TextBlock
+              x:Name="LoginErrorText"
+              Style="{StaticResource StartupFlowErrorTextStyle}"
+              Visibility="Collapsed"
+            />
+            <Button
+              x:Name="LoginButton"
+              Margin="0,24,0,0"
+              Style="{StaticResource StartupPrimaryButtonStyle}"
+              Click="LoginButton_Click"
+              AutomationProperties.AutomationId="LoginButton"
+              Content="登录"
+            />
+            <Button
+              x:Name="ForgotSecurityKeyButton"
+              Margin="0,12,0,0"
+              Style="{StaticResource StartupSecondaryButtonStyle}"
+              Click="ForgotSecurityKeyButton_Click"
+              AutomationProperties.AutomationId="ForgotSecurityKeyButton"
+              Content="忘记安全密钥/重置"
+            />
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <Grid
+      x:Name="FirstRunConfirmPanel"
+      Visibility="Collapsed"
+      Background="#99000000"
+      AutomationProperties.AutomationId="FirstRunConfirmPanel"
+    >
+      <Border
+        Width="420"
+        Padding="0"
+        CornerRadius="16"
+        Style="{StaticResource ShellRaisedPanelStyle}"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+      >
+        <Grid ClipToBounds="True">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="34" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <Button
+            x:Name="FirstRunConfirmCloseButton"
+            Grid.Row="0"
+            Width="46"
+            Height="34"
+            Padding="0"
+            Style="{StaticResource DialogCloseButtonStyle}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Click="FirstRunConfirmCloseButton_Click"
+            Content="×"
+            AutomationProperties.AutomationId="FirstRunConfirmCloseButton"
+            AutomationProperties.Name="关闭"
+          />
+          <StackPanel Grid.Row="1" Margin="28,8,28,28">
+            <TextBlock
+              Text="确认已保存安全密钥"
+              FontSize="22"
+              FontWeight="SemiBold"
+              Foreground="{DynamicResource PrimaryTextBrush}"
+            />
+            <TextBlock
+              Margin="0,12,0,0"
+              Text="关闭本页后，完整安全密钥不会再次显示。未保存密钥且未选择本机记住时，之后需要重置才能重新初始化。"
+              FontSize="13"
+              Foreground="{DynamicResource SecondaryTextBrush}"
+              TextWrapping="Wrap"
+            />
+            <Button
+              x:Name="FirstRunConfirmContinueButton"
+              Width="84"
+              Height="36"
+              Margin="0,24,0,0"
+              HorizontalAlignment="Center"
+              Click="FirstRunConfirmContinueButton_Click"
+              AutomationProperties.AutomationId="FirstRunConfirmContinueButton"
+              Content="确认"
+            />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -208,6 +208,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         DataContext = _viewModel;
         InitializeComponent();
+        BindStartupFlowEvents();
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested +=

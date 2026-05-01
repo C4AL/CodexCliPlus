@@ -29,7 +29,8 @@ public sealed class LocalDependencyHealthService
         _processRunner = processRunner;
         _environmentVariableProvider =
             environmentVariableProvider ?? Environment.GetEnvironmentVariable;
-        _pathProvider = pathProvider ?? (target => Environment.GetEnvironmentVariable("PATH", target));
+        _pathProvider =
+            pathProvider ?? (target => Environment.GetEnvironmentVariable("PATH", target));
         _fileExists = fileExists ?? File.Exists;
         _directoryExists = directoryExists ?? Directory.Exists;
         _clock = clock ?? (() => DateTimeOffset.Now);
@@ -125,7 +126,9 @@ public sealed class LocalDependencyHealthService
                 Severity = LocalDependencySeverity.Required,
                 Version = version,
                 Path = codexPath,
-                Detail = loginReady ? "命令和登录状态检测通过。" : "命令可用，并检测到本地授权文件。",
+                Detail = loginReady
+                    ? "命令和登录状态检测通过。"
+                    : "命令可用，并检测到本地授权文件。",
                 Recommendation = "无需处理。",
             };
         }
@@ -293,7 +296,9 @@ public sealed class LocalDependencyHealthService
         CancellationToken cancellationToken
     )
     {
-        var pwshPath = PickExecutablePath(await FindExecutablePathsAsync("pwsh", cancellationToken));
+        var pwshPath = PickExecutablePath(
+            await FindExecutablePathsAsync("pwsh", cancellationToken)
+        );
         var powershellPath = PickExecutablePath(
             await FindExecutablePathsAsync("powershell", cancellationToken)
         );
@@ -394,31 +399,21 @@ public sealed class LocalDependencyHealthService
         if (missingSafeDirectories.Count > 0)
         {
             issues.Add(
-                "缺少 "
-                    + string.Join(
-                        "、",
-                        missingSafeDirectories.Select(item => item.DisplayName)
-                    )
+                "缺少 " + string.Join("、", missingSafeDirectories.Select(item => item.DisplayName))
             );
         }
 
         if (duplicateCount > 0)
         {
             issues.Add(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"发现 {duplicateCount} 个重复目录"
-                )
+                string.Create(CultureInfo.InvariantCulture, $"发现 {duplicateCount} 个重复目录")
             );
         }
 
         if (unreachableCount > 0)
         {
             issues.Add(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"发现 {unreachableCount} 个不可达目录"
-                )
+                string.Create(CultureInfo.InvariantCulture, $"发现 {unreachableCount} 个不可达目录")
             );
         }
 
@@ -442,14 +437,16 @@ public sealed class LocalDependencyHealthService
             Status = LocalDependencyStatus.Warning,
             Severity = LocalDependencySeverity.Required,
             Detail = string.Join("；", issues) + "。",
-            Recommendation = missingSafeDirectories.Count > 0
-                ? repairableMissingDirectories.Count > 0
-                    ? "可使用内置修复补齐安全的用户 PATH 目录。"
-                    : "用户或系统 PATH 已包含关键目录，重启 CodexCliPlus 后重新检测。"
-                : "清理重复或失效目录后重新检测。",
-            RepairActionId = repairableMissingDirectories.Count > 0
-                ? LocalDependencyRepairActionIds.RepairUserPath
-                : null,
+            Recommendation =
+                missingSafeDirectories.Count > 0
+                    ? repairableMissingDirectories.Count > 0
+                        ? "可使用内置修复补齐安全的用户 PATH 目录。"
+                        : "用户或系统 PATH 已包含关键目录，重启 CodexCliPlus 后重新检测。"
+                    : "清理重复或失效目录后重新检测。",
+            RepairActionId =
+                repairableMissingDirectories.Count > 0
+                    ? LocalDependencyRepairActionIds.RepairUserPath
+                    : null,
         };
     }
 
@@ -498,7 +495,10 @@ public sealed class LocalDependencyHealthService
                 Severity = LocalDependencySeverity.Optional,
                 Version = FirstOutputLine(statusAttempt.Output),
                 Path = wslPath,
-                Detail = string.Create(CultureInfo.InvariantCulture, $"已检测到 {distros} 个 WSL 发行版。"),
+                Detail = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"已检测到 {distros} 个 WSL 发行版。"
+                ),
                 Recommendation = "无需处理。",
             };
         }
@@ -525,7 +525,9 @@ public sealed class LocalDependencyHealthService
         CancellationToken cancellationToken
     )
     {
-        var wingetPath = PickExecutablePath(await FindExecutablePathsAsync("winget", cancellationToken));
+        var wingetPath = PickExecutablePath(
+            await FindExecutablePathsAsync("winget", cancellationToken)
+        );
         toolState.WingetPath = wingetPath;
         if (string.IsNullOrWhiteSpace(wingetPath))
         {
@@ -536,7 +538,8 @@ public sealed class LocalDependencyHealthService
                 Status = LocalDependencyStatus.Warning,
                 Severity = LocalDependencySeverity.RepairTool,
                 Detail = "未找到 winget；安装类修复能力不可用。",
-                Recommendation = "如需一键安装 Node.js 或 PowerShell，请先安装 App Installer/winget。",
+                Recommendation =
+                    "如需一键安装 Node.js 或 PowerShell，请先安装 App Installer/winget。",
             };
         }
 
@@ -607,7 +610,7 @@ public sealed class LocalDependencyHealthService
         {
             return await TryRunAsync(
                 "cmd.exe",
-                ["/d", "/c", executablePath, ..arguments],
+                ["/d", "/c", executablePath, .. arguments],
                 timeout,
                 cancellationToken
             );
@@ -685,9 +688,7 @@ public sealed class LocalDependencyHealthService
     private string? GetAppDataNpmPath()
     {
         var appData = _environmentVariableProvider("APPDATA");
-        return string.IsNullOrWhiteSpace(appData)
-            ? null
-            : System.IO.Path.Combine(appData, "npm");
+        return string.IsNullOrWhiteSpace(appData) ? null : System.IO.Path.Combine(appData, "npm");
     }
 
     private bool IsDirectoryOnAnyPath(string directory)
@@ -716,8 +717,14 @@ public sealed class LocalDependencyHealthService
         AddExecutableDirectory(expected, "PowerShell", toolState.PowerShellPath);
 
         return expected
-            .Where(item => _directoryExists(item.Path) && !pathEntries.Any(entry => IsSameDirectory(entry, item.Path)))
-            .DistinctBy(item => NormalizePathForComparison(item.Path), StringComparer.OrdinalIgnoreCase)
+            .Where(item =>
+                _directoryExists(item.Path)
+                && !pathEntries.Any(entry => IsSameDirectory(entry, item.Path))
+            )
+            .DistinctBy(
+                item => NormalizePathForComparison(item.Path),
+                StringComparer.OrdinalIgnoreCase
+            )
             .ToList();
     }
 
@@ -725,7 +732,11 @@ public sealed class LocalDependencyHealthService
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var duplicates = 0;
-        foreach (var normalized in entries.Select(NormalizePathForComparison).Where(item => item.Length > 0))
+        foreach (
+            var normalized in entries
+                .Select(NormalizePathForComparison)
+                .Where(item => item.Length > 0)
+        )
         {
             if (!seen.Add(normalized))
             {
@@ -829,14 +840,18 @@ public sealed class LocalDependencyHealthService
                 ActionId = LocalDependencyRepairActionIds.InstallNodeNpm,
                 Name = "安装 Node.js LTS 和 npm",
                 IsAvailable = wingetReady,
-                Detail = wingetReady ? "将通过 winget 安装 OpenJS.NodeJS.LTS。" : "需要 winget 可用。",
+                Detail = wingetReady
+                    ? "将通过 winget 安装 OpenJS.NodeJS.LTS。"
+                    : "需要 winget 可用。",
             },
             new LocalDependencyRepairCapability
             {
                 ActionId = LocalDependencyRepairActionIds.InstallPowerShell,
                 Name = "安装 PowerShell 7",
                 IsAvailable = wingetReady,
-                Detail = wingetReady ? "将通过 winget 安装 Microsoft.PowerShell。" : "需要 winget 可用。",
+                Detail = wingetReady
+                    ? "将通过 winget 安装 Microsoft.PowerShell。"
+                    : "需要 winget 可用。",
             },
             new LocalDependencyRepairCapability
             {
@@ -850,7 +865,9 @@ public sealed class LocalDependencyHealthService
                 ActionId = LocalDependencyRepairActionIds.RepairUserPath,
                 Name = "修复用户 PATH",
                 IsAvailable = pathRepairAvailable,
-                Detail = pathRepairAvailable ? "只补齐已确认缺失的安全目录。" : "没有需要补齐的安全目录。",
+                Detail = pathRepairAvailable
+                    ? "只补齐已确认缺失的安全目录。"
+                    : "没有需要补齐的安全目录。",
             },
             new LocalDependencyRepairCapability
             {
@@ -896,15 +913,19 @@ public sealed class LocalDependencyHealthService
         }
 
         return attempt.ExitCode.HasValue
-            ? string.Create(CultureInfo.InvariantCulture, $"{prefix}：退出码 {attempt.ExitCode.Value}。")
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"{prefix}：退出码 {attempt.ExitCode.Value}。"
+            )
             : $"{prefix}。";
     }
 
     private static string PickExecutablePath(IReadOnlyList<string> candidates)
     {
         return candidates
-            .Select(candidate => candidate.Trim())
-            .FirstOrDefault(candidate => candidate.Length > 0) ?? string.Empty;
+                .Select(candidate => candidate.Trim())
+                .FirstOrDefault(candidate => candidate.Length > 0)
+            ?? string.Empty;
     }
 
     private static void AddCandidate(List<string> candidates, string path)
@@ -997,21 +1018,24 @@ public sealed class LocalDependencyHealthService
     {
         try
         {
-            return System.IO.Path.GetFullPath(Environment.ExpandEnvironmentVariables(path))
-                .TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+            return System
+                .IO.Path.GetFullPath(Environment.ExpandEnvironmentVariables(path))
+                .TrimEnd(
+                    System.IO.Path.DirectorySeparatorChar,
+                    System.IO.Path.AltDirectorySeparatorChar
+                );
         }
         catch
         {
-            return path.Trim().TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+            return path.Trim()
+                .TrimEnd(
+                    System.IO.Path.DirectorySeparatorChar,
+                    System.IO.Path.AltDirectorySeparatorChar
+                );
         }
     }
 
-    private sealed record CommandAttempt(
-        int? ExitCode,
-        string Output,
-        string? Error,
-        bool TimedOut
-    )
+    private sealed record CommandAttempt(int? ExitCode, string Output, string? Error, bool TimedOut)
     {
         public bool Succeeded => ExitCode == 0 && !TimedOut;
     }

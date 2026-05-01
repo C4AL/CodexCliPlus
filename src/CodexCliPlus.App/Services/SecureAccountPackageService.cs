@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Core.Models.Management;
+using CodexCliPlus.Core.Models.Security;
 using Konscious.Security.Cryptography;
 
 namespace CodexCliPlus.Services;
@@ -40,7 +40,9 @@ internal static class SecureAccountPackageService
     {
         if (payload.VaultSecrets.Count > 0)
         {
-            throw new InvalidOperationException("明文导出已禁用，包含凭据的配置只能导出为 .sac 安全包。");
+            throw new InvalidOperationException(
+                "明文导出已禁用，包含凭据的配置只能导出为 .sac 安全包。"
+            );
         }
 
         PreparePayloadForExport(payload);
@@ -254,7 +256,8 @@ internal static class SecureAccountPackageService
 
     private static string CreateDeviceId()
     {
-        var source = $"{Environment.UserDomainName}\\{Environment.UserName}@{Environment.MachineName}";
+        var source =
+            $"{Environment.UserDomainName}\\{Environment.UserName}@{Environment.MachineName}";
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(source)));
     }
 

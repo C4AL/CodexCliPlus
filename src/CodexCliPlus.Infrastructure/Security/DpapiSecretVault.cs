@@ -21,10 +21,7 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         "^[a-z0-9][a-z0-9._-]{2,127}$",
         RegexOptions.Compiled
     );
-    private static readonly Regex SecretIdSanitizer = new(
-        "[^a-z0-9._-]+",
-        RegexOptions.Compiled
-    );
+    private static readonly Regex SecretIdSanitizer = new("[^a-z0-9._-]+", RegexOptions.Compiled);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -70,12 +67,20 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
                 Entropy,
                 DataProtectionScope.CurrentUser
             );
-            await File.WriteAllBytesAsync(GetBlobPath(blobReference), protectedBytes, cancellationToken);
+            await File.WriteAllBytesAsync(
+                GetBlobPath(blobReference),
+                protectedBytes,
+                cancellationToken
+            );
 
             var manifest = await ReadManifestAsync(cancellationToken);
             var now = DateTimeOffset.UtcNow;
             var existing = manifest.Secrets.FirstOrDefault(record =>
-                string.Equals(record.SecretId, normalizedSecretId, StringComparison.OrdinalIgnoreCase)
+                string.Equals(
+                    record.SecretId,
+                    normalizedSecretId,
+                    StringComparison.OrdinalIgnoreCase
+                )
             );
 
             var record = new SecretRecord
@@ -85,16 +90,18 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
                 Source = string.IsNullOrWhiteSpace(source) ? "unknown" : source.Trim(),
                 CreatedAtUtc = existing?.CreatedAtUtc ?? now,
                 LastUsedAtUtc = existing?.LastUsedAtUtc,
-                Status = existing?.Status is SecretStatus.Revoked
-                    ? SecretStatus.Revoked
-                    : SecretStatus.Active,
+                Status =
+                    existing?.Status is SecretStatus.Revoked
+                        ? SecretStatus.Revoked
+                        : SecretStatus.Active,
                 BlobReference = blobReference,
                 ValueSha256 = Convert.ToHexStringLower(SHA256.HashData(plainBytes)),
-                Metadata = metadata?.ToDictionary(
-                    pair => pair.Key,
-                    pair => pair.Value,
-                    StringComparer.OrdinalIgnoreCase
-                ) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                Metadata =
+                    metadata?.ToDictionary(
+                        pair => pair.Key,
+                        pair => pair.Value,
+                        StringComparer.OrdinalIgnoreCase
+                    ) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             };
 
             manifest.Secrets.RemoveAll(item =>
@@ -332,7 +339,10 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
 
     private string GetSecretRootDirectory()
     {
-        return Path.Combine(_pathService.Directories.ConfigDirectory, AppConstants.SecretsDirectoryName);
+        return Path.Combine(
+            _pathService.Directories.ConfigDirectory,
+            AppConstants.SecretsDirectoryName
+        );
     }
 
     private string GetBlobDirectory()
@@ -366,7 +376,10 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         var sanitized = SecretIdSanitizer.Replace(trimmed, "-").Trim('-', '.', '_');
         if (!SecretIdPattern.IsMatch(sanitized))
         {
-            throw new ArgumentException("Secret id contains no usable identifier characters.", nameof(requestedSecretId));
+            throw new ArgumentException(
+                "Secret id contains no usable identifier characters.",
+                nameof(requestedSecretId)
+            );
         }
 
         return sanitized;
@@ -423,7 +436,10 @@ internal static class SecretRecordExtensions
             Status = status,
             BlobReference = record.BlobReference,
             ValueSha256 = record.ValueSha256,
-            Metadata = new Dictionary<string, string>(record.Metadata, StringComparer.OrdinalIgnoreCase),
+            Metadata = new Dictionary<string, string>(
+                record.Metadata,
+                StringComparer.OrdinalIgnoreCase
+            ),
         };
     }
 
@@ -442,7 +458,10 @@ internal static class SecretRecordExtensions
             Status = record.Status,
             BlobReference = record.BlobReference,
             ValueSha256 = record.ValueSha256,
-            Metadata = new Dictionary<string, string>(record.Metadata, StringComparer.OrdinalIgnoreCase),
+            Metadata = new Dictionary<string, string>(
+                record.Metadata,
+                StringComparer.OrdinalIgnoreCase
+            ),
         };
     }
 }

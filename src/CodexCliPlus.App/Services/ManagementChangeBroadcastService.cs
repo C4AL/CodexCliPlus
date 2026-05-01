@@ -44,7 +44,12 @@ public sealed class ManagementChangeBroadcastService : IDisposable
             }
 
             _started = true;
-            WatchFile(_pathService.Directories.BackendConfigFilePath, "config", "providers", "quota");
+            WatchFile(
+                _pathService.Directories.BackendConfigFilePath,
+                "config",
+                "providers",
+                "quota"
+            );
             WatchDirectory(
                 Path.Combine(_pathService.Directories.BackendDirectory, "auth"),
                 includeSubdirectories: true,
@@ -52,7 +57,11 @@ public sealed class ManagementChangeBroadcastService : IDisposable
                 "quota",
                 "providers"
             );
-            WatchDirectory(_pathService.Directories.LogsDirectory, includeSubdirectories: true, "logs");
+            WatchDirectory(
+                _pathService.Directories.LogsDirectory,
+                includeSubdirectories: true,
+                "logs"
+            );
             WatchDirectory(
                 _pathService.Directories.PersistenceDirectory,
                 includeSubdirectories: true,

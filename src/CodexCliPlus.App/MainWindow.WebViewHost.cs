@@ -82,19 +82,11 @@ public partial class MainWindow
             _changeBroadcastService.Start();
             MarkStartupPhase("paths-ready");
 
-            ShowPreparationStep(
-                25,
-                "正在检查 WebView2 运行时。",
-                StartupState.Preparing
-            );
+            ShowPreparationStep(25, "正在检查 WebView2 运行时。", StartupState.Preparing);
             EnsureWebView2Runtime();
             MarkStartupPhase("webview2-runtime-ready");
 
-            ShowPreparationStep(
-                40,
-                "正在定位管理界面和后端资产。",
-                StartupState.Preparing
-            );
+            ShowPreparationStep(40, "正在定位管理界面和后端资产。", StartupState.Preparing);
             var bundle = _webUiAssetLocator.GetRequiredBundle();
             MarkStartupPhase("webui-assets-ready");
 
@@ -128,11 +120,7 @@ public partial class MainWindow
             _shellConnectionStatus = "connected";
             UpdateShellConnectionPresentation();
 
-            ShowPreparationStep(
-                95,
-                "正在打开管理界面。",
-                StartupState.LoadingManagement
-            );
+            ShowPreparationStep(95, "正在打开管理界面。", StartupState.LoadingManagement);
             await EnsureWebViewAsync(bundle, payload);
             MarkStartupPhase("webview-navigation-started");
             await EnsureMinimumPreparationDisplayAsync();
@@ -462,9 +450,7 @@ public partial class MainWindow
         catch { }
     }
 
-    private async Task HandleDesktopManagementRequestAsync(
-        DesktopManagementBridgeRequest request
-    )
+    private async Task HandleDesktopManagementRequestAsync(DesktopManagementBridgeRequest request)
     {
         var requestId = string.IsNullOrWhiteSpace(request.RequestId)
             ? Guid.NewGuid().ToString("N")
@@ -479,18 +465,12 @@ public partial class MainWindow
                 : NormalizeMediaType(request.Accept);
             var contentType = NormalizeMediaType(request.ContentType);
 
-            _logger.Info(
-                $"Desktop management request {requestId}: {method.Method} {path}"
-            );
+            _logger.Info($"Desktop management request {requestId}: {method.Method} {path}");
 
             ManagementApiResponse<string> response;
             if (request.Files.Count > 0)
             {
-                var files = await ProtectDesktopManagementFilesAsync(
-                    method,
-                    path,
-                    request.Files
-                );
+                var files = await ProtectDesktopManagementFilesAsync(method, path, request.Files);
                 response = await _managementApiClient.SendManagementMultipartAsync(
                     method,
                     path,
@@ -535,9 +515,7 @@ public partial class MainWindow
         }
         catch (ManagementApiException exception)
         {
-            _logger.Warn(
-                $"Desktop management request {requestId} failed: {exception.Message}"
-            );
+            _logger.Warn($"Desktop management request {requestId} failed: {exception.Message}");
             PostWebUiCommand(
                 new
                 {
@@ -605,7 +583,9 @@ public partial class MainWindow
                 new ManagementMultipartFile
                 {
                     FieldName = string.IsNullOrWhiteSpace(file.FieldName) ? "file" : file.FieldName,
-                    FileName = string.IsNullOrWhiteSpace(file.FileName) ? "upload.json" : file.FileName,
+                    FileName = string.IsNullOrWhiteSpace(file.FileName)
+                        ? "upload.json"
+                        : file.FileName,
                     Content = content,
                     ContentType = string.IsNullOrWhiteSpace(file.ContentType)
                         ? "application/octet-stream"
@@ -644,10 +624,7 @@ public partial class MainWindow
             return migrated.Content;
         }
 
-        if (
-            contentType.Contains("json", StringComparison.OrdinalIgnoreCase)
-            || LooksLikeJson(body)
-        )
+        if (contentType.Contains("json", StringComparison.OrdinalIgnoreCase) || LooksLikeJson(body))
         {
             var migrated = await _configMigrationService.MigrateJsonAsync(body, source);
             return migrated.Content;
@@ -659,7 +636,10 @@ public partial class MainWindow
     private static DesktopManagementBridgeRequest ReadDesktopManagementRequest(JsonElement root)
     {
         var files = new List<DesktopManagementBridgeFile>();
-        if (root.TryGetProperty("files", out var filesElement) && filesElement.ValueKind == JsonValueKind.Array)
+        if (
+            root.TryGetProperty("files", out var filesElement)
+            && filesElement.ValueKind == JsonValueKind.Array
+        )
         {
             foreach (var item in filesElement.EnumerateArray())
             {
@@ -696,9 +676,10 @@ public partial class MainWindow
             fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var property in fieldsElement.EnumerateObject())
             {
-                fields[property.Name] = property.Value.ValueKind == JsonValueKind.String
-                    ? property.Value.GetString() ?? string.Empty
-                    : property.Value.ToString();
+                fields[property.Name] =
+                    property.Value.ValueKind == JsonValueKind.String
+                        ? property.Value.GetString() ?? string.Empty
+                        : property.Value.ToString();
             }
         }
 
@@ -716,7 +697,8 @@ public partial class MainWindow
 
     private static string? ReadString(JsonElement element, string propertyName)
     {
-        return element.TryGetProperty(propertyName, out var value)
+        return
+            element.TryGetProperty(propertyName, out var value)
             && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
@@ -753,9 +735,7 @@ public partial class MainWindow
             throw new InvalidOperationException("桌面管理代理只允许相对管理接口路径。");
         }
 
-        var normalized = trimmed[0] == '/'
-            ? trimmed
-            : $"/{trimmed}";
+        var normalized = trimmed[0] == '/' ? trimmed : $"/{trimmed}";
         return normalized.Replace(
             "/generative-language-api-key",
             "/gemini-api-key",
@@ -767,9 +747,7 @@ public partial class MainWindow
     {
         var rawValue = value ?? "application/json";
         var separatorIndex = rawValue.IndexOf(';', StringComparison.Ordinal);
-        var mediaType = (
-            separatorIndex >= 0 ? rawValue[..separatorIndex] : rawValue
-        ).Trim();
+        var mediaType = (separatorIndex >= 0 ? rawValue[..separatorIndex] : rawValue).Trim();
         return string.IsNullOrWhiteSpace(mediaType) ? "application/json" : mediaType;
     }
 
@@ -890,8 +868,7 @@ public partial class MainWindow
     private async Task RunLocalDependencyRepairAsync(string? requestId, string? actionId)
     {
         if (
-            string.IsNullOrWhiteSpace(actionId)
-            || !LocalDependencyRepairActionIds.IsKnown(actionId)
+            string.IsNullOrWhiteSpace(actionId) || !LocalDependencyRepairActionIds.IsKnown(actionId)
         )
         {
             PostWebUiCommand(
@@ -971,7 +948,8 @@ public partial class MainWindow
 
     private static string? ReadRequestId(JsonElement root)
     {
-        return root.TryGetProperty("requestId", out var requestIdElement)
+        return
+            root.TryGetProperty("requestId", out var requestIdElement)
             && requestIdElement.ValueKind == JsonValueKind.String
             ? requestIdElement.GetString()
             : null;

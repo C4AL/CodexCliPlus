@@ -45,9 +45,10 @@ public sealed class WebView2RuntimeAssets
         Directory.CreateDirectory(stagedRoot);
 
         var assets = new List<WebView2RuntimeAsset>();
-        var descriptors = packageKind == InstallerPackageKind.Online
-            ? Descriptors.Where(descriptor => descriptor.FileName == BootstrapperFileName)
-            : Descriptors;
+        var descriptors =
+            packageKind == InstallerPackageKind.Online
+                ? Descriptors.Where(descriptor => descriptor.FileName == BootstrapperFileName)
+                : Descriptors;
         foreach (var descriptor in descriptors)
         {
             var cachedPath = Path.Combine(cachedRoot, descriptor.FileName);
@@ -100,22 +101,14 @@ public sealed class WebView2RuntimeAssets
         {
             try
             {
-                logger.Info(
-                    $"WebView2 runtime download {descriptor.FileName} attempt {attempt}/3"
-                );
+                logger.Info($"WebView2 runtime download {descriptor.FileName} attempt {attempt}/3");
                 if (File.Exists(tempPath))
                 {
                     File.Delete(tempPath);
                 }
 
-                using var client = new HttpClient
-                {
-                    Timeout = TimeSpan.FromMinutes(30),
-                };
-                using var request = new HttpRequestMessage(
-                    HttpMethod.Get,
-                    descriptor.SourceUrl
-                );
+                using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
+                using var request = new HttpRequestMessage(HttpMethod.Get, descriptor.SourceUrl);
                 request.Headers.UserAgent.Add(
                     new ProductInfoHeaderValue("CodexCliPlus-BuildTool", "1.0")
                 );
@@ -135,9 +128,9 @@ public sealed class WebView2RuntimeAssets
                     );
                 }
 
-                await using (var source = await response.Content.ReadAsStreamAsync(
-                                 cancellationToken
-                             ))
+                await using (
+                    var source = await response.Content.ReadAsStreamAsync(cancellationToken)
+                )
                 await using (var target = File.Create(tempPath))
                 {
                     await source.CopyToAsync(target, cancellationToken);

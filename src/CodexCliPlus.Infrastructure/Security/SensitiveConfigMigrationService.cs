@@ -280,7 +280,9 @@ public sealed class SensitiveConfigMigrationService
                 var replacements = new List<(YamlNode Key, YamlNode Value)>();
                 foreach (var pair in mapping.Children.ToArray())
                 {
-                    var key = pair.Key is YamlScalarNode keyNode ? keyNode.Value ?? string.Empty : string.Empty;
+                    var key = pair.Key is YamlScalarNode keyNode
+                        ? keyNode.Value ?? string.Empty
+                        : string.Empty;
                     var propertySensitive = parentSensitive || IsSensitiveKey(key);
                     if (IsHeadersKey(parentKey) && IsSensitiveHeaderKey(key))
                     {
@@ -302,7 +304,9 @@ public sealed class SensitiveConfigMigrationService
                             key,
                             cancellationToken
                         );
-                        replacements.Add((pair.Key, new YamlScalarNode(new SecretRef(export.SecretId).Uri)));
+                        replacements.Add(
+                            (pair.Key, new YamlScalarNode(new SecretRef(export.SecretId).Uri))
+                        );
                         secrets.Add(export);
                         continue;
                     }
@@ -344,7 +348,9 @@ public sealed class SensitiveConfigMigrationService
                             parentKey,
                             cancellationToken
                         );
-                        sequence.Children[index] = new YamlScalarNode(new SecretRef(export.SecretId).Uri);
+                        sequence.Children[index] = new YamlScalarNode(
+                            new SecretRef(export.SecretId).Uri
+                        );
                         secrets.Add(export);
                         continue;
                     }
@@ -398,7 +404,10 @@ public sealed class SensitiveConfigMigrationService
             CreatedAtUtc = record.CreatedAtUtc,
             Status = record.Status,
             Value = value,
-            Metadata = new Dictionary<string, string>(record.Metadata, StringComparer.OrdinalIgnoreCase),
+            Metadata = new Dictionary<string, string>(
+                record.Metadata,
+                StringComparer.OrdinalIgnoreCase
+            ),
         };
     }
 

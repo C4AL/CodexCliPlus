@@ -89,7 +89,7 @@ public partial class MainWindow
 
     private async Task BeginFirstRunKeyRevealAsync()
     {
-        ShowPreparationStep("配置", 35, "正在生成首次安全密钥。", StartupState.Preparing);
+        ShowPreparationStep(35, "正在生成首次安全密钥。", StartupState.Preparing);
 
         _firstRunManagementKey = GenerateSecurityKey();
         _settings.ManagementKey = _firstRunManagementKey;
@@ -252,7 +252,7 @@ public partial class MainWindow
     {
         LoginButton.IsEnabled = false;
         ForgotSecurityKeyButton.IsEnabled = false;
-        ShowPreparationStep("配置", 20, "正在重置安全密钥和本地认证状态。", StartupState.Preparing);
+        ShowPreparationStep(20, "正在重置安全密钥和本地认证状态。", StartupState.Preparing);
 
         try
         {

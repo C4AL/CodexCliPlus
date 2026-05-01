@@ -74,7 +74,7 @@ public partial class MainWindow
         _isInitializing = true;
         _shellConnectionStatus = "connecting";
         UpdateShellConnectionPresentation();
-        ShowPreparationStep("目录", 10, "正在准备本地目录。", StartupState.Preparing);
+        ShowPreparationStep(10, "正在准备本地目录。", StartupState.Preparing);
 
         try
         {
@@ -83,7 +83,6 @@ public partial class MainWindow
             MarkStartupPhase("paths-ready");
 
             ShowPreparationStep(
-                "WebView2",
                 25,
                 "正在检查 WebView2 运行时。",
                 StartupState.Preparing
@@ -92,7 +91,6 @@ public partial class MainWindow
             MarkStartupPhase("webview2-runtime-ready");
 
             ShowPreparationStep(
-                "后端资产",
                 40,
                 "正在定位管理界面和后端资产。",
                 StartupState.Preparing
@@ -100,22 +98,22 @@ public partial class MainWindow
             var bundle = _webUiAssetLocator.GetRequiredBundle();
             MarkStartupPhase("webui-assets-ready");
 
-            ShowPreparationStep("配置", 55, "正在确认后端配置。", StartupState.Preparing);
+            ShowPreparationStep(55, "正在确认后端配置。", StartupState.Preparing);
             if (
                 restartBackend
                 && _backendProcessManager.CurrentStatus.State == BackendStateKind.Running
             )
             {
-                ShowPreparationStep("核心启动", 68, "正在重启本地后端。", StartupState.Preparing);
+                ShowPreparationStep(68, "正在重启本地后端。", StartupState.Preparing);
                 await SyncPersistenceBeforeExitAsync();
                 await _backendProcessManager.RestartAsync();
             }
 
-            ShowPreparationStep("核心启动", 72, "正在启动本地后端。", StartupState.Preparing);
+            ShowPreparationStep(72, "正在启动本地后端。", StartupState.Preparing);
             var connection = await _sessionService.GetConnectionAsync();
             MarkStartupPhase("backend-ready");
 
-            ShowPreparationStep("健康检查", 86, "本地后端健康检查已通过。", StartupState.Preparing);
+            ShowPreparationStep(86, "本地后端健康检查已通过。", StartupState.Preparing);
             var payload = new DesktopBootstrapPayload
             {
                 DesktopMode = true,
@@ -131,7 +129,6 @@ public partial class MainWindow
             UpdateShellConnectionPresentation();
 
             ShowPreparationStep(
-                "管理桥接",
                 95,
                 "正在打开管理界面。",
                 StartupState.LoadingManagement

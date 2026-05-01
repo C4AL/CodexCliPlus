@@ -14,9 +14,10 @@
   "templateRoot": "build/micasetup",
   "micasetupTemplate": "build/micasetup/templates/micasetup.json.template",
   "cleanupManifestTemplate": "build/micasetup/templates/cleanup-manifest.template.json",
+  "sourceTemplateRoot": "build/micasetup/source-template",
   "sourceOverlayRoot": "build/micasetup/overrides/MicaSetup",
   "renderTokens": {
-    "__MICA_TEMPLATE_ARCHIVE__": "build/micasetup/toolchain/build/template/default.7z",
+    "__MICA_TEMPLATE_ARCHIVE__": "build/micasetup/source-template",
     "__PAYLOAD_ARCHIVE_PATH__": "artifacts/buildtool/installer/win-x64/stage/publish.7z",
     "__INSTALLER_OUTPUT_PATH__": "artifacts/buildtool/packages/CodexCliPlus.Setup.1.0.0.exe",
     "__VERSION__": "1.0.0",

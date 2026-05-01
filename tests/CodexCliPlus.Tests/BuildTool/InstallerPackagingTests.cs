@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using CodexCliPlus.BuildTool;
@@ -14,17 +13,16 @@ public sealed class InstallerPackagingTests : IDisposable
     );
 
     [Fact]
-    public async Task PackageInstallerBuildsExecutableAndStagingArchiveFromRepoOwnedToolchain()
+    public async Task PackageInstallerBuildsExecutableAndStagingArchiveFromRepoOwnedSourceTemplate()
     {
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-success");
         CreatePublishRoot(outputRoot);
         CreateWebView2Cache(outputRoot);
-        CreateRepoOwnedToolchain(repositoryRoot);
 
         using var output = new StringWriter();
         using var error = new StringWriter();
-        var runner = new InstallerProcessRunner(forceFallback: false);
+        var runner = new InstallerProcessRunner();
         var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
 
         var exitCode = await PackageCommands.PackageInstallerAsync(
@@ -161,21 +159,24 @@ public sealed class InstallerPackagingTests : IDisposable
             dependencyPrecheck.GetProperty("backend").GetProperty("bundledFirst").GetBoolean()
         );
 
-        Assert.Contains("MicaSetup tools repo-owned", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "repo-owned MicaSetup source templates",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
-    public async Task PackageInstallerUsesRepoOwnedSourceBuildWhenMakemicaOutputIsInvalid()
+    public async Task PackageInstallerUsesRepoOwnedSourceTemplate()
     {
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-fallback");
         CreatePublishRoot(outputRoot);
         CreateWebView2Cache(outputRoot);
-        CreateRepoOwnedToolchain(repositoryRoot);
 
         using var output = new StringWriter();
         using var error = new StringWriter();
-        var runner = new InstallerProcessRunner(forceFallback: true);
+        var runner = new InstallerProcessRunner();
         var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
 
         var exitCode = await PackageCommands.PackageInstallerAsync(
@@ -232,17 +233,49 @@ public sealed class InstallerPackagingTests : IDisposable
             "private const long RequestedPayloadUncompressedBytes = [1-9][0-9]*;",
             setupMainViewModel
         );
-        Assert.DoesNotContain("__PAYLOAD_UNCOMPRESSED_BYTES__", setupMainViewModel, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArchiveFileHelper.TotalUncompressSize", setupMainViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "__PAYLOAD_UNCOMPRESSED_BYTES__",
+            setupMainViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ArchiveFileHelper.TotalUncompressSize",
+            setupMainViewModel,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("publish.7z", setupMainViewModel, StringComparison.Ordinal);
         Assert.Contains("LoadLicenseInfo", setupMainViewModel, StringComparison.Ordinal);
-        Assert.Contains("EnsureCodexCliPlusWebView2RuntimeInstalled", installViewModel, StringComparison.Ordinal);
-        Assert.Contains(WebView2RuntimeAssets.BootstrapperFileName, installViewModel, StringComparison.Ordinal);
-        Assert.Contains(WebView2RuntimeAssets.StandaloneX64FileName, installViewModel, StringComparison.Ordinal);
-        Assert.Contains("无法安装 Microsoft Edge WebView2 Runtime", installViewModel, StringComparison.Ordinal);
+        Assert.Contains(
+            "EnsureCodexCliPlusWebView2RuntimeInstalled",
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            WebView2RuntimeAssets.BootstrapperFileName,
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            WebView2RuntimeAssets.StandaloneX64FileName,
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "无法安装 Microsoft Edge WebView2 Runtime",
+            installViewModel,
+            StringComparison.Ordinal
+        );
         Assert.Contains("完成后删除安装包", finishPage, StringComparison.Ordinal);
-        Assert.Contains("IsChecked=\"{Binding CleanupInstallerAfterInstall}\"", finishPage, StringComparison.Ordinal);
-        Assert.Contains("CleanupOriginalInstallerAfterInstall", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains(
+            "IsChecked=\"{Binding CleanupInstallerAfterInstall}\"",
+            finishPage,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "CleanupOriginalInstallerAfterInstall",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
         Assert.Equal(
             2,
             CountOccurrences(finishViewModel, "CleanupOriginalInstallerAfterInstall();")
@@ -255,9 +288,21 @@ public sealed class InstallerPackagingTests : IDisposable
             uninstallHelper,
             StringComparison.Ordinal
         );
-        Assert.Contains("stream.Position = originalPosition;", archiveFileHelper, StringComparison.Ordinal);
-        Assert.DoesNotContain("using dynamic? archive = type switch", archiveFileHelper, StringComparison.Ordinal);
-        Assert.Contains("long totalUncompressSize = archive.TotalUncompressSize;", archiveFileHelper, StringComparison.Ordinal);
+        Assert.Contains(
+            "stream.Position = originalPosition;",
+            archiveFileHelper,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "using dynamic? archive = type switch",
+            archiveFileHelper,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "long totalUncompressSize = archive.TotalUncompressSize;",
+            archiveFileHelper,
+            StringComparison.Ordinal
+        );
         Assert.True(File.Exists(renderedLicensePath));
         Assert.Equal("notice", File.ReadAllText(renderedLicensePath));
 
@@ -265,27 +310,10 @@ public sealed class InstallerPackagingTests : IDisposable
             ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "Favicon.png")) >= 256
         );
         Assert.True(
-            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconSetup.png"))
-                >= 256
+            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconSetup.png")) >= 256
         );
         Assert.True(
-            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconUninst.png"))
-                >= 256
-        );
-    }
-
-    [Fact]
-    public void MakeMicaCompatibilityIncludesVisualStudioBuildToolsInstances()
-    {
-        var field = typeof(MakeMicaVisualStudioCompatibility).GetField(
-            "Vs2026AwareVsWhereArguments",
-            BindingFlags.NonPublic | BindingFlags.Static
-        );
-
-        Assert.NotNull(field);
-        Assert.Equal(
-            "-latest -products * -property installationPath",
-            field!.GetRawConstantValue()
+            ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconUninst.png")) >= 256
         );
     }
 
@@ -327,6 +355,7 @@ public sealed class InstallerPackagingTests : IDisposable
         File.WriteAllText(Path.Combine(repositoryRoot, "CodexCliPlus.sln"), string.Empty);
         File.WriteAllText(Path.Combine(repositoryRoot, "LICENSE.txt"), "license");
         Directory.CreateDirectory(Path.Combine(repositoryRoot, "build", "micasetup"));
+        CreateRepoOwnedMicaSourceTemplate(repositoryRoot);
         CreateRepoOwnedMicaSourceTemplates(repositoryRoot);
         var iconRoot = Path.Combine(repositoryRoot, "resources", "icons");
         Directory.CreateDirectory(iconRoot);
@@ -379,29 +408,22 @@ public sealed class InstallerPackagingTests : IDisposable
         );
     }
 
-    private static void CreateRepoOwnedToolchain(string repositoryRoot)
+    private static void CreateRepoOwnedMicaSourceTemplate(string repositoryRoot)
     {
-        var toolchainRoot = Path.Combine(
+        var sourceTemplateRoot = Path.Combine(
             repositoryRoot,
             "build",
             "micasetup",
-            "toolchain",
-            "build"
+            "source-template"
         );
-        Directory.CreateDirectory(Path.Combine(toolchainRoot, "bin"));
-        Directory.CreateDirectory(Path.Combine(toolchainRoot, "template"));
-        File.WriteAllBytes(Path.Combine(toolchainRoot, "bin", "7z.exe"), CreateExecutableBytes());
-        File.WriteAllBytes(Path.Combine(toolchainRoot, "makemica.exe"), CreateExecutableBytes());
-        File.WriteAllBytes(Path.Combine(toolchainRoot, "template", "default.7z"), [1, 2, 3, 4]);
+        Directory.CreateDirectory(sourceTemplateRoot);
+        Directory.CreateDirectory(Path.Combine(sourceTemplateRoot, "Resources", "Images"));
+        Directory.CreateDirectory(Path.Combine(sourceTemplateRoot, "Resources", "Licenses"));
+        Directory.CreateDirectory(Path.Combine(sourceTemplateRoot, "Resources", "Setups"));
+        File.WriteAllText(Path.Combine(sourceTemplateRoot, "MicaSetup.csproj"), "<Project />");
         File.WriteAllText(
-            Path.Combine(
-                repositoryRoot,
-                "build",
-                "micasetup",
-                "toolchain",
-                "micasetup-tools-version.txt"
-            ),
-            "repo-owned-test"
+            Path.Combine(sourceTemplateRoot, "MicaSetup.Uninst.csproj"),
+            "<Project />"
         );
     }
 
@@ -615,7 +637,7 @@ public sealed class InstallerPackagingTests : IDisposable
         return count;
     }
 
-    private sealed class InstallerProcessRunner(bool forceFallback) : IProcessRunner
+    private sealed class InstallerProcessRunner : IProcessRunner
     {
         public int DotnetMsbuildInvocations { get; private set; }
 
@@ -628,41 +650,6 @@ public sealed class InstallerPackagingTests : IDisposable
             CancellationToken cancellationToken = default
         )
         {
-            if (fileName.EndsWith("7z.exe", StringComparison.OrdinalIgnoreCase))
-            {
-                if (
-                    arguments.Count > 0
-                    && string.Equals(arguments[0], "a", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    File.WriteAllBytes(arguments[1], [1, 2, 3, 4]);
-                    return Task.FromResult(0);
-                }
-
-                if (
-                    arguments.Count > 0
-                    && string.Equals(arguments[0], "x", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    var outputArgument = arguments.Single(arg =>
-                        arg.StartsWith("-o", StringComparison.Ordinal)
-                    );
-                    CreateTemplateTree(outputArgument[2..]);
-                    return Task.FromResult(0);
-                }
-            }
-
-            if (fileName.EndsWith("makemica.exe", StringComparison.OrdinalIgnoreCase))
-            {
-                var outputPath = ReadOutputPath(arguments[0]);
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-                File.WriteAllBytes(
-                    outputPath,
-                    forceFallback ? Encoding.UTF8.GetBytes("bad") : CreateExecutableBytes()
-                );
-                return Task.FromResult(0);
-            }
-
             if (
                 string.Equals(fileName, "dotnet", StringComparison.OrdinalIgnoreCase)
                 && arguments.Count > 1
@@ -678,191 +665,6 @@ public sealed class InstallerPackagingTests : IDisposable
 
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
             return Task.FromResult(0);
-        }
-
-        private static string ReadOutputPath(string micaConfigPath)
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(micaConfigPath));
-            return document.RootElement.GetProperty("Output").GetString()
-                ?? throw new Xunit.Sdk.XunitException("micasetup.json is missing Output.");
-        }
-
-        private static void CreateTemplateTree(string distRoot)
-        {
-            Directory.CreateDirectory(distRoot);
-            Directory.CreateDirectory(Path.Combine(distRoot, "Helper", "Setup"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "Helper", "System"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "Resources", "Images"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "ViewModels", "Uninst"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "ViewModels", "Inst"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "Views", "Inst"));
-            Directory.CreateDirectory(Path.Combine(distRoot, "Resources", "Setups"));
-            File.WriteAllText(Path.Combine(distRoot, "MicaSetup.csproj"), "<Project />");
-            File.WriteAllText(Path.Combine(distRoot, "MicaSetup.Uninst.csproj"), "<Project />");
-            File.WriteAllText(
-                Path.Combine(distRoot, "Program.cs"),
-                """
-                [assembly: Guid("old-guid")]
-                [assembly: AssemblyTitle("Old Title")]
-                [assembly: AssemblyProduct("Old Product")]
-                [assembly: AssemblyDescription("Old Description")]
-                [assembly: AssemblyCompany("Old Company")]
-                [assembly: AssemblyVersion("1.0.0.0")]
-                [assembly: AssemblyFileVersion("1.0.0.0")]
-                [assembly: RequestExecutionLevel("admin")]
-                Hosting.CreateBuilder().UseElevated().UseSingleInstance("Original.Setup").UseOptions(option => { option.IsCreateDesktopShortcut = false; option.IsCreateUninst = false; option.IsUninstLower = true; option.IsCreateStartMenu = false; option.IsPinToStartMenu = true; option.IsCreateQuickLaunch = true; option.IsCreateRegistryKeys = false; option.IsCreateAsAutoRun = true; option.IsCustomizeVisiableAutoRun = false; option.AutoRunLaunchCommand = ""; option.IsUseInstallPathPreferX86 = true; option.IsUseInstallPathPreferAppDataLocalPrograms = false; option.IsUseInstallPathPreferAppDataRoaming = true; option.IsAllowFullFolderSecurity = true; option.IsAllowFirewall = true; option.IsRefreshExplorer = false; option.IsInstallCertificate = true; option.IsEnableUninstallDelayUntilReboot = false; option.IsEnvironmentVariable = true; option.AppName = "OldApp"; option.KeyName = "OLD"; option.ExeName = "Old.exe"; option.DisplayVersion = "0.0.0"; option.Publisher = "Old Publisher"; option.MessageOfPage1 = "old1"; option.MessageOfPage2 = "old2"; option.MessageOfPage3 = "old3"; });
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Program.un.cs"),
-                """
-                [assembly: Guid("old-guid")]
-                [assembly: AssemblyTitle("Old Title")]
-                [assembly: AssemblyProduct("Old Product")]
-                [assembly: AssemblyDescription("Old Description")]
-                [assembly: AssemblyCompany("Old Company")]
-                [assembly: AssemblyVersion("1.0.0.0")]
-                [assembly: AssemblyFileVersion("1.0.0.0")]
-                [assembly: RequestExecutionLevel("admin")]
-                Hosting.CreateBuilder().UseElevated().UseSingleInstance("Original.Uninstall").UseOptions(option => { option.IsCreateDesktopShortcut = false; option.IsCreateUninst = false; option.IsUninstLower = true; option.IsCreateStartMenu = false; option.IsPinToStartMenu = true; option.IsCreateQuickLaunch = true; option.IsCreateRegistryKeys = false; option.IsCreateAsAutoRun = true; option.IsCustomizeVisiableAutoRun = false; option.AutoRunLaunchCommand = ""; option.IsUseInstallPathPreferX86 = true; option.IsUseInstallPathPreferAppDataLocalPrograms = false; option.IsUseInstallPathPreferAppDataRoaming = true; option.IsAllowFullFolderSecurity = true; option.IsAllowFirewall = true; option.IsRefreshExplorer = false; option.IsInstallCertificate = true; option.IsEnableUninstallDelayUntilReboot = false; option.IsEnvironmentVariable = true; option.AppName = "OldApp"; option.KeyName = "OLD"; option.ExeName = "Old.exe"; option.DisplayVersion = "0.0.0"; option.Publisher = "Old Publisher"; option.MessageOfPage1 = "old1"; option.MessageOfPage2 = "old2"; option.MessageOfPage3 = "old3"; });
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Helper", "System", "StartMenuHelper.cs"),
-                "var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @\"Microsoft\\Windows\\Start Menu\\Programs\");"
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Helper", "System", "RegistyUninstallHelper.cs"),
-                "var hive = RegistryHive.LocalMachine;"
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Helper", "Setup", "InstallHelper.cs"),
-                """
-                if (Option.Current.IsCreateRegistryKeys && RuntimeHelper.IsElevated) { }
-                if (RuntimeHelper.IsElevated) { StartMenuHelper.CreateStartMenuFolder(Option.Current.DisplayName, Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName), Option.Current.IsCreateUninst); }
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "ViewModels", "Uninst", "MainViewModel.cs"),
-                "private bool isElevated = RuntimeHelper.IsElevated;"
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs"),
-                """
-                using MicaSetup.Design.ComponentModel;
-                using MicaSetup.Design.Controls;
-                using MicaSetup.Helper;
-                using MicaSetup.Helper.Helper;
-                using System;
-                using System.Collections.Generic;
-                using System.ComponentModel;
-                using System.IO;
-                using System.Threading.Tasks;
-
-                namespace MicaSetup.ViewModels;
-
-                public partial class InstallViewModel : ObservableObject
-                {
-                    public string Message => Option.Current.MessageOfPage2;
-                    private string installInfo = string.Empty;
-                    public string InstallInfo { get => installInfo; set => installInfo = value; }
-
-                    public InstallViewModel()
-                    {
-                        _ = Task.Run(() =>
-                        {
-                            using Stream uninstStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/Uninst.exe");
-                            InstallHelper.CreateUninst(uninstStream);
-                            ApplicationDispatcherHelper.Invoke(Routing.GoToNext);
-                        });
-                    }
-                }
-
-                partial class InstallViewModel
-                {
-                }
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Views", "Inst", "FinishPage.xaml"),
-                """
-                <UserControl x:Class="MicaSetup.Views.FinishPage"
-                             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
-                    <StackPanel>
-                        <TextBlock Text="{Binding Message}" />
-                        <StackPanel Grid.Row="2"
-                                    Margin="0,56,0,0"
-                                    HorizontalAlignment="Center"
-                                    Orientation="Horizontal">
-                            <Button Command="{Binding CloseCommand}" />
-                            <Button Command="{Binding OpenCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                </UserControl>
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "ViewModels", "Inst", "FinishViewModel.cs"),
-                """
-                using MicaSetup.Design.Commands;
-                using MicaSetup.Design.ComponentModel;
-                using MicaSetup.Helper;
-                using System;
-                using System.IO;
-                using System.Windows;
-
-                namespace MicaSetup.ViewModels;
-
-                public partial class FinishViewModel : ObservableObject
-                {
-                    public string Message => Option.Current.MessageOfPage3;
-
-                    [RelayCommand]
-                    public void Close()
-                    {
-                        if (ApplicationDispatcherHelper.MainWindow is Window window)
-                        {
-                            SystemCommands.CloseWindow(window);
-                        }
-                    }
-
-                    [RelayCommand]
-                    public void Open()
-                    {
-                        if (ApplicationDispatcherHelper.MainWindow is Window window)
-                        {
-                            try
-                            {
-                                FluentProcess.Create()
-                                    .FileName(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName))
-                                    .WorkingDirectory(Option.Current.InstallLocation)
-                                    .UseShellExecute()
-                                    .Start()
-                                    .Forget();
-                            }
-                            catch (Exception e)
-                            {
-                                Logger.Error(e);
-                            }
-                            SystemCommands.CloseWindow(window);
-                        }
-                    }
-                }
-
-                partial class FinishViewModel
-                {
-                }
-                """
-            );
-            File.WriteAllText(
-                Path.Combine(distRoot, "Helper", "Setup", "UninstallHelper.cs"),
-                """
-                using System.IO;
-                else { // For security reason, uninst should always keep data because of unundering admin. Option.Current.KeepMyData = true; uinfo = PrepareUninstallPathHelper.GetPrepareUninstallPath(); if (string.IsNullOrWhiteSpace(uinfo.UninstallData)) { MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "InstallationInfoLostHint".Tr()); } }
-                try { RegistyUninstallHelper.Delete(Option.Current.KeyName); }
-                public static void DeleteUninst()
-                """
-            );
         }
     }
 }

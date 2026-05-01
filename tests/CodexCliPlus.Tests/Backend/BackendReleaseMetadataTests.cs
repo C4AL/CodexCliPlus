@@ -110,7 +110,9 @@ public sealed class BackendReleaseMetadataTests
         );
         Assert.Equal("resources/backend/source", root.GetProperty("sourceRoot").GetString());
         Assert.Equal("repo-source", root.GetProperty("buildKind").GetString());
-        Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("compatibilityPatchVersion").GetString()));
+        Assert.False(
+            string.IsNullOrWhiteSpace(root.GetProperty("compatibilityPatchVersion").GetString())
+        );
         Assert.False(string.IsNullOrWhiteSpace(root.GetProperty("goVersion").GetString()));
         Assert.Equal(
             BackendExecutableNames.ManagedExecutableFileName,
@@ -154,7 +156,11 @@ public sealed class BackendReleaseMetadataTests
             runtimeSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("BackendReleaseMetadata.SourceCommit", buildToolSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "BackendReleaseMetadata.SourceCommit",
+            buildToolSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("BackendSourceRoot", buildToolSource, StringComparison.Ordinal);
         Assert.Contains("go\",", buildToolSource, StringComparison.Ordinal);
         Assert.DoesNotContain("\"git\", [\"clone\"", buildToolSource, StringComparison.Ordinal);
@@ -173,7 +179,7 @@ public sealed class BackendReleaseMetadataTests
             buildToolSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "BackendExecutableNames.UpstreamExecutableFileName",
             buildToolSource,
             StringComparison.Ordinal

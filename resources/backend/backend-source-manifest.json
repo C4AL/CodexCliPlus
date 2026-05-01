@@ -18,6 +18,6 @@
   "notes": [
     "Normal build output is generated from resources/backend/source.",
     "The upstream archive entry cli-proxy-api.exe remains an input name only; CodexCliPlus packages ccp-core.exe.",
-    "Use BuildTool sync-backend-source for intentional upstream source comparison before updating this manifest."
+    "Update resources/backend/source manually after reviewing any upstream snapshot, then update this manifest."
   ]
 }

@@ -1,21 +1,21 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using CodexCliPlus.Core.Constants;
 
 namespace CodexCliPlus.BuildTool;
 
 public static class AssetCommands
 {
-    private const string BackendSourceRepositoryUrl =
-        "https://github.com/router-for-me/CLIProxyAPI.git";
     private const string BackendBuildDate = "2026-04-30";
 
     private sealed record BackendAssetFileMapping(string SourceFileName, string TargetFileName);
 
     private static readonly BackendAssetFileMapping[] RequiredBackendFiles =
     [
-        new(BackendExecutableNames.ManagedExecutableFileName, BackendExecutableNames.ManagedExecutableFileName),
+        new(
+            BackendExecutableNames.ManagedExecutableFileName,
+            BackendExecutableNames.ManagedExecutableFileName
+        ),
         new("LICENSE", "LICENSE"),
         new("README.md", "README.md"),
         new("README_CN.md", "README_CN.md"),
@@ -25,17 +25,6 @@ public static class AssetCommands
     private static readonly string[] RequiredBackendFileNames = RequiredBackendFiles
         .Select(file => file.TargetFileName)
         .ToArray();
-
-    private static readonly string[] BackendCompatibilityTestPackages =
-    [
-        "./internal/api/handlers/management",
-        "./internal/api/modules/amp",
-        "./internal/translator/codex/claude",
-        "./internal/translator/codex/openai/chat-completions",
-        "./internal/translator/codex/openai/responses",
-        "./internal/usage",
-        "./internal/watcher/diff",
-    ];
 
     public static async Task<int> FetchAssetsAsync(BuildContext context)
     {
@@ -87,57 +76,6 @@ public static class AssetCommands
         return 0;
     }
 
-    public static async Task<int> SyncBackendSourceAsync(BuildContext context)
-    {
-        RequireBackendSource(context.BackendSourceRoot);
-
-        var upstreamRoot = Path.Combine(context.Options.OutputRoot, "temp", "backend-upstream-source");
-        SafeFileSystem.CleanDirectory(upstreamRoot, context.Options.OutputRoot);
-
-        await RunRequiredAsync(
-            context,
-            "git",
-            ["clone", "--filter=blob:none", "--no-checkout", BackendSourceRepositoryUrl, upstreamRoot],
-            context.Options.RepositoryRoot,
-            "clone CLIProxyAPI source"
-        );
-        await RunRequiredAsync(
-            context,
-            "git",
-            ["checkout", BackendReleaseMetadata.SourceCommit],
-            upstreamRoot,
-            "checkout pinned CLIProxyAPI commit"
-        );
-
-        await RunRequiredAsync(
-            context,
-            "go",
-            ["test", ..BackendCompatibilityTestPackages],
-            context.BackendSourceRoot,
-            "run CodexCliPlus backend compatibility tests"
-        );
-
-        var report = BackendSourceSyncReport.Create(
-            BackendReleaseMetadata.Version,
-            BackendReleaseMetadata.ReleaseTag,
-            BackendReleaseMetadata.SourceCommit,
-            upstreamRoot,
-            context.BackendSourceRoot
-        );
-        var reportPath = Path.Combine(context.Options.OutputRoot, "backend-source-sync-report.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
-        await File.WriteAllTextAsync(
-            reportPath,
-            JsonSerializer.Serialize(report, JsonDefaults.Options),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-        );
-        context.Logger.Info($"backend source sync report: {reportPath}");
-        context.Logger.Info(
-            "Review the upstream comparison, update resources/backend/source intentionally, then update resources/backend/backend-source-manifest.json."
-        );
-        return 0;
-    }
-
     private static async Task BuildBackendFromRepositorySourceAsync(
         BuildContext context,
         string backendTarget
@@ -166,7 +104,11 @@ public static class AssetCommands
                 );
             }
 
-            File.Copy(sourcePath, Path.Combine(backendTarget, file.TargetFileName), overwrite: true);
+            File.Copy(
+                sourcePath,
+                Path.Combine(backendTarget, file.TargetFileName),
+                overwrite: true
+            );
             context.Logger.Info($"asset copied: backend/windows-x64/{file.TargetFileName}");
         }
 
@@ -179,14 +121,6 @@ public static class AssetCommands
             File.Delete(executablePath);
         }
 
-        await RunRequiredAsync(
-            context,
-            "go",
-            ["mod", "download"],
-            sourceRoot,
-            "download backend source modules"
-        );
-
         var shortCommit = BackendReleaseMetadata.SourceCommit[..7];
         var ldflags =
             $"-s -w -X main.Version={BackendReleaseMetadata.Version} "
@@ -195,7 +129,16 @@ public static class AssetCommands
         await RunRequiredAsync(
             context,
             "go",
-            ["build", "-trimpath", "-ldflags", ldflags, "-o", executablePath, "./cmd/server/"],
+            [
+                "build",
+                "-mod=readonly",
+                "-trimpath",
+                "-ldflags",
+                ldflags,
+                "-o",
+                executablePath,
+                "./cmd/server/",
+            ],
             sourceRoot,
             "build backend executable from repository source",
             new Dictionary<string, string?>
@@ -223,11 +166,12 @@ public static class AssetCommands
     private static void RequireBackendSource(string sourceRoot)
     {
         var goModPath = Path.Combine(sourceRoot, "go.mod");
+        var goSumPath = Path.Combine(sourceRoot, "go.sum");
         var entrypointPath = Path.Combine(sourceRoot, "cmd", "server", "main.go");
-        if (!File.Exists(goModPath) || !File.Exists(entrypointPath))
+        if (!File.Exists(goModPath) || !File.Exists(goSumPath) || !File.Exists(entrypointPath))
         {
             throw new DirectoryNotFoundException(
-                $"Backend source is incomplete. Expected go.mod and cmd/server/main.go under '{sourceRoot}'."
+                $"Backend source is incomplete. Expected go.mod, go.sum, and cmd/server/main.go under '{sourceRoot}'."
             );
         }
     }
@@ -262,56 +206,4 @@ public static class AssetCommands
     }
 
     public static IReadOnlyList<string> RequiredFiles => RequiredBackendFileNames;
-
-    private sealed record BackendSourceSyncReport(
-        string Component,
-        string Version,
-        string ReleaseTag,
-        string SourceCommit,
-        DateTimeOffset GeneratedAtUtc,
-        IReadOnlyList<string> LocalOnlyFiles,
-        IReadOnlyList<string> UpstreamOnlyFiles,
-        IReadOnlyList<string> CommonFiles
-    )
-    {
-        public static BackendSourceSyncReport Create(
-            string version,
-            string releaseTag,
-            string sourceCommit,
-            string upstreamRoot,
-            string localRoot
-        )
-        {
-            var upstreamFiles = EnumerateSourceFiles(upstreamRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var localFiles = EnumerateSourceFiles(localRoot).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            return new BackendSourceSyncReport(
-                "CLIProxyAPI",
-                version,
-                releaseTag,
-                sourceCommit,
-                DateTimeOffset.UtcNow,
-                localFiles.Except(upstreamFiles, StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(),
-                upstreamFiles.Except(localFiles, StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray(),
-                localFiles.Intersect(upstreamFiles, StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray()
-            );
-        }
-
-        private static IEnumerable<string> EnumerateSourceFiles(string root)
-        {
-            return Directory
-                .EnumerateFiles(root, "*", SearchOption.AllDirectories)
-                .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
-                .Where(path =>
-                    !path.StartsWith(".git/", StringComparison.OrdinalIgnoreCase)
-                    && !path.Equals(
-                        BackendExecutableNames.ManagedExecutableFileName,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                    && !path.Equals(
-                        BackendExecutableNames.UpstreamExecutableFileName,
-                        StringComparison.OrdinalIgnoreCase
-                    )
-                );
-        }
-    }
 }

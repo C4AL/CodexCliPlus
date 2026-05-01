@@ -28,7 +28,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Contains("fetch-assets", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
-        Assert.Contains("sync-backend-source", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("sync-backend-source", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("package-online-installer", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("package-offline-installer", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
@@ -241,11 +241,7 @@ public sealed class BuildToolCommandTests : IDisposable
             File.Exists(Path.Combine(backendRoot, BackendExecutableNames.ManagedExecutableFileName))
         );
         Assert.True(File.Exists(Path.Combine(backendRoot, "LICENSE")));
-        Assert.Contains(
-            "asset built from source",
-            output.ToString(),
-            StringComparison.Ordinal
-        );
+        Assert.Contains("asset built from source", output.ToString(), StringComparison.Ordinal);
         Assert.False(
             Directory.Exists(Path.Combine(outputRoot, "temp", "backend-source")),
             "fetch-assets should build from resources/backend/source directly."
@@ -254,13 +250,9 @@ public sealed class BuildToolCommandTests : IDisposable
             runner.Calls,
             call => call.FileName == "git" && call.Arguments[0] == "clone"
         );
-        var goModDownloadCall = Assert.Single(
+        Assert.DoesNotContain(
             runner.Calls,
             call => call.FileName == "go" && call.Arguments.SequenceEqual(["mod", "download"])
-        );
-        Assert.Equal(
-            Path.Combine(repositoryRoot, "resources", "backend", "source"),
-            goModDownloadCall.WorkingDirectory
         );
 
         var goBuildCall = Assert.Single(
@@ -268,6 +260,7 @@ public sealed class BuildToolCommandTests : IDisposable
             call =>
                 call.FileName == "go" && call.Arguments.Count > 0 && call.Arguments[0] == "build"
         );
+        Assert.Contains("-mod=readonly", goBuildCall.Arguments);
         Assert.Contains("-trimpath", goBuildCall.Arguments);
         var ldflagsIndex = goBuildCall.Arguments.ToList().IndexOf("-ldflags") + 1;
         Assert.True(ldflagsIndex > 0);
@@ -293,7 +286,7 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task SyncBackendSourceClonesPinnedUpstreamAndWritesComparisonReport()
+    public async Task SyncBackendSourceIsNotAPublicCommand()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
         var outputRoot = Path.Combine(_rootDirectory, "out-sync");
@@ -316,32 +309,28 @@ public sealed class BuildToolCommandTests : IDisposable
             runner
         );
 
-        Assert.Equal(0, exitCode);
-        Assert.Contains(
-            runner.Calls,
-            call => call.FileName == "git" && call.Arguments[0] == "clone"
+        Assert.Equal(1, exitCode);
+        Assert.DoesNotContain(runner.Calls, call => call.FileName == "git");
+        Assert.False(File.Exists(Path.Combine(outputRoot, "backend-source-sync-report.json")));
+        Assert.Contains("Unknown command", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildToolSourceDoesNotFetchMicaSetupOrCloneBackendSources()
+    {
+        var sourceRoot = Path.Combine(FindRepositoryRoot(), "src", "CodexCliPlus.BuildTool");
+        var buildToolSource = string.Join(
+            "\n",
+            Directory
+                .EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText)
         );
-        Assert.Contains(
-            runner.Calls,
-            call =>
-                call.FileName == "git"
-                && call.Arguments.SequenceEqual(["checkout", BackendReleaseMetadata.SourceCommit])
-        );
-        Assert.Contains(
-            runner.Calls,
-            call =>
-                call.FileName == "go"
-                && call.Arguments.Count > 1
-                && call.Arguments[0] == "test"
-                && call.Arguments.Contains("./internal/api/handlers/management")
-                && call.Arguments.Contains("./internal/translator/codex/openai/responses")
-        );
-        var reportPath = Path.Combine(outputRoot, "backend-source-sync-report.json");
-        Assert.True(File.Exists(reportPath));
-        var report = await File.ReadAllTextAsync(reportPath);
-        Assert.Contains("\"sourceCommit\":", report, StringComparison.Ordinal);
-        Assert.Contains("backend source sync report", output.ToString(), StringComparison.Ordinal);
-        Assert.Equal(string.Empty, error.ToString());
+
+        Assert.DoesNotContain("lemutec/MicaSetup", buildToolSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("browser_download_url", buildToolSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("CLIProxyAPI.git", buildToolSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"clone\"", buildToolSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -867,6 +856,22 @@ public sealed class BuildToolCommandTests : IDisposable
         return repositoryRoot;
     }
 
+    private static string FindRepositoryRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "CodexCliPlus.sln")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate CodexCliPlus.sln.");
+    }
+
     private string CreateRepositoryWithVendoredWebUiOverlay()
     {
         var repositoryRoot = Path.Combine(_rootDirectory, "webui-repo");
@@ -952,10 +957,12 @@ public sealed class BuildToolCommandTests : IDisposable
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-            ["app-package/assets/webui/upstream/dist/index.html"] =
-                Encoding.UTF8.GetBytes("<html></html>"),
-            ["app-package/assets/webui/upstream/dist/assets/app.js"] =
-                Encoding.UTF8.GetBytes("console.log('ok');"),
+            ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
+                "<html></html>"
+            ),
+            ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
+                "console.log('ok');"
+            ),
             ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
             ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
             ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),

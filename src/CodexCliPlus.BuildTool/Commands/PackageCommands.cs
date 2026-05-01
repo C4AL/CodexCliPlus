@@ -20,9 +20,8 @@ public static class PackageCommands
     {
         SafeFileSystem.RequirePublishRoot(context.PublishRoot);
         var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
-        var packageType = packageKind == InstallerPackageKind.Online
-            ? "online-installer"
-            : "offline-installer";
+        var packageType =
+            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
         var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
         var appPackageRoot = Path.Combine(stageRoot, "app-package");
         var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
@@ -64,10 +63,8 @@ public static class PackageCommands
         );
         var payloadUncompressedBytes = GetDirectorySize(appPackageRoot);
 
-        var toolchain = await MicaSetupToolchain.AcquireAsync(context);
         var archiveExitCode = await CreateMicaPayloadArchiveAsync(
             context,
-            toolchain,
             appPackageRoot,
             payloadArchivePath
         );
@@ -84,8 +81,7 @@ public static class PackageCommands
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
         );
 
-        var builder = new MicaSetupInstallerBuilder(toolchain);
-        var buildExitCode = await builder.BuildAsync(
+        var buildExitCode = await MicaSetupInstallerBuilder.BuildAsync(
             context,
             micaConfigPath,
             payloadArchivePath,
@@ -279,33 +275,13 @@ public static class PackageCommands
         }
     }
 
-    private static async Task<int> CreateMicaPayloadArchiveAsync(
+    private static Task<int> CreateMicaPayloadArchiveAsync(
         BuildContext context,
-        MicaSetupToolchain toolchain,
         string appPackageRoot,
         string archivePath
     )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(archivePath)!);
-        if (File.Exists(archivePath))
-        {
-            File.Delete(archivePath);
-        }
-
-        var exitCode = await context.ProcessRunner.RunAsync(
-            toolchain.SevenZipPath,
-            ["a", archivePath, ".\\*", "-t7z", "-mx=1", "-mf=BCJ2", "-mmt=on", "-r", "-y"],
-            appPackageRoot,
-            context.Logger
-        );
-        if (exitCode == 0 && File.Exists(archivePath))
-        {
-            return 0;
-        }
-
-        context.Logger.Error(
-            "7z did not create a MicaSetup payload archive; falling back to a zip container with the same payload."
-        );
         if (File.Exists(archivePath))
         {
             File.Delete(archivePath);
@@ -317,9 +293,8 @@ public static class PackageCommands
             CompressionLevel.Optimal,
             includeBaseDirectory: false
         );
-        return File.Exists(archivePath) ? 0
-            : exitCode == 0 ? 1
-            : exitCode;
+        context.Logger.Info("MicaSetup payload archive created from repo package contents.");
+        return Task.FromResult(File.Exists(archivePath) ? 0 : 1);
     }
 
     private static long GetDirectorySize(string directory)

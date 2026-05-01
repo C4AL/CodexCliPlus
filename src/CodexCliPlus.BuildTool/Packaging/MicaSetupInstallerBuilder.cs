@@ -2,7 +2,7 @@ using System.Text;
 
 namespace CodexCliPlus.BuildTool;
 
-public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
+public static class MicaSetupInstallerBuilder
 {
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
@@ -10,16 +10,37 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
     [
         ("Program.cs.template", "Program.cs"),
         ("Program.un.cs.template", "Program.un.cs"),
-        (Path.Combine("ViewModels", "Inst", "MainViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "MainViewModel.cs")),
-        (Path.Combine("ViewModels", "Inst", "InstallViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "InstallViewModel.cs")),
-        (Path.Combine("ViewModels", "Inst", "FinishViewModel.cs.template"), Path.Combine("ViewModels", "Inst", "FinishViewModel.cs")),
-        (Path.Combine("ViewModels", "Uninst", "MainViewModel.cs.template"), Path.Combine("ViewModels", "Uninst", "MainViewModel.cs")),
-        (Path.Combine("Views", "Inst", "FinishPage.xaml.template"), Path.Combine("Views", "Inst", "FinishPage.xaml")),
-        (Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs.template"), Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs")),
-        (Path.Combine("Helper", "Setup", "UninstallHelper.cs.template"), Path.Combine("Helper", "Setup", "UninstallHelper.cs")),
+        (
+            Path.Combine("ViewModels", "Inst", "MainViewModel.cs.template"),
+            Path.Combine("ViewModels", "Inst", "MainViewModel.cs")
+        ),
+        (
+            Path.Combine("ViewModels", "Inst", "InstallViewModel.cs.template"),
+            Path.Combine("ViewModels", "Inst", "InstallViewModel.cs")
+        ),
+        (
+            Path.Combine("ViewModels", "Inst", "FinishViewModel.cs.template"),
+            Path.Combine("ViewModels", "Inst", "FinishViewModel.cs")
+        ),
+        (
+            Path.Combine("ViewModels", "Uninst", "MainViewModel.cs.template"),
+            Path.Combine("ViewModels", "Uninst", "MainViewModel.cs")
+        ),
+        (
+            Path.Combine("Views", "Inst", "FinishPage.xaml.template"),
+            Path.Combine("Views", "Inst", "FinishPage.xaml")
+        ),
+        (
+            Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs.template"),
+            Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs")
+        ),
+        (
+            Path.Combine("Helper", "Setup", "UninstallHelper.cs.template"),
+            Path.Combine("Helper", "Setup", "UninstallHelper.cs")
+        ),
     ];
 
-    public async Task<int> BuildAsync(
+    public static async Task<int> BuildAsync(
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
@@ -45,7 +66,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         );
     }
 
-    private async Task<int> BuildWithDotnetMsbuildAsync(
+    private static async Task<int> BuildWithDotnetMsbuildAsync(
         BuildContext context,
         string micaConfigPath,
         string payloadArchivePath,
@@ -57,23 +78,28 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
         var distRoot = Path.Combine(stageRoot, ".dist");
         SafeFileSystem.CleanDirectory(distRoot, context.Options.OutputRoot);
 
-        var extractExitCode = await context.ProcessRunner.RunAsync(
-            toolchain.SevenZipPath,
-            ["x", toolchain.TemplatePath, $"-o{distRoot}", "-y"],
-            stageRoot,
-            context.Logger
+        var sourceTemplateRoot = Path.Combine(
+            context.Options.RepositoryRoot,
+            "build",
+            "micasetup",
+            "source-template"
         );
-        if (extractExitCode != 0)
+        if (!Directory.Exists(sourceTemplateRoot))
         {
-            context.Logger.Error(
-                $"MicaSetup template extraction failed with exit code {extractExitCode}."
-            );
-            return extractExitCode;
+            context.Logger.Error($"MicaSetup source template missing: {sourceTemplateRoot}");
+            return 1;
         }
+
+        SafeFileSystem.CopyDirectory(sourceTemplateRoot, distRoot, ["bin", "obj"]);
 
         try
         {
-            ApplyRepoOwnedInstallerSource(context, distRoot, payloadArchivePath, payloadUncompressedBytes);
+            ApplyRepoOwnedInstallerSource(
+                context,
+                distRoot,
+                payloadArchivePath,
+                payloadUncompressedBytes
+            );
         }
         catch (Exception exception)
         {
@@ -94,6 +120,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 "/p:PublishProfile=FolderProfile",
                 "/p:ImportDirectoryBuildProps=false",
                 "/p:RestoreUseStaticGraphEvaluation=false",
+                "/p:RestoreLockedMode=true",
                 "/restore",
             ],
             distRoot,
@@ -129,6 +156,7 @@ public sealed class MicaSetupInstallerBuilder(MicaSetupToolchain toolchain)
                 "/p:PublishProfile=FolderProfile",
                 "/p:ImportDirectoryBuildProps=false",
                 "/p:RestoreUseStaticGraphEvaluation=false",
+                "/p:RestoreLockedMode=true",
                 "/restore",
             ],
             distRoot,

@@ -7,13 +7,15 @@ The goal is to keep installer behavior reviewable in source control instead of b
 ## Layout
 
 - `templates/micasetup.json.template`
-  Tokenized MicaSetup configuration for the `makemica.exe` route.
+  Tokenized MicaSetup configuration kept as reviewable installer metadata.
 - `templates/cleanup-manifest.template.json`
   Repo-owned uninstall cleanup plan with explicit `keepUserData` behavior.
 - `templates/installer-plan.example.json`
   Example render input that maps the current stage layout into these templates.
+- `source-template/*`
+  Fixed MicaSetup source tree copied into the installer stage before repo-owned overrides are rendered.
 - `overrides/MicaSetup/*`
-  Optional source overlay for the full-source MicaSetup route when JSON alone is not enough.
+  Source overlay rendered on top of `source-template` for CodexCliPlus-specific install and uninstall logic.
 
 ## Render contract
 
@@ -38,7 +40,7 @@ Recommended minimum token set:
 
 ## Installer defaults
 
-The active BuildTool route renders MicaSetup configuration from `src/CodexCliPlus.BuildTool` and writes package metadata beside the app payload. The source templates in this directory are kept as a reviewable fallback and example route.
+The active BuildTool route copies `source-template` into the stage, renders the source overlays, and builds the installer with `dotnet msbuild` in locked restore mode. BuildTool does not query GitHub releases or download MicaSetup packages during packaging.
 
 Current product identifiers are:
 
@@ -79,10 +81,10 @@ Remove when `KeepMyData = false`:
 
 ## Source overlay usage
 
-Use `overrides/MicaSetup` only when the generated installer needs logic that `micasetup.json` cannot express, such as:
+Use `overrides/MicaSetup` when the generated installer needs logic that `micasetup.json` cannot express, such as:
 
 - manifest-aware uninstall cleanup
 - a `KeepMyData` prompt or command-line switch
 - custom install or uninstall pages
 
-If the stock `makemica.exe` route is enough, only render the JSON templates.
+Keep upstream compatibility updates manual: replace `source-template` with an audited snapshot, update overlays only where needed, refresh lock files, and run installer packaging tests.

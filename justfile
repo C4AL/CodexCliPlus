@@ -7,7 +7,7 @@ default:
 
 restore:
     dotnet tool restore
-    dotnet restore CodexCliPlus.sln
+    dotnet restore CodexCliPlus.sln --locked-mode
     Push-Location {{web}}; try { npm ci; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
 
 build:

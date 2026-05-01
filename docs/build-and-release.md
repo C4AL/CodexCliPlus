@@ -4,7 +4,7 @@
 
 ```powershell
 dotnet tool restore
-dotnet restore CodexCliPlus.sln
+dotnet restore CodexCliPlus.sln --locked-mode
 dotnet build CodexCliPlus.sln --configuration Release --no-restore
 dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build
 dotnet run --project src/CodexCliPlus.App/CodexCliPlus.App.csproj

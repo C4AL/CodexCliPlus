@@ -70,7 +70,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Restore .NET packages
-        run: dotnet restore CodexCliPlus.sln
+        run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Generate CycloneDX SBOM
         run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml

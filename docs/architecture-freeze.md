@@ -59,7 +59,7 @@
 常规仓库验收从以下命令开始：
 
 ```powershell
-dotnet restore CodexCliPlus.sln
+dotnet restore CodexCliPlus.sln --locked-mode
 dotnet build CodexCliPlus.sln --configuration Release --no-restore
 dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build
 ```

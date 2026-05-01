@@ -52,7 +52,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Restore
-        run: dotnet restore CodexCliPlus.sln
+        run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Build
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore

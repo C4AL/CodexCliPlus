@@ -25,7 +25,6 @@ public static class BuildToolApp
     [
         "fetch-assets",
         "verify-assets",
-        "sync-backend-source",
         "build-webui",
         "publish",
         "package-online-installer",
@@ -87,7 +86,6 @@ public static class BuildToolApp
             {
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
-                "sync-backend-source" => await AssetCommands.SyncBackendSourceAsync(context),
                 "build-webui" => await WebUiCommands.BuildVendoredAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
                 "package-online-installer" => await PackageCommands.PackageInstallerAsync(
@@ -311,7 +309,12 @@ public sealed class BuildContext(
         Path.Combine(Options.RepositoryRoot, "resources", "backend", "source");
 
     public string BackendSourceManifestPath =>
-        Path.Combine(Options.RepositoryRoot, "resources", "backend", "backend-source-manifest.json");
+        Path.Combine(
+            Options.RepositoryRoot,
+            "resources",
+            "backend",
+            "backend-source-manifest.json"
+        );
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)

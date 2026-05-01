@@ -3,7 +3,7 @@
 ## 常规验证顺序
 
 ```powershell
-dotnet restore CodexCliPlus.sln
+dotnet restore CodexCliPlus.sln --locked-mode
 dotnet build CodexCliPlus.sln --configuration Release --no-restore
 dotnet test tests\CodexCliPlus.Tests\CodexCliPlus.Tests.csproj --configuration Release --no-build --filter "Category!=LiveBackend&Category!=Smoke"
 dotnet csharpier check src tests
@@ -23,7 +23,7 @@ npm run knip:strict
 Pop-Location
 ```
 
-依赖变更后先运行 `npm ci` 或 `npm install`，并提交同步后的 `package-lock.json`。
+依赖变更后使用锁文件刷新流程更新 `package-lock.json`，常规验证使用 `npm ci`。
 
 ## SafeSmoke
 

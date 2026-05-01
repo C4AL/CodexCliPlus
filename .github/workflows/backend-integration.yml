@@ -28,7 +28,7 @@ jobs:
           go-version: 1.26.2
 
       - name: Restore
-        run: dotnet restore CodexCliPlus.sln
+        run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Build
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
@@ -66,7 +66,7 @@ jobs:
           go-version: 1.26.2
 
       - name: Restore
-        run: dotnet restore CodexCliPlus.sln
+        run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Build
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore

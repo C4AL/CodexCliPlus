@@ -373,7 +373,12 @@ public sealed class MicaSetupConfig
             : Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
         return new MicaSetupConfig
         {
-            Template = "${MicaDir}/template/default.7z",
+            Template = Path.Combine(
+                context.Options.RepositoryRoot,
+                "build",
+                "micasetup",
+                "source-template"
+            ),
             Package = payloadArchivePath,
             Output = installerOutputPath,
             AppName = AppConstants.ProductName,
@@ -383,9 +388,10 @@ public sealed class MicaSetupConfig
             Version = context.Options.Version,
             TargetFramework = "net472",
             ProductGuid = "6f8dd8b7-21ea-4c6b-9695-40a27874ce4d",
-            Favicon = File.Exists(displayPngPath)
-                ? displayPngPath
-                : File.Exists(iconPath) ? iconPath : null,
+            Favicon =
+                File.Exists(displayPngPath) ? displayPngPath
+                : File.Exists(iconPath) ? iconPath
+                : null,
             Icon = File.Exists(iconPath) ? iconPath : null,
             UnIcon = File.Exists(iconPath) ? iconPath : null,
             LicenseFile = File.Exists(licensePath) ? licensePath : null,

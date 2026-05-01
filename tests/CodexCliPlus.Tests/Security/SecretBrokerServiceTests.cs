@@ -43,7 +43,10 @@ public sealed class SecretBrokerServiceTests : IDisposable
             HttpMethod.Get,
             $"{session.BaseUrl}/v1/secrets/{record.SecretId}"
         );
-        revokedRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.Token);
+        revokedRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            session.Token
+        );
         var revoked = await client.SendAsync(revokedRequest);
 
         Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
@@ -83,7 +86,9 @@ public sealed class SecretBrokerServiceTests : IDisposable
         Assert.StartsWith("ccp-secret://", uri);
         Assert.Equal(
             "desktop-secret",
-            await vault.RevealSecretAsync(uri!.Replace("ccp-secret://", string.Empty, StringComparison.Ordinal))
+            await vault.RevealSecretAsync(
+                uri!.Replace("ccp-secret://", string.Empty, StringComparison.Ordinal)
+            )
         );
     }
 

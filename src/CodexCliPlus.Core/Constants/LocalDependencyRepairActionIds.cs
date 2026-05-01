@@ -11,12 +11,12 @@ public static class LocalDependencyRepairActionIds
 
     public static bool IsKnown(string actionId)
     {
-        return actionId is
-            InstallNodeNpm
-            or InstallPowerShell
-            or InstallWsl
-            or UpdateWsl
-            or InstallCodexCli
-            or RepairUserPath;
+        return actionId
+            is InstallNodeNpm
+                or InstallPowerShell
+                or InstallWsl
+                or UpdateWsl
+                or InstallCodexCli
+                or RepairUserPath;
     }
 }

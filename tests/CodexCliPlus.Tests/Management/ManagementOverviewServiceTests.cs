@@ -48,11 +48,7 @@ public sealed class ManagementOverviewServiceTests
         var connection = new FakeConnectionProvider();
         var configuration = new FakeConfigurationService();
         var auth = new FakeAuthService();
-        var overview = new ManagementOverviewService(
-            connection,
-            configuration,
-            auth
-        );
+        var overview = new ManagementOverviewService(connection, configuration, auth);
 
         return new TestServices(connection, configuration, auth, overview);
     }

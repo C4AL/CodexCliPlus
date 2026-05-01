@@ -87,7 +87,10 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.Contains("npm", writtenPath, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("nodejs", writtenPath, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("run-anything", writtenPath, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(createdDirectories, path => path.EndsWith("\\npm", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            createdDirectories,
+            path => path.EndsWith("\\npm", StringComparison.OrdinalIgnoreCase)
+        );
     }
 
     [Fact]
@@ -114,7 +117,11 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.True(captured!.UseShellExecute);
         Assert.Equal("runas", captured.Verb);
         Assert.Contains("--repair", captured.Arguments, StringComparison.Ordinal);
-        Assert.Contains(LocalDependencyRepairActionIds.InstallCodexCli, captured.Arguments, StringComparison.Ordinal);
+        Assert.Contains(
+            LocalDependencyRepairActionIds.InstallCodexCli,
+            captured.Arguments,
+            StringComparison.Ordinal
+        );
         Assert.Contains("--status", captured.Arguments, StringComparison.Ordinal);
     }
 

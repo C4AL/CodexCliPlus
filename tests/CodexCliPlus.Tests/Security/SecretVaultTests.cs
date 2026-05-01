@@ -37,7 +37,9 @@ public sealed class SecretVaultTests : IDisposable
         Assert.True(File.Exists(manifestPath));
         Assert.True(File.Exists(blobPath));
         Assert.DoesNotContain("sk-live-secret", await File.ReadAllTextAsync(manifestPath));
-        Assert.False(ContainsBytes(await File.ReadAllBytesAsync(blobPath), "sk-live-secret"u8.ToArray()));
+        Assert.False(
+            ContainsBytes(await File.ReadAllBytesAsync(blobPath), "sk-live-secret"u8.ToArray())
+        );
 
         await vault.SetSecretStatusAsync(record.SecretId, SecretStatus.Revoked);
 
@@ -58,7 +60,10 @@ public sealed class SecretVaultTests : IDisposable
         );
 
         Assert.Equal("sec-imported-refresh", record.SecretId);
-        Assert.Equal("refresh-token", await vault.RevealSecretAsync("ccp-secret://sec-imported-refresh"));
+        Assert.Equal(
+            "refresh-token",
+            await vault.RevealSecretAsync("ccp-secret://sec-imported-refresh")
+        );
     }
 
     public void Dispose()

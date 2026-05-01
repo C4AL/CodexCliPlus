@@ -60,11 +60,17 @@ public sealed class LocalDependencyRepairService
         _directoryExists = directoryExists ?? Directory.Exists;
         _createDirectory = createDirectory ?? (path => Directory.CreateDirectory(path));
         _userPathReader =
-            userPathReader
-            ?? (target => Environment.GetEnvironmentVariable("Path", target));
+            userPathReader ?? (target => Environment.GetEnvironmentVariable("Path", target));
         _userPathWriter =
             userPathWriter
-            ?? (value => Environment.SetEnvironmentVariable("Path", value, EnvironmentVariableTarget.User));
+            ?? (
+                value =>
+                    Environment.SetEnvironmentVariable(
+                        "Path",
+                        value,
+                        EnvironmentVariableTarget.User
+                    )
+            );
         _environmentChangeBroadcaster = environmentChangeBroadcaster ?? BroadcastEnvironmentChange;
     }
 
@@ -86,14 +92,17 @@ public sealed class LocalDependencyRepairService
         var executablePath = _currentProcessPathResolver();
         if (string.IsNullOrWhiteSpace(executablePath))
         {
-            return Failure(actionId, "无法定位桌面程序。", "当前进程路径不可用，无法进入提权修复模式。");
+            return Failure(
+                actionId,
+                "无法定位桌面程序。",
+                "当前进程路径不可用，无法进入提权修复模式。"
+            );
         }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments =
-                $"--repair {QuoteArgument(actionId)} --status {QuoteArgument(statusPath)}",
+            Arguments = $"--repair {QuoteArgument(actionId)} --status {QuoteArgument(statusPath)}",
             WorkingDirectory = AppContext.BaseDirectory,
             UseShellExecute = true,
             Verb = "runas",
@@ -115,7 +124,8 @@ public sealed class LocalDependencyRepairService
         {
             return Failure(actionId, "修复进程等待超时。", "提权修复进程未在预期时间内返回状态。");
         }
-        catch (Win32Exception exception) when (exception.NativeErrorCode == ElevationCancelledErrorCode)
+        catch (Win32Exception exception)
+            when (exception.NativeErrorCode == ElevationCancelledErrorCode)
         {
             return Failure(actionId, "用户取消了提权授权。", exception.Message);
         }
@@ -200,7 +210,12 @@ public sealed class LocalDependencyRepairService
                     LocalDependencyRepairActionIds.InstallCodexCli => await RunCommandRepairAsync(
                         actionId,
                         "安装 Codex CLI",
-                        [new RepairCommand("cmd.exe", ["/d", "/c", "npm", "install", "-g", "@openai/codex"])],
+                        [
+                            new RepairCommand(
+                                "cmd.exe",
+                                ["/d", "/c", "npm", "install", "-g", "@openai/codex"]
+                            ),
+                        ],
                         cancellationToken
                     ),
                     LocalDependencyRepairActionIds.RepairUserPath => await RepairUserPathAsync(
@@ -256,7 +271,8 @@ public sealed class LocalDependencyRepairService
                     Succeeded = false,
                     ExitCode = result.ExitCode,
                     Summary = $"{summary}失败。",
-                    Detail = FirstNonEmptyLine(result.StandardError, result.StandardOutput)
+                    Detail =
+                        FirstNonEmptyLine(result.StandardError, result.StandardOutput)
                         ?? "命令返回非零退出码。",
                     LogPath = logPath,
                 };

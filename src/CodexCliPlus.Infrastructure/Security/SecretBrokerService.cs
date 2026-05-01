@@ -96,13 +96,16 @@ public sealed class SecretBrokerService : IDisposable
 
             if (task is not null)
             {
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken
+                );
                 timeout.CancelAfter(TimeSpan.FromSeconds(2));
                 try
                 {
                     await task.WaitAsync(timeout.Token);
                 }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                { }
                 catch (HttpListenerException) { }
                 catch (ObjectDisposedException) { }
             }
@@ -153,7 +156,10 @@ public sealed class SecretBrokerService : IDisposable
                 return;
             }
 
-            _ = Task.Run(() => HandleRequestAsync(context, token, cancellationToken), cancellationToken);
+            _ = Task.Run(
+                () => HandleRequestAsync(context, token, cancellationToken),
+                cancellationToken
+            );
         }
     }
 
@@ -167,21 +173,33 @@ public sealed class SecretBrokerService : IDisposable
         {
             if (!IsLoopbackRequest(context.Request))
             {
-                await WriteStatusAsync(context.Response, HttpStatusCode.Forbidden, cancellationToken);
+                await WriteStatusAsync(
+                    context.Response,
+                    HttpStatusCode.Forbidden,
+                    cancellationToken
+                );
                 return;
             }
 
             var authorization = context.Request.Headers["Authorization"] ?? string.Empty;
             if (!string.Equals(authorization, $"Bearer {token}", StringComparison.Ordinal))
             {
-                await WriteStatusAsync(context.Response, HttpStatusCode.Unauthorized, cancellationToken);
+                await WriteStatusAsync(
+                    context.Response,
+                    HttpStatusCode.Unauthorized,
+                    cancellationToken
+                );
                 return;
             }
 
             var path = context.Request.Url?.AbsolutePath ?? string.Empty;
             if (
                 string.Equals(path.TrimEnd('/'), "/v1/secrets", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(context.Request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(
+                    context.Request.HttpMethod,
+                    "POST",
+                    StringComparison.OrdinalIgnoreCase
+                )
             )
             {
                 await HandleSaveSecretAsync(context, cancellationToken);
@@ -191,11 +209,21 @@ public sealed class SecretBrokerService : IDisposable
             const string prefix = "/v1/secrets/";
             if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
-                await WriteStatusAsync(context.Response, HttpStatusCode.NotFound, cancellationToken);
+                await WriteStatusAsync(
+                    context.Response,
+                    HttpStatusCode.NotFound,
+                    cancellationToken
+                );
                 return;
             }
 
-            if (!string.Equals(context.Request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+            if (
+                !string.Equals(
+                    context.Request.HttpMethod,
+                    "GET",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 await WriteStatusAsync(
                     context.Response,
@@ -209,7 +237,11 @@ public sealed class SecretBrokerService : IDisposable
             var value = await _secretVault.RevealSecretAsync(secretId, cancellationToken);
             if (value is null)
             {
-                await WriteStatusAsync(context.Response, HttpStatusCode.NotFound, cancellationToken);
+                await WriteStatusAsync(
+                    context.Response,
+                    HttpStatusCode.NotFound,
+                    cancellationToken
+                );
                 return;
             }
 

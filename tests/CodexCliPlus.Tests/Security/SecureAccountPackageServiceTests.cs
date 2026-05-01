@@ -17,7 +17,11 @@ public sealed class SecureAccountPackageServiceTests : IDisposable
         var packagePath = Path.Combine(_rootDirectory, "config.sac");
         var payload = CreatePayload();
 
-        await SecureAccountPackageService.WriteEncryptedPackageAsync(payload, "passphrase", packagePath);
+        await SecureAccountPackageService.WriteEncryptedPackageAsync(
+            payload,
+            "passphrase",
+            packagePath
+        );
         var rawPackage = await File.ReadAllTextAsync(packagePath);
         var imported = await SecureAccountPackageService.ReadEncryptedPackageAsync(
             packagePath,
@@ -41,7 +45,11 @@ public sealed class SecureAccountPackageServiceTests : IDisposable
         var packagePath = Path.Combine(_rootDirectory, "config.sac");
         var payload = CreatePayload();
 
-        await SecureAccountPackageService.WriteEncryptedPackageAsync(payload, "passphrase", packagePath);
+        await SecureAccountPackageService.WriteEncryptedPackageAsync(
+            payload,
+            "passphrase",
+            packagePath
+        );
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             SecureAccountPackageService.ReadEncryptedPackageAsync(packagePath, "wrong")

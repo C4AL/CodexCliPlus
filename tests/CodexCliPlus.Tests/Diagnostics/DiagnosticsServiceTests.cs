@@ -119,7 +119,11 @@ public sealed class DiagnosticsServiceTests : IDisposable
         Assert.Contains("Backend runtime files are missing.", report, StringComparison.Ordinal);
         Assert.Contains("Repair now: True", report, StringComparison.Ordinal);
         Assert.Contains("Local environment score: 99", report, StringComparison.Ordinal);
-        Assert.Contains("本地 Codex 必备环境已就绪", localEnvironmentJson, StringComparison.Ordinal);
+        Assert.Contains(
+            "本地 Codex 必备环境已就绪",
+            localEnvironmentJson,
+            StringComparison.Ordinal
+        );
         Assert.Contains("codex.cmd", localEnvironmentJson, StringComparison.Ordinal);
         Assert.DoesNotContain("test-token", log, StringComparison.Ordinal);
         Assert.Contains("***", log, StringComparison.Ordinal);

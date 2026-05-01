@@ -88,7 +88,9 @@ public sealed class LocalDependencyHealthServiceTests
     {
         private const string AppData = "C:\\Users\\Tester\\AppData\\Roaming";
         private const string UserProfile = "C:\\Users\\Tester";
-        private readonly HashSet<string> _existingDirectories = new(StringComparer.OrdinalIgnoreCase)
+        private readonly HashSet<string> _existingDirectories = new(
+            StringComparer.OrdinalIgnoreCase
+        )
         {
             "C:\\Users\\Tester\\AppData\\Roaming\\npm",
             "C:\\Program Files\\nodejs",
@@ -98,11 +100,12 @@ public sealed class LocalDependencyHealthServiceTests
 
         public FakeProcessRunner ProcessRunner { get; } = new();
 
-        public HashSet<string> ExistingFiles { get; } = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd",
-            "C:\\Users\\Tester\\.codex\\auth.json",
-        };
+        public HashSet<string> ExistingFiles { get; } =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd",
+                "C:\\Users\\Tester\\.codex\\auth.json",
+            };
 
         public string ProcessPath { get; set; } =
             "C:\\Users\\Tester\\AppData\\Roaming\\npm;C:\\Program Files\\nodejs;C:\\Program Files\\PowerShell\\7;C:\\Users\\Tester\\AppData\\Local\\Microsoft\\WindowsApps";
@@ -161,13 +164,13 @@ public sealed class LocalDependencyHealthServiceTests
                 0,
                 "7.5.0"
             );
+            fixture.ProcessRunner.Respond("where.exe", "wsl", 0, "C:\\Windows\\System32\\wsl.exe");
             fixture.ProcessRunner.Respond(
-                "where.exe",
-                "wsl",
+                "C:\\Windows\\System32\\wsl.exe",
+                "--status",
                 0,
-                "C:\\Windows\\System32\\wsl.exe"
+                "默认版本: 2"
             );
-            fixture.ProcessRunner.Respond("C:\\Windows\\System32\\wsl.exe", "--status", 0, "默认版本: 2");
             fixture.ProcessRunner.Respond("C:\\Windows\\System32\\wsl.exe", "-l -q", 0, "Ubuntu");
             fixture.ProcessRunner.Respond(
                 "where.exe",
@@ -272,13 +275,19 @@ public sealed class LocalDependencyHealthServiceTests
         private static bool Matches(Response response, string fileName, string arguments)
         {
             return string.Equals(response.FileName, fileName, StringComparison.OrdinalIgnoreCase)
-                && arguments.Contains(response.ArgumentsContains, StringComparison.OrdinalIgnoreCase);
+                && arguments.Contains(
+                    response.ArgumentsContains,
+                    StringComparison.OrdinalIgnoreCase
+                );
         }
 
         private static bool Matches(Failure failure, string fileName, string arguments)
         {
             return string.Equals(failure.FileName, fileName, StringComparison.OrdinalIgnoreCase)
-                && arguments.Contains(failure.ArgumentsContains, StringComparison.OrdinalIgnoreCase);
+                && arguments.Contains(
+                    failure.ArgumentsContains,
+                    StringComparison.OrdinalIgnoreCase
+                );
         }
 
         private sealed record Response(

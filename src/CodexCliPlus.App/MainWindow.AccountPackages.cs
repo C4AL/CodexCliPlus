@@ -111,7 +111,9 @@ public partial class MainWindow
                     $"import/{Path.GetFileName(dialog.FileName)}"
                 );
                 await _managementConfigurationService.PutConfigYamlAsync(migration.Content);
-                _notificationService.ShowAuto(BuildMigrationNotice("账号配置已导入", migration.Report));
+                _notificationService.ShowAuto(
+                    BuildMigrationNotice("账号配置已导入", migration.Report)
+                );
                 _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
                 return;
             }
@@ -277,7 +279,11 @@ public partial class MainWindow
             );
             AddExportedSecrets(exportedSecrets, migratedAuth.Secrets);
             payload.AuthFiles.Add(
-                new SecureAccountPackageAuthFile { Name = file.Name, Content = migratedAuth.Content }
+                new SecureAccountPackageAuthFile
+                {
+                    Name = file.Name,
+                    Content = migratedAuth.Content,
+                }
             );
         }
 
@@ -389,7 +395,10 @@ public partial class MainWindow
     {
         foreach (var secret in payload.VaultSecrets)
         {
-            if (string.IsNullOrWhiteSpace(secret.SecretId) || string.IsNullOrWhiteSpace(secret.Value))
+            if (
+                string.IsNullOrWhiteSpace(secret.SecretId)
+                || string.IsNullOrWhiteSpace(secret.Value)
+            )
             {
                 continue;
             }
@@ -397,7 +406,9 @@ public partial class MainWindow
             await _secretVault.SaveSecretAsync(
                 secret.Kind,
                 secret.Value,
-                string.IsNullOrWhiteSpace(secret.Source) ? $"package/{payload.PackageId}" : secret.Source,
+                string.IsNullOrWhiteSpace(secret.Source)
+                    ? $"package/{payload.PackageId}"
+                    : secret.Source,
                 secret.Metadata,
                 secret.SecretId
             );

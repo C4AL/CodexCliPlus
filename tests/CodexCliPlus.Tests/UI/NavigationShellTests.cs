@@ -15,6 +15,17 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
         var startupFlowXaml = ReadStartupFlowXaml(repositoryRoot);
+        var startupFlowResources = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Resources",
+                "StartupFlowResources.xaml"
+            ),
+            Encoding.UTF8
+        );
         var shellResources = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -82,6 +93,16 @@ public sealed class NavigationShellTests
         Assert.Contains("进入管理界面", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("忘记安全密钥/重置", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("当前步骤：", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "Source=\"/Views/Resources/ShellResources.xaml\"",
+            startupFlowResources,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BasedOn=\"{StaticResource ShellRaisedPanelStyle}\"",
+            startupFlowResources,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", shellResources, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", shellResources, StringComparison.Ordinal);
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);

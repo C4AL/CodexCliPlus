@@ -1,5 +1,5 @@
-using System.Windows;
 using System.Runtime.CompilerServices;
+using System.Windows;
 
 [assembly: InternalsVisibleTo("CodexCliPlus.Tests")]
 

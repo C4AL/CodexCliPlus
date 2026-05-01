@@ -386,16 +386,19 @@ public sealed class SmokeTests
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-            ["app-package/assets/webui/upstream/dist/index.html"] =
-                Encoding.UTF8.GetBytes("<html></html>"),
-            ["app-package/assets/webui/upstream/dist/assets/app.js"] =
-                Encoding.UTF8.GetBytes("console.log('ok');"),
+            ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
+                "<html></html>"
+            ),
+            ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
+                "console.log('ok');"
+            ),
             ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
             ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
             ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
             [$"output/{installerName}"] = SmokeEnvironmentScope.CreatePeStubBytes(),
-            [$"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"] =
-                SmokeEnvironmentScope.CreatePeStubBytes(),
+            [
+                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
+            ] = SmokeEnvironmentScope.CreatePeStubBytes(),
             ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
             ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
             ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),

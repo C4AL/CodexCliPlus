@@ -2,15 +2,29 @@
   "overlayModuleId": "cpa-uv-overlay",
   "capturedAt": "2026-04-24",
   "sourceOfTruth": {
-    "kind": "external-live-asset-snapshot",
-    "originalPath": "live-assets/cpa-uv-management-reference.html",
-    "retainedInGit": false,
-    "sha256": "a855c350add2598b08b5c2a5c3541af80436d39c6a50a0db5673a347abefc707"
+    "kind": "composite",
+    "reactPage": {
+      "source": "https://github.com/C4AL/Cli-Proxy-API-Management-Center/tree/uv/v1.7.41",
+      "commit": "079877df1fa8210dcb01cddc0d5d0d22d511211f",
+      "paths": [
+        "src/pages/DashboardOverviewPage.tsx",
+        "src/pages/DashboardOverviewPage.module.scss",
+        "src/hooks/useHeaderRefresh.ts"
+      ]
+    },
+    "packagedPage": {
+      "kind": "external-live-asset-snapshot",
+      "source": "https://github.com/C4AL/CPA-UV/blob/main/assets/management.html",
+      "originalPath": "live-assets/cpa-uv-management-reference.html",
+      "retainedInGit": false,
+      "sha256": "a855c350add2598b08b5c2a5c3541af80436d39c6a50a0db5673a347abefc707"
+    }
   },
   "derivedOverlayFiles": [
     "source/src/router/MainRoutes.tsx",
     "source/src/pages/DashboardOverviewPage.tsx",
     "source/src/pages/DashboardOverviewPage.module.scss",
+    "source/src/hooks/useHeaderRefresh.ts",
     "source/src/pages/SystemPage.tsx",
     "source/src/services/api/version.ts",
     "source/src/overlay/cpaUvOverlayMetadata.ts"

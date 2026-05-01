@@ -134,7 +134,8 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"ShellNavRuntimeOverviewButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavDashboardOverviewButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"ShellNavRuntimeOverviewButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"ShellNavConsoleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
@@ -903,7 +904,8 @@ public sealed class NavigationShellTests
         Assert.Contains("command.type === 'navigate'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
-        Assert.Contains("t('nav.runtime_overview')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("t('nav.dashboard_overview')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("t('nav.runtime_overview')", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("t('nav.console')", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -917,7 +919,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "{ path: '/console', element: route('dashboard-overview', <DashboardOverviewPage />) }",
+            "{ path: '/console', element: <Navigate to=\"/dashboard/overview\" replace /> }",
             mainRoutesSource,
             StringComparison.Ordinal
         );
@@ -927,7 +929,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "element: route(\"dashboard-overview\", <DashboardOverviewPage />)",
+            "element: <Navigate to=\"/dashboard/overview\" replace />",
             overlayMainRoutesSource,
             StringComparison.Ordinal
         );

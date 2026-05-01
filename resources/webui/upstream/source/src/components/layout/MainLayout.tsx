@@ -33,6 +33,7 @@ import {
   subscribeDesktopDataChanged,
   subscribeDesktopShellCommand,
 } from '@/desktop/bridge';
+import { triggerHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import {
   useAuthStore,
   useConfigStore,
@@ -44,7 +45,7 @@ import type { Theme } from '@/types';
 
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
-  runtimeOverview: <IconSidebarConsole size={18} />,
+  dashboardOverview: <IconSidebarConsole size={18} />,
   aiProviders: <IconSidebarProviders size={18} />,
   authFiles: <IconSidebarAuthFiles size={18} />,
   quota: <IconSidebarQuota size={18} />,
@@ -423,8 +424,8 @@ export function MainLayout() {
       { path: '/', label: t('nav.dashboard'), icon: sidebarIcons.dashboard },
       {
         path: '/dashboard/overview',
-        label: t('nav.runtime_overview'),
-        icon: sidebarIcons.runtimeOverview,
+        label: t('nav.dashboard_overview'),
+        icon: sidebarIcons.dashboardOverview,
       },
       { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
       { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
@@ -601,7 +602,17 @@ export function MainLayout() {
       }
 
       if (command.type === 'refreshUsage') {
-        void loadUsageStats({ force: true }).catch(() => {});
+        void (async () => {
+          try {
+            if (await triggerHeaderRefresh()) {
+              return;
+            }
+          } catch {
+            // Fall back to the shared usage refresh below.
+          }
+
+          await loadUsageStats({ force: true }).catch(() => {});
+        })();
       }
     });
   }, [

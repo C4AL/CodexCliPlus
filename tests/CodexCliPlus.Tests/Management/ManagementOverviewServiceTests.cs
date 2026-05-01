@@ -22,9 +22,6 @@ public sealed class ManagementOverviewServiceTests
         Assert.Equal(0, services.Auth.GetApiKeysCalls);
         Assert.Equal(0, services.Auth.GetAuthFilesCalls);
         Assert.Equal(0, services.Auth.ProviderCalls);
-        Assert.Equal(0, services.Usage.GetUsageCalls);
-        Assert.Equal(0, services.System.GetLatestVersionCalls);
-        Assert.Equal(0, services.System.GetAvailableModelsCalls);
     }
 
     [Fact]
@@ -44,30 +41,6 @@ public sealed class ManagementOverviewServiceTests
         Assert.Equal(1, services.Auth.GetApiKeysCalls);
         Assert.Equal(1, services.Auth.GetAuthFilesCalls);
         Assert.Equal(0, services.Auth.ProviderCalls);
-        Assert.Equal(0, services.Usage.GetUsageCalls);
-        Assert.Equal(0, services.System.GetLatestVersionCalls);
-        Assert.Equal(0, services.System.GetAvailableModelsCalls);
-    }
-
-    [Fact]
-    public async Task GetOverviewAsyncReusesSingleInFlightRequest()
-    {
-        var services = CreateServices();
-        services.Usage.BlockUsage = true;
-
-        var first = services.Overview.GetOverviewAsync();
-        await services.Usage.WaitForUsageCallAsync();
-        var second = services.Overview.GetOverviewAsync();
-
-        Assert.Equal(1, services.Usage.GetUsageCalls);
-
-        services.Usage.ReleaseUsage();
-        var results = await Task.WhenAll(first, second);
-
-        Assert.Same(results[0], results[1]);
-        Assert.Equal(1, services.Usage.GetUsageCalls);
-        Assert.Equal(0, services.Auth.ProviderCalls);
-        Assert.Equal(1, services.System.GetAvailableModelsCalls);
     }
 
     private static TestServices CreateServices()
@@ -75,25 +48,19 @@ public sealed class ManagementOverviewServiceTests
         var connection = new FakeConnectionProvider();
         var configuration = new FakeConfigurationService();
         var auth = new FakeAuthService();
-        var usage = new FakeUsageService();
-        var system = new FakeSystemService();
         var overview = new ManagementOverviewService(
             connection,
             configuration,
-            auth,
-            usage,
-            system
+            auth
         );
 
-        return new TestServices(connection, configuration, auth, usage, system, overview);
+        return new TestServices(connection, configuration, auth, overview);
     }
 
     private sealed record TestServices(
         FakeConnectionProvider Connection,
         FakeConfigurationService Configuration,
         FakeAuthService Auth,
-        FakeUsageService Usage,
-        FakeSystemService System,
         ManagementOverviewService Overview
     );
 
@@ -520,84 +487,6 @@ public sealed class ManagementOverviewServiceTests
         public Task<ManagementApiResponse<ManagementOperationResult>> SubmitOAuthCallbackAsync(
             string provider,
             string redirectUrl,
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
-    }
-
-    private sealed class FakeUsageService : IManagementUsageService
-    {
-        private readonly TaskCompletionSource usageCalled = new(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
-        private readonly TaskCompletionSource releaseUsage = new(
-            TaskCreationOptions.RunContinuationsAsynchronously
-        );
-
-        public bool BlockUsage { get; set; }
-
-        public int GetUsageCalls { get; private set; }
-
-        public async Task<ManagementApiResponse<ManagementUsageSnapshot>> GetUsageAsync(
-            CancellationToken cancellationToken = default
-        )
-        {
-            GetUsageCalls++;
-            usageCalled.TrySetResult();
-            if (BlockUsage)
-            {
-                await releaseUsage.Task.WaitAsync(cancellationToken);
-            }
-
-            return Response(new ManagementUsageSnapshot { TotalRequests = 12 });
-        }
-
-        public Task WaitForUsageCallAsync() => usageCalled.Task.WaitAsync(TimeSpan.FromSeconds(3));
-
-        public void ReleaseUsage() => releaseUsage.TrySetResult();
-
-        public Task<ManagementApiResponse<ManagementUsageExportPayload>> ExportUsageAsync(
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
-
-        public Task<ManagementApiResponse<ManagementUsageImportResult>> ImportUsageAsync(
-            ManagementUsageExportPayload payload,
-            CancellationToken cancellationToken = default
-        ) => throw new NotSupportedException();
-    }
-
-    private sealed class FakeSystemService : IManagementSystemService
-    {
-        public int GetLatestVersionCalls { get; private set; }
-        public int GetAvailableModelsCalls { get; private set; }
-
-        public Task<ManagementApiResponse<ManagementLatestVersionInfo>> GetLatestVersionAsync(
-            CancellationToken cancellationToken = default
-        )
-        {
-            GetLatestVersionCalls++;
-            return Task.FromResult(
-                Response(new ManagementLatestVersionInfo { LatestVersion = "10.0.0" })
-            );
-        }
-
-        public Task<
-            ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
-        > GetAvailableModelsAsync(
-            string? apiKey = null,
-            IReadOnlyDictionary<string, string>? headers = null,
-            CancellationToken cancellationToken = default
-        )
-        {
-            GetAvailableModelsCalls++;
-            return Task.FromResult(
-                Response<IReadOnlyList<ManagementModelDescriptor>>([
-                    new ManagementModelDescriptor(),
-                ])
-            );
-        }
-
-        public Task<ManagementApiResponse<ManagementApiCallResult>> ExecuteApiCallAsync(
-            ManagementApiCallRequest request,
             CancellationToken cancellationToken = default
         ) => throw new NotSupportedException();
     }

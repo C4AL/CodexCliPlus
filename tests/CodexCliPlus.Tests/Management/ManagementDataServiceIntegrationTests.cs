@@ -47,13 +47,10 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var authService = new ManagementAuthService(apiClient);
             var usageService = new ManagementUsageService(apiClient);
             var logsService = new ManagementLogsService(apiClient);
-            var systemService = new ManagementSystemService(apiClient);
             var overviewService = new ManagementOverviewService(
                 connectionProvider,
                 configService,
-                authService,
-                usageService,
-                systemService
+                authService
             );
 
             var config = await configService.GetConfigAsync();
@@ -85,15 +82,18 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var codexModels = await authService.GetModelDefinitionsAsync("codex");
             Assert.NotNull(codexModels.Value);
 
-            var overview = await overviewService.GetOverviewAsync();
-            Assert.Equal(running.Runtime.ManagementApiBaseUrl, overview.Value.ManagementApiBaseUrl);
-            Assert.True(overview.Value.ApiKeyCount >= 1);
-            Assert.False(string.IsNullOrWhiteSpace(overview.Value.ServerVersion));
-            Assert.True(
-                !string.IsNullOrWhiteSpace(overview.Value.LatestVersion)
-                    || !string.IsNullOrWhiteSpace(overview.Value.LatestVersionError)
+            var shellStatus = await overviewService.GetShellStatusAsync();
+            Assert.Equal(
+                running.Runtime.ManagementApiBaseUrl,
+                shellStatus.Value.ManagementApiBaseUrl
             );
-            Assert.True(overview.Value.Usage.TotalRequests >= 0);
+            Assert.True(shellStatus.Value.IsConnected);
+            Assert.False(string.IsNullOrWhiteSpace(shellStatus.Value.ServerVersion));
+
+            var settingsSummary = await overviewService.GetSettingsSummaryAsync();
+            Assert.True(settingsSummary.Value.ApiKeyCount >= 1);
+            Assert.True(settingsSummary.Value.AuthFileCount >= 0);
+            Assert.False(string.IsNullOrWhiteSpace(settingsSummary.Value.ServerVersion));
         }
         finally
         {

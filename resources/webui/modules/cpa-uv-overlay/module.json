@@ -3,11 +3,24 @@
   "name": "CPA-UV Overlay",
   "brandingMode": "neutral-local",
   "sourceRoot": "source",
+  "sourceReferences": [
+    {
+      "id": "dashboard-overview-react-page",
+      "source": "https://github.com/C4AL/Cli-Proxy-API-Management-Center/tree/uv/v1.7.41",
+      "commit": "079877df1fa8210dcb01cddc0d5d0d22d511211f",
+      "paths": [
+        "src/pages/DashboardOverviewPage.tsx",
+        "src/pages/DashboardOverviewPage.module.scss",
+        "src/hooks/useHeaderRefresh.ts"
+      ]
+    }
+  ],
   "liveAssets": [
     {
       "originalPath": "live-assets/cpa-uv-management-reference.html",
       "retainedInGit": false,
       "source": "artifacts/reference-repos/CPA-UV/assets/management.html",
+      "sourceUrl": "https://github.com/C4AL/CPA-UV/blob/main/assets/management.html",
       "sha256": "a855c350add2598b08b5c2a5c3541af80436d39c6a50a0db5673a347abefc707"
     }
   ],

@@ -128,7 +128,7 @@
   "nav": {
     "dashboard": "仪表盘",
     "console": "运行概览",
-    "runtime_overview": "运行概览",
+    "dashboard_overview": "运行概览",
     "basic_settings": "基础设置",
     "api_keys": "API 密钥",
     "ai_providers": "账号配置",

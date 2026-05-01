@@ -13,10 +13,6 @@ public interface IManagementOverviewService
         bool forceRefresh = false,
         CancellationToken cancellationToken = default
     );
-
-    Task<ManagementApiResponse<ManagementOverviewSnapshot>> GetOverviewAsync(
-        CancellationToken cancellationToken = default
-    );
 }
 
 public interface IManagementSessionService

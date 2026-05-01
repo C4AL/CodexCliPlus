@@ -62,7 +62,7 @@ public sealed class NavigationShellTests
         Assert.Contains("保存到桌面", xaml, StringComparison.Ordinal);
         Assert.Contains("进入管理界面", xaml, StringComparison.Ordinal);
         Assert.Contains("忘记安全密钥/重置", xaml, StringComparison.Ordinal);
-        Assert.Contains("当前步骤：", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("当前步骤：", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"TitleBarButtonStyle\"", shellResources, StringComparison.Ordinal);
         Assert.Contains("BorderThickness\" Value=\"0\"", shellResources, StringComparison.Ordinal);
         Assert.True(CountOccurrences(xaml, "Style=\"{StaticResource TitleBarButtonStyle}\"") >= 2);
@@ -553,6 +553,13 @@ public sealed class NavigationShellTests
         Assert.Contains("TimeSpan.FromMilliseconds", source, StringComparison.Ordinal);
         Assert.Contains("300", source, StringComparison.Ordinal);
         Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
+        Assert.Contains("PreparationProgressBar.BeginAnimation", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "PreparationProgressFillScale.BeginAnimation",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ScaleTransform.ScaleXProperty", source, StringComparison.Ordinal);
         Assert.Contains("LoadingBrandBadge", xaml, StringComparison.Ordinal);
         Assert.Contains("codexcliplus-display.png", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -561,7 +568,14 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("x:Name=\"PreparationProgressTrack\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PreparationProgressBar\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PreparationProgressFillScale\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ClipToBounds=\"True\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"PreparationStepText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingWebView2StepText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingBackendStepText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingSecurityStepText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingWebUiStepText\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

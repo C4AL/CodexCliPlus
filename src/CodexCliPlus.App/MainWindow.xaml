@@ -1383,51 +1383,6 @@
               />
             </Grid>
           </Border>
-          <TextBlock
-            x:Name="PreparationStepText"
-            Margin="0,14,0,0"
-            FontSize="13"
-            Foreground="{DynamicResource PrimaryTextBrush}"
-            TextWrapping="Wrap"
-          />
-          <Border
-            Margin="0,16,0,0"
-            Padding="14"
-            CornerRadius="14"
-            Background="{DynamicResource SurfaceAltBrush}"
-            BorderBrush="{DynamicResource BorderBrush}"
-            BorderThickness="1"
-          >
-            <UniformGrid Columns="2" Rows="2">
-              <TextBlock
-                x:Name="LoadingWebView2StepText"
-                Margin="0,0,12,8"
-                FontSize="12"
-                Foreground="{DynamicResource SecondaryTextBrush}"
-                Text="WebView2：待检测"
-              />
-              <TextBlock
-                x:Name="LoadingBackendStepText"
-                Margin="0,0,0,8"
-                FontSize="12"
-                Foreground="{DynamicResource SecondaryTextBrush}"
-                Text="本地后端：等待启动"
-              />
-              <TextBlock
-                x:Name="LoadingSecurityStepText"
-                Margin="0,0,12,0"
-                FontSize="12"
-                Foreground="{DynamicResource SecondaryTextBrush}"
-                Text="管理密钥：等待校验"
-              />
-              <TextBlock
-                x:Name="LoadingWebUiStepText"
-                FontSize="12"
-                Foreground="{DynamicResource SecondaryTextBrush}"
-                Text="WebUI 连接：等待后端"
-              />
-            </UniformGrid>
-          </Border>
         </StackPanel>
       </Border>
     </Grid>

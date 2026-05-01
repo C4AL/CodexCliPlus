@@ -564,7 +564,7 @@
                     </StackPanel>
                   </Button>
                   <Button
-                    x:Name="ShellNavRuntimeOverviewButton"
+                    x:Name="ShellNavDashboardOverviewButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"
                     Click="ShellNavigationButton_Click"
                     CommandParameter="/dashboard/overview"

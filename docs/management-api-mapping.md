@@ -17,7 +17,8 @@
 
 | 页面/领域 | 上游端点集合 | 桌面服务 |
 | --- | --- | --- |
-| 总览 | `/config`, `/api-keys`, `/auth-files`, `/gemini-api-key`, `/codex-api-key`, `/claude-api-key`, `/vertex-api-key`, `/openai-compatibility`, `/v1/models`, optional local `wham/usage` bridge via `/api-call` | `IManagementOverviewService` |
+| 运行概览 | `/config`, `/auth-files`, `/usage`, `/logs`, optional local `wham/usage` bridge via `/api-call` | WebUI 直连管理 API |
+| 桌面外壳状态/设置摘要 | `/config`, `/api-keys`, `/auth-files` | `IManagementOverviewService` |
 | 账号与认证 | `/api-keys`, `/auth-files`, `/auth-files/models`, `/auth-files/status`, `/model-definitions/:channel`, `/oauth-excluded-models`, `/oauth-model-alias`, `/{provider}-auth-url`, `/get-auth-status`, `/oauth-callback` | `IManagementAuthService` |
 | 限额与用量 | `/usage`, `/usage/export`, `/usage/import` | `IManagementUsageService` |
 | 配置 | `/config`, `/config.yaml`, `/debug`, `/proxy-url`, `/request-retry`, `/max-retry-interval`, `/quota-exceeded/*`, `/usage-statistics-enabled`, `/request-log`, `/logging-to-file`, `/logs-max-total-size-mb`, `/error-logs-max-files`, `/ws-auth`, `/force-model-prefix`, `/routing/strategy` | `IManagementConfigurationService` |
@@ -39,7 +40,7 @@
   - usage snapshots and import/export payloads
   - logs and request-error logs
   - model descriptors
-  - overview aggregate snapshot
+  - shell status and settings summary snapshots
 
 ## 兼容约束
 

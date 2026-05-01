@@ -94,7 +94,6 @@
         Style="{StaticResource ShellBrandDockButtonStyle}"
         AutomationProperties.AutomationId="ShellBrandDockButton"
         AutomationProperties.Name="打开状态面板"
-        PreviewMouseLeftButtonDown="ShellBrandDockButton_PreviewMouseLeftButtonDown"
         Click="ShellBrandDockButton_Click"
         ToolTip="打开状态面板"
         Panel.ZIndex="1"
@@ -205,7 +204,7 @@
         PlacementTarget="{Binding ElementName=ShellBrandDockButton}"
         Placement="Bottom"
         VerticalOffset="8"
-        StaysOpen="False"
+        StaysOpen="True"
         AllowsTransparency="True"
         PopupAnimation="None"
         Opened="ShellBrandDockPopup_Opened"
@@ -228,8 +227,8 @@
         >
           <Border.RenderTransform>
             <TransformGroup>
-              <ScaleTransform x:Name="ShellBrandDockScaleTransform" ScaleX="0.98" ScaleY="0.98" />
-              <TranslateTransform x:Name="ShellBrandDockTranslateTransform" Y="-6" />
+              <ScaleTransform x:Name="ShellBrandDockScaleTransform" ScaleX="1" ScaleY="0.88" />
+              <TranslateTransform x:Name="ShellBrandDockTranslateTransform" Y="-8" />
             </TransformGroup>
           </Border.RenderTransform>
           <Grid>

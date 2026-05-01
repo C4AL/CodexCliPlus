@@ -75,15 +75,11 @@ public partial class MainWindow
     {
         _isShellBrandDockClosing = false;
         ShellBrandDockCard.Opacity = 0;
-        ShellBrandDockScaleTransform.ScaleX = 0.98;
-        ShellBrandDockScaleTransform.ScaleY = 0.98;
-        ShellBrandDockTranslateTransform.Y = -6;
+        ShellBrandDockScaleTransform.ScaleX = 1;
+        ShellBrandDockScaleTransform.ScaleY = 0.88;
+        ShellBrandDockTranslateTransform.Y = -8;
 
         ShellBrandDockCard.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(1, 150));
-        ShellBrandDockScaleTransform.BeginAnimation(
-            ScaleTransform.ScaleXProperty,
-            CreateEaseAnimation(1, 180)
-        );
         ShellBrandDockScaleTransform.BeginAnimation(
             ScaleTransform.ScaleYProperty,
             CreateEaseAnimation(1, 180)
@@ -102,18 +98,17 @@ public partial class MainWindow
         }
 
         _isShellBrandDockClosing = true;
+        ShellBrandDockCard.Opacity = 1;
+        ShellBrandDockScaleTransform.ScaleY = 1;
+        ShellBrandDockTranslateTransform.Y = 0;
         ShellBrandDockCard.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 120));
         ShellBrandDockScaleTransform.BeginAnimation(
-            ScaleTransform.ScaleXProperty,
-            CreateEaseAnimation(0.985, 130)
-        );
-        ShellBrandDockScaleTransform.BeginAnimation(
             ScaleTransform.ScaleYProperty,
-            CreateEaseAnimation(0.985, 130)
+            CreateEaseAnimation(0.88, 130)
         );
         ShellBrandDockTranslateTransform.BeginAnimation(
             TranslateTransform.YProperty,
-            CreateEaseAnimation(-5, 130)
+            CreateEaseAnimation(-8, 130)
         );
 
         await Task.Delay(TimeSpan.FromMilliseconds(135));
@@ -127,9 +122,9 @@ public partial class MainWindow
         ShellBrandDockScaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         ShellBrandDockTranslateTransform.BeginAnimation(TranslateTransform.YProperty, null);
         ShellBrandDockCard.Opacity = 0;
-        ShellBrandDockScaleTransform.ScaleX = 0.98;
-        ShellBrandDockScaleTransform.ScaleY = 0.98;
-        ShellBrandDockTranslateTransform.Y = -6;
+        ShellBrandDockScaleTransform.ScaleX = 1;
+        ShellBrandDockScaleTransform.ScaleY = 0.88;
+        ShellBrandDockTranslateTransform.Y = -8;
     }
 
     private SolidColorBrush GetConnectionStatusBrush()

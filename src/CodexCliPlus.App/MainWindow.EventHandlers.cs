@@ -322,26 +322,12 @@ public partial class MainWindow
         ExpandNavigationDock(showLabels: true);
     }
 
-    private void ShellBrandDockButton_PreviewMouseLeftButtonDown(
-        object sender,
-        MouseButtonEventArgs e
-    )
-    {
-        _wasShellBrandDockOpenBeforeButtonClick = ShellBrandDockPopup.IsOpen;
-    }
-
     private async void ShellBrandDockButton_Click(object sender, RoutedEventArgs e)
     {
-        var wasOpenBeforeClick = _wasShellBrandDockOpenBeforeButtonClick;
-        _wasShellBrandDockOpenBeforeButtonClick = false;
         UpdateShellDockPresentation();
-        if (wasOpenBeforeClick)
+        if (ShellBrandDockPopup.IsOpen)
         {
-            if (ShellBrandDockPopup.IsOpen)
-            {
-                await HideShellBrandDockPopupAsync();
-            }
-
+            await HideShellBrandDockPopupAsync();
             return;
         }
 

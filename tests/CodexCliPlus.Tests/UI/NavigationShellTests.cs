@@ -143,16 +143,34 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.DoesNotContain(
             "PreviewMouseLeftButtonDown=\"ShellBrandDockButton_PreviewMouseLeftButtonDown\"",
             xaml,
             StringComparison.Ordinal
         );
         Assert.Contains("x:Name=\"ShellBrandDockPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("StaysOpen=\"True\"", shellBrandDockPopupXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "StaysOpen=\"False\"",
+            shellBrandDockPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"ShellBrandDockCard\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Opacity=\"0\"", shellBrandDockPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "RenderTransformOrigin=\"0.5,0\"",
+            shellBrandDockPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Opened=\"ShellBrandDockPopup_Opened\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Closed=\"ShellBrandDockPopup_Closed\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockScaleTransform\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ScaleY=\"0.88\"", shellBrandDockPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ShellBrandDockTranslateTransform\" Y=\"-8\"",
+            shellBrandDockPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "codexcliplus-display.png",
             shellBrandDockPopupXaml,
@@ -216,15 +234,43 @@ public sealed class NavigationShellTests
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayCheckUpdatesMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayExitMenuItem_Click", xaml, StringComparison.Ordinal);
-        Assert.Contains(
-            "_wasShellBrandDockOpenBeforeButtonClick = ShellBrandDockPopup.IsOpen",
+        Assert.DoesNotContain(
+            "_wasShellBrandDockOpenBeforeButtonClick",
             hostSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("var wasOpenBeforeClick", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ShellBrandDockButton_PreviewMouseLeftButtonDown",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("var wasOpenBeforeClick", hostSource, StringComparison.Ordinal);
+        Assert.Contains("if (ShellBrandDockPopup.IsOpen)", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "await HideShellBrandDockPopupAsync();",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ShellBrandDockPopup.IsOpen = true", hostSource, StringComparison.Ordinal);
         Assert.Contains("HideShellBrandDockPopupAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("ShellBrandDockTranslateTransform", xaml, StringComparison.Ordinal);
         Assert.Contains("ShellBrandDockScaleTransform", xaml, StringComparison.Ordinal);
+        Assert.Contains("UIElement.OpacityProperty", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ScaleTransform.ScaleYProperty", hostSource, StringComparison.Ordinal);
+        Assert.Contains("TranslateTransform.YProperty", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShellBrandDockScaleTransform.ScaleY = 0.88",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ShellBrandDockTranslateTransform.Y = -8",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("CreateEaseAnimation(0.88, 130)", hostSource, StringComparison.Ordinal);
+        Assert.Contains("CreateEaseAnimation(-8, 130)", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_isShellBrandDockClosing = true", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockRailTrack", xaml, StringComparison.Ordinal);
         Assert.Contains("Opacity=\"0.78\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Opacity=\"0\"", xaml, StringComparison.Ordinal);

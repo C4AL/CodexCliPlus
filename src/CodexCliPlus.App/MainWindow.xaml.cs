@@ -144,7 +144,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
     private bool _isShellBrandDockClosing;
-    private bool _wasShellBrandDockOpenBeforeButtonClick;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;

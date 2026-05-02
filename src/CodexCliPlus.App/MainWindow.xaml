@@ -578,7 +578,7 @@
                         VerticalAlignment="Center"
                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                       />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="运行概览" />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="操作台" />
                     </StackPanel>
                   </Button>
                   <Button

@@ -176,7 +176,7 @@ public partial class MainWindow
         }
 
         PositionSettingsWindow();
-        RefreshNavigationDockPopupPlacement();
+        RefreshShellDockPopupPlacements();
     }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
@@ -337,6 +337,7 @@ public partial class MainWindow
 
     private void ShellBrandDockPopup_Opened(object sender, EventArgs e)
     {
+        RefreshShellBrandDockPopupPlacement();
         AnimateShellBrandDockPopupIn();
     }
 

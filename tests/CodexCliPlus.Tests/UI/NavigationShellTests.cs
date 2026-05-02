@@ -290,6 +290,10 @@ public sealed class NavigationShellTests
         Assert.Contains("TrayRestartBackendMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayCheckUpdatesMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("TrayExitMenuItem_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains("RequestApplicationExitAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("RunApplicationExitAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("await _backendProcessManager.StopAsync();", hostSource, StringComparison.Ordinal);
+        Assert.Contains("System.Windows.Application.Current.Shutdown();", hostSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "_wasShellBrandDockOpenBeforeButtonClick",
             hostSource,

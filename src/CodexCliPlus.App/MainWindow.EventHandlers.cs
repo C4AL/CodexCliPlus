@@ -84,7 +84,12 @@ public partial class MainWindow
 
     private async void Window_Closed(object? sender, EventArgs e)
     {
-        await SyncPersistenceBeforeExitAsync();
+        if (!_isExitRequested)
+        {
+            using var syncTimeout = new CancellationTokenSource(ExitPersistenceSyncTimeout);
+            await SyncPersistenceBeforeExitAsync(syncTimeout.Token);
+        }
+
         _backendProcessManager.StatusChanged -= BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested -=
             ShellNotificationService_NotificationRequested;
@@ -156,7 +161,7 @@ public partial class MainWindow
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         CloseShellDockPopups();
-        if (_allowClose)
+        if (_allowClose || _isExitRequested)
         {
             return;
         }
@@ -613,12 +618,51 @@ public partial class MainWindow
         }
     }
 
-    private async void TrayExitMenuItem_Click(object sender, RoutedEventArgs e)
+    private void TrayExitMenuItem_Click(object sender, RoutedEventArgs e)
     {
+        _ = RequestApplicationExitAsync();
+    }
+
+    private Task RequestApplicationExitAsync()
+    {
+        if (_applicationExitTask is not null)
+        {
+            return _applicationExitTask;
+        }
+
+        _isExitRequested = true;
         _allowClose = true;
+        _applicationExitTask = RunApplicationExitAsync();
+        return _applicationExitTask;
+    }
+
+    private async Task RunApplicationExitAsync()
+    {
+        CloseShellDockPopups();
         TrayIcon.Unregister();
-        await SyncPersistenceBeforeExitAsync();
-        await _backendProcessManager.StopAsync();
-        Close();
+
+        try
+        {
+            using var syncTimeout = new CancellationTokenSource(ExitPersistenceSyncTimeout);
+            await SyncPersistenceBeforeExitAsync(syncTimeout.Token);
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"Exit persistence sync failed: {exception.Message}");
+        }
+
+        try
+        {
+            await _backendProcessManager.StopAsync();
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError("Failed to stop backend during application exit.", exception);
+        }
+        finally
+        {
+            _allowClose = true;
+            System.Windows.Application.Current.Shutdown();
+        }
     }
 }

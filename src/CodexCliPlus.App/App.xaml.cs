@@ -51,11 +51,11 @@ public partial class App : System.Windows.Application
     {
         try
         {
-            _serviceProvider
-                ?.GetService<BackendProcessManager>()
-                ?.StopAsync()
-                .GetAwaiter()
-                .GetResult();
+            var backendProcessManager = _serviceProvider?.GetService<BackendProcessManager>();
+            if (backendProcessManager is not null)
+            {
+                Task.Run(() => backendProcessManager.StopAsync()).GetAwaiter().GetResult();
+            }
         }
         catch { }
 

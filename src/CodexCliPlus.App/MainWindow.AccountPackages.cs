@@ -600,16 +600,23 @@ public partial class MainWindow
         return root;
     }
 
-    private async Task SyncPersistenceBeforeExitAsync()
+    private async Task SyncPersistenceBeforeExitAsync(CancellationToken cancellationToken = default)
     {
         CancelUsageStatsSyncDebounce();
         try
         {
-            await _persistenceService.SyncUsageSnapshotAsync();
+            await _persistenceService.SyncUsageSnapshotAsync(cancellationToken);
             _lastUsageSnapshotSyncAt = DateTimeOffset.UtcNow;
-            await _persistenceService.SyncLogsSnapshotAsync();
+            await _persistenceService.SyncLogsSnapshotAsync(cancellationToken);
         }
-        catch { }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.Warn("Persistence sync before exit timed out.");
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"Persistence sync before exit failed: {exception.Message}");
+        }
     }
 
     private void ScheduleUsageStatsRefreshedSync(bool force = false)

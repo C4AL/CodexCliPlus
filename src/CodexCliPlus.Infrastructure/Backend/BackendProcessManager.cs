@@ -23,7 +23,9 @@ public sealed class BackendProcessManager : IDisposable
     private readonly List<string> _recentLogLines = [];
 
     private IManagedProcess? _managedProcess;
+    private CancellationTokenSource _operationCts = new();
     private bool _stopRequested;
+    private bool _disposed;
 
     public BackendProcessManager(
         BackendAssetService assetService,
@@ -65,9 +67,15 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        await _gate.WaitAsync(cancellationToken);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _operationCts.Token
+            );
+            var operationToken = linkedCts.Token;
+
             if (_managedProcess is not null && _managedProcess.HasExited)
             {
                 _managedProcess.Dispose();
@@ -88,41 +96,45 @@ public sealed class BackendProcessManager : IDisposable
                 }
             );
 
-            var assetLayout = await _assetService.EnsureAssetsAsync(cancellationToken);
+            var assetLayout = await _assetService.EnsureAssetsAsync(operationToken)
+                .ConfigureAwait(false);
             CleanupRuntimeArtifacts();
-            var settings = await _configurationService.LoadAsync(cancellationToken);
-            var runtime = await _configWriter.WriteAsync(settings, cancellationToken);
-            var secretBrokerSession = await _secretBrokerService.StartAsync(cancellationToken);
+            var settings = await _configurationService.LoadAsync(operationToken)
+                .ConfigureAwait(false);
+            var runtime = await _configWriter.WriteAsync(settings, operationToken)
+                .ConfigureAwait(false);
+            var secretBrokerSession = await _secretBrokerService.StartAsync(operationToken)
+                .ConfigureAwait(false);
 
             _stopRequested = false;
-            _managedProcess = await _processService.StartAsync(
-                new ManagedProcessStartInfo(
-                    assetLayout.ExecutablePath,
-                    $"-config \"{runtime.ConfigPath}\"",
-                    assetLayout.WorkingDirectory,
-                    new Dictionary<string, string?>
-                    {
-                        [SecretBrokerService.BrokerUrlEnvironmentVariable] =
-                            secretBrokerSession.BaseUrl,
-                        [SecretBrokerService.BrokerTokenEnvironmentVariable] =
-                            secretBrokerSession.Token,
-                    }
-                ),
-                line => AppendLogLine($"[stdout] {line}"),
-                line => AppendLogLine($"[stderr] {line}"),
-                cancellationToken
-            );
+            _managedProcess = await _processService
+                .StartAsync(
+                    new ManagedProcessStartInfo(
+                        assetLayout.ExecutablePath,
+                        $"-config \"{runtime.ConfigPath}\"",
+                        assetLayout.WorkingDirectory,
+                        new Dictionary<string, string?>
+                        {
+                            [SecretBrokerService.BrokerUrlEnvironmentVariable] =
+                                secretBrokerSession.BaseUrl,
+                            [SecretBrokerService.BrokerTokenEnvironmentVariable] =
+                                secretBrokerSession.Token,
+                        }
+                    ),
+                    line => AppendLogLine($"[stdout] {line}"),
+                    line => AppendLogLine($"[stderr] {line}"),
+                    operationToken
+                )
+                .ConfigureAwait(false);
 
             _managedProcess.Exited += OnProcessExited;
             AppendLogLine(
                 $"Started {BackendExecutableNames.ManagedExecutableFileName} backend process (PID {_managedProcess.ProcessId})."
             );
 
-            var isHealthy = await _healthChecker.WaitUntilHealthyAsync(
-                runtime.HealthUrl,
-                TimeSpan.FromSeconds(30),
-                cancellationToken
-            );
+            var isHealthy = await _healthChecker
+                .WaitUntilHealthyAsync(runtime.HealthUrl, TimeSpan.FromSeconds(30), operationToken)
+                .ConfigureAwait(false);
 
             if (!isHealthy)
             {
@@ -138,8 +150,8 @@ public sealed class BackendProcessManager : IDisposable
                     }
                 );
 
-                await StopManagedProcessAsync(cancellationToken);
-                await _secretBrokerService.StopAsync(cancellationToken);
+                await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+                await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
                 return CurrentStatus;
             }
 
@@ -159,11 +171,28 @@ public sealed class BackendProcessManager : IDisposable
 
             return CurrentStatus;
         }
+        catch (OperationCanceledException)
+            when (_stopRequested || _operationCts.IsCancellationRequested)
+        {
+            await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+            await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            CleanupRuntimeArtifacts();
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Stopped,
+                    Message = "Backend is stopped.",
+                    Runtime = CurrentStatus.Runtime,
+                }
+            );
+
+            return CurrentStatus;
+        }
         catch (Exception exception)
         {
             _logger.LogError("Failed to start backend process.", exception);
-            await StopManagedProcessAsync(cancellationToken);
-            await _secretBrokerService.StopAsync(cancellationToken);
+            await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+            await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
             CleanupRuntimeArtifacts();
             UpdateStatus(
                 new BackendStatusSnapshot
@@ -186,13 +215,14 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        await _gate.WaitAsync(cancellationToken);
+        _stopRequested = true;
+        CancelActiveOperation();
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var runtime = CurrentStatus.Runtime;
-            _stopRequested = true;
-            await StopManagedProcessAsync(cancellationToken);
-            await _secretBrokerService.StopAsync(cancellationToken);
+            await StopManagedProcessAsync(cancellationToken).ConfigureAwait(false);
+            await _secretBrokerService.StopAsync(cancellationToken).ConfigureAwait(false);
             CleanupRuntimeArtifacts();
 
             UpdateStatus(
@@ -208,6 +238,7 @@ public sealed class BackendProcessManager : IDisposable
         }
         finally
         {
+            ResetActiveOperation();
             _gate.Release();
         }
     }
@@ -216,14 +247,26 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        await StopAsync(cancellationToken);
-        return await StartAsync(cancellationToken);
+        await StopAsync(cancellationToken).ConfigureAwait(false);
+        return await StartAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        try
+        {
+            Task.Run(() => StopAsync()).GetAwaiter().GetResult();
+        }
+        catch { }
+
+        _operationCts.Dispose();
         _gate.Dispose();
-        _managedProcess?.Dispose();
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
@@ -288,13 +331,33 @@ public sealed class BackendProcessManager : IDisposable
         try
         {
             _managedProcess.Exited -= OnProcessExited;
-            await _managedProcess.StopAsync(cancellationToken);
+            await _managedProcess.StopAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             _managedProcess.Dispose();
             _managedProcess = null;
         }
+    }
+
+    private void CancelActiveOperation()
+    {
+        try
+        {
+            _operationCts.Cancel();
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void ResetActiveOperation()
+    {
+        if (!_operationCts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        _operationCts.Dispose();
+        _operationCts = new CancellationTokenSource();
     }
 
     private void CleanupRuntimeArtifacts()

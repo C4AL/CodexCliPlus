@@ -126,7 +126,7 @@ public sealed class SecretBrokerService : IDisposable
         }
 
         _disposed = true;
-        StopAsync().GetAwaiter().GetResult();
+        Task.Run(() => StopAsync()).GetAwaiter().GetResult();
         _gate.Dispose();
     }
 

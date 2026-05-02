@@ -650,7 +650,7 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
-    public void FirstRunOnboardingUsesIconActionsSingleLineKeyAndCountdownConfirm()
+    public void FirstRunOnboardingUsesIconActionsFullKeyDisplayAndCountdownConfirm()
     {
         var repositoryRoot = FindRepositoryRoot();
         var xaml = File.ReadAllText(
@@ -673,9 +673,25 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var startupFlowResources = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Resources",
+                "StartupFlowResources.xaml"
+            ),
+            Encoding.UTF8
+        );
         var appProject = File.ReadAllText(
             Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"),
             Encoding.UTF8
+        );
+        var startupFlowTextBoxStyle = SliceBetween(
+            startupFlowResources,
+            "x:Key=\"StartupFlowTextBoxStyle\"",
+            "  <Style x:Key=\"StartupFlowPasswordBoxStyle\""
         );
 
         Assert.Contains(
@@ -743,7 +759,8 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("Padding=\"10,8,48,8\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"64\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"10,9,48,9\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellIconViewboxStyle\"",
             shellResources,
@@ -797,15 +814,25 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("TextWrapping=\"NoWrap\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"Wrap\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "HorizontalScrollBarVisibility=\"Hidden\"",
+            "HorizontalScrollBarVisibility=\"Disabled\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
             "VerticalScrollBarVisibility=\"Disabled\"",
             startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "VerticalAlignment=\"Stretch\"",
+            startupFlowTextBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
+            startupFlowTextBoxStyle,
             StringComparison.Ordinal
         );
         Assert.Contains(

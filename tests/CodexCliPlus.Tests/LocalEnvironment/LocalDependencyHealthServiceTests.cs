@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CodexCliPlus.Core.Abstractions.LocalEnvironment;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models.LocalEnvironment;
@@ -68,6 +69,95 @@ public sealed class LocalDependencyHealthServiceTests
         var node = Assert.Single(snapshot.Items, item => item.Id == "node");
         Assert.Equal(LocalDependencyStatus.Warning, node.Status);
         Assert.Contains("超时", node.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckAsyncPrefersWindowsExecutableExtensionsOverExtensionlessShims()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond(
+            "where.exe",
+            "npm",
+            0,
+            "C:\\Users\\Tester\\AppData\\Roaming\\npm\\npm"
+                + Environment.NewLine
+                + "C:\\Program Files\\nodejs\\npm.cmd"
+        );
+        fixture.ProcessRunner.Respond(
+            "where.exe",
+            "codex",
+            0,
+            "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex"
+                + Environment.NewLine
+                + "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd"
+        );
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var npm = Assert.Single(snapshot.Items, item => item.Id == "npm");
+        var codex = Assert.Single(snapshot.Items, item => item.Id == "codex-cli");
+        Assert.Equal("C:\\Program Files\\nodejs\\npm.cmd", npm.Path);
+        Assert.Equal("C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex.cmd", codex.Path);
+        Assert.Equal(LocalDependencyStatus.Ready, npm.Status);
+        Assert.Equal(LocalDependencyStatus.Ready, codex.Status);
+    }
+
+    [Fact]
+    public async Task CheckAsyncDoesNotSelectExtensionlessCodexShim()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond(
+            "where.exe",
+            "codex",
+            0,
+            "C:\\Users\\Tester\\AppData\\Roaming\\npm\\codex"
+        );
+        fixture.ExistingFiles.Clear();
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var codex = Assert.Single(snapshot.Items, item => item.Id == "codex-cli");
+        Assert.Equal(LocalDependencyStatus.Missing, codex.Status);
+        Assert.Equal(LocalDependencyRepairActionIds.InstallCodexCli, codex.RepairActionId);
+    }
+
+    [Fact]
+    public async Task CheckAsyncTurnsSlowProbeIntoWarningWithinSnapshotBudget()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.DelayOn(
+            "C:\\Program Files\\nodejs\\node.exe",
+            "--version",
+            TimeSpan.FromSeconds(5)
+        );
+        var stopwatch = Stopwatch.StartNew();
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        stopwatch.Stop();
+        var node = Assert.Single(snapshot.Items, item => item.Id == "node");
+        Assert.Equal(LocalDependencyStatus.Warning, node.Status);
+        Assert.Contains("超时", node.Detail, StringComparison.Ordinal);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public async Task CheckAsyncRunsIndependentProbesConcurrently()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        foreach (
+            var command in new[] { "node", "npm", "codex", "pwsh", "powershell", "wsl", "winget" }
+        )
+        {
+            fixture.ProcessRunner.DelayOn("where.exe", command, TimeSpan.FromMilliseconds(180));
+        }
+        var stopwatch = Stopwatch.StartNew();
+
+        await fixture.CreateService().CheckAsync();
+
+        stopwatch.Stop();
+        Assert.True(fixture.ProcessRunner.MaxConcurrentRuns > 1);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
     }
 
     [Fact]
@@ -211,6 +301,11 @@ public sealed class LocalDependencyHealthServiceTests
     {
         private readonly List<Response> _responses = [];
         private readonly List<Failure> _failures = [];
+        private readonly List<Delay> _delays = [];
+        private int _activeRuns;
+        private int _maxConcurrentRuns;
+
+        public int MaxConcurrentRuns => _maxConcurrentRuns;
 
         public void Respond(
             string fileName,
@@ -238,38 +333,75 @@ public sealed class LocalDependencyHealthServiceTests
             _failures.Add(new Failure(fileName, argumentsContains, exception));
         }
 
-        public Task<LocalEnvironmentProcessResult> RunAsync(
+        public void DelayOn(string fileName, string argumentsContains, TimeSpan delay)
+        {
+            _delays.Add(new Delay(fileName, argumentsContains, delay));
+        }
+
+        public async Task<LocalEnvironmentProcessResult> RunAsync(
             string fileName,
             IReadOnlyList<string> arguments,
             TimeSpan timeout,
             CancellationToken cancellationToken = default
         )
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var joinedArguments = string.Join(" ", arguments);
-            var failure = _failures.LastOrDefault(candidate =>
-                Matches(candidate, fileName, joinedArguments)
-            );
-            if (failure is not null)
+            var active = Interlocked.Increment(ref _activeRuns);
+            UpdateMaxConcurrentRuns(active);
+            try
             {
-                throw failure.Exception;
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                var joinedArguments = string.Join(" ", arguments);
+                var delay = _delays.LastOrDefault(candidate =>
+                    Matches(candidate, fileName, joinedArguments)
+                );
+                if (delay is not null)
+                {
+                    await Task.Delay(delay.Duration, cancellationToken);
+                }
 
-            var response = _responses.LastOrDefault(candidate =>
-                Matches(candidate, fileName, joinedArguments)
-            );
-            if (response is null)
-            {
-                return Task.FromResult(new LocalEnvironmentProcessResult(1, "", "not found"));
-            }
+                var failure = _failures.LastOrDefault(candidate =>
+                    Matches(candidate, fileName, joinedArguments)
+                );
+                if (failure is not null)
+                {
+                    throw failure.Exception;
+                }
 
-            return Task.FromResult(
-                new LocalEnvironmentProcessResult(
+                var response = _responses.LastOrDefault(candidate =>
+                    Matches(candidate, fileName, joinedArguments)
+                );
+                if (response is null)
+                {
+                    return new LocalEnvironmentProcessResult(1, "", "not found");
+                }
+
+                return new LocalEnvironmentProcessResult(
                     response.ExitCode,
                     response.StandardOutput,
                     response.StandardError
-                )
-            );
+                );
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _activeRuns);
+            }
+        }
+
+        private void UpdateMaxConcurrentRuns(int active)
+        {
+            while (true)
+            {
+                var current = _maxConcurrentRuns;
+                if (active <= current)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _maxConcurrentRuns, active, current) == current)
+                {
+                    return;
+                }
+            }
         }
 
         private static bool Matches(Response response, string fileName, string arguments)
@@ -290,6 +422,12 @@ public sealed class LocalDependencyHealthServiceTests
                 );
         }
 
+        private static bool Matches(Delay delay, string fileName, string arguments)
+        {
+            return string.Equals(delay.FileName, fileName, StringComparison.OrdinalIgnoreCase)
+                && arguments.Contains(delay.ArgumentsContains, StringComparison.OrdinalIgnoreCase);
+        }
+
         private sealed record Response(
             string FileName,
             string ArgumentsContains,
@@ -303,5 +441,7 @@ public sealed class LocalDependencyHealthServiceTests
             string ArgumentsContains,
             Exception Exception
         );
+
+        private sealed record Delay(string FileName, string ArgumentsContains, TimeSpan Duration);
     }
 }

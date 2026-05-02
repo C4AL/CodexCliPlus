@@ -62,22 +62,13 @@ export const useAuthStore = create<AuthStoreState>()(
             set({
               apiBase: resolvedBase,
               managementKey: resolvedKey,
-              rememberPassword: false
+              rememberPassword: false,
+              isAuthenticated: true,
+              connectionStatus: 'connected',
+              connectionError: null
             });
             apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
-
-            try {
-              await get().login({
-                apiBase: resolvedBase,
-                managementKey: resolvedKey,
-                rememberPassword: false
-              });
-              return true;
-            } catch (error) {
-              console.warn('Desktop bootstrap auto login failed:', error);
-              restoreSessionPromise = null;
-              return false;
-            }
+            return true;
           }
 
           obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);

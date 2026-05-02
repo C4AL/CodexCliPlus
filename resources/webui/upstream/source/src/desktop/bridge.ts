@@ -157,8 +157,9 @@ const pendingLocalDependencyRequests = new Map<
   }
 >();
 const MANAGEMENT_REQUEST_TIMEOUT_MS = 120_000;
-const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 30_000;
+const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 2_000;
 const LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS = 35 * 60_000;
+let localDependencySnapshotInFlight: Promise<LocalDependencySnapshot> | null = null;
 
 function getBridge(): DesktopBridge | null {
   if (typeof window === 'undefined') {
@@ -602,6 +603,10 @@ export function applyDesktopUpdateInDesktopShell(): boolean {
 }
 
 export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapshot> {
+  if (localDependencySnapshotInFlight) {
+    return localDependencySnapshotInFlight;
+  }
+
   const bridge = getBridge();
   if (typeof bridge?.requestLocalDependencySnapshot !== 'function') {
     return Promise.reject(new Error('本地环境检测需要桌面模式'));
@@ -613,6 +618,12 @@ export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapsho
     requestId,
     LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS
   );
+  const inFlight = request.finally(() => {
+    if (localDependencySnapshotInFlight === inFlight) {
+      localDependencySnapshotInFlight = null;
+    }
+  });
+  localDependencySnapshotInFlight = inFlight;
   try {
     const posted = bridge.requestLocalDependencySnapshot(requestId);
     if (posted === false) {
@@ -622,9 +633,10 @@ export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapsho
     const pending = pendingLocalDependencyRequests.get(requestId);
     if (pending) window.clearTimeout(pending.timer);
     pendingLocalDependencyRequests.delete(requestId);
+    localDependencySnapshotInFlight = null;
     return Promise.reject(error);
   }
-  return request;
+  return inFlight;
 }
 
 export function runLocalDependencyRepair(

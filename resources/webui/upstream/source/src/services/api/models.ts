@@ -13,6 +13,10 @@ const DEFAULT_ANTHROPIC_VERSION = '2023-06-01';
 const CLAUDE_MODELS_IN_FLIGHT = new Map<string, Promise<ReturnType<typeof normalizeModelList>>>();
 const GEMINI_MODELS_IN_FLIGHT = new Map<string, Promise<ReturnType<typeof normalizeModelList>>>();
 
+interface FetchModelsOptions {
+  timeoutMs?: number;
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -83,7 +87,12 @@ export const modelsApi = {
   /**
    * Fetch available models from /v1/models endpoint (for system info page)
    */
-  async fetchModels(baseUrl: string, apiKey?: string, headers: Record<string, string> = {}) {
+  async fetchModels(
+    baseUrl: string,
+    apiKey?: string,
+    headers: Record<string, string> = {},
+    options: FetchModelsOptions = {}
+  ) {
     const endpoint = buildV1ModelsEndpoint(baseUrl);
     if (!endpoint) {
       throw new Error('Invalid base url');
@@ -95,7 +104,8 @@ export const modelsApi = {
     }
 
     const response = await axios.get(endpoint, {
-      headers: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
+      headers: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined,
+      timeout: options.timeoutMs,
     });
     const payload = response.data?.data ?? response.data?.models ?? response.data;
     return normalizeModelList(payload, { dedupe: true });

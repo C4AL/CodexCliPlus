@@ -30,6 +30,39 @@ interface QuickStat {
 }
 
 type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+const DASHBOARD_MODELS_FETCH_TIMEOUT_MS = 1_500;
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (
+    callback: IdleRequestCallback,
+    options?: IdleRequestOptions
+  ) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+function scheduleDashboardIdleTask(callback: () => void): () => void {
+  const win = window as IdleWindow;
+  let timeoutId: number | null = null;
+  let idleId: number | null = null;
+  const frameId = window.requestAnimationFrame(() => {
+    if (typeof win.requestIdleCallback === 'function') {
+      idleId = win.requestIdleCallback(callback, { timeout: 1_000 });
+      return;
+    }
+
+    timeoutId = window.setTimeout(callback, 250);
+  });
+
+  return () => {
+    window.cancelAnimationFrame(frameId);
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+    if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+      win.cancelIdleCallback(idleId);
+    }
+  };
+}
 
 function getTimeOfDay(date = new Date()): TimeOfDay {
   const hour = date.getHours();
@@ -75,6 +108,7 @@ export function DashboardPage() {
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
   const apiKeysCache = useRef<string[]>([]);
+  const localEnvironmentRequestRef = useRef<Promise<LocalDependencySnapshot> | null>(null);
 
   useEffect(() => {
     apiKeysCache.current = [];
@@ -150,7 +184,9 @@ export function DashboardPage() {
     try {
       const apiKeys = await resolveApiKeysForModels();
       const primaryKey = apiKeys[0];
-      await fetchModelsFromStore(apiBase, primaryKey);
+      await fetchModelsFromStore(apiBase, primaryKey, false, {
+        timeoutMs: DASHBOARD_MODELS_FETCH_TIMEOUT_MS
+      });
     } catch {
       // Ignore model fetch errors on dashboard
     }
@@ -165,13 +201,19 @@ export function DashboardPage() {
 
     setLocalEnvironmentLoading(true);
     setLocalEnvironmentError('');
+    const existingRequest = localEnvironmentRequestRef.current;
+    const request = existingRequest ?? requestLocalDependencySnapshot();
+    localEnvironmentRequestRef.current = request;
     try {
-      const snapshot = await requestLocalDependencySnapshot();
+      const snapshot = await request;
       setLocalEnvironmentSnapshot(snapshot);
     } catch (error) {
       const message = error instanceof Error ? error.message : t('common.unknown_error');
       setLocalEnvironmentError(message);
     } finally {
+      if (localEnvironmentRequestRef.current === request) {
+        localEnvironmentRequestRef.current = null;
+      }
       setLocalEnvironmentLoading(false);
     }
   }, [t]);
@@ -225,39 +267,28 @@ export function DashboardPage() {
     }, []);
 
   useEffect(() => {
+    const cleanups: Array<() => void> = [];
     const timer = window.setTimeout(() => {
       if (connectionStatus === 'connected') {
         fetchStats();
-        fetchModels();
+        cleanups.push(scheduleDashboardIdleTask(() => void fetchModels()));
       } else {
         setLoading(false);
       }
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      cleanups.forEach((cleanup) => cleanup());
+    };
   }, [connectionStatus, fetchModels, fetchStats]);
 
   useDesktopDataChanged(['config', 'providers', 'auth-files', 'quota'], () => {
     if (connectionStatus === 'connected') {
       void fetchStats();
-      void fetchModels();
+      scheduleDashboardIdleTask(() => void fetchModels());
     }
   }, connectionStatus === 'connected');
-
-  useDesktopDataChanged(['local-environment'], () => {
-    void fetchLocalEnvironment();
-  }, isDesktopMode());
-
-  useEffect(() => {
-    if (!isDesktopMode()) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void fetchLocalEnvironment();
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [fetchLocalEnvironment]);
 
   const getLocalStatusLabel = (status: LocalDependencyItem['status']) => {
     const labels: Record<LocalDependencyItem['status'], string> = {
@@ -479,14 +510,13 @@ export function DashboardPage() {
             type="button"
             className={`${styles.bentoCard} ${styles.localEnvironmentCard}`}
             onClick={() => {
-              setLocalEnvironmentOpen((open) => !open);
-              if (
-                localEnvironmentDesktopMode &&
-                !localEnvironmentSnapshot &&
-                !localEnvironmentLoading
-              ) {
-                void fetchLocalEnvironment();
-              }
+              setLocalEnvironmentOpen((open) => {
+                const nextOpen = !open;
+                if (nextOpen && localEnvironmentDesktopMode) {
+                  void fetchLocalEnvironment();
+                }
+                return nextOpen;
+              });
             }}
           >
             <div className={styles.bentoIcon}>

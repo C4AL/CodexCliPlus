@@ -20,7 +20,12 @@ interface ModelsState {
   error: string | null;
   cache: ModelsCache | null;
 
-  fetchModels: (apiBase: string, apiKey?: string, forceRefresh?: boolean) => Promise<ModelInfo[]>;
+  fetchModels: (
+    apiBase: string,
+    apiKey?: string,
+    forceRefresh?: boolean,
+    options?: { timeoutMs?: number }
+  ) => Promise<ModelInfo[]>;
   clearCache: () => void;
   isCacheValid: (apiBase: string, apiKey?: string) => boolean;
 }
@@ -31,7 +36,7 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
   error: null,
   cache: null,
 
-  fetchModels: async (apiBase, apiKey, forceRefresh = false) => {
+  fetchModels: async (apiBase, apiKey, forceRefresh = false, options = {}) => {
     const { cache, isCacheValid } = get();
     const apiKeyScope = apiKey?.trim() || '';
 
@@ -44,7 +49,12 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const list = await modelsApi.fetchModels(apiBase, apiKeyScope || undefined);
+      const list = await modelsApi.fetchModels(
+        apiBase,
+        apiKeyScope || undefined,
+        {},
+        { timeoutMs: options.timeoutMs }
+      );
       const now = Date.now();
 
       set({

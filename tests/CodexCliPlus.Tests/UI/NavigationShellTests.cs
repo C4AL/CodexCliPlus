@@ -584,6 +584,12 @@ public sealed class NavigationShellTests
         Assert.Contains("requestLocalDependencySnapshot", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", hostSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexRouteState", hostSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexRouteState", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", hostSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("codexRouteResponse", hostSource, StringComparison.Ordinal);
+        Assert.Contains("codexRouteResponse", webBridgeSource, StringComparison.Ordinal);
         Assert.Contains("hasHostBridge", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("return false", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("桌面桥接通道未就绪", webBridgeSource, StringComparison.Ordinal);
@@ -1216,6 +1222,20 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var overlayDashboardOverviewPageSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "modules",
+                "cpa-uv-overlay",
+                "source",
+                "src",
+                "pages",
+                "DashboardOverviewPage.tsx"
+            ),
+            Encoding.UTF8
+        );
         var overlayMainRoutesSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -1404,6 +1424,14 @@ public sealed class NavigationShellTests
             dashboardOverviewPageSource,
             StringComparison.Ordinal
         );
+        Assert.Contains("requestCodexRouteState", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("当前：{codexRouteModeLabel}", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("切换到 CPA", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("切换到官方", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexRouteState", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("当前：{codexRouteModeLabel}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "export function ConsolePage()",
             dashboardOverviewPageSource,
@@ -1486,6 +1514,8 @@ public sealed class NavigationShellTests
         Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("toggleSidebarCollapsed", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("navigate", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexRouteState", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
     }

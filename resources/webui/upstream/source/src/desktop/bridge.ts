@@ -99,6 +99,24 @@ export interface DesktopManagementResponse {
   metadata?: unknown;
 }
 
+export type CodexRouteMode = 'official' | 'cpa' | 'unknown';
+
+export interface CodexRouteState {
+  currentMode: CodexRouteMode;
+  targetMode?: Exclude<CodexRouteMode, 'unknown'> | null;
+  configPath: string;
+  authPath: string;
+  canSwitch: boolean;
+  statusMessage: string;
+}
+
+export interface CodexRouteSwitchResponse {
+  state: CodexRouteState;
+  configBackupPath?: string | null;
+  authBackupPath?: string | null;
+  officialAuthBackupPath?: string | null;
+}
+
 export type DesktopShellCommand =
   | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
   | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
@@ -120,6 +138,8 @@ interface DesktopBridge {
   usageStatsRefreshed?: () => void;
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
+  requestCodexRouteState?: (requestId: string) => boolean | void;
+  switchCodexRoute?: (targetMode: string, requestId: string) => boolean | void;
   managementRequest?: (request: DesktopManagementRequest & { requestId: string }) => void;
   requestLocalDependencySnapshot?: (requestId: string) => boolean | void;
   runLocalDependencyRepair?: (actionId: string, requestId: string) => boolean | void;
@@ -156,9 +176,18 @@ const pendingLocalDependencyRequests = new Map<
     timer: ReturnType<typeof window.setTimeout>;
   }
 >();
+const pendingCodexRouteRequests = new Map<
+  string,
+  {
+    resolve: (value: CodexRouteSwitchResponse) => void;
+    reject: (reason?: unknown) => void;
+    timer: ReturnType<typeof window.setTimeout>;
+  }
+>();
 const MANAGEMENT_REQUEST_TIMEOUT_MS = 120_000;
 const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 2_000;
 const LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS = 35 * 60_000;
+const CODEX_ROUTE_REQUEST_TIMEOUT_MS = 30_000;
 let localDependencySnapshotInFlight: Promise<LocalDependencySnapshot> | null = null;
 
 function getBridge(): DesktopBridge | null {
@@ -322,6 +351,26 @@ function normalizeLocalDependencyRepairResult(value: unknown): LocalDependencyRe
   };
 }
 
+function normalizeCodexRouteMode(value: unknown): CodexRouteMode {
+  return value === 'official' || value === 'cpa' ? value : 'unknown';
+}
+
+function normalizeCodexRouteTarget(value: unknown): Exclude<CodexRouteMode, 'unknown'> | null {
+  return value === 'official' || value === 'cpa' ? value : null;
+}
+
+function normalizeCodexRouteState(value: unknown): CodexRouteState | null {
+  if (!isRecord(value)) return null;
+  return {
+    currentMode: normalizeCodexRouteMode(value.currentMode),
+    targetMode: normalizeCodexRouteTarget(value.targetMode),
+    configPath: typeof value.configPath === 'string' ? value.configPath : '',
+    authPath: typeof value.authPath === 'string' ? value.authPath : '',
+    canSwitch: value.canSwitch === true,
+    statusMessage: typeof value.statusMessage === 'string' ? value.statusMessage : '',
+  };
+}
+
 function settleLocalDependencyRequest(requestId: unknown, value: unknown, error?: unknown): boolean {
   if (typeof requestId !== 'string') return false;
   const pending = pendingLocalDependencyRequests.get(requestId);
@@ -425,6 +474,40 @@ function handleLocalDependencyMessage(message: unknown): boolean {
   return false;
 }
 
+function handleCodexRouteMessage(message: unknown): boolean {
+  if (!isRecord(message) || message.type !== 'codexRouteResponse') return false;
+  const requestId = typeof message.requestId === 'string' ? message.requestId : '';
+  if (!requestId) return true;
+  const pending = pendingCodexRouteRequests.get(requestId);
+  if (!pending) return true;
+  pendingCodexRouteRequests.delete(requestId);
+  window.clearTimeout(pending.timer);
+
+  const state = normalizeCodexRouteState(message.state);
+  if (message.ok === true && state) {
+    pending.resolve({
+      state,
+      configBackupPath:
+        typeof message.configBackupPath === 'string' ? message.configBackupPath : null,
+      authBackupPath: typeof message.authBackupPath === 'string' ? message.authBackupPath : null,
+      officialAuthBackupPath:
+        typeof message.officialAuthBackupPath === 'string'
+          ? message.officialAuthBackupPath
+          : null,
+    });
+    return true;
+  }
+
+  pending.reject(
+    new Error(
+      typeof message.error === 'string' && message.error.trim()
+        ? message.error
+        : 'Codex 路由切换失败'
+    )
+  );
+  return true;
+}
+
 function registerLocalDependencyRequest<T>(requestId: string, timeoutMs: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
@@ -436,6 +519,16 @@ function registerLocalDependencyRequest<T>(requestId: string, timeoutMs: number)
       reject,
       timer,
     });
+  });
+}
+
+function registerCodexRouteRequest(requestId: string): Promise<CodexRouteSwitchResponse> {
+  return new Promise<CodexRouteSwitchResponse>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      pendingCodexRouteRequests.delete(requestId);
+      reject(new Error('Codex 路由响应超时'));
+    }, CODEX_ROUTE_REQUEST_TIMEOUT_MS);
+    pendingCodexRouteRequests.set(requestId, { resolve, reject, timer });
   });
 }
 
@@ -451,6 +544,10 @@ function ensureDesktopCommandListener() {
 
   desktopCommandListenerReady = true;
   webview.addEventListener('message', (event: MessageEvent) => {
+    if (handleCodexRouteMessage(event.data)) {
+      return;
+    }
+
     if (handleManagementResponseMessage(event.data)) {
       return;
     }
@@ -600,6 +697,59 @@ export function checkDesktopUpdateInDesktopShell(): boolean {
 
 export function applyDesktopUpdateInDesktopShell(): boolean {
   return invokeDesktopBridgeAction('applyDesktopUpdate');
+}
+
+export function requestCodexRouteState(): Promise<CodexRouteState> {
+  const bridge = getBridge();
+  if (typeof bridge?.requestCodexRouteState !== 'function') {
+    return Promise.reject(new Error('Codex 路由切换需要桌面模式'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-route');
+  const request = registerCodexRouteRequest(requestId).then((response) => response.state);
+  try {
+    const posted = bridge.requestCodexRouteState(requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再切换。');
+    }
+  } catch (error) {
+    const pending = pendingCodexRouteRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexRouteRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function switchCodexRoute(
+  targetMode: Exclude<CodexRouteMode, 'unknown'>
+): Promise<CodexRouteSwitchResponse> {
+  const bridge = getBridge();
+  if (typeof bridge?.switchCodexRoute !== 'function') {
+    return Promise.reject(new Error('Codex 路由切换需要桌面模式'));
+  }
+
+  const normalizedTarget = normalizeCodexRouteTarget(targetMode);
+  if (!normalizedTarget) {
+    return Promise.reject(new Error('目标模式无效'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-route-switch');
+  const request = registerCodexRouteRequest(requestId);
+  try {
+    const posted = bridge.switchCodexRoute(normalizedTarget, requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再切换。');
+    }
+  } catch (error) {
+    const pending = pendingCodexRouteRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexRouteRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
 }
 
 export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapshot> {

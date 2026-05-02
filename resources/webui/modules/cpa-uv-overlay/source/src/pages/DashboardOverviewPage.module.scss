@@ -76,6 +76,35 @@
   font-variant-numeric: tabular-nums;
 }
 
+.headerActions {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.routeSwitch {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.routeSwitch :global(.btn) {
+  min-width: 92px;
+  white-space: nowrap;
+}
+
+.routeStatus {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .summaryPills {
   display: inline-flex;
   align-items: center;
@@ -606,6 +635,10 @@
 }
 
 @media (max-width: 900px) {
+  .headerActions {
+    justify-content: flex-start;
+  }
+
   .accountGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

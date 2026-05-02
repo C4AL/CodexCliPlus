@@ -34,12 +34,31 @@ public sealed class CodexConfigServiceTests : IDisposable
         Assert.Contains("model = \"gpt-5.4\"", content, StringComparison.Ordinal);
         Assert.Contains("[profiles.official]", content, StringComparison.Ordinal);
         Assert.Contains("[profiles.cpa]", content, StringComparison.Ordinal);
+        Assert.Contains("model_provider = \"cliproxyapi\"", content, StringComparison.Ordinal);
         Assert.Contains(
             "base_url = \"http://127.0.0.1:9318/v1\"",
             content,
             StringComparison.Ordinal
         );
         Assert.Single(backups);
+    }
+
+    [Fact]
+    public async Task GetCodexRouteStateAsyncRecognizesLegacyTopLevelCpaProvider()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        await File.WriteAllTextAsync(
+            Path.Combine(_codexHome, "config.toml"),
+            "model_provider = \"cliproxyapi\"\nbase_url = \"http://127.0.0.1:8317/v1\"\nwire_api = \"responses\"\n"
+        );
+
+        var service = new CodexConfigService();
+        var state = await service.GetCodexRouteStateAsync();
+
+        Assert.Equal("cpa", state.CurrentMode);
+        Assert.Equal("official", state.TargetMode);
     }
 
     [Fact]

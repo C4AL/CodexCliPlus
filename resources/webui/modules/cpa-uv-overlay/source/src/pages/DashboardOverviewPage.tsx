@@ -2,6 +2,13 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { CODEX_CONFIG } from '@/components/quota';
 import { useUsageData } from '@/components/usage';
+import {
+  isDesktopMode,
+  requestCodexRouteState,
+  switchCodexRoute,
+  type CodexRouteState,
+} from '@/desktop/bridge';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
@@ -40,6 +47,12 @@ const RECENT_HIGHLIGHT_INDEX_LIMIT = 10;
 const TRACEABLE_EXACT_PATHS = new Set(['/v1/chat/completions', '/v1/messages', '/v1/responses']);
 const TRACEABLE_PREFIX_PATHS = ['/v1beta/models'];
 const EMPTY_HIGHLIGHT_IDS = new Set<string>();
+
+const getCodexRouteModeLabel = (mode: CodexRouteState['currentMode']) => {
+  if (mode === 'cpa') return 'CPA 模式';
+  if (mode === 'official') return '官方模式';
+  return '未知模式';
+};
 
 type CodexUsageStats = {
   requests: number;
@@ -981,9 +994,57 @@ export function DashboardOverviewPage() {
   const [filesLoading, setFilesLoading] = useState(true);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [codexQuotaByFile, setCodexQuotaByFile] = useState<Record<string, OverviewQuotaEntry>>({});
+  const [codexRouteState, setCodexRouteState] = useState<CodexRouteState | null>(null);
+  const [codexRouteLoading, setCodexRouteLoading] = useState(false);
+  const [codexRouteSwitching, setCodexRouteSwitching] = useState(false);
+  const [codexRouteError, setCodexRouteError] = useState('');
 
   const quotaSyncSignatureRef = useRef('');
   const quotaRequestKeyRef = useRef('');
+  const desktopBridgeAvailable = isDesktopMode();
+
+  const loadCodexRouteState = useCallback(async () => {
+    if (!desktopBridgeAvailable) {
+      setCodexRouteState(null);
+      setCodexRouteError('需要桌面端桥接');
+      return;
+    }
+
+    setCodexRouteLoading(true);
+    try {
+      const state = await requestCodexRouteState();
+      setCodexRouteState(state);
+      setCodexRouteError('');
+    } catch (routeError) {
+      setCodexRouteState(null);
+      setCodexRouteError(routeError instanceof Error ? routeError.message : '读取 Codex 路由失败');
+    } finally {
+      setCodexRouteLoading(false);
+    }
+  }, [desktopBridgeAvailable]);
+
+  useEffect(() => {
+    void loadCodexRouteState();
+  }, [loadCodexRouteState]);
+
+  const handleCodexRouteSwitch = useCallback(async () => {
+    const targetMode = codexRouteState?.targetMode;
+    if (!desktopBridgeAvailable || !targetMode || !codexRouteState.canSwitch) {
+      return;
+    }
+
+    setCodexRouteSwitching(true);
+    setCodexRouteError('');
+    try {
+      const result = await switchCodexRoute(targetMode);
+      setCodexRouteState(result.state);
+    } catch (routeError) {
+      setCodexRouteError(routeError instanceof Error ? routeError.message : '切换 Codex 路由失败');
+      void loadCodexRouteState();
+    } finally {
+      setCodexRouteSwitching(false);
+    }
+  }, [codexRouteState, desktopBridgeAvailable, loadCodexRouteState]);
 
   const loadOverviewFiles = useCallback(async (): Promise<AuthFileItem[]> => {
     if (connectionStatus !== 'connected') {
@@ -1320,6 +1381,26 @@ export function DashboardOverviewPage() {
     [codexFiles, codexQuotaByFile, filesLoading, i18n.language, quotaLoading, t, usageByAuthIndex]
   );
 
+  const codexRouteModeLabel = codexRouteState
+    ? getCodexRouteModeLabel(codexRouteState.currentMode)
+    : desktopBridgeAvailable
+      ? '检测中'
+      : '不可用';
+  const codexRouteButtonLabel =
+    codexRouteState?.targetMode === 'official'
+      ? '切换到官方'
+      : codexRouteState?.targetMode === 'cpa'
+        ? '切换到 CPA'
+        : '切换模式';
+  const codexRouteDisabled =
+    !desktopBridgeAvailable ||
+    codexRouteLoading ||
+    codexRouteSwitching ||
+    !codexRouteState?.canSwitch ||
+    !codexRouteState.targetMode;
+  const codexRouteTitle =
+    codexRouteError || codexRouteState?.statusMessage || 'Codex 路由状态';
+
   const lastUpdatedLabel = lastRefreshedAt
     ? formatOverviewUpdatedTime(lastRefreshedAt, i18n.language)
     : hasUsageSnapshot
@@ -1342,19 +1423,34 @@ export function DashboardOverviewPage() {
             </div>
           }
           extra={
-            <div className={styles.summaryPills}>
-              <span className={`${styles.summaryPill} ${styles.summaryPillRequests}`}>
-                <span className={styles.summaryLabel}>{t('usage_stats.total_requests')}</span>
-                <span className={styles.summaryValue}>
-                  {hasUsageSnapshot ? formatLocaleNumber(totalRequests, i18n.language) : '--'}
+            <div className={styles.headerActions}>
+              <div className={styles.routeSwitch} title={codexRouteTitle}>
+                <span className={styles.routeStatus}>当前：{codexRouteModeLabel}</span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCodexRouteSwitch}
+                  disabled={codexRouteDisabled}
+                  loading={codexRouteSwitching}
+                >
+                  {codexRouteButtonLabel}
+                </Button>
+              </div>
+              <div className={styles.summaryPills}>
+                <span className={`${styles.summaryPill} ${styles.summaryPillRequests}`}>
+                  <span className={styles.summaryLabel}>{t('usage_stats.total_requests')}</span>
+                  <span className={styles.summaryValue}>
+                    {hasUsageSnapshot ? formatLocaleNumber(totalRequests, i18n.language) : '--'}
+                  </span>
                 </span>
-              </span>
-              <span className={`${styles.summaryPill} ${styles.summaryPillTokens}`}>
-                <span className={styles.summaryLabel}>{t('usage_stats.total_tokens')}</span>
-                <span className={styles.summaryValue}>
-                  {hasUsageSnapshot ? formatCompactNumber(totalTokens) : '--'}
+                <span className={`${styles.summaryPill} ${styles.summaryPillTokens}`}>
+                  <span className={styles.summaryLabel}>{t('usage_stats.total_tokens')}</span>
+                  <span className={styles.summaryValue}>
+                    {hasUsageSnapshot ? formatCompactNumber(totalTokens) : '--'}
+                  </span>
                 </span>
-              </span>
+              </div>
             </div>
           }
         >

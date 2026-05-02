@@ -1053,7 +1053,13 @@ export function DashboardOverviewPage() {
   }, [desktopBridgeAvailable]);
 
   useEffect(() => {
-    void loadCodexRouteState();
+    const routeStateTimer = window.setTimeout(() => {
+      void loadCodexRouteState();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(routeStateTimer);
+    };
   }, [loadCodexRouteState]);
 
   const handleCodexRouteSwitch = useCallback(async () => {

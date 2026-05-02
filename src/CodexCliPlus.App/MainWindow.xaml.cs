@@ -87,6 +87,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         300
     );
+    private static readonly TimeSpan ExitPersistenceSyncTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan UsageSnapshotSyncCooldown = TimeSpan.FromMinutes(2);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
     private static readonly JsonSerializerOptions WebMessageJsonOptions = new()
@@ -148,6 +149,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isShellBrandDockClosing;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
+    private bool _isExitRequested;
+    private Task? _applicationExitTask;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
     private CancellationTokenSource? _postStartupPersistenceCts;
     private readonly object _localDependencySnapshotLock = new();

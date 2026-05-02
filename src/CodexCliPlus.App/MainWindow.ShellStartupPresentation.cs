@@ -184,6 +184,12 @@ public partial class MainWindow
         }
     }
 
+    private void RefreshShellDockPopupPlacements()
+    {
+        RefreshShellBrandDockPopupPlacement();
+        RefreshNavigationDockPopupPlacement();
+    }
+
     private void RefreshNavigationDockPopupPlacement()
     {
         if (!CanShowNavigationDockPopup())
@@ -197,16 +203,23 @@ public partial class MainWindow
             return;
         }
 
-        ShellNavigationDockPopup.IsOpen = false;
-        Dispatcher.BeginInvoke(
-            () =>
-            {
-                if (CanShowNavigationDockPopup())
-                {
-                    ShellNavigationDockPopup.IsOpen = true;
-                }
-            },
-            DispatcherPriority.Background
-        );
+        RefreshDockPopupPlacement(ShellNavigationDockPopup);
+    }
+
+    private void RefreshShellBrandDockPopupPlacement()
+    {
+        if (!ShellBrandDockPopup.IsOpen)
+        {
+            return;
+        }
+
+        RefreshDockPopupPlacement(ShellBrandDockPopup);
+    }
+
+    private static void RefreshDockPopupPlacement(Popup popup)
+    {
+        var horizontalOffset = popup.HorizontalOffset;
+        popup.HorizontalOffset = horizontalOffset + 0.01;
+        popup.HorizontalOffset = horizontalOffset;
     }
 }

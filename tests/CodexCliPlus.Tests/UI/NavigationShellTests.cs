@@ -344,6 +344,62 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
+    public void WindowPlacementChangesRefreshOpenedDockPopupPlacementWithoutReopeningNavigationDock()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var eventHandlersSource = ReadAppSource(repositoryRoot, "MainWindow.EventHandlers.cs");
+        var startupPresentationSource = ReadAppSource(
+            repositoryRoot,
+            "MainWindow.ShellStartupPresentation.cs"
+        );
+
+        var placementChangedSource = SliceBetween(
+            eventHandlersSource,
+            "private void Window_PlacementChanged",
+            "private async void RetryButton_Click"
+        );
+        var brandPopupOpenedSource = SliceBetween(
+            eventHandlersSource,
+            "private void ShellBrandDockPopup_Opened",
+            "private void ShellBrandDockPopup_Closed"
+        );
+        var refreshAllSource = SliceBetween(
+            startupPresentationSource,
+            "private void RefreshShellDockPopupPlacements()",
+            "private void RefreshNavigationDockPopupPlacement()"
+        );
+        var navigationRefreshSource = SliceBetween(
+            startupPresentationSource,
+            "private void RefreshNavigationDockPopupPlacement()",
+            "private void RefreshShellBrandDockPopupPlacement()"
+        );
+
+        Assert.Contains("RefreshShellDockPopupPlacements();", placementChangedSource);
+        Assert.Contains("RefreshShellBrandDockPopupPlacement();", brandPopupOpenedSource);
+        Assert.Contains("RefreshShellBrandDockPopupPlacement();", refreshAllSource);
+        Assert.Contains("RefreshNavigationDockPopupPlacement();", refreshAllSource);
+        Assert.DoesNotContain(
+            "ShellNavigationDockPopup.IsOpen = false",
+            navigationRefreshSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ShellNavigationDockPopup.IsOpen = true",
+            navigationRefreshSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "RefreshDockPopupPlacement(ShellNavigationDockPopup);",
+            navigationRefreshSource
+        );
+        Assert.Contains(
+            "popup.HorizontalOffset = horizontalOffset + 0.01",
+            startupPresentationSource
+        );
+        Assert.Contains("popup.HorizontalOffset = horizontalOffset;", startupPresentationSource);
+    }
+
+    [Fact]
     public void DesktopHostInjectsBootstrapAndRedirectsExternalLinks()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -1391,6 +1447,14 @@ public sealed class NavigationShellTests
         return string.Join(
             Environment.NewLine,
             sourceFiles.Select(path => File.ReadAllText(path, Encoding.UTF8))
+        );
+    }
+
+    private static string ReadAppSource(string repositoryRoot, string fileName)
+    {
+        return File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", fileName),
+            Encoding.UTF8
         );
     }
 

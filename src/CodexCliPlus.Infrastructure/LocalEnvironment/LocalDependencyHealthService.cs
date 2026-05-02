@@ -7,8 +7,9 @@ namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 
 public sealed class LocalDependencyHealthService
 {
-    private static readonly TimeSpan ShortCommandTimeout = TimeSpan.FromSeconds(4);
-    private static readonly TimeSpan LoginCommandTimeout = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan SnapshotBudget = TimeSpan.FromMilliseconds(1800);
+    private static readonly TimeSpan ShortCommandTimeout = TimeSpan.FromMilliseconds(650);
+    private static readonly TimeSpan LoginCommandTimeout = TimeSpan.FromMilliseconds(650);
 
     private readonly ILocalEnvironmentProcessRunner _processRunner;
     private readonly Func<string, string?> _environmentVariableProvider;
@@ -40,18 +41,34 @@ public sealed class LocalDependencyHealthService
         CancellationToken cancellationToken = default
     )
     {
+        var budget = new ProbeBudget(SnapshotBudget);
         var toolState = new ToolState();
+        var nodeTask = CheckNodeAsync(toolState, budget, cancellationToken);
+        var npmTask = CheckNpmAsync(toolState, budget, cancellationToken);
+        var codexTask = CheckCodexCliAsync(toolState, budget, cancellationToken);
+        var powershellTask = CheckPowerShellAsync(toolState, budget, cancellationToken);
+        var wslTask = CheckWslAsync(toolState, budget, cancellationToken);
+        var wingetTask = CheckWingetAsync(toolState, budget, cancellationToken);
+
+        var results = await Task.WhenAll(
+            nodeTask,
+            npmTask,
+            codexTask,
+            powershellTask,
+            wslTask,
+            wingetTask
+        );
+        var codexItem = ResolveCodexRepairAction(results[2], toolState);
         var items = new List<LocalDependencyItem>
         {
-            await CheckNodeAsync(toolState, cancellationToken),
-            await CheckNpmAsync(toolState, cancellationToken),
-            await CheckCodexCliAsync(toolState, cancellationToken),
-            await CheckPowerShellAsync(toolState, cancellationToken),
+            results[0],
+            results[1],
+            codexItem,
+            results[3],
         };
-
         items.Add(CheckPath(toolState));
-        items.Add(await CheckWslAsync(toolState, cancellationToken));
-        items.Add(await CheckWingetAsync(toolState, cancellationToken));
+        items.Add(results[4]);
+        items.Add(results[5]);
 
         var readinessScore = CalculateReadinessScore(items);
         return new LocalDependencySnapshot
@@ -66,10 +83,11 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckCodexCliAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
-        var pathCandidates = await FindExecutablePathsAsync("codex", cancellationToken);
+        var pathCandidates = await FindExecutablePathsAsync("codex", budget, cancellationToken);
         var appDataNpmPath = GetAppDataNpmPath();
         var fallbackPath = string.IsNullOrWhiteSpace(appDataNpmPath)
             ? null
@@ -102,12 +120,14 @@ public sealed class LocalDependencyHealthService
             codexPath,
             ["--version"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var loginAttempt = await TryRunExecutableAsync(
             codexPath,
             ["login", "status"],
             LoginCommandTimeout,
+            budget,
             cancellationToken
         );
         var authProbe = ProbeCodexAuthFiles();
@@ -153,10 +173,11 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckNodeAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
-        var paths = await FindExecutablePathsAsync("node", cancellationToken);
+        var paths = await FindExecutablePathsAsync("node", budget, cancellationToken);
         var nodePath = PickExecutablePath(paths);
         toolState.NodePath = nodePath;
 
@@ -178,6 +199,7 @@ public sealed class LocalDependencyHealthService
             nodePath,
             ["--version"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var version = FirstOutputLine(attempt.Output);
@@ -211,10 +233,11 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckNpmAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
-        var paths = await FindExecutablePathsAsync("npm", cancellationToken);
+        var paths = await FindExecutablePathsAsync("npm", budget, cancellationToken);
         var npmPath = PickExecutablePath(paths);
         toolState.NpmPath = npmPath;
 
@@ -236,12 +259,14 @@ public sealed class LocalDependencyHealthService
             npmPath,
             ["--version"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var prefixAttempt = await TryRunExecutableAsync(
             npmPath,
             ["config", "get", "prefix"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var version = FirstOutputLine(versionAttempt.Output);
@@ -293,14 +318,15 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckPowerShellAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
         var pwshPath = PickExecutablePath(
-            await FindExecutablePathsAsync("pwsh", cancellationToken)
+            await FindExecutablePathsAsync("pwsh", budget, cancellationToken)
         );
         var powershellPath = PickExecutablePath(
-            await FindExecutablePathsAsync("powershell", cancellationToken)
+            await FindExecutablePathsAsync("powershell", budget, cancellationToken)
         );
         var shellPath = string.IsNullOrWhiteSpace(pwshPath) ? powershellPath : pwshPath;
         toolState.PowerShellPath = shellPath;
@@ -323,6 +349,7 @@ public sealed class LocalDependencyHealthService
             shellPath,
             ["-NoLogo", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var version = FirstOutputLine(attempt.Output);
@@ -452,10 +479,13 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckWslAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
-        var wslPath = PickExecutablePath(await FindExecutablePathsAsync("wsl", cancellationToken));
+        var wslPath = PickExecutablePath(
+            await FindExecutablePathsAsync("wsl", budget, cancellationToken)
+        );
         toolState.WslPath = wslPath;
         if (string.IsNullOrWhiteSpace(wslPath))
         {
@@ -475,12 +505,14 @@ public sealed class LocalDependencyHealthService
             wslPath,
             ["--status"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var listAttempt = await TryRunExecutableAsync(
             wslPath,
             ["-l", "-q"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var distros = CountNonEmptyLines(listAttempt.Output);
@@ -522,11 +554,12 @@ public sealed class LocalDependencyHealthService
 
     private async Task<LocalDependencyItem> CheckWingetAsync(
         ToolState toolState,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
         var wingetPath = PickExecutablePath(
-            await FindExecutablePathsAsync("winget", cancellationToken)
+            await FindExecutablePathsAsync("winget", budget, cancellationToken)
         );
         toolState.WingetPath = wingetPath;
         if (string.IsNullOrWhiteSpace(wingetPath))
@@ -547,6 +580,7 @@ public sealed class LocalDependencyHealthService
             wingetPath,
             ["--version"],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         var version = FirstOutputLine(attempt.Output);
@@ -579,6 +613,7 @@ public sealed class LocalDependencyHealthService
 
     private async Task<List<string>> FindExecutablePathsAsync(
         string commandName,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
@@ -586,6 +621,7 @@ public sealed class LocalDependencyHealthService
             "where.exe",
             [commandName],
             ShortCommandTimeout,
+            budget,
             cancellationToken
         );
         if (!attempt.Succeeded)
@@ -603,6 +639,7 @@ public sealed class LocalDependencyHealthService
         string executablePath,
         IReadOnlyList<string> arguments,
         TimeSpan timeout,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
@@ -612,27 +649,40 @@ public sealed class LocalDependencyHealthService
                 "cmd.exe",
                 ["/d", "/c", executablePath, .. arguments],
                 timeout,
+                budget,
                 cancellationToken
             );
         }
 
-        return await TryRunAsync(executablePath, arguments, timeout, cancellationToken);
+        return await TryRunAsync(executablePath, arguments, timeout, budget, cancellationToken);
     }
 
     private async Task<CommandAttempt> TryRunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
         TimeSpan timeout,
+        ProbeBudget budget,
         CancellationToken cancellationToken
     )
     {
+        var effectiveTimeout = budget.Limit(timeout);
+        if (effectiveTimeout <= TimeSpan.Zero)
+        {
+            return new CommandAttempt(null, string.Empty, "检测预算已用完。", TimedOut: true);
+        }
+
+        using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken
+        );
+        budgetCts.CancelAfter(effectiveTimeout);
+
         try
         {
             var result = await _processRunner.RunAsync(
                 fileName,
                 arguments,
-                timeout,
-                cancellationToken
+                effectiveTimeout,
+                budgetCts.Token
             );
             return new CommandAttempt(
                 result.ExitCode,
@@ -644,6 +694,10 @@ public sealed class LocalDependencyHealthService
         catch (TimeoutException exception)
         {
             return new CommandAttempt(null, string.Empty, exception.Message, TimedOut: true);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new CommandAttempt(null, string.Empty, "命令超过本次检测预算。", TimedOut: true);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -924,8 +978,39 @@ public sealed class LocalDependencyHealthService
     {
         return candidates
                 .Select(candidate => candidate.Trim())
-                .FirstOrDefault(candidate => candidate.Length > 0)
+                .Where(candidate => candidate.Length > 0)
+                .OrderBy(GetExecutablePreference)
+                .FirstOrDefault(candidate => GetExecutablePreference(candidate) < int.MaxValue)
             ?? string.Empty;
+    }
+
+    private static LocalDependencyItem ResolveCodexRepairAction(
+        LocalDependencyItem item,
+        ToolState toolState
+    )
+    {
+        if (
+            item.Id != "codex-cli"
+            || item.Status != LocalDependencyStatus.Missing
+            || item.RepairActionId != LocalDependencyRepairActionIds.InstallCodexCli
+            || toolState.NpmUsable
+        )
+        {
+            return item;
+        }
+
+        return new LocalDependencyItem
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Status = item.Status,
+            Severity = item.Severity,
+            Version = item.Version,
+            Path = item.Path,
+            Detail = item.Detail,
+            Recommendation = item.Recommendation,
+            RepairActionId = LocalDependencyRepairActionIds.InstallNodeNpm,
+        };
     }
 
     private static void AddCandidate(List<string> candidates, string path)
@@ -961,6 +1046,27 @@ public sealed class LocalDependencyHealthService
     {
         return path.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase)
             || path.EndsWith(".bat", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetExecutablePreference(string path)
+    {
+        var extension = System.IO.Path.GetExtension(path);
+        if (extension.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+
+        if (extension.Equals(".bat", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+
+        return int.MaxValue;
     }
 
     private static string[] SplitPath(string value)
@@ -1038,6 +1144,22 @@ public sealed class LocalDependencyHealthService
     private sealed record CommandAttempt(int? ExitCode, string Output, string? Error, bool TimedOut)
     {
         public bool Succeeded => ExitCode == 0 && !TimedOut;
+    }
+
+    private sealed class ProbeBudget(TimeSpan duration)
+    {
+        private readonly DateTimeOffset _deadline = DateTimeOffset.UtcNow.Add(duration);
+
+        public TimeSpan Limit(TimeSpan requested)
+        {
+            var remaining = _deadline - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return TimeSpan.Zero;
+            }
+
+            return remaining < requested ? remaining : requested;
+        }
     }
 
     private sealed record CodexAuthProbe(bool HasConfigFile, bool HasAuthFile);

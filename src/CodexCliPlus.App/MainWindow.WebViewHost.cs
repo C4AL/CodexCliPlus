@@ -26,6 +26,7 @@ using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Services;
@@ -423,9 +424,7 @@ public partial class MainWindow
                     break;
 
                 case "requestLocalDependencySnapshot":
-                    _ = Dispatcher.InvokeAsync(async () =>
-                        await SendLocalDependencySnapshotAsync(ReadRequestId(root))
-                    );
+                    _ = SendLocalDependencySnapshotAsync(ReadRequestId(root));
                     break;
 
                 case "runLocalDependencyRepair":
@@ -842,26 +841,60 @@ public partial class MainWindow
     {
         try
         {
-            var snapshot = await _localDependencyHealthService.CheckAsync();
-            PostWebUiCommand(
-                new
-                {
-                    type = "localDependencySnapshot",
-                    requestId,
-                    snapshot,
-                }
+            var snapshot = await GetLocalDependencySnapshotAsync();
+            await Dispatcher.InvokeAsync(() =>
+                PostWebUiCommand(
+                    new
+                    {
+                        type = "localDependencySnapshot",
+                        requestId,
+                        snapshot,
+                    }
+                )
             );
         }
         catch (Exception exception)
         {
-            PostWebUiCommand(
-                new
-                {
-                    type = "localDependencySnapshot",
-                    requestId,
-                    error = exception.Message,
-                }
+            await Dispatcher.InvokeAsync(() =>
+                PostWebUiCommand(
+                    new
+                    {
+                        type = "localDependencySnapshot",
+                        requestId,
+                        error = exception.Message,
+                    }
+                )
             );
+        }
+    }
+
+    private Task<LocalDependencySnapshot> GetLocalDependencySnapshotAsync()
+    {
+        lock (_localDependencySnapshotLock)
+        {
+            if (_localDependencySnapshotTask is { IsCompleted: false })
+            {
+                return _localDependencySnapshotTask;
+            }
+
+            _localDependencySnapshotTask = Task.Run(() =>
+                _localDependencyHealthService.CheckAsync()
+            );
+            _ = _localDependencySnapshotTask.ContinueWith(
+                completedTask =>
+                {
+                    lock (_localDependencySnapshotLock)
+                    {
+                        if (ReferenceEquals(_localDependencySnapshotTask, completedTask))
+                        {
+                            _localDependencySnapshotTask = null;
+                        }
+                    }
+                },
+                TaskScheduler.Default
+            );
+
+            return _localDependencySnapshotTask;
         }
     }
 

@@ -25,6 +25,7 @@ using CodexCliPlus.Core.Abstractions.Updates;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Backend;
@@ -147,6 +148,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isMainWindowActive;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
     private CancellationTokenSource? _postStartupPersistenceCts;
+    private readonly object _localDependencySnapshotLock = new();
+    private Task<LocalDependencySnapshot>? _localDependencySnapshotTask;
     private DateTimeOffset _lastUsageSnapshotSyncAt = DateTimeOffset.MinValue;
 
     public MainWindow(

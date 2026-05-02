@@ -37,11 +37,16 @@ using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
+using WpfPanel = System.Windows.Controls.Panel;
 
 namespace CodexCliPlus;
 
 public partial class MainWindow
 {
+    private const int MaxVisibleShellNotifications = 3;
+
+    private readonly HashSet<Border> _removingShellNotifications = [];
+
     private void ShellNotificationService_NotificationRequested(
         object? sender,
         ShellNotificationRequest request
@@ -64,6 +69,7 @@ public partial class MainWindow
         var card = CreateNotificationCard(message, title: null, showCloseButton: false);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(0, 18);
+        EnforceShellNotificationCapacity(AutoNotificationStack);
         AutoNotificationStack.Children.Add(card);
 
         var progress = (Border)card.Tag;
@@ -92,8 +98,32 @@ public partial class MainWindow
         var card = CreateNotificationCard(message, title, showCloseButton: true);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(18, 0);
+        EnforceShellNotificationCapacity(ManualNotificationStack);
         ManualNotificationStack.Children.Add(card);
         card.Loaded += (_, _) => AnimateNotificationIn(card);
+    }
+
+    private void EnforceShellNotificationCapacity(WpfPanel owner)
+    {
+        while (CountActiveShellNotifications(owner) >= MaxVisibleShellNotifications)
+        {
+            var oldest = owner
+                .Children.OfType<Border>()
+                .FirstOrDefault(card => !_removingShellNotifications.Contains(card));
+            if (oldest is null)
+            {
+                return;
+            }
+
+            _ = FadeOutAndRemoveAsync(owner, oldest);
+        }
+    }
+
+    private int CountActiveShellNotifications(WpfPanel owner)
+    {
+        return owner
+            .Children.OfType<Border>()
+            .Count(card => !_removingShellNotifications.Contains(card));
     }
 
     private Border CreateNotificationCard(string message, string? title, bool showCloseButton)
@@ -292,21 +322,33 @@ public partial class MainWindow
         }
     }
 
-    private static async Task FadeOutAndRemoveAsync(
-        System.Windows.Controls.Panel owner,
-        Border card
-    )
+    private async Task FadeOutAndRemoveAsync(WpfPanel owner, Border card)
     {
         if (!owner.Children.Contains(card))
         {
             return;
         }
 
-        card.BeginAnimation(
-            UIElement.OpacityProperty,
-            new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)))
-        );
-        await Task.Delay(TimeSpan.FromMilliseconds(190));
-        owner.Children.Remove(card);
+        if (!_removingShellNotifications.Add(card))
+        {
+            return;
+        }
+
+        try
+        {
+            card.BeginAnimation(
+                UIElement.OpacityProperty,
+                new DoubleAnimation(0, new Duration(TimeSpan.FromMilliseconds(180)))
+            );
+            await Task.Delay(TimeSpan.FromMilliseconds(190));
+            if (owner.Children.Contains(card))
+            {
+                owner.Children.Remove(card);
+            }
+        }
+        finally
+        {
+            _removingShellNotifications.Remove(card);
+        }
     }
 }

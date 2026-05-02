@@ -761,6 +761,17 @@ public sealed class NavigationShellTests
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment.Right", hostSource, StringComparison.Ordinal);
         Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
+        Assert.Contains("MaxVisibleShellNotifications = 3", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "EnforceShellNotificationCapacity(AutoNotificationStack);",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "EnforceShellNotificationCapacity(ManualNotificationStack);",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("_notificationService.ShowAuto", hostSource, StringComparison.Ordinal);
         Assert.Contains("_notificationService.ShowManual", hostSource, StringComparison.Ordinal);
         Assert.Contains("ScaleTransform.ScaleXProperty", hostSource, StringComparison.Ordinal);
@@ -770,6 +781,59 @@ public sealed class NavigationShellTests
             "progress.Width = card.ActualWidth",
             hostSource,
             StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
+    public void ShellNotificationsLimitStacksAndReplaceOldestOverflow()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var hostSource = ReadMainWindowSources(repositoryRoot);
+
+        Assert.Contains(
+            "private const int MaxVisibleShellNotifications = 3;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "while (CountActiveShellNotifications(owner) >= MaxVisibleShellNotifications)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FirstOrDefault(card => !_removingShellNotifications.Contains(card))",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "_ = FadeOutAndRemoveAsync(owner, oldest);",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "if (!_removingShellNotifications.Add(card))",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "await FadeOutAndRemoveAsync(owner, oldest);",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        AssertSourceOrder(
+            hostSource,
+            "EnforceShellNotificationCapacity(AutoNotificationStack);",
+            "AutoNotificationStack.Children.Add(card);"
+        );
+        AssertSourceOrder(
+            hostSource,
+            "EnforceShellNotificationCapacity(ManualNotificationStack);",
+            "ManualNotificationStack.Children.Add(card);"
+        );
+        AssertSourceOrder(
+            hostSource,
+            "var oldest = owner",
+            "_ = FadeOutAndRemoveAsync(owner, oldest);"
         );
     }
 
@@ -1304,6 +1368,17 @@ public sealed class NavigationShellTests
         }
 
         return count;
+    }
+
+    private static void AssertSourceOrder(string source, string first, string second)
+    {
+        var firstIndex = source.IndexOf(first, StringComparison.Ordinal);
+        Assert.True(firstIndex >= 0, $"Expected to find '{first}'.");
+        var secondIndex = source.IndexOf(second, firstIndex, StringComparison.Ordinal);
+        Assert.True(
+            secondIndex > firstIndex,
+            $"Expected to find '{second}' after '{first}'."
+        );
     }
 
     private static string ReadMainWindowSources(string repositoryRoot)

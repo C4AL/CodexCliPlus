@@ -44,6 +44,8 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 - `--version <version>`，默认 `1.0.0`
 - `--repo-root <path>`，默认自动查找包含 `CodexCliPlus.sln` 的仓库根目录
 - `--output <path>`，默认 `artifacts/buildtool`
+- `--keep-package-staging true|false`，默认 `false`；安装器或更新包成功生成并签名后自动删除 `installer/<rid>/*/stage` 中间目录
+- `--artifact-retention <count>`，默认 `1`；仅当输出根是仓库内 `artifacts/buildtool*` 时生效，保留当前输出根并按修改时间保留最多 `count - 1` 个旧兄弟输出根，`0` 表示关闭修剪
 
 ## 发布流程
 
@@ -68,7 +70,7 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 
 `build-webui` 会从 `resources/webui/upstream/source` 构建 WebUI，并把产物写入 `artifacts/buildtool/assets/webui/upstream`。`publish` 会校验后端资产、刷新 WebUI 生成产物，再执行桌面端 self-contained publish，并把后端、WebUI、许可证和发布清单复制到输出目录。
 
-`publish` 会签名桌面主程序；`package-offline-installer` 会签名安装器 exe；`package-update` 会生成更新包并写入签名或未签名侧车元数据。zip、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录 `signed`、`signatureKind`、`signatureMetadataPath` 和 `attestationExpected`。
+`publish` 会签名桌面主程序；`package-offline-installer` 会签名安装器 exe；`package-update` 会生成更新包并写入签名或未签名侧车元数据。安装器和更新包命令默认会清理临时 staging，调试 MicaSetup 渲染产物时可追加 `--keep-package-staging true`。zip、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录 `signed`、`signatureKind`、`signatureMetadataPath` 和 `attestationExpected`。
 
 ## 输出结构
 
@@ -84,6 +86,8 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 - `packages/*.signature.json` 或 `packages/*.unsigned.json`
 - `SHA256SUMS.txt`
 - `release-manifest.json`
+
+默认不会长期保留 `installer/<rid>/*/stage`、`installer/<rid>/update-package/stage` 等本地中间产物；保留 staging 必须显式传入 `--keep-package-staging true`。
 
 ## 发布校验
 

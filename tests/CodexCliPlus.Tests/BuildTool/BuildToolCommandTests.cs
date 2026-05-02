@@ -35,7 +35,52 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("write-checksums", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("export-public-release", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("clean-artifacts", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--keep-package-staging", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--artifact-retention", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public void BuildOptionsParsesPackageStagingAndRetentionOptions()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool-custom");
+
+        var parsed = BuildOptions.TryParse(
+            [
+                "package-offline-installer",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--keep-package-staging",
+                "true",
+                "--artifact-retention",
+                "2",
+            ],
+            out var options,
+            out var error
+        );
+
+        Assert.True(parsed, error);
+        Assert.NotNull(options);
+        Assert.True(options.KeepPackageStaging);
+        Assert.Equal(2, options.ArtifactRetention);
+        Assert.Equal(Path.GetFullPath(outputRoot), options.OutputRoot);
+    }
+
+    [Fact]
+    public void BuildOptionsRejectsInvalidRetentionValues()
+    {
+        var parsed = BuildOptions.TryParse(
+            ["fetch-assets", "--artifact-retention", "-1"],
+            out var options,
+            out var error
+        );
+
+        Assert.False(parsed);
+        Assert.Null(options);
+        Assert.Contains("--artifact-retention", error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -175,6 +220,102 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.True(File.Exists(Path.Combine(assetsRoot, "asset.txt")));
         Assert.Contains("cleaned BuildTool", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ArtifactRetentionPrunesOnlyOlderRepositoryBuildToolOutputRoots()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var artifactsRoot = Path.Combine(repositoryRoot, "artifacts");
+        var currentOutputRoot = Path.Combine(artifactsRoot, "buildtool-current");
+        var keptSiblingRoot = Path.Combine(artifactsRoot, "buildtool-keep");
+        var prunedSiblingRoot = Path.Combine(artifactsRoot, "buildtool-prune");
+        var unrelatedRoot = Path.Combine(artifactsRoot, "release-output");
+        Directory.CreateDirectory(currentOutputRoot);
+        Directory.CreateDirectory(keptSiblingRoot);
+        Directory.CreateDirectory(prunedSiblingRoot);
+        Directory.CreateDirectory(unrelatedRoot);
+        File.WriteAllText(Path.Combine(keptSiblingRoot, "keep.txt"), "keep");
+        File.WriteAllText(Path.Combine(prunedSiblingRoot, "prune.txt"), "prune");
+        File.WriteAllText(Path.Combine(unrelatedRoot, "unrelated.txt"), "unrelated");
+        Directory.SetLastWriteTimeUtc(keptSiblingRoot, DateTime.UtcNow.AddMinutes(-1));
+        Directory.SetLastWriteTimeUtc(prunedSiblingRoot, DateTime.UtcNow.AddMinutes(-2));
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "clean-artifacts",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                currentOutputRoot,
+                "--artifact-retention",
+                "2",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        Assert.True(Directory.Exists(currentOutputRoot));
+        Assert.True(Directory.Exists(keptSiblingRoot));
+        Assert.False(Directory.Exists(prunedSiblingRoot));
+        Assert.True(Directory.Exists(unrelatedRoot));
+        Assert.Contains(
+            "removed old BuildTool output root",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ArtifactRetentionZeroDisablesPruning()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var artifactsRoot = Path.Combine(repositoryRoot, "artifacts");
+        var currentOutputRoot = Path.Combine(artifactsRoot, "buildtool-current");
+        var oldSiblingRoot = Path.Combine(artifactsRoot, "buildtool-old");
+        Directory.CreateDirectory(currentOutputRoot);
+        Directory.CreateDirectory(oldSiblingRoot);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "clean-artifacts",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                currentOutputRoot,
+                "--artifact-retention",
+                "0",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        Assert.True(Directory.Exists(oldSiblingRoot));
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public void SafeFileSystemRejectsAllowedRootPrefixSibling()
+    {
+        var allowedRoot = Path.Combine(_rootDirectory, "out");
+        var prefixSibling = Path.Combine(_rootDirectory, "out-old");
+        Directory.CreateDirectory(prefixSibling);
+        var markerPath = Path.Combine(prefixSibling, "marker.txt");
+        File.WriteAllText(markerPath, "do not delete");
+
+        Assert.Throws<InvalidOperationException>(() =>
+            SafeFileSystem.CleanDirectory(prefixSibling, allowedRoot)
+        );
+        Assert.True(File.Exists(markerPath));
     }
 
     [Fact]

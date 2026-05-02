@@ -164,6 +164,11 @@ public sealed class InstallerPackagingTests : IDisposable
             output.ToString(),
             StringComparison.Ordinal
         );
+        Assert.False(
+            Directory.Exists(
+                Path.Combine(outputRoot, "installer", "win-x64", "offline-installer", "stage")
+            )
+        );
     }
 
     [Fact]
@@ -177,7 +182,14 @@ public sealed class InstallerPackagingTests : IDisposable
         using var output = new StringWriter();
         using var error = new StringWriter();
         var runner = new InstallerProcessRunner();
-        var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
+        var context = CreateBuildContext(
+            repositoryRoot,
+            outputRoot,
+            output,
+            error,
+            runner,
+            keepPackageStaging: true
+        );
 
         var exitCode = await PackageCommands.PackageInstallerAsync(
             context,
@@ -315,6 +327,36 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.True(
             ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconUninst.png")) >= 256
         );
+        Assert.Contains("kept package staging", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PackageUpdateRemovesStagingByDefault()
+    {
+        var repositoryRoot = CreateRepositoryRoot();
+        var outputRoot = Path.Combine(_rootDirectory, "out-update");
+        CreatePublishRoot(outputRoot);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = new InstallerProcessRunner();
+        var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
+
+        var exitCode = await PackageCommands.PackageUpdateAsync(context);
+
+        Assert.Equal(0, exitCode);
+        Assert.True(
+            File.Exists(
+                Path.Combine(outputRoot, "packages", "CodexCliPlus.Update.9.9.9.win-x64.zip")
+            )
+        );
+        Assert.False(
+            Directory.Exists(
+                Path.Combine(outputRoot, "installer", "win-x64", "update-package", "stage")
+            )
+        );
+        Assert.Contains("removed package staging", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
     }
 
     public void Dispose()
@@ -330,7 +372,8 @@ public sealed class InstallerPackagingTests : IDisposable
         string outputRoot,
         StringWriter output,
         StringWriter error,
-        IProcessRunner runner
+        IProcessRunner runner,
+        bool keepPackageStaging = false
     )
     {
         return new BuildContext(
@@ -340,7 +383,8 @@ public sealed class InstallerPackagingTests : IDisposable
                 outputRoot,
                 "Release",
                 "win-x64",
-                "9.9.9"
+                "9.9.9",
+                keepPackageStaging
             ),
             new BuildLogger(output, error),
             runner,

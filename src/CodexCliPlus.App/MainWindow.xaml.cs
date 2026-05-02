@@ -29,6 +29,7 @@ using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Backend;
+using CodexCliPlus.Infrastructure.Codex;
 using CodexCliPlus.Infrastructure.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Services;
@@ -114,6 +115,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IManagementAuthService _managementAuthService;
     private readonly LocalDependencyHealthService _localDependencyHealthService;
     private readonly LocalDependencyRepairService _localDependencyRepairService;
+    private readonly CodexConfigService _codexConfigService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
     private readonly ManagementChangeBroadcastService _changeBroadcastService;
@@ -173,6 +175,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IManagementAuthService managementAuthService,
         LocalDependencyHealthService localDependencyHealthService,
         LocalDependencyRepairService localDependencyRepairService,
+        CodexConfigService codexConfigService,
         WebUiAssetLocator webUiAssetLocator,
         ShellNotificationService notificationService,
         ManagementChangeBroadcastService changeBroadcastService
@@ -198,6 +201,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _managementAuthService = managementAuthService;
         _localDependencyHealthService = localDependencyHealthService;
         _localDependencyRepairService = localDependencyRepairService;
+        _codexConfigService = codexConfigService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;
         _changeBroadcastService = changeBroadcastService;

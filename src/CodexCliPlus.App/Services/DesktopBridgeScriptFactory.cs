@@ -75,6 +75,15 @@ public static class DesktopBridgeScriptFactory
                 usageStatsRefreshed: () => postHostMessage({ type: 'usageStatsRefreshed' }),
                 checkDesktopUpdate: () => postHostMessage({ type: 'checkDesktopUpdate' }),
                 applyDesktopUpdate: () => postHostMessage({ type: 'applyDesktopUpdate' }),
+                requestCodexRouteState: (requestId) => postHostMessage({
+                  type: 'requestCodexRouteState',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                switchCodexRoute: (targetMode, requestId) => postHostMessage({
+                  type: 'switchCodexRoute',
+                  targetMode: typeof targetMode === 'string' ? targetMode : '',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
                 managementRequest: (request) => {
                   const normalized = request && typeof request === 'object' ? request : {};
                   postHostMessage({

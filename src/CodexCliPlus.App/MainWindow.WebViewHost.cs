@@ -423,6 +423,23 @@ public partial class MainWindow
                     );
                     break;
 
+                case "requestCodexRouteState":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SendCodexRouteStateAsync(ReadRequestId(root))
+                    );
+                    break;
+
+                case "switchCodexRoute":
+                    var targetMode =
+                        root.TryGetProperty("targetMode", out var targetModeElement)
+                        && targetModeElement.ValueKind == JsonValueKind.String
+                            ? targetModeElement.GetString()
+                            : null;
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SwitchCodexRouteAsync(ReadRequestId(root), targetMode)
+                    );
+                    break;
+
                 case "requestLocalDependencySnapshot":
                     _ = SendLocalDependencySnapshotAsync(ReadRequestId(root));
                     break;
@@ -986,6 +1003,89 @@ public partial class MainWindow
             && requestIdElement.ValueKind == JsonValueKind.String
             ? requestIdElement.GetString()
             : null;
+    }
+
+    private async Task SendCodexRouteStateAsync(string? requestId)
+    {
+        try
+        {
+            var state = await _codexConfigService.GetCodexRouteStateAsync();
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexRouteResponse",
+                    requestId,
+                    ok = true,
+                    state,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexRouteResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+        }
+    }
+
+    private async Task SwitchCodexRouteAsync(string? requestId, string? targetMode)
+    {
+        try
+        {
+            var result = await _codexConfigService.SwitchCodexRouteAsync(
+                targetMode ?? string.Empty,
+                AppConstants.DefaultBackendPort
+            );
+
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexRouteResponse",
+                    requestId,
+                    ok = result.Succeeded,
+                    state = result.State,
+                    configBackupPath = result.ConfigBackupPath,
+                    authBackupPath = result.AuthBackupPath,
+                    officialAuthBackupPath = result.OfficialAuthBackupPath,
+                    error = result.ErrorMessage,
+                }
+            );
+
+            if (result.Succeeded)
+            {
+                _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
+                _notificationService.ShowAuto(
+                    result.State.CurrentMode == "cpa"
+                        ? "已切换到 CPA 模式。"
+                        : "已切换到官方模式。"
+                );
+                return;
+            }
+
+            _notificationService.ShowManual(
+                "切换 Codex 路由失败",
+                result.ErrorMessage ?? result.State.StatusMessage
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexRouteResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+            _notificationService.ShowManual("切换 Codex 路由失败", exception.Message);
+        }
     }
 
     private void ManagementChangeBroadcastService_DataChanged(

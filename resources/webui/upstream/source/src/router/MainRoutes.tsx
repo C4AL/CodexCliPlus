@@ -7,21 +7,7 @@ const DashboardOverviewPage = lazyPage(
   () => import('@/pages/DashboardOverviewPage'),
   'DashboardOverviewPage'
 );
-const AiProvidersPage = lazyPage(() => import('@/pages/AiProvidersPage'), 'AiProvidersPage');
-const AiProvidersCodexEditPage = lazyPage(
-  () => import('@/pages/AiProvidersCodexEditPage'),
-  'AiProvidersCodexEditPage'
-);
-const AuthFilesPage = lazyPage(() => import('@/pages/AuthFilesPage'), 'AuthFilesPage');
-const AuthFilesOAuthExcludedEditPage = lazyPage(
-  () => import('@/pages/AuthFilesOAuthExcludedEditPage'),
-  'AuthFilesOAuthExcludedEditPage'
-);
-const AuthFilesOAuthModelAliasEditPage = lazyPage(
-  () => import('@/pages/AuthFilesOAuthModelAliasEditPage'),
-  'AuthFilesOAuthModelAliasEditPage'
-);
-const QuotaPage = lazyPage(() => import('@/pages/QuotaPage'), 'QuotaPage');
+const AccountCenterPage = lazyPage(() => import('@/pages/AccountCenterPage'), 'AccountCenterPage');
 const UsagePage = lazyPage(() => import('@/pages/UsagePage'), 'UsagePage');
 const ConfigPage = lazyPage(() => import('@/pages/ConfigPage'), 'ConfigPage');
 const LogsPage = lazyPage(() => import('@/pages/LogsPage'), 'LogsPage');
@@ -80,27 +66,13 @@ const mainRoutes = [
   { path: '/console', element: <Navigate to="/dashboard/overview" replace /> },
   { path: '/settings', element: <Navigate to="/config" replace /> },
   { path: '/api-keys', element: <Navigate to="/config" replace /> },
-  {
-    path: '/ai-providers/codex/new',
-    element: route('ai-providers-codex-edit', <AiProvidersCodexEditPage />),
-  },
-  {
-    path: '/ai-providers/codex/:index',
-    element: route('ai-providers-codex-edit', <AiProvidersCodexEditPage />),
-  },
-  { path: '/ai-providers', element: route('ai-providers', <AiProvidersPage />) },
-  { path: '/ai-providers/*', element: <Navigate to="/ai-providers" replace /> },
-  { path: '/auth-files', element: route('auth-files', <AuthFilesPage />) },
-  {
-    path: '/auth-files/oauth-excluded',
-    element: route('auth-files-oauth-excluded', <AuthFilesOAuthExcludedEditPage />),
-  },
-  {
-    path: '/auth-files/oauth-model-alias',
-    element: route('auth-files-oauth-model-alias', <AuthFilesOAuthModelAliasEditPage />),
-  },
-  { path: '/oauth', element: <Navigate to="/ai-providers" replace /> },
-  { path: '/quota', element: route('quota', <QuotaPage />) },
+  { path: '/accounts', element: route('accounts', <AccountCenterPage />) },
+  { path: '/ai-providers', element: <Navigate to="/accounts#codex-config" replace /> },
+  { path: '/ai-providers/*', element: <Navigate to="/accounts#codex-config" replace /> },
+  { path: '/auth-files', element: <Navigate to="/accounts#auth-files" replace /> },
+  { path: '/auth-files/*', element: <Navigate to="/accounts#auth-files" replace /> },
+  { path: '/oauth', element: <Navigate to="/accounts#oauth-login" replace /> },
+  { path: '/quota', element: <Navigate to="/accounts#quota-management" replace /> },
   { path: '/usage', element: route('usage', <UsagePage />) },
   { path: '/config', element: route('config', <ConfigPage />) },
   { path: '/logs', element: route('logs', <LogsPage />) },

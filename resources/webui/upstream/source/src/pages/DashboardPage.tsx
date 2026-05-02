@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import {
   IconBot,
-  IconFileText,
   IconKey,
   IconSatellite,
   IconShield,
@@ -333,20 +332,15 @@ export function DashboardPage() {
       sublabel: t('nav.config_management'),
     },
     {
-      label: t('nav.ai_providers'),
-      value: loading ? '-' : (codexConfigCount ?? '-'),
+      label: t('nav.account_center'),
+      value:
+        loading || codexConfigCount === null || stats.authFiles === null
+          ? '-'
+          : codexConfigCount + stats.authFiles,
       icon: <IconBot size={24} />,
-      path: '/ai-providers',
+      path: '/accounts',
       loading: loading,
-      sublabel: t('dashboard.provider_keys_detail', { count: codexConfigCount ?? '-' }),
-    },
-    {
-      label: t('nav.auth_files'),
-      value: stats.authFiles ?? '-',
-      icon: <IconFileText size={24} />,
-      path: '/auth-files',
-      loading: loading && stats.authFiles === null,
-      sublabel: t('dashboard.oauth_credentials'),
+      sublabel: `${t('dashboard.provider_keys_detail', { count: codexConfigCount ?? '-' })} / ${t('dashboard.oauth_credentials')} ${stats.authFiles ?? '-'}`,
     },
     {
       label: t('dashboard.available_models'),

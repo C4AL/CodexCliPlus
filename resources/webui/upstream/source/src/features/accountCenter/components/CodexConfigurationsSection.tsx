@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { CodexSection, ProviderNav, useProviderStats } from '@/components/providers';
+import { CodexSection, useProviderStats } from '@/components/providers';
 import {
   withDisableAllModelsRule,
   withoutDisableAllModelsRule,
@@ -12,12 +11,13 @@ import { providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import type { ProviderKeyConfig } from '@/types';
 import { indexUsageDetailsByAuthIndex, indexUsageDetailsBySource } from '@/utils/usageIndex';
-import { OAuthPage } from './OAuthPage';
-import styles from './AiProvidersPage.module.scss';
+import { CodexConfigEditor } from './CodexConfigEditor';
+import styles from '@/pages/AiProvidersPage.module.scss';
 
-export function AiProvidersPage() {
+type CodexEditorState = { index: number | null } | null;
+
+export function CodexConfigurationsSection() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { showNotification, showConfirmation } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
 
@@ -28,8 +28,10 @@ export function AiProvidersPage() {
   const isCacheValid = useConfigStore((state) => state.isCacheValid);
 
   const hasMounted = useRef(false);
+  const editorRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(() => !isCacheValid());
   const [error, setError] = useState('');
+  const [editor, setEditor] = useState<CodexEditorState>(null);
 
   const [codexConfigs, setCodexConfigs] = useState<ProviderKeyConfig[]>(
     () => config?.codexApiKeys || []
@@ -102,11 +104,28 @@ export function AiProvidersPage() {
     void refreshKeyStats();
   }, isCurrentLayer);
 
-  const openEditor = useCallback(
-    (path: string) => {
-      navigate(path, { state: { fromAiProviders: true } });
+  useEffect(() => {
+    if (!editor) return;
+    const frame = window.requestAnimationFrame(() => {
+      editorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editor]);
+
+  const openEditor = useCallback((index: number | null) => {
+    setEditor({ index });
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditor(null);
+  }, []);
+
+  const handleEditorSaved = useCallback(
+    (nextList: ProviderKeyConfig[]) => {
+      setCodexConfigs(nextList);
+      void refreshKeyStats();
     },
-    [navigate]
+    [refreshKeyStats]
   );
 
   const setConfigEnabled = async (index: number, enabled: boolean) => {
@@ -169,32 +188,32 @@ export function AiProvidersPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('ai_providers.title')}</h1>
-      <div className={styles.content}>
-        {error && <div className="error-box">{error}</div>}
+    <div className={styles.section}>
+      {error && <div className="error-box">{error}</div>}
 
-        <div id="provider-oauth">
-          <OAuthPage embedded />
-        </div>
-        <div id="provider-codex">
-          <CodexSection
-            configs={codexConfigs}
-            keyStats={keyStats}
-            usageDetailsBySource={usageDetailsBySource}
-            usageDetailsByAuthIndex={usageDetailsByAuthIndex}
-            loading={loading}
-            disableControls={disableControls}
-            isSwitching={isSwitching}
-            onAdd={() => openEditor('/ai-providers/codex/new')}
-            onEdit={(index) => openEditor(`/ai-providers/codex/${index}`)}
-            onDelete={(index) => void deleteCodex(index)}
-            onToggle={(index, enabled) => void setConfigEnabled(index, enabled)}
+      <CodexSection
+        configs={codexConfigs}
+        keyStats={keyStats}
+        usageDetailsBySource={usageDetailsBySource}
+        usageDetailsByAuthIndex={usageDetailsByAuthIndex}
+        loading={loading}
+        disableControls={disableControls}
+        isSwitching={isSwitching}
+        onAdd={() => openEditor(null)}
+        onEdit={(index) => openEditor(index)}
+        onDelete={(index) => void deleteCodex(index)}
+        onToggle={(index, enabled) => void setConfigEnabled(index, enabled)}
+      />
+
+      {editor && (
+        <div ref={editorRef}>
+          <CodexConfigEditor
+            editIndex={editor.index}
+            onClose={closeEditor}
+            onSaved={handleEditorSaved}
           />
         </div>
+      )}
       </div>
-
-      <ProviderNav />
-    </div>
   );
 }

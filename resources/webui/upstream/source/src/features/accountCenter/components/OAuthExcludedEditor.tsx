@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -8,15 +7,11 @@ import { SelectionCheckbox } from '@/components/ui/SelectionCheckbox';
 import { AutocompleteInput } from '@/components/ui/AutocompleteInput';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { IconInfo } from '@/components/ui/icons';
-import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
-import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi } from '@/services/api';
-import styles from './AuthFilesOAuthExcludedEditPage.module.scss';
+import styles from '@/pages/AuthFilesOAuthExcludedEditPage.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
-
-type LocationState = { fromAuthFiles?: boolean } | null;
 
 const OAUTH_PROVIDER_PRESETS = ['codex'];
 
@@ -28,15 +23,17 @@ function filterCodexRecord<T>(record: Record<string, T>): Record<string, T> {
   );
 }
 
-export function AuthFilesOAuthExcludedEditPage() {
+interface OAuthExcludedEditorProps {
+  onClose: () => void;
+  onSaved?: () => void;
+}
+
+export function OAuthExcludedEditor({ onClose, onSaved }: OAuthExcludedEditorProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { showNotification } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
-  const [, setSearchParams] = useSearchParams();
   const providerFromParams = 'codex';
 
   const [provider, setProvider] = useState(providerFromParams);
@@ -84,26 +81,15 @@ export function AuthFilesOAuthExcludedEditPage() {
     return t('oauth_excluded.add_title');
   }, [isEditing, provider, resolvedProviderKey, t]);
 
-  const handleBack = useCallback(() => {
-    const state = location.state as LocationState;
-    if (state?.fromAuthFiles) {
-      navigate(-1);
-      return;
-    }
-    navigate('/auth-files', { replace: true });
-  }, [location.state, navigate]);
-
-  const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleBack();
+        onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleBack]);
+  }, [onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,11 +197,8 @@ export function AuthFilesOAuthExcludedEditPage() {
   const updateProvider = useCallback(
     (_value: string) => {
       setProvider('codex');
-      const next = new URLSearchParams();
-      next.set('provider', 'codex');
-      setSearchParams(next, { replace: true });
     },
-    [setSearchParams]
+    []
   );
 
   const toggleModel = useCallback((modelId: string, checked: boolean) => {
@@ -246,34 +229,36 @@ export function AuthFilesOAuthExcludedEditPage() {
         await authFilesApi.deleteOauthExcludedEntry(normalizedProvider);
       }
       showNotification(t('oauth_excluded.save_success'), 'success');
-      handleBack();
+      onSaved?.();
+      onClose();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '';
       showNotification(`${t('oauth_excluded.save_failed')}: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }
-  }, [handleBack, provider, selectedModels, showNotification, t]);
+  }, [onClose, onSaved, provider, selectedModels, showNotification, t]);
 
-  const canSave = !disableControls && !saving && !excludedUnsupported;
+  const canSave = !disableControls && !saving && !initialLoading && !excludedUnsupported;
 
   return (
-    <SecondaryScreenShell
-      ref={swipeRef}
-      title={title}
-      onBack={handleBack}
-      backLabel={t('common.back')}
-      backAriaLabel={t('common.back')}
-      contentClassName={styles.pageContent}
-      rightAction={
-        <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>
-          {t('oauth_excluded.save')}
-        </Button>
-      }
-      isLoading={initialLoading}
-      loadingLabel={t('common.loading')}
-    >
-      {excludedUnsupported ? (
+    <div className={styles.pageContent}>
+      <Card
+        title={title}
+        extra={
+          <div className={styles.headerActions}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>
+              {t('oauth_excluded.save')}
+            </Button>
+          </div>
+        }
+      >
+        {initialLoading && <div className="hint">{t('common.loading')}</div>}
+      </Card>
+      {initialLoading ? null : excludedUnsupported ? (
         <Card>
           <EmptyState
             title={t('oauth_excluded.upgrade_required_title')}
@@ -393,6 +378,6 @@ export function AuthFilesOAuthExcludedEditPage() {
           </Card>
         </>
       )}
-    </SecondaryScreenShell>
+    </div>
   );
 }

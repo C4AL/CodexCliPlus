@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { animate } from 'motion/mini';
 import type { AnimationPlaybackControlsWithThen } from 'motion-dom';
 import { useInterval } from '@/hooks/useInterval';
@@ -66,7 +65,9 @@ import {
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
-import styles from './AuthFilesPage.module.scss';
+import { OAuthExcludedEditor } from './OAuthExcludedEditor';
+import { OAuthModelAliasEditor } from './OAuthModelAliasEditor';
+import styles from '@/pages/AuthFilesPage.module.scss';
 
 const easePower3Out = (progress: number) => 1 - (1 - progress) ** 4;
 const easePower2In = (progress: number) => progress ** 3;
@@ -84,14 +85,15 @@ const buildWildcardSearch = (value: string): RegExp | null => {
   return new RegExp(pattern, 'i');
 };
 
-export function AuthFilesPage() {
+type OAuthInlineEditor = 'excluded' | 'modelAlias' | null;
+
+export function AuthFilesSection() {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const resolvedTheme: ResolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const pageTransitionLayer = usePageTransitionLayer();
   const isCurrentLayer = pageTransitionLayer ? pageTransitionLayer.status === 'current' : true;
-  const navigate = useNavigate();
 
   const [filter, setFilter] = useState<string>(CODEX_PROVIDER_FILTER);
   const [problemOnly, setProblemOnly] = useState(false);
@@ -109,8 +111,10 @@ export function AuthFilesPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importJsonText, setImportJsonText] = useState('');
   const [importingConfig, setImportingConfig] = useState(false);
+  const [oauthEditor, setOauthEditor] = useState<OAuthInlineEditor>(null);
   const [uiStateHydrated, setUiStateHydrated] = useState(false);
   const floatingBatchActionsRef = useRef<HTMLDivElement>(null);
+  const oauthEditorRef = useRef<HTMLDivElement | null>(null);
   const batchActionAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
   const previousSelectionCountRef = useRef(0);
   const selectionCountRef = useRef(0);
@@ -577,35 +581,30 @@ export function AuthFilesPage() {
     showNotification(t('auth_files.desktop_bridge_required'), 'warning');
   }, [showNotification, t]);
 
-  const openExcludedEditor = useCallback(
-    (_provider?: string) => {
-      const providerValue = CODEX_PROVIDER_FILTER;
-      const params = new URLSearchParams();
-      if (providerValue) {
-        params.set('provider', providerValue);
-      }
-      const nextSearch = params.toString();
-      navigate(`/auth-files/oauth-excluded${nextSearch ? `?${nextSearch}` : ''}`, {
-        state: { fromAuthFiles: true },
-      });
-    },
-    [navigate]
-  );
+  const refreshOauthSettings = useCallback(() => {
+    loadExcluded();
+    loadModelAlias();
+  }, [loadExcluded, loadModelAlias]);
 
-  const openModelAliasEditor = useCallback(
-    (_provider?: string) => {
-      const providerValue = CODEX_PROVIDER_FILTER;
-      const params = new URLSearchParams();
-      if (providerValue) {
-        params.set('provider', providerValue);
-      }
-      const nextSearch = params.toString();
-      navigate(`/auth-files/oauth-model-alias${nextSearch ? `?${nextSearch}` : ''}`, {
-        state: { fromAuthFiles: true },
-      });
-    },
-    [navigate]
-  );
+  const openExcludedEditor = useCallback((_provider?: string) => {
+    setOauthEditor('excluded');
+  }, []);
+
+  const openModelAliasEditor = useCallback((_provider?: string) => {
+    setOauthEditor('modelAlias');
+  }, []);
+
+  const closeOauthEditor = useCallback(() => {
+    setOauthEditor(null);
+  }, []);
+
+  useEffect(() => {
+    if (!oauthEditor) return;
+    const frame = window.requestAnimationFrame(() => {
+      oauthEditorRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [oauthEditor]);
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1012,6 +1011,18 @@ export function AuthFilesPage() {
         onRenameAlias={handleRenameAlias}
         onDeleteAlias={handleDeleteAlias}
       />
+
+      {oauthEditor === 'excluded' && (
+        <div ref={oauthEditorRef}>
+          <OAuthExcludedEditor onClose={closeOauthEditor} onSaved={refreshOauthSettings} />
+        </div>
+      )}
+
+      {oauthEditor === 'modelAlias' && (
+        <div ref={oauthEditorRef}>
+          <OAuthModelAliasEditor onClose={closeOauthEditor} onSaved={refreshOauthSettings} />
+        </div>
+      )}
 
       {importModalOpen && (
         <div className={styles.importModalOverlay} onClick={() => setImportModalOpen(false)}>

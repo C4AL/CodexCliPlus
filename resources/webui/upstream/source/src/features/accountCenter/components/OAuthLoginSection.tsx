@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { useNotificationStore } from '@/stores';
 import { oauthApi, type OAuthProvider } from '@/services/api/oauth';
 import { copyToClipboard } from '@/utils/clipboard';
-import styles from './OAuthPage.module.scss';
+import styles from '@/pages/OAuthPage.module.scss';
 import iconCodex from '@/assets/icons/codex.svg';
 
 interface ProviderState {
@@ -55,11 +55,7 @@ const PROVIDERS: {
 const CALLBACK_SUPPORTED: OAuthProvider[] = ['codex'];
 const getAuthKey = (provider: OAuthProvider, suffix: string) => `auth_login.${provider}_${suffix}`;
 
-interface OAuthPageProps {
-  embedded?: boolean;
-}
-
-export function OAuthPage({ embedded = false }: OAuthPageProps = {}) {
+export function OAuthLoginSection() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const [states, setStates] = useState<Partial<Record<OAuthProvider, ProviderState>>>({});
@@ -286,14 +282,5 @@ export function OAuthPage({ embedded = false }: OAuthPageProps = {}) {
     </div>
   );
 
-  if (embedded) {
-    return content;
-  }
-
-  return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('nav.oauth', { defaultValue: 'OAuth' })}</h1>
-      {content}
-    </div>
-  );
+  return content;
 }

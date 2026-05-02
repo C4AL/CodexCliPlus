@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,9 +8,6 @@ import { ModelInputList } from '@/components/ui/ModelInputList';
 import { Modal } from '@/components/ui/Modal';
 import { SelectionCheckbox } from '@/components/ui/SelectionCheckbox';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
-import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
 import { modelsApi, providersApi } from '@/services/api';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import type { ProviderKeyConfig } from '@/types';
@@ -21,10 +17,8 @@ import { entriesToModels, modelsToEntries } from '@/components/ui/modelInputList
 import { excludedModelsToText, parseExcludedModels } from '@/components/providers/utils';
 import type { ProviderFormState } from '@/components/providers';
 import type { ModelInfo } from '@/utils/models';
-import layoutStyles from './AiProvidersEditLayout.module.scss';
-import styles from './AiProvidersPage.module.scss';
-
-type LocationState = { fromAiProviders?: boolean } | null;
+import layoutStyles from '@/pages/AiProvidersEditLayout.module.scss';
+import styles from '@/pages/AiProvidersPage.module.scss';
 
 const buildEmptyForm = (): ProviderFormState => ({
   apiKey: '',
@@ -39,12 +33,6 @@ const buildEmptyForm = (): ProviderFormState => ({
   modelEntries: [{ name: '', alias: '' }],
   excludedText: '',
 });
-
-const parseIndexParam = (value: string | undefined) => {
-  if (!value) return null;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 const getErrorMessage = (err: unknown) => {
   if (err instanceof Error) return err.message;
@@ -107,13 +95,16 @@ const pruneModelSelection = (selection: Set<string>, models: ModelInfo[]) => {
   return changed ? next : selection;
 };
 
-export function AiProvidersCodexEditPage() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const params = useParams<{ index?: string }>();
+interface CodexConfigEditorProps {
+  editIndex: number | null;
+  onClose: () => void;
+  onSaved?: (configs: ProviderKeyConfig[]) => void;
+}
 
-  const { showNotification } = useNotificationStore();
+export function CodexConfigEditor({ editIndex, onClose, onSaved }: CodexConfigEditorProps) {
+  const { t } = useTranslation();
+
+  const { showNotification, showConfirmation } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
@@ -138,10 +129,6 @@ export function AiProvidersCodexEditPage() {
   const autoFetchSignatureRef = useRef<string>('');
   const modelDiscoveryRequestIdRef = useRef(0);
 
-  const hasIndexParam = typeof params.index === 'string';
-  const editIndex = useMemo(() => parseIndexParam(params.index), [params.index]);
-  const invalidIndexParam = hasIndexParam && editIndex === null;
-
   const initialData = useMemo(() => {
     if (editIndex === null) return undefined;
     return configs[editIndex];
@@ -153,27 +140,6 @@ export function AiProvidersCodexEditPage() {
     editIndex !== null
       ? t('ai_providers.codex_edit_modal_title')
       : t('ai_providers.codex_add_modal_title');
-
-  const handleBack = useCallback(() => {
-    const state = location.state as LocationState;
-    if (state?.fromAiProviders) {
-      navigate(-1);
-      return;
-    }
-    navigate('/ai-providers', { replace: true });
-  }, [location.state, navigate]);
-
-  const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleBack();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleBack]);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,22 +229,33 @@ export function AiProvidersCodexEditPage() {
     isHeadersDirty ||
     isModelsDirty ||
     isExcludedModelsDirty;
-  const canGuard = !loading && !saving && !invalidIndexParam && !invalidIndex;
+  const canSave = !disableControls && !saving && !loading && !invalidIndex;
 
-  const { allowNextNavigation } = useUnsavedChangesGuard({
-    enabled: canGuard,
-    shouldBlock: ({ currentLocation, nextLocation }) =>
-      isDirty && currentLocation.pathname !== nextLocation.pathname,
-    dialog: {
-      title: t('common.unsaved_changes_title'),
-      message: t('common.unsaved_changes_message'),
-      confirmText: t('common.leave'),
-      cancelText: t('common.stay'),
-      variant: 'danger',
-    },
-  });
+  const handleCancel = useCallback(() => {
+    if (isDirty && !loading && !saving && !invalidIndex) {
+      showConfirmation({
+        title: t('common.unsaved_changes_title'),
+        message: t('common.unsaved_changes_message'),
+        confirmText: t('common.leave'),
+        cancelText: t('common.stay'),
+        variant: 'danger',
+        onConfirm: onClose,
+      });
+      return;
+    }
 
-  const canSave = !disableControls && !saving && !loading && !invalidIndexParam && !invalidIndex;
+    onClose();
+  }, [invalidIndex, isDirty, loading, onClose, saving, showConfirmation, t]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleCancel]);
 
   const discoveredModelsFiltered = useMemo(() => {
     const filter = modelDiscoverySearch.trim().toLowerCase();
@@ -478,6 +455,7 @@ export function AiProvidersCodexEditPage() {
           : [...configs, payload];
 
       await providersApi.saveCodexConfigs(nextList);
+      setConfigs(nextList);
       updateConfigValue('codex-api-key', nextList);
       clearCache('codex-api-key');
       showNotification(
@@ -486,9 +464,9 @@ export function AiProvidersCodexEditPage() {
           : t('notification.codex_config_added'),
         'success'
       );
-      allowNextNavigation();
       setBaseline(buildCodexBaseline(form));
-      handleBack();
+      onSaved?.(nextList);
+      onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
       setError(message);
@@ -497,13 +475,13 @@ export function AiProvidersCodexEditPage() {
       setSaving(false);
     }
   }, [
-    allowNextNavigation,
     canSave,
     clearCache,
     configs,
     editIndex,
     form,
-    handleBack,
+    onClose,
+    onSaved,
     showNotification,
     t,
     updateConfigValue,
@@ -513,31 +491,24 @@ export function AiProvidersCodexEditPage() {
     !disableControls &&
     !saving &&
     !loading &&
-    !invalidIndexParam &&
     !invalidIndex &&
     Boolean((form.baseUrl ?? '').trim());
   const canApplyModelDiscovery =
     !disableControls && !saving && !modelDiscoveryFetching && modelDiscoverySelected.size > 0;
 
   return (
-    <SecondaryScreenShell
-      ref={swipeRef}
-      contentClassName={layoutStyles.content}
-      title={title}
-      onBack={handleBack}
-      backLabel={t('common.back')}
-      backAriaLabel={t('common.back')}
-      hideTopBarBackButton
-      hideTopBarRightAction
-      floatingAction={
+    <div className={layoutStyles.content}>
+      <Card
+        title={title}
+        extra={
         <div className={layoutStyles.floatingActions}>
           <Button
             variant="secondary"
             size="sm"
-            onClick={handleBack}
+            onClick={handleCancel}
             className={layoutStyles.floatingBackButton}
           >
-            {t('common.back')}
+            {t('common.cancel')}
           </Button>
           <Button
             size="sm"
@@ -550,12 +521,12 @@ export function AiProvidersCodexEditPage() {
           </Button>
         </div>
       }
-      isLoading={loading}
-      loadingLabel={t('common.loading')}
-    >
-      <Card>
-        {error && <div className="error-box">{error}</div>}
-        {invalidIndexParam || invalidIndex ? (
+      >
+        {loading ? (
+          <div className="hint">{t('common.loading')}</div>
+        ) : error ? (
+          <div className="error-box">{error}</div>
+        ) : invalidIndex ? (
           <div className="hint">{t('common.invalid_provider_index')}</div>
         ) : (
           <>
@@ -818,6 +789,6 @@ export function AiProvidersCodexEditPage() {
           </>
         )}
       </Card>
-    </SecondaryScreenShell>
+    </div>
   );
 }

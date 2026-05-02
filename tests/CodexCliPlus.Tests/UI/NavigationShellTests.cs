@@ -191,7 +191,13 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("Text=\"运行概览\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"控制台\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"/accounts\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"账号中心\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"ShellNavAuthFilesButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"ShellNavQuotaButton\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommandParameter=\"/ai-providers\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommandParameter=\"/auth-files\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("CommandParameter=\"/quota\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellBrandDockButton\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "PreviewMouseLeftButtonDown=\"ShellBrandDockButton_PreviewMouseLeftButtonDown\"",
@@ -1306,7 +1312,40 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("t('nav.console')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("path: '/accounts'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("t('nav.account_center')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("path: '/ai-providers'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("path: '/auth-files'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("path: '/quota'", mainLayoutSource, StringComparison.Ordinal);
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "const AccountCenterPage = lazyPage(",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "{ path: '/accounts', element: route('accounts', <AccountCenterPage />) }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "{ path: '/ai-providers', element: <Navigate to=\"/accounts#codex-config\" replace /> }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "{ path: '/auth-files', element: <Navigate to=\"/accounts#auth-files\" replace /> }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "{ path: '/quota', element: <Navigate to=\"/accounts#quota-management\" replace /> }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("AiProvidersPage", mainRoutesSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthFilesPage", mainRoutesSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("QuotaPage", mainRoutesSource, StringComparison.Ordinal);
         Assert.Contains(
             "const DashboardOverviewPage = lazyPage(",
             mainRoutesSource,
@@ -1323,6 +1362,22 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("path: \"/console\"", overlayMainRoutesSource, StringComparison.Ordinal);
+        Assert.Contains("path: \"/accounts\"", overlayMainRoutesSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "element: <Navigate to=\"/accounts#codex-config\" replace />",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "element: <Navigate to=\"/accounts#auth-files\" replace />",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "element: <Navigate to=\"/accounts#quota-management\" replace />",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "element: <Navigate to=\"/dashboard/overview\" replace />",
             overlayMainRoutesSource,

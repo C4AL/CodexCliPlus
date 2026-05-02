@@ -119,7 +119,13 @@ public sealed class ConfigAndLogsPageTests
             "src"
         );
         var authFilesPage = File.ReadAllText(
-            Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx"),
+            Path.Combine(
+                sourceRoot,
+                "features",
+                "accountCenter",
+                "components",
+                "AuthFilesSection.tsx"
+            ),
             Encoding.UTF8
         );
         var authFilesStyles = File.ReadAllText(

@@ -15,13 +15,11 @@ import { Button } from '@/components/ui/Button';
 import { PageTransition } from '@/components/common/PageTransition';
 import { MainRoutes } from '@/router/MainRoutes';
 import {
-  IconSidebarAuthFiles,
   IconSidebarConsole,
   IconSidebarConfig,
   IconSidebarDashboard,
   IconSidebarLogs,
   IconSidebarProviders,
-  IconSidebarQuota,
   IconSidebarSystem,
   IconSidebarUsage,
 } from '@/components/ui/icons';
@@ -46,9 +44,7 @@ import type { Theme } from '@/types';
 const sidebarIcons: Record<string, ReactNode> = {
   dashboard: <IconSidebarDashboard size={18} />,
   dashboardOverview: <IconSidebarConsole size={18} />,
-  aiProviders: <IconSidebarProviders size={18} />,
-  authFiles: <IconSidebarAuthFiles size={18} />,
-  quota: <IconSidebarQuota size={18} />,
+  accountCenter: <IconSidebarProviders size={18} />,
   usage: <IconSidebarUsage size={18} />,
   config: <IconSidebarConfig size={18} />,
   logs: <IconSidebarLogs size={18} />,
@@ -428,9 +424,7 @@ export function MainLayout() {
         icon: sidebarIcons.dashboardOverview,
       },
       { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
-      { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
-      { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
-      { path: '/quota', label: t('nav.quota_management'), icon: sidebarIcons.quota },
+      { path: '/accounts', label: t('nav.account_center'), icon: sidebarIcons.accountCenter },
       { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
       ...(desktopMode || config?.loggingToFile
         ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }]
@@ -451,26 +445,12 @@ export function MainLayout() {
           ? '/'
           : trimmedPath === '/console'
             ? '/dashboard/overview'
+            : ['/ai-providers', '/auth-files', '/quota', '/oauth'].some(
+                  (legacyPath) =>
+                    trimmedPath === legacyPath || trimmedPath.startsWith(`${legacyPath}/`)
+                )
+              ? '/accounts'
             : trimmedPath;
-
-      const aiProvidersIndex = navOrder.indexOf('/ai-providers');
-      if (aiProvidersIndex !== -1) {
-        if (normalizedPath === '/ai-providers') return aiProvidersIndex;
-        if (normalizedPath.startsWith('/ai-providers/')) {
-          if (normalizedPath.startsWith('/ai-providers/codex')) return aiProvidersIndex + 0.1;
-          return aiProvidersIndex + 0.05;
-        }
-      }
-
-      const authFilesIndex = navOrder.indexOf('/auth-files');
-      if (authFilesIndex !== -1) {
-        if (normalizedPath === '/auth-files') return authFilesIndex;
-        if (normalizedPath.startsWith('/auth-files/')) {
-          if (normalizedPath.startsWith('/auth-files/oauth-excluded')) return authFilesIndex + 0.1;
-          if (normalizedPath.startsWith('/auth-files/oauth-model-alias')) return authFilesIndex + 0.2;
-          return authFilesIndex + 0.05;
-        }
-      }
 
       const exactIndex = navOrder.indexOf(normalizedPath);
       if (exactIndex !== -1) return exactIndex;
@@ -492,12 +472,7 @@ export function MainLayout() {
 
     const from = normalize(fromPathname);
     const to = normalize(toPathname);
-    const isAuthFiles = (pathname: string) =>
-      pathname === '/auth-files' || pathname.startsWith('/auth-files/');
-    const isAiProviders = (pathname: string) =>
-      pathname === '/ai-providers' || pathname.startsWith('/ai-providers/');
-    if (isAuthFiles(from) && isAuthFiles(to)) return 'ios';
-    if (isAiProviders(from) && isAiProviders(to)) return 'ios';
+    if (from === '/accounts' && to === '/accounts') return 'ios';
     return 'vertical';
   }, []);
 

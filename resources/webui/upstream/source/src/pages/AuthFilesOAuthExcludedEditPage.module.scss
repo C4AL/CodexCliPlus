@@ -13,6 +13,14 @@
   }
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
 .settingsCard {
   padding: 0;
   overflow: visible;

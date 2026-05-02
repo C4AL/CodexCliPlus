@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -7,17 +6,13 @@ import { AutocompleteInput } from '@/components/ui/AutocompleteInput';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconInfo, IconX } from '@/components/ui/icons';
-import { SecondaryScreenShell } from '@/components/common/SecondaryScreenShell';
-import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi } from '@/services/api';
 import type { OAuthModelAliasEntry } from '@/types';
 import { generateId } from '@/utils/helpers';
-import styles from './AuthFilesOAuthModelAliasEditPage.module.scss';
+import styles from '@/pages/AuthFilesOAuthModelAliasEditPage.module.scss';
 
 type AuthFileModelItem = { id: string; display_name?: string; type?: string; owned_by?: string };
-
-type LocationState = { fromAuthFiles?: boolean } | null;
 
 type OAuthModelMappingFormEntry = OAuthModelAliasEntry & { id: string };
 
@@ -52,15 +47,17 @@ const normalizeMappingEntries = (
   }));
 };
 
-export function AuthFilesOAuthModelAliasEditPage() {
+interface OAuthModelAliasEditorProps {
+  onClose: () => void;
+  onSaved?: () => void;
+}
+
+export function OAuthModelAliasEditor({ onClose, onSaved }: OAuthModelAliasEditorProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { showNotification } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const disableControls = connectionStatus !== 'connected';
 
-  const [, setSearchParams] = useSearchParams();
   const providerFromParams = 'codex';
 
   const [provider, setProvider] = useState(providerFromParams);
@@ -110,26 +107,15 @@ export function AuthFilesOAuthModelAliasEditPage() {
     return t('oauth_model_alias.model_source_loaded', { count: modelsList.length });
   }, [modelsError, modelsList.length, modelsLoading, provider, t]);
 
-  const handleBack = useCallback(() => {
-    const state = location.state as LocationState;
-    if (state?.fromAuthFiles) {
-      navigate(-1);
-      return;
-    }
-    navigate('/auth-files', { replace: true });
-  }, [location.state, navigate]);
-
-  const swipeRef = useEdgeSwipeBack({ onBack: handleBack });
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleBack();
+        onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleBack]);
+  }, [onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,11 +223,8 @@ export function AuthFilesOAuthModelAliasEditPage() {
   const updateProvider = useCallback(
     (_value: string) => {
       setProvider('codex');
-      const next = new URLSearchParams();
-      next.set('provider', 'codex');
-      setSearchParams(next, { replace: true });
     },
-    [setSearchParams]
+    []
   );
 
   const updateMappingEntry = useCallback(
@@ -292,34 +275,36 @@ export function AuthFilesOAuthModelAliasEditPage() {
         await authFilesApi.deleteOauthModelAlias(channel);
       }
       showNotification(t('oauth_model_alias.save_success'), 'success');
-      handleBack();
+      onSaved?.();
+      onClose();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : '';
       showNotification(`${t('oauth_model_alias.save_failed')}: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }
-  }, [handleBack, mappings, provider, showNotification, t]);
+  }, [mappings, onClose, onSaved, provider, showNotification, t]);
 
-  const canSave = !disableControls && !saving && !modelAliasUnsupported;
+  const canSave = !disableControls && !saving && !initialLoading && !modelAliasUnsupported;
 
   return (
-    <SecondaryScreenShell
-      ref={swipeRef}
-      title={title}
-      onBack={handleBack}
-      backLabel={t('common.back')}
-      backAriaLabel={t('common.back')}
-      contentClassName={styles.pageContent}
-      rightAction={
-        <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>
-          {t('oauth_model_alias.save')}
-        </Button>
-      }
-      isLoading={initialLoading}
-      loadingLabel={t('common.loading')}
-    >
-      {modelAliasUnsupported ? (
+    <div className={styles.pageContent}>
+      <Card
+        title={title}
+        extra={
+          <div className={styles.headerActions}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button size="sm" onClick={handleSave} loading={saving} disabled={!canSave}>
+              {t('oauth_model_alias.save')}
+            </Button>
+          </div>
+        }
+      >
+        {initialLoading && <div className="hint">{t('common.loading')}</div>}
+      </Card>
+      {initialLoading ? null : modelAliasUnsupported ? (
         <Card>
           <EmptyState
             title={t('oauth_model_alias.upgrade_required_title')}
@@ -440,6 +425,6 @@ export function AuthFilesOAuthModelAliasEditPage() {
           </Card>
         </>
       )}
-    </SecondaryScreenShell>
+    </div>
   );
 }

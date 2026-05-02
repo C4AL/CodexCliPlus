@@ -131,6 +131,7 @@
     "dashboard_overview": "操作台",
     "basic_settings": "基础设置",
     "api_keys": "API 密钥",
+    "account_center": "账号中心",
     "ai_providers": "账号配置",
     "auth_files": "认证文件",
     "oauth": "OAuth 登录",
@@ -139,6 +140,14 @@
     "config_management": "配置面板",
     "logs": "日志查看",
     "system_info": "CodexCliPlus 信息"
+  },
+  "account_center": {
+    "title": "账号中心",
+    "description": "集中管理 OAuth 登录、Codex API 配置、认证文件与配额状态。",
+    "oauth_section": "OAuth 登录",
+    "codex_section": "Codex API 配置",
+    "auth_files_section": "认证文件管理",
+    "quota_section": "配额管理"
   },
   "dashboard": {
     "title": "仪表盘",

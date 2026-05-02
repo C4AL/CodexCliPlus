@@ -621,7 +621,7 @@
                     x:Name="ShellNavAccountButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"
                     Click="ShellNavigationButton_Click"
-                    CommandParameter="/ai-providers"
+                    CommandParameter="/accounts"
                   >
                     <StackPanel Orientation="Horizontal">
                       <iconPacks:PackIconLucide
@@ -631,41 +631,7 @@
                         VerticalAlignment="Center"
                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                       />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="账号配置" />
-                    </StackPanel>
-                  </Button>
-                  <Button
-                    x:Name="ShellNavAuthFilesButton"
-                    Style="{StaticResource ShellNavigationButtonStyle}"
-                    Click="ShellNavigationButton_Click"
-                    CommandParameter="/auth-files"
-                  >
-                    <StackPanel Orientation="Horizontal">
-                      <iconPacks:PackIconLucide
-                        Kind="FileKey"
-                        Width="18"
-                        Height="18"
-                        VerticalAlignment="Center"
-                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                      />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="认证文件" />
-                    </StackPanel>
-                  </Button>
-                  <Button
-                    x:Name="ShellNavQuotaButton"
-                    Style="{StaticResource ShellNavigationButtonStyle}"
-                    Click="ShellNavigationButton_Click"
-                    CommandParameter="/quota"
-                  >
-                    <StackPanel Orientation="Horizontal">
-                      <iconPacks:PackIconLucide
-                        Kind="CircleGauge"
-                        Width="18"
-                        Height="18"
-                        VerticalAlignment="Center"
-                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                      />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="额度" />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="账号中心" />
                     </StackPanel>
                   </Button>
                   <Button

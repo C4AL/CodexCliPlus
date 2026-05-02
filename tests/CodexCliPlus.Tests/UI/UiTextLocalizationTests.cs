@@ -132,7 +132,7 @@ public sealed class UiTextLocalizationTests
 
         Assert.Contains("\"main\": \"CodexCliPlus\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("CodexCliPlus", visibleText, StringComparison.Ordinal);
-        Assert.Contains("账号配置", visibleText, StringComparison.Ordinal);
+        Assert.Contains("账号中心", visibleText, StringComparison.Ordinal);
         Assert.Contains("\"desktop_subtitle\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("!desktopMode &&", loginPage, StringComparison.Ordinal);
 
@@ -241,29 +241,71 @@ public sealed class UiTextLocalizationTests
             Path.Combine(sourceRoot, "router", "MainRoutes.tsx"),
             Encoding.UTF8
         );
-        var providersPage = File.ReadAllText(
-            Path.Combine(sourceRoot, "pages", "AiProvidersPage.tsx"),
+        var accountCenterPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "AccountCenterPage.tsx"),
             Encoding.UTF8
         );
-        var providerNav = File.ReadAllText(
-            Path.Combine(sourceRoot, "components", "providers", "ProviderNav", "ProviderNav.tsx"),
+        var providersSection = File.ReadAllText(
+            Path.Combine(
+                sourceRoot,
+                "features",
+                "accountCenter",
+                "components",
+                "CodexConfigurationsSection.tsx"
+            ),
             Encoding.UTF8
         );
-        var oauthPage = File.ReadAllText(
-            Path.Combine(sourceRoot, "pages", "OAuthPage.tsx"),
+        var oauthSection = File.ReadAllText(
+            Path.Combine(
+                sourceRoot,
+                "features",
+                "accountCenter",
+                "components",
+                "OAuthLoginSection.tsx"
+            ),
             Encoding.UTF8
         );
-        var quotaPage = File.ReadAllText(
-            Path.Combine(sourceRoot, "pages", "QuotaPage.tsx"),
+        var quotaSection = File.ReadAllText(
+            Path.Combine(
+                sourceRoot,
+                "features",
+                "accountCenter",
+                "components",
+                "QuotaManagementSection.tsx"
+            ),
             Encoding.UTF8
         );
-        var authFilesPage = File.ReadAllText(
-            Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx"),
+        var authFilesSection = File.ReadAllText(
+            Path.Combine(
+                sourceRoot,
+                "features",
+                "accountCenter",
+                "components",
+                "AuthFilesSection.tsx"
+            ),
             Encoding.UTF8
         );
 
-        Assert.Contains("AiProvidersCodexEditPage", routeSource, StringComparison.Ordinal);
-        Assert.Contains("Navigate to=\"/ai-providers\"", routeSource, StringComparison.Ordinal);
+        Assert.Contains("AccountCenterPage", routeSource, StringComparison.Ordinal);
+        Assert.Contains("path: '/accounts'", routeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "Navigate to=\"/accounts#codex-config\"",
+            routeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Navigate to=\"/accounts#auth-files\"",
+            routeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Navigate to=\"/accounts#quota-management\"",
+            routeSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("AiProvidersCodexEditPage", routeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthFilesOAuthExcludedEditPage", routeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AuthFilesOAuthModelAliasEditPage", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("element: <OAuthPage", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersGeminiEditPage", routeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AiProvidersClaude", routeSource, StringComparison.Ordinal);
@@ -285,33 +327,45 @@ public sealed class UiTextLocalizationTests
         Assert.False(
             File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersAmpcodeEditPage.tsx"))
         );
+        Assert.False(File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersPage.tsx")));
+        Assert.False(File.Exists(Path.Combine(sourceRoot, "pages", "AiProvidersCodexEditPage.tsx")));
+        Assert.False(File.Exists(Path.Combine(sourceRoot, "pages", "AuthFilesPage.tsx")));
+        Assert.False(File.Exists(Path.Combine(sourceRoot, "pages", "QuotaPage.tsx")));
+        Assert.False(File.Exists(Path.Combine(sourceRoot, "pages", "OAuthPage.tsx")));
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AuthFilesOAuthExcludedEditPage.tsx"))
+        );
+        Assert.False(
+            File.Exists(Path.Combine(sourceRoot, "pages", "AuthFilesOAuthModelAliasEditPage.tsx"))
+        );
 
-        Assert.Contains("CodexSection", providersPage, StringComparison.Ordinal);
-        Assert.Contains("OAuthPage embedded", providersPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("GeminiSection", providersPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("ClaudeSection", providersPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("OpenAISection", providersPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("VertexSection", providersPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("AmpcodeSection", providersPage, StringComparison.Ordinal);
+        Assert.Contains("OAuthLoginSection", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("CodexConfigurationsSection", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("AuthFilesSection", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("QuotaManagementSection", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("SECTION_IDS.oauth", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("SECTION_IDS.codex", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("SECTION_IDS.authFiles", accountCenterPage, StringComparison.Ordinal);
+        Assert.Contains("SECTION_IDS.quota", accountCenterPage, StringComparison.Ordinal);
 
-        Assert.Contains("ProviderId = 'codex'", providerNav, StringComparison.Ordinal);
-        Assert.DoesNotContain("'gemini'", providerNav, StringComparison.Ordinal);
-        Assert.DoesNotContain("'claude'", providerNav, StringComparison.Ordinal);
-        Assert.DoesNotContain("'openai'", providerNav, StringComparison.Ordinal);
-        Assert.DoesNotContain("'vertex'", providerNav, StringComparison.Ordinal);
-        Assert.DoesNotContain("'ampcode'", providerNav, StringComparison.Ordinal);
+        Assert.Contains("CodexSection", providersSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("GeminiSection", providersSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("ClaudeSection", providersSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpenAISection", providersSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("VertexSection", providersSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("AmpcodeSection", providersSection, StringComparison.Ordinal);
 
-        Assert.Contains("id: 'codex'", oauthPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("anthropic", oauthPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("gemini-cli", oauthPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("kimi", oauthPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("iconVertex", oauthPage, StringComparison.Ordinal);
+        Assert.Contains("id: 'codex'", oauthSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("anthropic", oauthSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("gemini-cli", oauthSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("kimi", oauthSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("iconVertex", oauthSection, StringComparison.Ordinal);
 
-        Assert.Contains("CODEX_CONFIG", quotaPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("CLAUDE_CONFIG", quotaPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("GEMINI_CLI_CONFIG", quotaPage, StringComparison.Ordinal);
-        Assert.Contains("CODEX_PROVIDER_FILTER = 'codex'", authFilesPage, StringComparison.Ordinal);
-        Assert.DoesNotContain("import_cpa", authFilesPage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CODEX_CONFIG", quotaSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("CLAUDE_CONFIG", quotaSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("GEMINI_CLI_CONFIG", quotaSection, StringComparison.Ordinal);
+        Assert.Contains("CODEX_PROVIDER_FILTER = 'codex'", authFilesSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("import_cpa", authFilesSection, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string FindRepositoryRoot()

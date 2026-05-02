@@ -12,9 +12,9 @@ import {
   CODEX_CONFIG,
 } from '@/components/quota';
 import type { AuthFileItem } from '@/types';
-import styles from './QuotaPage.module.scss';
+import styles from '@/pages/QuotaPage.module.scss';
 
-export function QuotaPage() {
+export function QuotaManagementSection() {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
 

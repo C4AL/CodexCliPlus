@@ -1,0 +1,113 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  padding-bottom: $spacing-2xl;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.segmentNav {
+  position: sticky;
+  top: calc(var(--header-height, 0px) + 12px);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, #000 8%, transparent);
+  overflow-x: auto;
+}
+
+.segmentButton {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color $transition-fast,
+    background-color $transition-fast,
+    border-color $transition-fast;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+  }
+}
+
+.segmentButtonActive {
+  color: var(--primary-contrast, #fff);
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+
+  &:hover {
+    color: var(--primary-contrast, #fff);
+    background: var(--primary-hover);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  scroll-margin-top: calc(var(--header-height, 0px) + 76px);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding-bottom: $spacing-xs;
+  border-bottom: 1px solid var(--border-color);
+
+  h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+  }
+}
+
+@include mobile {
+  .segmentNav {
+    width: 100%;
+  }
+
+  .segmentButton {
+    flex: 1 0 auto;
+  }
+}

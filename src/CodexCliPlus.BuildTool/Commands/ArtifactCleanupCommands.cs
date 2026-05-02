@@ -47,4 +47,47 @@ public static class ArtifactCleanupCommands
         context.Logger.Info("cleaned BuildTool publish, package, installer, and temp artifacts");
         return 0;
     }
+
+    public static void ApplyArtifactRetention(BuildContext context)
+    {
+        if (context.Options.ArtifactRetention == 0)
+        {
+            return;
+        }
+
+        var repositoryArtifactsRoot = Path.Combine(context.Options.RepositoryRoot, "artifacts");
+        var currentOutputRoot = Path.GetFullPath(context.Options.OutputRoot);
+        if (!SafeFileSystem.IsBuildToolOutputRoot(currentOutputRoot, repositoryArtifactsRoot))
+        {
+            return;
+        }
+
+        if (!Directory.Exists(repositoryArtifactsRoot))
+        {
+            return;
+        }
+
+        var olderOutputRoots = Directory
+            .EnumerateDirectories(
+                repositoryArtifactsRoot,
+                "buildtool*",
+                SearchOption.TopDirectoryOnly
+            )
+            .Select(Path.GetFullPath)
+            .Where(path => !SafeFileSystem.PathsEqual(path, currentOutputRoot))
+            .Where(path => SafeFileSystem.IsBuildToolOutputRoot(path, repositoryArtifactsRoot))
+            .OrderByDescending(Directory.GetLastWriteTimeUtc)
+            .ToArray();
+        var siblingRootsToKeep = Math.Max(context.Options.ArtifactRetention - 1, 0);
+
+        foreach (var oldOutputRoot in olderOutputRoots.Skip(siblingRootsToKeep))
+        {
+            SafeFileSystem.DeleteBuildToolOutputRoot(
+                oldOutputRoot,
+                context.Options.RepositoryRoot,
+                currentOutputRoot
+            );
+            context.Logger.Info($"removed old BuildTool output root: {oldOutputRoot}");
+        }
+    }
 }

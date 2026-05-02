@@ -110,6 +110,7 @@ public static class PackageCommands
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
         );
         await CreatePackageAsync(context, stageRoot, stagingPackagePath, packageType);
+        CleanupPackageStaging(context, stageRoot);
         context.Logger.Info($"installer executable: {installerOutputPath}");
         return 0;
     }
@@ -199,8 +200,36 @@ public static class PackageCommands
             includeBaseDirectory: false
         );
         await context.SigningService.SignAsync(packagePath, context);
+        CleanupPackageStaging(context, stageRoot);
         context.Logger.Info($"update package: {packagePath}");
         return 0;
+    }
+
+    private static void CleanupPackageStaging(BuildContext context, string stageRoot)
+    {
+        if (context.Options.KeepPackageStaging)
+        {
+            context.Logger.Info($"kept package staging: {stageRoot}");
+            return;
+        }
+
+        try
+        {
+            SafeFileSystem.DeleteDirectory(stageRoot, context.Options.OutputRoot);
+            context.Logger.Info($"removed package staging: {stageRoot}");
+        }
+        catch (IOException exception)
+        {
+            context.Logger.Warning(
+                $"Could not remove package staging because it is in use: {exception.Message}"
+            );
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            context.Logger.Warning(
+                $"Could not remove package staging because access was denied: {exception.Message}"
+            );
+        }
     }
 
     private static async Task CreatePackageAsync(

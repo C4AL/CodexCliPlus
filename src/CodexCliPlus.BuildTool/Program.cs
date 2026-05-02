@@ -82,7 +82,7 @@ public static class BuildToolApp
                 $"Configuration: {options.Configuration}; Runtime: {options.Runtime}; Version: {options.Version}"
             );
 
-            return options.Command.ToLowerInvariant() switch
+            var exitCode = options.Command.ToLowerInvariant() switch
             {
                 "fetch-assets" => await AssetCommands.FetchAssetsAsync(context),
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
@@ -105,6 +105,12 @@ public static class BuildToolApp
                 "clean-artifacts" => ArtifactCleanupCommands.CleanAsync(context),
                 _ => 1,
             };
+            if (exitCode == 0)
+            {
+                ArtifactCleanupCommands.ApplyArtifactRetention(context);
+            }
+
+            return exitCode;
         }
         catch (Exception exception)
         {
@@ -133,6 +139,8 @@ public static class BuildToolApp
         logger.Info("  --version <version>              Default: 1.0.0");
         logger.Info("  --repo-root <path>               Default: auto-detected repository root");
         logger.Info("  --output <path>                  Default: <repo>/artifacts/buildtool");
+        logger.Info("  --keep-package-staging <bool>    Default: false");
+        logger.Info("  --artifact-retention <count>     Default: 1; 0 disables pruning");
     }
 }
 
@@ -142,7 +150,9 @@ public sealed record BuildOptions(
     string OutputRoot,
     string Configuration,
     string Runtime,
-    string Version
+    string Version,
+    bool KeepPackageStaging = false,
+    int ArtifactRetention = 1
 )
 {
     public static bool TryParse(string[] args, out BuildOptions? options, out string? error)
@@ -158,10 +168,12 @@ public sealed record BuildOptions(
 
         var command = args[0];
         var repositoryRoot = FindRepositoryRoot();
-        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool");
+        string? outputRoot = null;
         var configuration = "Release";
         var runtime = "win-x64";
         var version = "1.0.0";
+        var keepPackageStaging = false;
+        var artifactRetention = 1;
 
         for (var index = 1; index < args.Length; index++)
         {
@@ -196,19 +208,42 @@ public sealed record BuildOptions(
                 case "--output":
                     outputRoot = Path.GetFullPath(value);
                     break;
+                case "--keep-package-staging":
+                    if (!bool.TryParse(value, out keepPackageStaging))
+                    {
+                        error = $"Invalid boolean value for option {arg}: {value}";
+                        return false;
+                    }
+
+                    break;
+                case "--artifact-retention":
+                    if (!int.TryParse(value, out artifactRetention) || artifactRetention < 0)
+                    {
+                        error = $"Invalid non-negative integer value for option {arg}: {value}";
+                        return false;
+                    }
+
+                    break;
                 default:
                     error = $"Unknown option: {arg}";
                     return false;
             }
         }
 
+        var fullRepositoryRoot = Path.GetFullPath(repositoryRoot);
+        var fullOutputRoot = Path.GetFullPath(
+            outputRoot ?? Path.Combine(fullRepositoryRoot, "artifacts", "buildtool")
+        );
+
         options = new BuildOptions(
             command,
-            Path.GetFullPath(repositoryRoot),
-            Path.GetFullPath(outputRoot),
+            fullRepositoryRoot,
+            fullOutputRoot,
             configuration,
             runtime,
-            version
+            version,
+            keepPackageStaging,
+            artifactRetention
         );
         return true;
     }

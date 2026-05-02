@@ -15,9 +15,9 @@ public static class SafeFileSystem
 {
     public static void CleanDirectory(string targetDirectory, string allowedRoot)
     {
-        var fullTarget = Path.GetFullPath(targetDirectory);
-        var fullAllowedRoot = Path.GetFullPath(allowedRoot);
-        if (!fullTarget.StartsWith(fullAllowedRoot, StringComparison.OrdinalIgnoreCase))
+        var fullTarget = NormalizeDirectoryPath(targetDirectory);
+        var fullAllowedRoot = NormalizeDirectoryPath(allowedRoot);
+        if (!IsSameOrDescendant(fullTarget, fullAllowedRoot))
         {
             throw new InvalidOperationException(
                 $"Refusing to clean outside BuildTool output root: {fullTarget}"
@@ -31,6 +31,91 @@ public static class SafeFileSystem
         }
 
         Directory.CreateDirectory(fullTarget);
+    }
+
+    public static void DeleteDirectory(string targetDirectory, string allowedRoot)
+    {
+        var fullTarget = NormalizeDirectoryPath(targetDirectory);
+        var fullAllowedRoot = NormalizeDirectoryPath(allowedRoot);
+        if (!IsSameOrDescendant(fullTarget, fullAllowedRoot))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to delete outside BuildTool output root: {fullTarget}"
+            );
+        }
+
+        if (Directory.Exists(fullTarget))
+        {
+            ClearReadOnlyAttributes(fullTarget);
+            Directory.Delete(fullTarget, recursive: true);
+        }
+    }
+
+    public static void DeleteBuildToolOutputRoot(
+        string targetDirectory,
+        string repositoryRoot,
+        string currentOutputRoot
+    )
+    {
+        var repositoryArtifactsRoot = Path.Combine(repositoryRoot, "artifacts");
+        var fullTarget = NormalizeDirectoryPath(targetDirectory);
+        if (!IsBuildToolOutputRoot(fullTarget, repositoryArtifactsRoot))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to delete non-BuildTool output root: {fullTarget}"
+            );
+        }
+
+        if (PathsEqual(fullTarget, currentOutputRoot))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to delete current BuildTool output root: {fullTarget}"
+            );
+        }
+
+        DeleteDirectory(fullTarget, repositoryArtifactsRoot);
+    }
+
+    public static bool IsBuildToolOutputRoot(string outputRoot, string repositoryArtifactsRoot)
+    {
+        var fullOutputRoot = NormalizeDirectoryPath(outputRoot);
+        var fullArtifactsRoot = NormalizeDirectoryPath(repositoryArtifactsRoot);
+        var parent = Directory.GetParent(fullOutputRoot)?.FullName;
+        if (parent is null || !PathsEqual(parent, fullArtifactsRoot))
+        {
+            return false;
+        }
+
+        return Path.GetFileName(fullOutputRoot)
+            .StartsWith("buildtool", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool PathsEqual(string left, string right)
+    {
+        return string.Equals(
+            NormalizeDirectoryPath(left),
+            NormalizeDirectoryPath(right),
+            StringComparison.OrdinalIgnoreCase
+        );
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+    {
+        return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+    }
+
+    private static bool IsSameOrDescendant(string path, string root)
+    {
+        if (PathsEqual(path, root))
+        {
+            return true;
+        }
+
+        var relativePath = Path.GetRelativePath(root, path);
+        return relativePath.Length > 0
+            && relativePath != "."
+            && !relativePath.StartsWith("..", StringComparison.Ordinal)
+            && !Path.IsPathRooted(relativePath);
     }
 
     private static void ClearReadOnlyAttributes(string directory)

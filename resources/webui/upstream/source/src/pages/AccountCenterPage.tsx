@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { AuthFilesSection } from '@/features/accountCenter/components/AuthFilesSection';
 import { CodexConfigurationsSection } from '@/features/accountCenter/components/CodexConfigurationsSection';
 import { OAuthLoginSection } from '@/features/accountCenter/components/OAuthLoginSection';
@@ -29,18 +29,6 @@ const normalizeAccountHash = (hash: string) => {
 export function AccountCenterPage() {
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
-  const activeSectionId = normalizeAccountHash(location.hash);
-
-  const sections = useMemo(
-    () => [
-      { id: SECTION_IDS.oauth, label: t('account_center.oauth_section') },
-      { id: SECTION_IDS.codex, label: t('account_center.codex_section') },
-      { id: SECTION_IDS.authFiles, label: t('account_center.auth_files_section') },
-      { id: SECTION_IDS.quota, label: t('account_center.quota_section') },
-    ],
-    [t]
-  );
 
   useEffect(() => {
     if (!location.hash) return;
@@ -51,32 +39,11 @@ export function AccountCenterPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [location.hash]);
 
-  const goToSection = (id: string) => {
-    navigate({ pathname: '/accounts', hash: `#${id}` }, { replace: false });
-  };
-
   return (
     <div className={styles.container}>
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>{t('account_center.title')}</h1>
         <p className={styles.description}>{t('account_center.description')}</p>
-      </div>
-
-      <div className={styles.segmentNav} role="tablist" aria-label={t('account_center.title')}>
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            role="tab"
-            aria-selected={activeSectionId === section.id}
-            className={`${styles.segmentButton} ${
-              activeSectionId === section.id ? styles.segmentButtonActive : ''
-            }`}
-            onClick={() => goToSection(section.id)}
-          >
-            {section.label}
-          </button>
-        ))}
       </div>
 
       <section id={SECTION_IDS.oauth} className={styles.section}>

@@ -23,15 +23,15 @@
       x:Name="StartupStepHost"
       Width="640"
       MaxWidth="640"
-      Style="{StaticResource StartupFlowCardStyle}"
+      Style="{StaticResource ShellRaisedPanelShadowHostStyle}"
       HorizontalAlignment="Center"
       VerticalAlignment="Center"
-      ClipToBounds="True"
     >
       <Border.RenderTransform>
         <TranslateTransform x:Name="StartupStepTranslateTransform" />
       </Border.RenderTransform>
-      <Grid>
+      <Border Style="{StaticResource StartupFlowCardStyle}" ClipToBounds="True">
+        <Grid>
         <Grid
           x:Name="LoadingPanel"
           Visibility="Collapsed"
@@ -269,9 +269,11 @@
                       HorizontalAlignment="Stretch"
                       FontFamily="Consolas"
                       FontSize="15"
+                      Style="{StaticResource StartupFlowTextBoxStyle}"
                       HorizontalScrollBarVisibility="Hidden"
                       IsReadOnly="True"
                       AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
+                      AutomationProperties.Name="安全密钥"
                       TextWrapping="NoWrap"
                       VerticalContentAlignment="Center"
                       VerticalScrollBarVisibility="Disabled"
@@ -436,8 +438,11 @@
               x:Name="ManagementKeyPasswordBox"
               Height="40"
               Margin="0,8,0,0"
+              Style="{StaticResource StartupFlowPasswordBoxStyle}"
               KeyDown="ManagementKeyPasswordBox_KeyDown"
               AutomationProperties.AutomationId="ManagementKeyPasswordBox"
+              AutomationProperties.Name="安全密钥"
+              VerticalContentAlignment="Center"
             />
             <StackPanel Margin="0,16,0,0" Orientation="Horizontal" VerticalAlignment="Center">
               <CheckBox
@@ -508,7 +513,8 @@
             />
           </StackPanel>
         </Grid>
-      </Grid>
+        </Grid>
+      </Border>
     </Border>
 
     <Grid
@@ -519,13 +525,13 @@
     >
       <Border
         Width="420"
-        Padding="0"
         CornerRadius="16"
-        Style="{StaticResource ShellRaisedPanelStyle}"
+        Style="{StaticResource ShellRaisedPanelShadowHostStyle}"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
       >
-        <Grid ClipToBounds="True">
+        <Border Padding="0" CornerRadius="16" Style="{StaticResource ShellRaisedPanelStyle}" ClipToBounds="True">
+          <Grid ClipToBounds="True">
           <Grid.RowDefinitions>
             <RowDefinition Height="34" />
             <RowDefinition Height="*" />
@@ -569,7 +575,8 @@
               Content="确认"
             />
           </StackPanel>
-        </Grid>
+          </Grid>
+        </Border>
       </Border>
     </Grid>
   </Grid>

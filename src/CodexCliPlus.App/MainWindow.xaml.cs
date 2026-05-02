@@ -132,8 +132,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private CancellationTokenSource? _firstRunConfirmCountdown;
     private DateTimeOffset? _preparationPanelShownAt;
     private ManagementSettingsSummarySnapshot? _settingsOverview;
-    private Window? _settingsWindow;
-    private Grid? _settingsWindowRoot;
     private CancellationTokenSource? _settingsOverviewRefreshCts;
     private int _settingsOverviewRefreshRequestId;
     private NavigationDockVisualState _navigationDockState = NavigationDockVisualState.Resting;
@@ -143,6 +141,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isInitializing;
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
+    private bool _settingsOverlayCoveredWebView;
     private bool _isShellBrandDockClosing;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;

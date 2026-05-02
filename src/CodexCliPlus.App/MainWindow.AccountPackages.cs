@@ -475,8 +475,12 @@ public partial class MainWindow
 
     private string? ShowPasswordPrompt(string title, string message, bool confirmPassword)
     {
-        var passwordBox = new PasswordBox { MinWidth = 280 };
-        var confirmBox = new PasswordBox { MinWidth = 280 };
+        var passwordBox = new PasswordBox { MinWidth = 280, VerticalContentAlignment = VerticalAlignment.Center };
+        var confirmBox = new PasswordBox { MinWidth = 280, VerticalContentAlignment = VerticalAlignment.Center };
+        ApplyPasswordPromptInputStyle(passwordBox);
+        ApplyPasswordPromptInputStyle(confirmBox);
+        System.Windows.Automation.AutomationProperties.SetName(passwordBox, "密码");
+        System.Windows.Automation.AutomationProperties.SetName(confirmBox, "确认密码");
         var errorText = new TextBlock
         {
             Foreground = System.Windows.Media.Brushes.Firebrick,
@@ -506,7 +510,7 @@ public partial class MainWindow
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.NoResize,
             SizeToContent = SizeToContent.WidthAndHeight,
-            Background = System.Windows.Media.Brushes.White,
+            Background = (WpfBrush)FindResource("SurfaceBrush"),
             Content = content,
         };
 
@@ -535,6 +539,14 @@ public partial class MainWindow
 
         passwordBox.Focus();
         return window.ShowDialog() == true ? passwordBox.Password : null;
+    }
+
+    private void ApplyPasswordPromptInputStyle(PasswordBox passwordBox)
+    {
+        if (TryFindResource("ShellPasswordInputStyle") is Style style)
+        {
+            passwordBox.Style = style;
+        }
     }
 
     private static StackPanel BuildPasswordPromptContent(

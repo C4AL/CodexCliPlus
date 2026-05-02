@@ -327,6 +327,120 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
+    public void WindowChromeAndStartupCardsAvoidTransparentShadowArtifacts()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var appProject = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "CodexCliPlus.App.csproj"),
+            Encoding.UTF8
+        );
+        var updaterProject = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.Updater",
+                "CodexCliPlus.Updater.csproj"
+            ),
+            Encoding.UTF8
+        );
+        var mainXaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var updaterXaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.Updater", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+        var startupFlowXaml = ReadStartupFlowXaml(repositoryRoot);
+        var startupFlowResources = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Views",
+                "Resources",
+                "StartupFlowResources.xaml"
+            ),
+            Encoding.UTF8
+        );
+        var shellSettingsSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "MainWindow.ShellSettingsPresentation.cs"
+            ),
+            Encoding.UTF8
+        );
+        var shellNotificationsSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "MainWindow.ShellNotifications.cs"
+            ),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("PackageReference Include=\"ControlzEx\"", appProject, StringComparison.Ordinal);
+        Assert.Contains("PackageReference Include=\"ControlzEx\"", updaterProject, StringComparison.Ordinal);
+        Assert.Contains("controlzEx:WindowChromeBehavior", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("controlzEx:GlowWindowBehavior", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("UseNativeCaptionButtons=\"False\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("<controlzEx:WindowChromeWindow", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("GlowColor=\"#330F766E\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("UseNativeCaptionButtons=\"True\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Style=\"{StaticResource ShellRaisedPanelShadowHostStyle}\"",
+            mainXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Style=\"{StaticResource ShellRaisedPanelShadowHostStyle}\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Style=\"{StaticResource StartupFlowPasswordBoxStyle}\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Style=\"{StaticResource StartupFlowTextBoxStyle}\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Key=\"StartupFlowPasswordBoxStyle\"",
+            startupFlowResources,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FocusVisualStyle\" Value=\"{x:Null}\"",
+            startupFlowResources,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementWebView.Visibility = Visibility.Collapsed;",
+            shellSettingsSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "RestoreManagementWebViewAfterSettingsOverlay",
+            shellSettingsSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("AllowsTransparency = true", shellSettingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("new Window", shellSettingsSource, StringComparison.Ordinal);
+        Assert.Contains("var contentCard = new Border", shellNotificationsSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "clipTarget.Clip = new RectangleGeometry",
+            shellNotificationsSource,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public void AppRegistersMinimalShellInsteadOfRuntimeManagementPages()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -374,6 +488,11 @@ public sealed class NavigationShellTests
             "private void RefreshNavigationDockPopupPlacement()",
             "private void RefreshShellBrandDockPopupPlacement()"
         );
+        var brandRefreshSource = SliceBetween(
+            startupPresentationSource,
+            "private void RefreshShellBrandDockPopupPlacement()",
+            "private static void RefreshDockPopupPlacement"
+        );
 
         Assert.Contains("RefreshShellDockPopupPlacements();", placementChangedSource);
         Assert.Contains("RefreshShellBrandDockPopupPlacement();", brandPopupOpenedSource);
@@ -393,6 +512,7 @@ public sealed class NavigationShellTests
             "RefreshDockPopupPlacement(ShellNavigationDockPopup);",
             navigationRefreshSource
         );
+        Assert.Contains("ShellBrandDockPopup is null", brandRefreshSource, StringComparison.Ordinal);
         Assert.Contains(
             "popup.HorizontalOffset = horizontalOffset + 0.01",
             startupPresentationSource

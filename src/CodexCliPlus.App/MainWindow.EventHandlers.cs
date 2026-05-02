@@ -97,7 +97,7 @@ public partial class MainWindow
         _settingsOverviewRefreshCts?.Dispose();
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
-        CloseSettingsWindow();
+        CloseSettingsOverlayImmediately();
         TrayIcon.Unregister();
     }
 
@@ -115,7 +115,7 @@ public partial class MainWindow
         _settingsOverviewRefreshCts?.Dispose();
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
-        CloseSettingsWindow();
+        CloseSettingsOverlayImmediately();
         GC.SuppressFinalize(this);
     }
 
@@ -175,7 +175,6 @@ public partial class MainWindow
             SetNavigationDockPopupOpen(false);
         }
 
-        PositionSettingsWindow();
         RefreshShellDockPopupPlacements();
     }
 

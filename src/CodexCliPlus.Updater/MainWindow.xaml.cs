@@ -8,7 +8,7 @@ using System.Windows;
 
 namespace CodexCliPlus.Updater;
 
-public partial class MainWindow : Window
+public partial class MainWindow : ControlzEx.WindowChromeWindow
 {
     private static readonly JsonSerializerOptions ManifestJsonOptions = new()
     {

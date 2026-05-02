@@ -3,6 +3,8 @@
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:controlzEx="urn:controlzex"
+  xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
   xmlns:tray="http://schemas.lepo.co/wpfui/2022/xaml/tray"
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
@@ -32,6 +34,23 @@
   StateChanged="Window_PlacementChanged"
   mc:Ignorable="d"
 >
+  <i:Interaction.Behaviors>
+    <controlzEx:WindowChromeBehavior
+      ResizeBorderThickness="8"
+      KeepBorderOnMaximize="True"
+      CornerPreference="Round"
+      UseNativeCaptionButtons="False"
+      GlassFrameThickness="0"
+    />
+    <controlzEx:GlowWindowBehavior
+      GlowColor="#330F766E"
+      NonActiveGlowColor="#180F172A"
+      GlowDepth="8"
+      PreferDWMBorderColor="True"
+      UseRadialGradientForCorners="True"
+    />
+  </i:Interaction.Behaviors>
+
   <ui:FluentWindow.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
@@ -699,12 +718,12 @@
     >
       <Border
         Width="500"
-        Padding="30"
-        Style="{StaticResource ShellRaisedPanelStyle}"
+        Style="{StaticResource ShellRaisedPanelShadowHostStyle}"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
       >
-        <StackPanel>
+        <Border Padding="30" Style="{StaticResource ShellRaisedPanelStyle}" ClipToBounds="True">
+          <StackPanel>
           <TextBlock
             Text="CodexCliPlus 已更新"
             FontSize="26"
@@ -734,7 +753,8 @@
             Click="UpgradeContinueButton_Click"
             Content="继续"
           />
-        </StackPanel>
+          </StackPanel>
+        </Border>
       </Border>
     </Grid>
 
@@ -748,13 +768,18 @@
       <Border
         Width="560"
         MaxWidth="560"
-        Padding="30"
         CornerRadius="20"
-        Style="{StaticResource ShellRaisedPanelStyle}"
+        Style="{StaticResource ShellRaisedPanelShadowHostStyle}"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
       >
-        <StackPanel>
+        <Border
+          Padding="30"
+          CornerRadius="20"
+          Style="{StaticResource ShellRaisedPanelStyle}"
+          ClipToBounds="True"
+        >
+          <StackPanel>
           <TextBlock
             x:Name="BlockerTitleText"
             FontSize="28"
@@ -787,7 +812,8 @@
               Content="最小化到托盘"
             />
           </StackPanel>
-        </StackPanel>
+          </StackPanel>
+        </Border>
       </Border>
     </Grid>
 
@@ -827,8 +853,7 @@
         x:Name="SettingsDialogCard"
         Width="760"
         MaxHeight="760"
-        Padding="0"
-        Style="{StaticResource ShellRaisedPanelStyle}"
+        Style="{StaticResource ShellRaisedPanelShadowHostStyle}"
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
         RenderTransformOrigin="0.5,0.5"
@@ -838,7 +863,8 @@
         <Border.RenderTransform>
           <ScaleTransform ScaleX="0.96" ScaleY="0.96" />
         </Border.RenderTransform>
-        <Grid ClipToBounds="True">
+        <Border Padding="0" Style="{StaticResource ShellRaisedPanelStyle}" ClipToBounds="True">
+          <Grid ClipToBounds="True">
           <Grid.RowDefinitions>
             <RowDefinition Height="58" />
             <RowDefinition Height="*" />
@@ -1134,7 +1160,8 @@
               </Border>
             </StackPanel>
           </ScrollViewer>
-        </Grid>
+          </Grid>
+        </Border>
       </Border>
     </Grid>
 

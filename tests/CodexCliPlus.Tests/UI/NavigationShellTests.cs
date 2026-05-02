@@ -1429,9 +1429,17 @@ public sealed class NavigationShellTests
         Assert.Contains("当前：{codexRouteModeLabel}", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("切换到 CPA", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("切换到官方", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("usage_stats.total_5h_remaining_quota", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("label: '加载中'", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("已汇总 ${formatLocaleNumber(validCount, i18n.language)}", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("requestCodexRouteState", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("当前：{codexRouteModeLabel}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("usage_stats.total_5h_remaining_quota", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("label: '加载中'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("已汇总 ${formatLocaleNumber(validCount, i18n.language)}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "export function ConsolePage()",
             dashboardOverviewPageSource,

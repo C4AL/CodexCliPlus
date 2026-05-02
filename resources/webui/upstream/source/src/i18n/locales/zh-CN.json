@@ -732,6 +732,7 @@
   },
   "usage_stats": {
     "title": "使用统计",
+    "total_5h_remaining_quota": "5h总剩余额度",
     "total_requests": "总请求数",
     "success_requests": "成功请求",
     "failed_requests": "失败请求",

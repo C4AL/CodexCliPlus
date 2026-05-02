@@ -129,6 +129,11 @@
   background: color-mix(in srgb, var(--primary-color) 7%, var(--bg-secondary));
 }
 
+.summaryPillQuota {
+  border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 24%, var(--border-color));
+  background: color-mix(in srgb, var(--warning-color, #f59e0b) 8%, var(--bg-secondary));
+}
+
 .summaryPillTokens {
   border-color: color-mix(in srgb, var(--success-color, #16a34a) 18%, var(--border-color));
   background: color-mix(in srgb, var(--success-color, #16a34a) 7%, var(--bg-secondary));

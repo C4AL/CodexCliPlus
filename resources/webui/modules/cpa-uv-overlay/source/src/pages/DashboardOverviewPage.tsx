@@ -47,6 +47,7 @@ const RECENT_HIGHLIGHT_INDEX_LIMIT = 10;
 const TRACEABLE_EXACT_PATHS = new Set(['/v1/chat/completions', '/v1/messages', '/v1/responses']);
 const TRACEABLE_PREFIX_PATHS = ['/v1beta/models'];
 const EMPTY_HIGHLIGHT_IDS = new Set<string>();
+const FIVE_HOUR_WINDOW_ID = 'five-hour';
 
 const getCodexRouteModeLabel = (mode: CodexRouteState['currentMode']) => {
   if (mode === 'cpa') return 'CPA 模式';
@@ -62,6 +63,7 @@ type CodexUsageStats = {
 };
 
 type OverviewQuotaEntry = {
+  status: 'success' | 'error';
   planType: string | null;
   windows: CodexQuotaWindow[];
 };
@@ -244,6 +246,28 @@ const formatQuotaRemainingLabel = (percent: number | null, locale: string, fallb
   }
 
   return `${formatLocaleNumber(Math.round(percent), locale)}%`;
+};
+
+const getFiveHourRemainingPercent = (
+  quotaEntry?: { status?: string; windows?: CodexQuotaWindow[] }
+) => {
+  if (quotaEntry?.status !== 'success' || !Array.isArray(quotaEntry.windows)) {
+    return null;
+  }
+
+  const fiveHourWindow = quotaEntry.windows.find(
+    (windowItem) => windowItem.id === FIVE_HOUR_WINDOW_ID
+  );
+  if (fiveHourWindow?.usedPercent === null || fiveHourWindow?.usedPercent === undefined) {
+    return null;
+  }
+
+  const usedPercent = Number(fiveHourWindow.usedPercent);
+  if (!Number.isFinite(usedPercent)) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(100, 100 - usedPercent));
 };
 
 const toNumber = (value: unknown): number => {
@@ -1078,6 +1102,7 @@ export function DashboardOverviewPage() {
             return [
               file.name,
               {
+                status: 'success',
                 planType: data.planType ?? null,
                 windows: Array.isArray(data.windows) ? data.windows : [],
               },
@@ -1086,6 +1111,7 @@ export function DashboardOverviewPage() {
             return [
               file.name,
               {
+                status: 'error',
                 planType: null,
                 windows: [],
               },
@@ -1297,6 +1323,41 @@ export function DashboardOverviewPage() {
   );
   const hasUsageSnapshot = overviewUsage !== null;
 
+  const fiveHourRemainingSummary = useMemo(() => {
+    const totalCount = codexFiles.length;
+
+    if (filesLoading || quotaLoading) {
+      return {
+        label: '加载中',
+        title: '正在汇总账号额度',
+      };
+    }
+
+    const remainingValues = codexFiles
+      .map((file) => getFiveHourRemainingPercent(codexQuotaByFile[file.name]))
+      .filter((value): value is number => value !== null);
+    const validCount = remainingValues.length;
+    const title = `已汇总 ${formatLocaleNumber(validCount, i18n.language)}/${formatLocaleNumber(
+      totalCount,
+      i18n.language
+    )} 个账号`;
+
+    if (validCount === 0) {
+      return {
+        label: '--',
+        title,
+      };
+    }
+
+    const averageRemaining =
+      remainingValues.reduce((sum, value) => sum + value, 0) / validCount;
+
+    return {
+      label: formatQuotaRemainingLabel(averageRemaining, i18n.language, '--'),
+      title,
+    };
+  }, [codexFiles, codexQuotaByFile, filesLoading, i18n.language, quotaLoading]);
+
   const accountCards = useMemo(
     () =>
       codexFiles.map((file) => {
@@ -1316,7 +1377,9 @@ export function DashboardOverviewPage() {
                 tokens: 0,
               };
         const quotaEntry = codexQuotaByFile[file.name];
-        const quotaWindows = Array.isArray(quotaEntry?.windows) ? quotaEntry.windows : [];
+        const quotaReady = quotaEntry?.status === 'success';
+        const quotaWindows =
+          quotaReady && Array.isArray(quotaEntry.windows) ? quotaEntry.windows : [];
         const fallbackResetLabel = quotaLoading || filesLoading ? t('common.loading') : '--';
         const fallbackRemainingLabel = quotaLoading || filesLoading ? t('common.loading') : '--';
         const successTone = getSuccessTone(usageStats.requests, usageStats.success);
@@ -1374,7 +1437,7 @@ export function DashboardOverviewPage() {
             i18n.language
           ),
           successTone,
-          planLabel: formatPlanLabel(quotaEntry?.planType, t),
+          planLabel: formatPlanLabel(quotaReady ? quotaEntry.planType : null, t),
           windows,
         };
       }),
@@ -1438,6 +1501,15 @@ export function DashboardOverviewPage() {
                 </Button>
               </div>
               <div className={styles.summaryPills}>
+                <span
+                  className={`${styles.summaryPill} ${styles.summaryPillQuota}`}
+                  title={fiveHourRemainingSummary.title}
+                >
+                  <span className={styles.summaryLabel}>
+                    {t('usage_stats.total_5h_remaining_quota')}
+                  </span>
+                  <span className={styles.summaryValue}>{fiveHourRemainingSummary.label}</span>
+                </span>
                 <span className={`${styles.summaryPill} ${styles.summaryPillRequests}`}>
                   <span className={styles.summaryLabel}>{t('usage_stats.total_requests')}</span>
                   <span className={styles.summaryValue}>

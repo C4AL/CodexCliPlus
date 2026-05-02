@@ -38,12 +38,72 @@
     <GradientStop Color="#CCFFFFFF" Offset="0.5" />
     <GradientStop Color="#00FFFFFF" Offset="1" />
   </LinearGradientBrush>
+  <Style x:Key="ShellRaisedPanelShadowHostStyle" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Effect" Value="{StaticResource ShellRaisedPanelShadow}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+  </Style>
   <Style x:Key="ShellRaisedPanelStyle" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="18" />
-    <Setter Property="Effect" Value="{StaticResource ShellRaisedPanelShadow}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+  </Style>
+  <Style x:Key="ShellPasswordInputStyle" TargetType="{x:Type PasswordBox}">
+    <Setter Property="Height" Value="38" />
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type PasswordBox}">
+          <Border
+            x:Name="InputChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="9"
+          >
+            <ScrollViewer
+              x:Name="PART_ContentHost"
+              Margin="{TemplateBinding Padding}"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+            </Trigger>
+            <Trigger Property="Validation.HasError" Value="True">
+              <Setter TargetName="InputChrome" Property="BorderBrush" Value="#B42318" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.55" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
   <Style x:Key="ShellIconButtonStyle" TargetType="{x:Type Button}">
     <Setter Property="Width" Value="34" />

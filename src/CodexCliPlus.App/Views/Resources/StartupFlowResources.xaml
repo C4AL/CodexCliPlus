@@ -51,6 +51,119 @@
     <Setter Property="TextWrapping" Value="Wrap" />
   </Style>
 
+  <Style x:Key="StartupFlowTextBoxStyle" TargetType="{x:Type TextBox}">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type TextBox}">
+          <Border
+            x:Name="InputChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="9"
+          >
+            <ScrollViewer
+              x:Name="PART_ContentHost"
+              Margin="{TemplateBinding Padding}"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+              <Setter
+                TargetName="InputChrome"
+                Property="Background"
+                Value="{DynamicResource SurfaceBrush}"
+              />
+            </Trigger>
+            <Trigger Property="Validation.HasError" Value="True">
+              <Setter TargetName="InputChrome" Property="BorderBrush" Value="#B42318" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.55" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="StartupFlowPasswordBoxStyle" TargetType="{x:Type PasswordBox}">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type PasswordBox}">
+          <Border
+            x:Name="InputChrome"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{TemplateBinding BorderBrush}"
+            BorderThickness="{TemplateBinding BorderThickness}"
+            CornerRadius="9"
+          >
+            <ScrollViewer
+              x:Name="PART_ContentHost"
+              Margin="{TemplateBinding Padding}"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+            />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter
+                TargetName="InputChrome"
+                Property="BorderBrush"
+                Value="{DynamicResource AccentBrush}"
+              />
+              <Setter
+                TargetName="InputChrome"
+                Property="Background"
+                Value="{DynamicResource SurfaceBrush}"
+              />
+            </Trigger>
+            <Trigger Property="Validation.HasError" Value="True">
+              <Setter TargetName="InputChrome" Property="BorderBrush" Value="#B42318" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.55" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <Style x:Key="StartupPrimaryButtonStyle" TargetType="{x:Type Button}">
     <Setter Property="Height" Value="40" />
     <Setter Property="MinWidth" Value="126" />

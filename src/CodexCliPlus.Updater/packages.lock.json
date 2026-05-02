@@ -1,7 +1,22 @@
 {
   "version": 1,
   "dependencies": {
-    "net10.0-windows7.0": {},
+    "net10.0-windows7.0": {
+      "ControlzEx": {
+        "type": "Direct",
+        "requested": "[7.0.4, )",
+        "resolved": "7.0.4",
+        "contentHash": "IDSQItUCLC8hhI6VXaAHA8WWKmlRBYC/f+fG2YKGUyIMYi477Enr6IROc48MikyONDrbjr4MtWT5Zhk+N+1dEg==",
+        "dependencies": {
+          "Microsoft.Xaml.Behaviors.Wpf": "1.1.135"
+        }
+      },
+      "Microsoft.Xaml.Behaviors.Wpf": {
+        "type": "Transitive",
+        "resolved": "1.1.135",
+        "contentHash": "r8qBEXmQfORso2+MVHnt8PSH4761zJ0SIxgQTSEDVLU97EN2FZdG6/ZCYUPhQy+OrPKgnpYBCAs3PS6Bs7wRsg=="
+      }
+    },
     "net10.0-windows7.0/win-x64": {}
   }
 }

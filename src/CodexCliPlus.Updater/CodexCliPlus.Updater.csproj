@@ -8,4 +8,7 @@
     <AssemblyName>CodexCliPlus.Updater</AssemblyName>
     <RootNamespace>CodexCliPlus.Updater</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ControlzEx" Version="7.0.4" />
+  </ItemGroup>
 </Project>

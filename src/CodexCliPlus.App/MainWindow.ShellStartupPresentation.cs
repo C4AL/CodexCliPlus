@@ -208,7 +208,7 @@ public partial class MainWindow
 
     private void RefreshShellBrandDockPopupPlacement()
     {
-        if (!ShellBrandDockPopup.IsOpen)
+        if (ShellBrandDockPopup is null || !ShellBrandDockPopup.IsOpen)
         {
             return;
         }

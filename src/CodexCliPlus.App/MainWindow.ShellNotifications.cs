@@ -223,14 +223,21 @@ public partial class MainWindow
         Grid.SetRow(progress, 1);
         root.Children.Add(progress);
 
-        var card = new Border
+        var contentCard = new Border
         {
-            Margin = new Thickness(0, 0, 0, 10),
             Background = (WpfBrush)FindResource("SurfaceBrush"),
             BorderBrush = (WpfBrush)FindResource("BorderBrush"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             ClipToBounds = true,
+            Child = root,
+        };
+
+        var card = new Border
+        {
+            Margin = new Thickness(0, 0, 0, 10),
+            Background = (WpfBrush)FindResource("SurfaceBrush"),
+            CornerRadius = new CornerRadius(10),
             Effect = new DropShadowEffect
             {
                 BlurRadius = 18,
@@ -239,7 +246,7 @@ public partial class MainWindow
                 Opacity = 1,
                 ShadowDepth = 2,
             },
-            Child = root,
+            Child = contentCard,
             Tag = progress,
         };
         card.SizeChanged += (_, _) => UpdateNotificationCardClip(card);
@@ -271,16 +278,17 @@ public partial class MainWindow
 
     private static void UpdateNotificationCardClip(Border card)
     {
-        if (card.ActualWidth <= 0 || card.ActualHeight <= 0)
+        var clipTarget = card.Child as Border ?? card;
+        if (clipTarget.ActualWidth <= 0 || clipTarget.ActualHeight <= 0)
         {
             return;
         }
 
-        var radius = Math.Max(card.CornerRadius.TopLeft, card.CornerRadius.TopRight);
-        radius = Math.Max(radius, card.CornerRadius.BottomLeft);
-        radius = Math.Max(radius, card.CornerRadius.BottomRight);
-        card.Clip = new RectangleGeometry(
-            new Rect(0, 0, card.ActualWidth, card.ActualHeight),
+        var radius = Math.Max(clipTarget.CornerRadius.TopLeft, clipTarget.CornerRadius.TopRight);
+        radius = Math.Max(radius, clipTarget.CornerRadius.BottomLeft);
+        radius = Math.Max(radius, clipTarget.CornerRadius.BottomRight);
+        clipTarget.Clip = new RectangleGeometry(
+            new Rect(0, 0, clipTarget.ActualWidth, clipTarget.ActualHeight),
             radius,
             radius
         );

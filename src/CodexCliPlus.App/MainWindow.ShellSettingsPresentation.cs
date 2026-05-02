@@ -46,9 +46,8 @@ public partial class MainWindow
     {
         if (_settingsOverlayOpen)
         {
-            PositionSettingsWindow();
-            _settingsWindow?.Activate();
             UpdateSettingsOverlayBaseline();
+            Activate();
             return;
         }
 
@@ -57,13 +56,14 @@ public partial class MainWindow
             _settingsOverlayOpen = true;
             SetNavigationDockPopupOpen(false);
             UpdateSettingsOverlayBaseline();
-            EnsureSettingsWindow();
-            PositionSettingsWindow();
-            SettingsOverlay.Visibility = Visibility.Collapsed;
-            if (_settingsWindowRoot is not null)
+            _settingsOverlayCoveredWebView = ManagementWebView.Visibility == Visibility.Visible;
+            if (_settingsOverlayCoveredWebView)
             {
-                _settingsWindowRoot.Opacity = 0;
+                ManagementWebView.Visibility = Visibility.Collapsed;
             }
+
+            SettingsOverlay.Visibility = Visibility.Visible;
+            SettingsOverlay.Opacity = 0;
 
             if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
             {
@@ -73,18 +73,17 @@ public partial class MainWindow
                 scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateEaseAnimation(1, 180));
             }
 
-            _settingsWindow?.Show();
-            _settingsWindow?.Activate();
-            _settingsWindowRoot?.BeginAnimation(
+            SettingsOverlay.BeginAnimation(
                 UIElement.OpacityProperty,
                 CreateEaseAnimation(1, 180)
             );
+            Activate();
             await RefreshSettingsOverlayAsync();
         }
         catch (Exception exception)
         {
             _settingsOverlayOpen = false;
-            CloseSettingsWindow();
+            CloseSettingsOverlayImmediately();
             UpdateNavigationDockPopupVisibility();
             _notificationService.ShowManual("设置打开失败", exception.Message);
         }
@@ -100,7 +99,7 @@ public partial class MainWindow
         _settingsOverlayOpen = false;
         CloseShellDockPopups();
         CancelSettingsOverviewRefresh();
-        _settingsWindowRoot?.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
+        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, CreateEaseAnimation(0, 140));
         if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
         {
             scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateEaseAnimation(0.96, 140));
@@ -110,117 +109,44 @@ public partial class MainWindow
         await Task.Delay(TimeSpan.FromMilliseconds(150));
         if (!_settingsOverlayOpen)
         {
-            CloseSettingsWindow();
+            CloseSettingsOverlayImmediately();
             UpdateNavigationDockPopupVisibility();
         }
     }
 
-    private void EnsureSettingsWindow()
+    private void CloseSettingsOverlayImmediately()
     {
-        if (_settingsWindow is not null)
-        {
-            return;
-        }
-
-        if (SettingsDialogCard.Parent is System.Windows.Controls.Panel currentParent)
-        {
-            currentParent.Children.Remove(SettingsDialogCard);
-        }
-
-        _settingsWindowRoot = new Grid
-        {
-            Background = new SolidColorBrush(WpfColor.FromArgb(0x55, 0, 0, 0)),
-            Opacity = 0,
-        };
-        _settingsWindowRoot.MouseLeftButtonDown += SettingsWindowRoot_MouseLeftButtonDown;
-        _settingsWindowRoot.Children.Add(SettingsDialogCard);
-
-        _settingsWindow = new Window
-        {
-            Owner = this,
-            ShowInTaskbar = false,
-            WindowStyle = WindowStyle.None,
-            ResizeMode = ResizeMode.NoResize,
-            AllowsTransparency = true,
-            Background = System.Windows.Media.Brushes.Transparent,
-            Content = _settingsWindowRoot,
-            Topmost = false,
-        };
-        _settingsWindow.Closed += SettingsWindow_Closed;
-    }
-
-    private async void SettingsWindowRoot_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (ReferenceEquals(e.OriginalSource, _settingsWindowRoot))
-        {
-            await HideSettingsOverlayAsync();
-        }
-    }
-
-    private void SettingsWindow_Closed(object? sender, EventArgs e)
-    {
-        if (_settingsWindowRoot is not null)
-        {
-            _settingsWindowRoot.MouseLeftButtonDown -= SettingsWindowRoot_MouseLeftButtonDown;
-            if (SettingsDialogCard.Parent == _settingsWindowRoot)
-            {
-                _settingsWindowRoot.Children.Remove(SettingsDialogCard);
-            }
-        }
-
-        if (!SettingsOverlay.Children.Contains(SettingsDialogCard))
-        {
-            SettingsOverlay.Children.Add(SettingsDialogCard);
-        }
-
-        _settingsWindow = null;
-        _settingsWindowRoot = null;
+        SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+        SettingsOverlay.Opacity = 0;
         SettingsOverlay.Visibility = Visibility.Collapsed;
+        if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            scale.ScaleX = 0.96;
+            scale.ScaleY = 0.96;
+        }
+
+        RestoreManagementWebViewAfterSettingsOverlay();
     }
 
-    private void PositionSettingsWindow()
+    private void RestoreManagementWebViewAfterSettingsOverlay()
     {
-        if (_settingsWindow is null)
+        if (!_settingsOverlayCoveredWebView)
         {
             return;
         }
 
-        _settingsWindow.Left = Left;
-        _settingsWindow.Top = Top;
-        _settingsWindow.Width = Math.Max(ActualWidth, MinWidth);
-        _settingsWindow.Height = Math.Max(ActualHeight, MinHeight);
-    }
-
-    private void CloseSettingsWindow()
-    {
-        CloseShellDockPopups();
-        if (_settingsWindow is null)
+        _settingsOverlayCoveredWebView = false;
+        if (
+            _startupState == StartupState.LoadingManagement
+            && UpgradeNoticePanel.Visibility != Visibility.Visible
+            && StartupFlow.Visibility != Visibility.Visible
+            && BlockerPanel.Visibility != Visibility.Visible
+        )
         {
-            return;
+            ManagementWebView.Visibility = Visibility.Visible;
         }
-
-        _settingsWindow.Closed -= SettingsWindow_Closed;
-        var window = _settingsWindow;
-        _settingsWindow = null;
-        window.Content = null;
-
-        if (_settingsWindowRoot is not null)
-        {
-            _settingsWindowRoot.MouseLeftButtonDown -= SettingsWindowRoot_MouseLeftButtonDown;
-            if (SettingsDialogCard.Parent == _settingsWindowRoot)
-            {
-                _settingsWindowRoot.Children.Remove(SettingsDialogCard);
-            }
-        }
-
-        if (!SettingsOverlay.Children.Contains(SettingsDialogCard))
-        {
-            SettingsOverlay.Children.Add(SettingsDialogCard);
-        }
-
-        _settingsWindowRoot = null;
-        window.Close();
-        SettingsOverlay.Visibility = Visibility.Collapsed;
     }
 
     private async Task RefreshShellDockOverviewAsync()

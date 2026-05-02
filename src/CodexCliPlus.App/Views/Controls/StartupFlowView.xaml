@@ -261,20 +261,20 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                   </Grid.ColumnDefinitions>
-                  <Grid Grid.Column="0" Height="40" MinWidth="360">
+                  <Grid Grid.Column="0" Height="64" MinWidth="360">
                     <TextBox
                       x:Name="FirstRunSecurityKeyTextBox"
-                      Height="40"
-                      Padding="10,8,48,8"
+                      Height="64"
+                      Padding="10,9,48,9"
                       HorizontalAlignment="Stretch"
                       FontFamily="Consolas"
                       FontSize="15"
                       Style="{StaticResource StartupFlowTextBoxStyle}"
-                      HorizontalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled"
                       IsReadOnly="True"
                       AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
                       AutomationProperties.Name="安全密钥"
-                      TextWrapping="NoWrap"
+                      TextWrapping="Wrap"
                       VerticalContentAlignment="Center"
                       VerticalScrollBarVisibility="Disabled"
                     />

@@ -5,7 +5,7 @@ const authState = vi.hoisted(() => ({
   managementKey: 'secret'
 }));
 
-vi.mock('@/services/api', () => ({
+vi.mock('@/services/api/usage', () => ({
   usageApi: {
     getUsage: vi.fn()
   }
@@ -33,7 +33,7 @@ vi.mock('@/i18n', () => ({
 }));
 
 import { notifyUsageStatsRefreshedInDesktopShell } from '@/desktop/bridge';
-import { usageApi } from '@/services/api';
+import { usageApi } from '@/services/api/usage';
 import { useUsageStatsStore } from '@/stores/useUsageStatsStore';
 
 const mockedUsageApi = vi.mocked(usageApi);

@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
@@ -23,6 +23,14 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
 import { configApi } from '@/services/api/config';
 import { logsApi } from '@/services/api/logs';
+import {
+  requestErrorLogsRefresh,
+  requestLogsRefresh,
+  resetLogStreamScheduler,
+  subscribeLogStream,
+  type LogRefreshMode,
+  type LogStreamEvent,
+} from '@/services/refresh';
 import { copyToClipboard } from '@/utils/clipboard';
 import { downloadBlob } from '@/utils/download';
 import { MANAGEMENT_API_PREFIX } from '@/utils/constants';
@@ -102,89 +110,32 @@ export function LogsPage() {
     startY: number;
     fired: boolean;
   } | null>(null);
-  const logRequestInFlightRef = useRef(false);
-  const pendingFullReloadRef = useRef(false);
-
-  // 保存最新时间戳用于增量获取
-  const latestTimestampRef = useRef<number>(0);
-
   const disableControls = connectionStatus !== 'connected';
 
-  const loadLogs = async (incremental = false) => {
+  const loadLogs = useCallback(async (mode: LogRefreshMode = 'full') => {
     if (connectionStatus !== 'connected') {
       setLoading(false);
       return;
     }
 
-    if (logRequestInFlightRef.current) {
-      if (!incremental) {
-        pendingFullReloadRef.current = true;
-      }
-      return;
-    }
-
-    logRequestInFlightRef.current = true;
-
-    if (!incremental) {
+    if (mode === 'full') {
       setLoading(true);
     }
     setError('');
 
     try {
-      const stickToBottom = !incremental || isNearBottom(logViewerRef.current);
-      if (stickToBottom) {
-        requestScrollToBottom();
-      }
-
-      const params =
-        incremental && latestTimestampRef.current > 0 ? { after: latestTimestampRef.current } : {};
-      const data = await logsApi.fetchLogs(params);
-
-      // 更新时间戳
-      if (data['latest-timestamp']) {
-        latestTimestampRef.current = data['latest-timestamp'];
-      }
-
-      const newLines = Array.isArray(data.lines) ? data.lines : [];
-
-      if (incremental && newLines.length > 0) {
-        // 增量更新：追加新日志并限制缓冲区大小（避免内存与渲染膨胀）
-        setLogState((prev) => {
-          const prevRenderedCount = prev.buffer.length - prev.visibleFrom;
-          const combined = [...prev.buffer, ...newLines];
-          const dropCount = Math.max(combined.length - MAX_BUFFER_LINES, 0);
-          const buffer = dropCount > 0 ? combined.slice(dropCount) : combined;
-          let visibleFrom = Math.max(prev.visibleFrom - dropCount, 0);
-
-          // 若用户停留在底部（跟随最新日志），则保持“渲染窗口”大小不变，避免无限增长
-          if (stickToBottom) {
-            visibleFrom = Math.max(buffer.length - prevRenderedCount, 0);
-          }
-
-          return { buffer, visibleFrom };
-        });
-      } else if (!incremental) {
-        // 全量加载：默认只渲染最后 100 行，向上滚动再展开更多
-        const buffer = newLines.slice(-MAX_BUFFER_LINES);
-        const visibleFrom = Math.max(buffer.length - INITIAL_DISPLAY_LINES, 0);
-        setLogState({ buffer, visibleFrom });
-      }
+      await requestLogsRefresh('logs-page', { mode });
     } catch (err: unknown) {
       console.error('Failed to load logs:', err);
-      if (!incremental) {
+      if (mode === 'full') {
         setError(getErrorMessage(err) || t('logs.load_error'));
       }
     } finally {
-      if (!incremental) {
+      if (mode === 'full') {
         setLoading(false);
       }
-      logRequestInFlightRef.current = false;
-      if (pendingFullReloadRef.current) {
-        pendingFullReloadRef.current = false;
-        void loadLogs(false);
-      }
     }
-  };
+  }, [connectionStatus, t]);
 
   const clearLogs = async () => {
     showConfirmation({
@@ -195,8 +146,8 @@ export function LogsPage() {
       onConfirm: async () => {
         try {
           await logsApi.clearLogs();
+          resetLogStreamScheduler(traceScopeKey);
           setLogState({ buffer: [], visibleFrom: 0 });
-          latestTimestampRef.current = 0;
           showNotification(t('logs.clear_success'), 'success');
         } catch (err: unknown) {
           const message = getErrorMessage(err);
@@ -215,7 +166,7 @@ export function LogsPage() {
     showNotification(t('logs.download_success'), 'success');
   };
 
-  const loadErrorLogs = async () => {
+  const loadErrorLogs = useCallback(async () => {
     if (connectionStatus !== 'connected') {
       setLoadingErrors(false);
       return;
@@ -224,7 +175,7 @@ export function LogsPage() {
     setLoadingErrors(true);
     setErrorLogsError('');
     try {
-      const res = await logsApi.fetchErrorLogs();
+      const res = await requestErrorLogsRefresh('logs-page');
       // API 返回 { files: [...] }
       setErrorLogs(Array.isArray(res.files) ? res.files : []);
     } catch (err: unknown) {
@@ -237,7 +188,7 @@ export function LogsPage() {
     } finally {
       setLoadingErrors(false);
     }
-  };
+  }, [connectionStatus, t]);
 
   const downloadErrorLog = async (name: string) => {
     try {
@@ -252,36 +203,6 @@ export function LogsPage() {
       );
     }
   };
-
-  useEffect(() => {
-    if (connectionStatus === 'connected') {
-      latestTimestampRef.current = 0;
-      loadLogs(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionStatus]);
-
-  useEffect(() => {
-    if (activeTab !== 'errors') return;
-    if (connectionStatus !== 'connected') return;
-    const timer = window.setTimeout(() => {
-      void loadErrorLogs();
-    }, 0);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, connectionStatus, requestLogEnabled]);
-
-  useDesktopDataChanged(
-    ['logs'],
-    () => {
-      if (activeTab === 'errors') {
-        void loadErrorLogs();
-        return;
-      }
-      void loadLogs(false);
-    },
-    connectionStatus === 'connected'
-  );
 
   const visibleLines = useMemo(
     () => logState.buffer.slice(logState.visibleFrom),
@@ -365,6 +286,103 @@ export function LogsPage() {
     hasStructuredFilters: filters.hasStructuredFilters,
     showRawLogs,
   });
+
+  const applyLogStreamEvent = useCallback(
+    (event: LogStreamEvent) => {
+      if (event.scopeKey !== traceScopeKey) {
+        return;
+      }
+
+      const newLines = event.lines;
+      const stickToBottom = event.mode === 'full' || isNearBottom(logViewerRef.current);
+      if (stickToBottom) {
+        requestScrollToBottom();
+      }
+
+      if (event.mode === 'incremental') {
+        if (newLines.length === 0) {
+          return;
+        }
+
+        setLogState((prev) => {
+          const prevRenderedCount = prev.buffer.length - prev.visibleFrom;
+          const combined = [...prev.buffer, ...newLines];
+          const dropCount = Math.max(combined.length - MAX_BUFFER_LINES, 0);
+          const buffer = dropCount > 0 ? combined.slice(dropCount) : combined;
+          let visibleFrom = Math.max(prev.visibleFrom - dropCount, 0);
+
+          if (stickToBottom) {
+            visibleFrom = Math.max(buffer.length - prevRenderedCount, 0);
+          }
+
+          return { buffer, visibleFrom };
+        });
+        return;
+      }
+
+      const buffer = newLines.slice(-MAX_BUFFER_LINES);
+      const visibleFrom = Math.max(buffer.length - INITIAL_DISPLAY_LINES, 0);
+      setLogState({ buffer, visibleFrom });
+    },
+    [logViewerRef, requestScrollToBottom, traceScopeKey]
+  );
+
+  useEffect(() => subscribeLogStream(applyLogStreamEvent), [applyLogStreamEvent]);
+
+  useEffect(() => {
+    if (connectionStatus !== 'connected') {
+      const timer = window.setTimeout(() => {
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    const timer = window.setTimeout(() => {
+      void loadLogs('full');
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [connectionStatus, loadLogs]);
+
+  useEffect(() => {
+    if (activeTab !== 'errors') return;
+    if (connectionStatus !== 'connected') return;
+    const timer = window.setTimeout(() => {
+      void loadErrorLogs();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, connectionStatus, loadErrorLogs, requestLogEnabled]);
+
+  useEffect(() => {
+    if (activeTab !== 'logs' || connectionStatus !== 'connected') {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadLogs('incremental');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [activeTab, connectionStatus, loadLogs]);
+
+  useDesktopDataChanged(
+    ['logs'],
+    () => {
+      if (activeTab === 'errors') {
+        void loadErrorLogs();
+        return;
+      }
+      void loadLogs('incremental');
+    },
+    connectionStatus === 'connected'
+  );
 
   useEffect(() => {
     if (loading || typeof performance === 'undefined') {

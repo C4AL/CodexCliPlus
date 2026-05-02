@@ -139,7 +139,7 @@ export function UsagePage() {
     importing,
   } = useUsageData();
 
-  useDesktopDataChanged(['usage', 'persistence'], () => {
+  useDesktopDataChanged(['usage'], () => {
     void loadUsage().catch(() => {});
   });
 

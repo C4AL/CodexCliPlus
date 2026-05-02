@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { notifyUsageStatsRefreshedInDesktopShell } from '@/desktop/bridge';
-import { usageApi } from '@/services/api';
+import { requestUsageRefresh, resetUsageRefreshScheduler } from '@/services/refresh';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { collectUsageDetails, computeKeyStatsFromDetails, type KeyStats, type UsageDetail } from '@/utils/usage';
 import i18n from '@/i18n';
@@ -29,7 +29,6 @@ type UsageStatsState = {
 const createEmptyKeyStats = (): KeyStats => ({ bySource: {}, byAuthIndex: {} });
 
 let usageRequestToken = 0;
-let inFlightUsageRequest: { id: number; scopeKey: string; promise: Promise<void> } | null = null;
 
 const getErrorMessage = (error: unknown) =>
   error instanceof Error
@@ -55,16 +54,9 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
     const state = get();
     const scopeChanged = state.scopeKey !== scopeKey;
 
-    // 先复用同源 in-flight 请求，避免多个页面同时发起重复 /usage。
-    if (inFlightUsageRequest && inFlightUsageRequest.scopeKey === scopeKey) {
-      await inFlightUsageRequest.promise;
-      return;
-    }
-
     // 连接目标变化时，旧请求结果必须失效。
-    if (inFlightUsageRequest && inFlightUsageRequest.scopeKey !== scopeKey) {
+    if (scopeChanged) {
       usageRequestToken += 1;
-      inFlightUsageRequest = null;
     }
 
     const fresh =
@@ -90,51 +82,42 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
     const requestId = (usageRequestToken += 1);
     set({ loading: true, error: null, scopeKey });
 
-    const requestPromise = (async () => {
-      try {
-        const usageResponse = await usageApi.getUsage();
-        const rawUsage = usageResponse?.usage ?? usageResponse;
-        const usage =
-          rawUsage && typeof rawUsage === 'object' ? (rawUsage as UsageStatsSnapshot) : null;
+    try {
+      const result = await requestUsageRefresh(force ? 'force' : 'stale', { force, scopeKey });
+      const rawUsage = result.response?.usage ?? result.response;
+      const usage =
+        rawUsage && typeof rawUsage === 'object' ? (rawUsage as UsageStatsSnapshot) : null;
 
-        if (requestId !== usageRequestToken) return;
+      if (requestId !== usageRequestToken || result.scopeKey !== scopeKey) return;
 
-        const usageDetails = collectUsageDetails(usage);
-        set({
-          usage,
-          keyStats: computeKeyStatsFromDetails(usageDetails),
-          usageDetails,
-          loading: false,
-          error: null,
-          lastRefreshedAt: Date.now(),
-          scopeKey
-        });
-        notifyUsageStatsRefreshedInDesktopShell();
-      } catch (error: unknown) {
-        if (requestId !== usageRequestToken) return;
-        const message = getErrorMessage(error);
-        set({
-          loading: false,
-          error: message,
-          scopeKey
-        });
-        const wrappedError = new Error(message) as Error & { cause?: unknown };
-        wrappedError.cause = error;
-        throw wrappedError;
-      } finally {
-        if (inFlightUsageRequest?.id === requestId) {
-          inFlightUsageRequest = null;
-        }
-      }
-    })();
-
-    inFlightUsageRequest = { id: requestId, scopeKey, promise: requestPromise };
-    await requestPromise;
+      const usageDetails = collectUsageDetails(usage);
+      set({
+        usage,
+        keyStats: computeKeyStatsFromDetails(usageDetails),
+        usageDetails,
+        loading: false,
+        error: null,
+        lastRefreshedAt: result.refreshedAt,
+        scopeKey
+      });
+      notifyUsageStatsRefreshedInDesktopShell();
+    } catch (error: unknown) {
+      if (requestId !== usageRequestToken) return;
+      const message = getErrorMessage(error);
+      set({
+        loading: false,
+        error: message,
+        scopeKey
+      });
+      const wrappedError = new Error(message) as Error & { cause?: unknown };
+      wrappedError.cause = error;
+      throw wrappedError;
+    }
   },
 
   clearUsageStats: () => {
     usageRequestToken += 1;
-    inFlightUsageRequest = null;
+    resetUsageRefreshScheduler();
     set({
       usage: null,
       keyStats: createEmptyKeyStats(),

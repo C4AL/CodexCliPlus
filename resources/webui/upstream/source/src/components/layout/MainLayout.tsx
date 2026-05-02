@@ -483,14 +483,13 @@ export function MainLayout() {
         scopeSet.has('config') ||
         scopeSet.has('providers') ||
         scopeSet.has('quota') ||
-        scopeSet.has('auth-files') ||
-        scopeSet.has('persistence')
+        scopeSet.has('auth-files')
       ) {
         clearCache();
         void fetchConfig(undefined, true).catch(() => {});
       }
 
-      if (scopeSet.has('usage') || scopeSet.has('persistence')) {
+      if (scopeSet.has('usage')) {
         void loadUsageStats({ force: true }).catch(() => {});
       }
     },

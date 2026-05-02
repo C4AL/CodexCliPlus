@@ -4,10 +4,12 @@ import { CODEX_CONFIG } from '@/components/quota';
 import { useUsageData } from '@/components/usage';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
-import { authFilesApi, logsApi } from '@/services/api';
+import { authFilesApi } from '@/services/api';
+import { requestLogsRefresh, requestQuotaRefresh, subscribeLogStream } from '@/services/refresh';
 import { parseLogLine } from '@/pages/hooks/logParsing';
-import { useAuthStore, useConfigStore } from '@/stores';
+import { useAuthStore, useConfigStore, useQuotaStore } from '@/stores';
 import type {
   AuthFileItem,
   CodexQuotaWindow,
@@ -46,11 +48,6 @@ type CodexUsageStats = {
   success: number;
   failed: number;
   tokens: number;
-};
-
-type OverviewQuotaEntry = {
-  planType: string | null;
-  windows: CodexQuotaWindow[];
 };
 
 type OverviewRequestEventRow = {
@@ -413,7 +410,6 @@ function useOverviewLiveUsageRefresh({
     expiresAtById: new Map<string, number>(),
   }));
 
-  const lastLogTimestampRef = useRef(0);
   const logSeededRef = useRef(false);
   const idleRoundsRef = useRef(0);
   const refreshInFlightRef = useRef(false);
@@ -421,7 +417,6 @@ function useOverviewLiveUsageRefresh({
   const highlightCleanupTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    lastLogTimestampRef.current = 0;
     logSeededRef.current = false;
     idleRoundsRef.current = 0;
     refreshInFlightRef.current = false;
@@ -552,6 +547,35 @@ function useOverviewLiveUsageRefresh({
   }, [highlightState, usageScopeKey]);
 
   useEffect(() => {
+    if (connectionStatus !== 'connected') {
+      return;
+    }
+
+    return subscribeLogStream((event) => {
+      if (event.scopeKey !== usageScopeKey || event.mode !== 'incremental') {
+        return;
+      }
+
+      const signalCount = countOverviewUsageLogSignals(event.lines);
+      if (signalCount <= 0) {
+        return;
+      }
+
+      idleRoundsRef.current = 0;
+      if (refreshInFlightRef.current) {
+        return;
+      }
+
+      refreshInFlightRef.current = true;
+      void onUsageRefresh()
+        .catch(() => {})
+        .finally(() => {
+          refreshInFlightRef.current = false;
+        });
+    });
+  }, [connectionStatus, onUsageRefresh, usageScopeKey]);
+
+  useEffect(() => {
     if (
       connectionStatus !== 'connected' ||
       typeof window === 'undefined' ||
@@ -590,39 +614,20 @@ function useOverviewLiveUsageRefresh({
       let nextDelayMs = BASE_POLL_MS;
 
       try {
-        if (!logSeededRef.current) {
-          const seedResult = await logsApi.fetchLogs();
-          if (cancelled) {
-            return;
-          }
+        const event = await requestLogsRefresh('dashboard-overview', {
+          mode: logSeededRef.current ? 'incremental' : 'full',
+        });
+        if (cancelled) {
+          return;
+        }
 
-          if (typeof seedResult?.['latest-timestamp'] === 'number') {
-            lastLogTimestampRef.current = seedResult['latest-timestamp'];
-          }
+        if (!logSeededRef.current) {
           logSeededRef.current = true;
           idleRoundsRef.current = 0;
         } else {
-          const params = lastLogTimestampRef.current ? { after: lastLogTimestampRef.current } : {};
-          const logResult = await logsApi.fetchLogs(params);
-          if (cancelled) {
-            return;
-          }
-
-          if (typeof logResult?.['latest-timestamp'] === 'number') {
-            lastLogTimestampRef.current = logResult['latest-timestamp'];
-          }
-
-          const lines = Array.isArray(logResult?.lines) ? logResult.lines : [];
-          const signalCount = countOverviewUsageLogSignals(lines);
+          const signalCount = countOverviewUsageLogSignals(event.lines);
           if (signalCount > 0) {
-            idleRoundsRef.current = 0;
             nextDelayMs = FAST_POLL_MS;
-
-            if (!refreshInFlightRef.current) {
-              refreshInFlightRef.current = true;
-              await onUsageRefresh().catch(() => {});
-              refreshInFlightRef.current = false;
-            }
           } else {
             idleRoundsRef.current += 1;
             nextDelayMs = idleRoundsRef.current >= 12 ? IDLE_POLL_MS : BASE_POLL_MS;
@@ -656,7 +661,7 @@ function useOverviewLiveUsageRefresh({
       clearTimer();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [connectionStatus, onUsageRefresh]);
+  }, [connectionStatus, usageScopeKey]);
 
   const highlightedIds =
     highlightState.scopeKey === usageScopeKey
@@ -974,13 +979,14 @@ export function DashboardOverviewPage() {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const quotaScopeKey = useAuthStore((state) => `${state.apiBase}::${state.managementKey}`);
   const appConfig = useConfigStore((state) => state.config);
+  const codexQuotaByFile = useQuotaStore((state) => state.codexQuota);
+  const setCodexQuota = useQuotaStore((state) => state.setCodexQuota);
 
   const { usage, loading, error, lastRefreshedAt, loadUsage } = useUsageData();
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [quotaLoading, setQuotaLoading] = useState(false);
-  const [codexQuotaByFile, setCodexQuotaByFile] = useState<Record<string, OverviewQuotaEntry>>({});
 
   const quotaSyncSignatureRef = useRef('');
   const quotaRequestKeyRef = useRef('');
@@ -1007,41 +1013,15 @@ export function DashboardOverviewPage() {
     }
   }, [connectionStatus]);
 
-  const fetchCodexQuotaEntries = useCallback(
-    async (targetFiles: AuthFileItem[]) => {
-      const codexFiles = targetFiles.filter((file) => isCodexAuthFile(file));
-      return await Promise.all(
-        codexFiles.map(async (file) => {
-          try {
-            const data = await CODEX_CONFIG.fetchQuota(file, t);
-            return [
-              file.name,
-              {
-                planType: data.planType ?? null,
-                windows: Array.isArray(data.windows) ? data.windows : [],
-              },
-            ] as const;
-          } catch {
-            return [
-              file.name,
-              {
-                planType: null,
-                windows: [],
-              },
-            ] as const;
-          }
-        })
-      );
-    },
-    [t]
-  );
-
   const loadCodexQuota = useCallback(
-    async (targetFiles: AuthFileItem[]) => {
+    async (
+      targetFiles: AuthFileItem[],
+      options: { force?: boolean; immediate?: boolean; showLoading?: boolean } = {}
+    ) => {
       if (connectionStatus !== 'connected') {
         quotaRequestKeyRef.current = '';
         setQuotaLoading(false);
-        setCodexQuotaByFile({});
+        setCodexQuota({});
         return;
       }
 
@@ -1049,7 +1029,7 @@ export function DashboardOverviewPage() {
       if (codexFiles.length === 0) {
         quotaRequestKeyRef.current = '';
         setQuotaLoading(false);
-        setCodexQuotaByFile({});
+        setCodexQuota({});
         return;
       }
 
@@ -1058,18 +1038,23 @@ export function DashboardOverviewPage() {
         .join('|')}`;
 
       quotaRequestKeyRef.current = requestKey;
-      setQuotaLoading(true);
-
-      const entries = await fetchCodexQuotaEntries(codexFiles);
-
-      if (quotaRequestKeyRef.current !== requestKey) {
-        return;
+      if (options.showLoading !== false) {
+        setQuotaLoading(true);
       }
 
-      setCodexQuotaByFile(Object.fromEntries(entries));
-      setQuotaLoading(false);
+      try {
+        await requestQuotaRefresh(CODEX_CONFIG, codexFiles, {
+          t,
+          force: options.force,
+          immediate: options.immediate,
+        });
+      } finally {
+        if (quotaRequestKeyRef.current === requestKey && options.showLoading !== false) {
+          setQuotaLoading(false);
+        }
+      }
     },
-    [connectionStatus, fetchCodexQuotaEntries, quotaScopeKey]
+    [connectionStatus, quotaScopeKey, setCodexQuota, t]
   );
 
   const refreshCodexQuotaSubset = useCallback(
@@ -1078,34 +1063,41 @@ export function DashboardOverviewPage() {
         return;
       }
 
-      const entries = await fetchCodexQuotaEntries(targetFiles);
-      if (entries.length === 0) {
-        return;
-      }
-
-      setCodexQuotaByFile((current) => ({
-        ...current,
-        ...Object.fromEntries(entries),
-      }));
+      await requestQuotaRefresh(CODEX_CONFIG, targetFiles, {
+        t,
+        debounceMs: 1_500,
+      });
     },
-    [connectionStatus, fetchCodexQuotaEntries]
+    [connectionStatus, t]
   );
 
   const handleHeaderRefresh = useCallback(async () => {
     if (connectionStatus !== 'connected') {
       setFiles([]);
       setFilesLoading(false);
-      setCodexQuotaByFile({});
+      setCodexQuota({});
       setQuotaLoading(false);
       return;
     }
 
     const [refreshedFiles] = await Promise.all([loadOverviewFiles(), loadUsage()]);
     quotaSyncSignatureRef.current = '';
-    await loadCodexQuota(refreshedFiles);
-  }, [connectionStatus, loadCodexQuota, loadOverviewFiles, loadUsage]);
+    await loadCodexQuota(refreshedFiles, { force: true, immediate: true });
+  }, [connectionStatus, loadCodexQuota, loadOverviewFiles, loadUsage, setCodexQuota]);
 
   useHeaderRefresh(handleHeaderRefresh);
+
+  useDesktopDataChanged(
+    ['auth-files', 'quota', 'providers'],
+    () => {
+      void (async () => {
+        const refreshedFiles = await loadOverviewFiles();
+        quotaSyncSignatureRef.current = '';
+        await loadCodexQuota(refreshedFiles, { force: true, immediate: true });
+      })();
+    },
+    connectionStatus === 'connected'
+  );
 
   useEffect(() => {
     if (connectionStatus !== 'connected') {
@@ -1114,7 +1106,7 @@ export function DashboardOverviewPage() {
       const resetTimer = window.setTimeout(() => {
         setFiles([]);
         setFilesLoading(false);
-        setCodexQuotaByFile({});
+        setCodexQuota({});
         setQuotaLoading(false);
       }, 0);
       return () => {
@@ -1128,7 +1120,7 @@ export function DashboardOverviewPage() {
     return () => {
       window.clearTimeout(loadTimer);
     };
-  }, [connectionStatus, loadOverviewFiles, quotaScopeKey]);
+  }, [connectionStatus, loadOverviewFiles, quotaScopeKey, setCodexQuota]);
 
   const overviewUsage = useMemo(
     () => (usage ? filterUsageByTimeRange(usage, OVERVIEW_TIME_RANGE) : null),
@@ -1147,26 +1139,6 @@ export function DashboardOverviewPage() {
         .join('|')}`,
     [codexFiles, quotaScopeKey]
   );
-  const noUsageCodexFiles = useMemo(
-    () =>
-      codexFiles.filter((file) => {
-        const authIndex = getCodexAuthIndex(file);
-        if (!authIndex) {
-          return false;
-        }
-        const usageStats = usageByAuthIndex.get(authIndex);
-        return !usageStats || usageStats.requests === 0;
-      }),
-    [codexFiles, usageByAuthIndex]
-  );
-  const noUsageQuotaRefreshSignature = useMemo(
-    () =>
-      `${quotaScopeKey}::${noUsageCodexFiles
-        .map((file) => `${file.name}:${getCodexAuthIndex(file) ?? '-'}`)
-        .join('|')}`,
-    [noUsageCodexFiles, quotaScopeKey]
-  );
-
   useEffect(() => {
     if (connectionStatus !== 'connected') {
       quotaSyncSignatureRef.current = '';
@@ -1182,7 +1154,7 @@ export function DashboardOverviewPage() {
 
     if (!codexQuotaSignature || codexFiles.length === 0) {
       const resetTimer = window.setTimeout(() => {
-        setCodexQuotaByFile({});
+        setCodexQuota({});
         setQuotaLoading(false);
       }, 0);
       return () => {
@@ -1195,35 +1167,14 @@ export function DashboardOverviewPage() {
     }
 
     quotaSyncSignatureRef.current = codexQuotaSignature;
-    void loadCodexQuota(codexFiles);
-  }, [codexFiles, codexQuotaSignature, connectionStatus, filesLoading, loadCodexQuota]);
-
-  useEffect(() => {
-    if (connectionStatus !== 'connected' || noUsageCodexFiles.length === 0) {
-      return;
-    }
-
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const refreshTimer = window.setTimeout(() => {
-      void refreshCodexQuotaSubset(noUsageCodexFiles);
-    }, 0);
-
-    const intervalId = window.setInterval(() => {
-      void refreshCodexQuotaSubset(noUsageCodexFiles);
-    }, 45_000);
-
-    return () => {
-      window.clearTimeout(refreshTimer);
-      window.clearInterval(intervalId);
-    };
+    void loadCodexQuota(codexFiles, { immediate: true });
   }, [
+    codexFiles,
+    codexQuotaSignature,
     connectionStatus,
-    noUsageCodexFiles,
-    noUsageQuotaRefreshSignature,
-    refreshCodexQuotaSubset,
+    filesLoading,
+    loadCodexQuota,
+    setCodexQuota,
   ]);
 
   const totalRequests = useMemo(
@@ -1255,9 +1206,12 @@ export function DashboardOverviewPage() {
                 tokens: 0,
               };
         const quotaEntry = codexQuotaByFile[file.name];
-        const quotaWindows = Array.isArray(quotaEntry?.windows) ? quotaEntry.windows : [];
-        const fallbackResetLabel = quotaLoading || filesLoading ? t('common.loading') : '--';
-        const fallbackRemainingLabel = quotaLoading || filesLoading ? t('common.loading') : '--';
+        const quotaReady = quotaEntry?.status === 'success';
+        const quotaBusy = quotaLoading || filesLoading || quotaEntry?.status === 'loading';
+        const quotaWindows =
+          quotaReady && Array.isArray(quotaEntry.windows) ? quotaEntry.windows : [];
+        const fallbackResetLabel = quotaBusy ? t('common.loading') : '--';
+        const fallbackRemainingLabel = quotaBusy ? t('common.loading') : '--';
         const successTone = getSuccessTone(usageStats.requests, usageStats.success);
 
         const windows =
@@ -1313,7 +1267,7 @@ export function DashboardOverviewPage() {
             i18n.language
           ),
           successTone,
-          planLabel: formatPlanLabel(quotaEntry?.planType, t),
+          planLabel: formatPlanLabel(quotaReady ? quotaEntry.planType : null, t),
           windows,
         };
       }),

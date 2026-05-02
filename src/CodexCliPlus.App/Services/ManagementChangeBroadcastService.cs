@@ -65,8 +65,6 @@ public sealed class ManagementChangeBroadcastService : IDisposable
             WatchDirectory(
                 _pathService.Directories.PersistenceDirectory,
                 includeSubdirectories: true,
-                "usage",
-                "logs",
                 "persistence"
             );
         }

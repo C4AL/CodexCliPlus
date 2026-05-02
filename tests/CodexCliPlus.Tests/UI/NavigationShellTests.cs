@@ -187,7 +187,8 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("x:Name=\"ShellNavConsoleButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/dashboard/overview\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CommandParameter=\"/console\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"运行概览\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"操作台\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"运行概览\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"控制台\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号配置\"", xaml, StringComparison.Ordinal);

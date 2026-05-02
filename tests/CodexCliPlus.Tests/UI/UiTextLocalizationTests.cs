@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace CodexCliPlus.Tests.UI;
 
@@ -149,6 +150,39 @@ public sealed class UiTextLocalizationTests
         {
             Assert.DoesNotContain(phrase, visibleText, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void DesktopWebUiDashboardOverviewTranslationsUseChineseLabels()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var zhCn = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "i18n",
+                "locales",
+                "zh-CN.json"
+            ),
+            Encoding.UTF8
+        );
+
+        using var document = JsonDocument.Parse(zhCn);
+        var root = document.RootElement;
+        var nav = root.GetProperty("nav");
+        var dashboard = root.GetProperty("dashboard");
+
+        Assert.Equal("操作台", nav.GetProperty("dashboard_overview").GetString());
+        Assert.Equal("操作台", nav.GetProperty("console").GetString());
+        Assert.Equal("账号统计", dashboard.GetProperty("account_stats").GetString());
+        Assert.Equal("暂无可用账号", dashboard.GetProperty("no_codex_accounts").GetString());
+        Assert.DoesNotContain("运行概览", zhCn, StringComparison.Ordinal);
+        Assert.DoesNotContain("dashboard.account_stats", zhCn, StringComparison.Ordinal);
+        Assert.DoesNotContain("dashboard.no_codex_accounts", zhCn, StringComparison.Ordinal);
     }
 
     [Fact]

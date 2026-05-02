@@ -593,8 +593,6 @@ public partial class MainWindow
                 ShellNavDashboardOverviewButton,
                 ShellNavConfigButton,
                 ShellNavAccountButton,
-                ShellNavAuthFilesButton,
-                ShellNavQuotaButton,
                 ShellNavUsageButton,
                 ShellNavLogsButton,
             }
@@ -638,6 +636,18 @@ public partial class MainWindow
         if (normalized.Equals("/dashboard", StringComparison.OrdinalIgnoreCase))
         {
             return "/";
+        }
+
+        if (
+            normalized.Equals("/ai-providers", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/ai-providers/", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/auth-files", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("/auth-files/", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/oauth", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("/quota", StringComparison.OrdinalIgnoreCase)
+        )
+        {
+            return "/accounts";
         }
 
         return normalized.Equals("/console", StringComparison.OrdinalIgnoreCase)

@@ -110,7 +110,8 @@ public partial class MainWindow
                     yaml,
                     $"import/{Path.GetFileName(dialog.FileName)}"
                 );
-                await _managementConfigurationService.PutConfigYamlAsync(migration.Content);
+                var guardedYaml = await PreserveLocalRuntimeConfigAsync(migration.Content);
+                await _managementConfigurationService.PutConfigYamlAsync(guardedYaml);
                 _notificationService.ShowAuto(
                     BuildMigrationNotice("账号配置已导入", migration.Report)
                 );
@@ -294,11 +295,15 @@ public partial class MainWindow
     private async Task ApplyAccountPackagePayloadAsync(SecureAccountPackagePayload payload)
     {
         payload = await EnsureMigratedPackagePayloadAsync(payload);
+        var guardedConfigYaml = !string.IsNullOrWhiteSpace(payload.ConfigYaml)
+            ? await PreserveLocalRuntimeConfigAsync(payload.ConfigYaml)
+            : null;
+
         await ImportPayloadSecretsAsync(payload);
 
-        if (!string.IsNullOrWhiteSpace(payload.ConfigYaml))
+        if (!string.IsNullOrWhiteSpace(guardedConfigYaml))
         {
-            await _managementConfigurationService.PutConfigYamlAsync(payload.ConfigYaml);
+            await _managementConfigurationService.PutConfigYamlAsync(guardedConfigYaml);
         }
 
         if (payload.AuthFiles.Count > 0)
@@ -342,6 +347,33 @@ public partial class MainWindow
 
         _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
         _notificationService.ShowAuto("账号配置已导入。");
+    }
+
+    private async Task<string> PreserveLocalRuntimeConfigAsync(string importedYaml)
+    {
+        try
+        {
+            var currentYaml = await _managementConfigurationService.GetConfigYamlAsync();
+            if (string.IsNullOrWhiteSpace(currentYaml.Value))
+            {
+                throw new InvalidOperationException("本机运行配置为空。");
+            }
+
+            return AccountConfigImportGuard.PreserveLocalRuntimeSettings(
+                importedYaml,
+                currentYaml.Value
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn(
+                $"Failed to preserve local runtime config during account import: {exception.Message}"
+            );
+            throw new InvalidOperationException(
+                "无法读取本机运行安全配置，导入已停止，避免覆盖安全密钥。",
+                exception
+            );
+        }
     }
 
     private async Task<SecureAccountPackagePayload> EnsureMigratedPackagePayloadAsync(

@@ -36,6 +36,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("export-public-release", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("clean-artifacts", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--keep-package-staging", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--online-payload-base-url", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--artifact-retention", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -55,6 +56,8 @@ public sealed class BuildToolCommandTests : IDisposable
                 outputRoot,
                 "--keep-package-staging",
                 "true",
+                "--online-payload-base-url",
+                "https://example.test/releases/v9.9.9",
                 "--artifact-retention",
                 "2",
             ],
@@ -66,6 +69,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.NotNull(options);
         Assert.True(options.KeepPackageStaging);
         Assert.Equal(2, options.ArtifactRetention);
+        Assert.Equal("https://example.test/releases/v9.9.9", options.OnlinePayloadBaseUrl);
         Assert.Equal(Path.GetFullPath(outputRoot), options.OutputRoot);
     }
 
@@ -737,7 +741,7 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task VerifyPackageRejectsInvalidExecutableInsideInstallerStagingArchive()
+    public async Task VerifyPackageRejectsInvalidExecutableInsideUpdatePackage()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
         var outputRoot = Path.Combine(_rootDirectory, "out");
@@ -749,34 +753,21 @@ public sealed class BuildToolCommandTests : IDisposable
             CreateStubExecutableBytes(),
             CreateStubExecutableBytes()
         );
-        CreateStubExecutable(Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"));
+        CreateInstallerPackage(
+            packageRoot,
+            "Offline",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
         CreateZipWithExecutableEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"),
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
             new Dictionary<string, byte[]>
             {
-                ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
-                ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
-                    "<html></html>"
-                ),
-                ["app-package/assets/webui/upstream/dist/assets/app.js"] = Encoding.UTF8.GetBytes(
-                    "console.log('ok');"
-                ),
-                ["app-package/assets/webui/upstream/sync.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["mica-setup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["micasetup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["output/CodexCliPlus.Setup.Offline.9.9.9.exe"] = Encoding.UTF8.GetBytes("bad"),
-                [
-                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
-                ] = CreateStubExecutableBytes(),
-                [
-                    $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
-                ] = CreateStubExecutableBytes(),
-                ["app-package/packaging/uninstall-cleanup.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/dependency-precheck.json"] = Encoding.UTF8.GetBytes("{}"),
-                ["app-package/packaging/update-policy.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
+                ["payload/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("bad"),
             }
         );
-        CreateUpdatePackage(packageRoot);
+        WriteUnsignedSidecar(Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"));
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -797,7 +788,7 @@ public sealed class BuildToolCommandTests : IDisposable
 
         Assert.Equal(1, exitCode);
         Assert.Contains(
-            "output/CodexCliPlus.Setup.Offline.9.9.9.exe",
+            "payload/CodexCliPlus.exe",
             error.ToString(),
             StringComparison.Ordinal
         );
@@ -1069,7 +1060,9 @@ public sealed class BuildToolCommandTests : IDisposable
     )
     {
         var installerName = $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.exe";
-        File.WriteAllBytes(Path.Combine(packageRoot, installerName), installerBytes);
+        var installerPath = Path.Combine(packageRoot, installerName);
+        File.WriteAllBytes(installerPath, installerBytes);
+        WriteUnsignedSidecar(installerPath);
         CreateInstallerStagingZip(
             Path.Combine(packageRoot, $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.win-x64.zip"),
             installerName,
@@ -1079,14 +1072,16 @@ public sealed class BuildToolCommandTests : IDisposable
 
     private static void CreateUpdatePackage(string packageRoot)
     {
+        var updatePackagePath = Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip");
         CreateZipWithExecutableEntries(
-            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            updatePackagePath,
             new Dictionary<string, byte[]>
             {
                 ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["payload/CodexCliPlus.exe"] = CreateStubExecutableBytes(),
             }
         );
+        WriteUnsignedSidecar(updatePackagePath);
     }
 
     private static void CreateInstallerStagingZip(
@@ -1129,6 +1124,15 @@ public sealed class BuildToolCommandTests : IDisposable
     private static void CreateStubExecutable(string path)
     {
         File.WriteAllBytes(path, CreateStubExecutableBytes());
+        WriteUnsignedSidecar(path);
+    }
+
+    private static void WriteUnsignedSidecar(string path)
+    {
+        ArtifactSignatureMetadata
+            .WriteUnsignedAsync(path, "test artifact", CancellationToken.None)
+            .GetAwaiter()
+            .GetResult();
     }
 
     private static byte[] CreateStubExecutableBytes()

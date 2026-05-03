@@ -109,9 +109,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project $project -- publish --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- package-offline-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project $project -- package-update --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- package-online-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project $project -- package-offline-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet run --project $project -- verify-package --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

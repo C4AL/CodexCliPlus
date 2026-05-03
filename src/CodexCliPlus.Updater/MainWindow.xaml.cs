@@ -2,19 +2,16 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using System.Security.Cryptography;
-using System.Text.Json;
+using System.Text;
 using System.Windows;
 
 namespace CodexCliPlus.Updater;
 
 public partial class MainWindow : ControlzEx.WindowChromeWindow
 {
-    private static readonly JsonSerializerOptions ManifestJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
-
     public MainWindow()
     {
         InitializeComponent();
@@ -41,10 +38,10 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
 
     private async Task ApplyUpdateAsync(UpdaterOptions options)
     {
-        if (options.MainProcessId is { } processId)
+        if (options.MainProcessId.HasValue)
         {
             SetStatus("正在等待主程序退出。");
-            await WaitForProcessExitAsync(processId);
+            await WaitForProcessExitAsync(options.MainProcessId.Value);
         }
 
         if (
@@ -139,12 +136,8 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
             throw new InvalidDataException("更新包缺少清单文件。");
         }
 
-        var manifestJson = await File.ReadAllTextAsync(manifestPath);
-        var manifest =
-            JsonSerializer.Deserialize<UpdatePackageManifest>(manifestJson, ManifestJsonOptions)
-            ?? throw new InvalidDataException("更新清单无效。");
-
-        if (manifest.Files.Count == 0)
+        var manifest = await Task.Run(() => ReadJson<UpdatePackageManifest>(manifestPath));
+        if (manifest?.Files is null || manifest.Files.Count == 0)
         {
             throw new InvalidDataException("更新清单没有文件。");
         }
@@ -193,6 +186,13 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
         return files.ToArray();
     }
 
+    private static T? ReadJson<T>(string path)
+    {
+        var serializer = new DataContractJsonSerializer(typeof(T));
+        using var stream = File.OpenRead(path);
+        return (T?)serializer.ReadObject(stream);
+    }
+
     private static void EnsurePathStaysInside(string rootDirectory, string candidatePath)
     {
         var root = NormalizeDirectoryPath(rootDirectory);
@@ -215,7 +215,7 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
         try
         {
             using var process = Process.GetProcessById(processId);
-            await process.WaitForExitAsync();
+            await Task.Run(() => process.WaitForExit());
         }
         catch (ArgumentException) { }
     }
@@ -235,18 +235,44 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
             )
         )
         {
-            var relativePath = Path.GetRelativePath(backupDirectory, backup);
+            var relativePath = GetRelativePath(backupDirectory, backup);
             var target = Path.Combine(appDirectory, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(backup, target, overwrite: true);
         }
     }
 
-    private static async Task<string> ComputeSha256Async(string path)
+    private static string GetRelativePath(string rootDirectory, string filePath)
     {
-        await using var stream = File.OpenRead(path);
-        var hash = await SHA256.HashDataAsync(stream);
-        return Convert.ToHexStringLower(hash);
+        var root = NormalizeDirectoryPath(rootDirectory);
+        var fullPath = Path.GetFullPath(filePath);
+        if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("备份文件路径越界。");
+        }
+
+        return fullPath.Substring(root.Length);
+    }
+
+    private static Task<string> ComputeSha256Async(string path)
+    {
+        return Task.Run(() =>
+        {
+            using var stream = File.OpenRead(path);
+            using var sha256 = SHA256.Create();
+            return ToHexStringLower(sha256.ComputeHash(stream));
+        });
+    }
+
+    private static string ToHexStringLower(byte[] bytes)
+    {
+        var builder = new StringBuilder(bytes.Length * 2);
+        foreach (var value in bytes)
+        {
+            builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+        }
+
+        return builder.ToString();
     }
 
     private void SetStatus(string text, int current = 0, int total = 0, bool complete = false)
@@ -255,7 +281,8 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
         Progress.IsIndeterminate = !complete && total <= 0;
         if (total > 0)
         {
-            Progress.Value = Math.Clamp(current * 100d / total, 0, 100);
+            var value = current * 100d / total;
+            Progress.Value = Math.Max(0d, Math.Min(100d, value));
         }
         CloseButton.IsEnabled = complete;
     }
@@ -266,33 +293,50 @@ public partial class MainWindow : ControlzEx.WindowChromeWindow
     }
 }
 
+[DataContract]
 internal sealed class UpdatePackageManifest
 {
-    public List<UpdatePackageManifestFile> Files { get; init; } = [];
+    [DataMember(Name = "files")]
+    public List<UpdatePackageManifestFile> Files { get; set; } = new();
 }
 
+[DataContract]
 internal sealed class UpdatePackageManifestFile
 {
-    public string Path { get; init; } = string.Empty;
+    [DataMember(Name = "path")]
+    public string Path { get; set; } = string.Empty;
 
-    public long Size { get; init; } = -1;
+    [DataMember(Name = "size")]
+    public long Size { get; set; } = -1;
 
-    public string Sha256 { get; init; } = string.Empty;
+    [DataMember(Name = "sha256")]
+    public string Sha256 { get; set; } = string.Empty;
 }
 
-internal sealed record ValidatedUpdateFile(string RelativePath, string SourcePath);
+internal sealed class ValidatedUpdateFile
+{
+    public ValidatedUpdateFile(string relativePath, string sourcePath)
+    {
+        RelativePath = relativePath;
+        SourcePath = sourcePath;
+    }
+
+    public string RelativePath { get; }
+
+    public string SourcePath { get; }
+}
 
 internal sealed class UpdaterOptions
 {
-    public int? MainProcessId { get; init; }
+    public int? MainProcessId { get; set; }
 
-    public string AppDirectory { get; init; } = string.Empty;
+    public string AppDirectory { get; set; } = string.Empty;
 
-    public string PackagePath { get; init; } = string.Empty;
+    public string PackagePath { get; set; } = string.Empty;
 
-    public string? PackageSha256 { get; init; }
+    public string? PackageSha256 { get; set; }
 
-    public string? RestartPath { get; init; }
+    public string? RestartPath { get; set; }
 
     public static UpdaterOptions Parse(IEnumerable<string> args)
     {
@@ -306,7 +350,7 @@ internal sealed class UpdaterOptions
                 continue;
             }
 
-            var key = arg[2..];
+            var key = arg.Substring(2);
             var value =
                 index + 1 < list.Length
                 && !list[index + 1].StartsWith("--", StringComparison.Ordinal)
@@ -317,11 +361,16 @@ internal sealed class UpdaterOptions
 
         return new UpdaterOptions
         {
-            MainProcessId = int.TryParse(values.GetValueOrDefault("pid"), out var pid) ? pid : null,
-            AppDirectory = values.GetValueOrDefault("app-dir") ?? string.Empty,
-            PackagePath = values.GetValueOrDefault("package") ?? string.Empty,
-            PackageSha256 = values.GetValueOrDefault("sha256"),
-            RestartPath = values.GetValueOrDefault("restart"),
+            MainProcessId = int.TryParse(GetValue(values, "pid"), out var pid) ? pid : null,
+            AppDirectory = GetValue(values, "app-dir"),
+            PackagePath = GetValue(values, "package"),
+            PackageSha256 = GetValue(values, "sha256"),
+            RestartPath = GetValue(values, "restart"),
         };
+    }
+
+    private static string GetValue(Dictionary<string, string> values, string key)
+    {
+        return values.TryGetValue(key, out var value) ? value : string.Empty;
     }
 }

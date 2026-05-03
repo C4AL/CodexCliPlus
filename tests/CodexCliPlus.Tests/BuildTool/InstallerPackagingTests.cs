@@ -13,7 +13,7 @@ public sealed class InstallerPackagingTests : IDisposable
     );
 
     [Fact]
-    public async Task PackageInstallerBuildsExecutableAndStagingArchiveFromRepoOwnedSourceTemplate()
+    public async Task PackageOfflineInstallerBuildsExecutableAndKeepsFullPayloadWhenRequested()
     {
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-success");
@@ -23,7 +23,14 @@ public sealed class InstallerPackagingTests : IDisposable
         using var output = new StringWriter();
         using var error = new StringWriter();
         var runner = new InstallerProcessRunner();
-        var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
+        var context = CreateBuildContext(
+            repositoryRoot,
+            outputRoot,
+            output,
+            error,
+            runner,
+            keepPackageStaging: true
+        );
 
         var exitCode = await PackageCommands.PackageInstallerAsync(
             context,
@@ -41,55 +48,24 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.True(File.Exists(installerPath));
         Assert.Null(WindowsExecutableValidation.ValidateFile(installerPath));
 
-        var stagingPackagePath = Path.Combine(
-            outputRoot,
-            "packages",
-            "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"
-        );
-        Assert.True(File.Exists(stagingPackagePath));
-        using var archive = ZipFile.OpenRead(stagingPackagePath);
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "output/CodexCliPlus.Setup.Offline.9.9.9.exe"
-        );
-        Assert.Contains(archive.Entries, entry => entry.FullName == "micasetup.json");
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "app-package/assets/webui/upstream/dist/index.html"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "app-package/assets/webui/upstream/dist/assets/app.js"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "app-package/assets/webui/upstream/sync.json"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "app-package/packaging/dependency-precheck.json"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry =>
-                entry.FullName
-                == $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry =>
-                entry.FullName
-                == $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}"
-        );
-        Assert.Contains(
-            archive.Entries,
-            entry => entry.FullName == "app-package/packaging/uninstall-cleanup.json"
-        );
+        var stagingPackagePath = Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip");
+        Assert.False(File.Exists(stagingPackagePath));
 
-        var installerPlan = ReadArchiveJson<InstallerPlan>(archive, "mica-setup.json");
+        var stageRoot = Path.Combine(outputRoot, "installer", "win-x64", "offline-installer", "stage");
+        Assert.True(File.Exists(Path.Combine(stageRoot, "output", "CodexCliPlus.Setup.Offline.9.9.9.exe")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "publish.7z")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "micasetup.json")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "dist", "index.html")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "dist", "assets", "app.js")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "sync.json")));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.BootstrapperFileName)));
+        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.StandaloneX64FileName)));
+
+        var installerPlan = ReadJson<InstallerPlan>(Path.Combine(stageRoot, "mica-setup.json"));
         Assert.True(installerPlan.CleanupInstallerAfterInstallDefault);
+        Assert.Equal("bundled-archive", installerPlan.PayloadMode);
 
-        var micaConfig = ReadArchiveJson<JsonElement>(archive, "micasetup.json");
+        var micaConfig = ReadJson<JsonElement>(Path.Combine(stageRoot, "micasetup.json"));
         Assert.EndsWith(
             "codexcliplus-display.png",
             micaConfig.GetProperty("Favicon").GetString(),
@@ -106,9 +82,8 @@ public sealed class InstallerPackagingTests : IDisposable
             StringComparison.Ordinal
         );
 
-        var cleanupManifest = ReadArchiveJson<InstallerCleanupManifest>(
-            archive,
-            "app-package/packaging/uninstall-cleanup.json"
+        var cleanupManifest = ReadJson<InstallerCleanupManifest>(
+            Path.Combine(stageRoot, "app-package", "packaging", "uninstall-cleanup.json")
         );
         Assert.Equal("KeepMyData", cleanupManifest.KeepMyDataOptionName);
         Assert.False(cleanupManifest.KeepMyDataDefault);
@@ -119,9 +94,8 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         Assert.Contains("%ProgramFiles%\\CodexCliPlus", cleanupManifest.AlwaysDelete);
 
-        var dependencyPrecheck = ReadArchiveJson<JsonElement>(
-            archive,
-            "app-package/packaging/dependency-precheck.json"
+        var dependencyPrecheck = ReadJson<JsonElement>(
+            Path.Combine(stageRoot, "app-package", "packaging", "dependency-precheck.json")
         );
         Assert.True(
             dependencyPrecheck.GetProperty("webView2").GetProperty("required").GetBoolean()
@@ -164,11 +138,7 @@ public sealed class InstallerPackagingTests : IDisposable
             output.ToString(),
             StringComparison.Ordinal
         );
-        Assert.False(
-            Directory.Exists(
-                Path.Combine(outputRoot, "installer", "win-x64", "offline-installer", "stage")
-            )
-        );
+        Assert.Contains("kept package staging", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -331,6 +301,91 @@ public sealed class InstallerPackagingTests : IDisposable
     }
 
     [Fact]
+    public async Task PackageOnlineInstallerUsesRemoteUpdatePackageWithoutBundledPayload()
+    {
+        var repositoryRoot = CreateRepositoryRoot();
+        var outputRoot = Path.Combine(_rootDirectory, "out-online");
+        CreatePublishRoot(outputRoot);
+
+        using var packageOutput = new StringWriter();
+        using var packageError = new StringWriter();
+        var runner = new InstallerProcessRunner();
+        var updateContext = CreateBuildContext(
+            repositoryRoot,
+            outputRoot,
+            packageOutput,
+            packageError,
+            runner
+        );
+        var updateCode = await PackageCommands.PackageUpdateAsync(updateContext);
+        Assert.Equal(0, updateCode);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var context = CreateBuildContext(
+            repositoryRoot,
+            outputRoot,
+            output,
+            error,
+            runner,
+            keepPackageStaging: true,
+            onlinePayloadBaseUrl: "https://downloads.example.test/codex"
+        );
+
+        var exitCode = await PackageCommands.PackageInstallerAsync(
+            context,
+            InstallerPackageKind.Online
+        );
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(string.Empty, error.ToString());
+        Assert.True(
+            File.Exists(
+                Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Online.9.9.9.exe")
+            )
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Online.9.9.9.win-x64.zip")
+            )
+        );
+
+        var stageRoot = Path.Combine(outputRoot, "installer", "win-x64", "online-installer", "stage");
+        Assert.True(Directory.Exists(stageRoot));
+        Assert.False(Directory.Exists(Path.Combine(stageRoot, "app-package")));
+        Assert.False(File.Exists(Path.Combine(stageRoot, "publish.7z")));
+        Assert.False(
+            File.Exists(
+                Path.Combine(stageRoot, WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.StandaloneX64FileName)
+            )
+        );
+
+        var onlinePayload = ReadJson<OnlineInstallerPayload>(
+            Path.Combine(stageRoot, "online-payload.json")
+        );
+        Assert.Equal("CodexCliPlus.Update.9.9.9.win-x64.zip", onlinePayload.FileName);
+        Assert.Equal(
+            "https://downloads.example.test/codex/CodexCliPlus.Update.9.9.9.win-x64.zip",
+            onlinePayload.Url
+        );
+        Assert.True(onlinePayload.Size > 0);
+        Assert.False(string.IsNullOrWhiteSpace(onlinePayload.Sha256));
+
+        var installerPlan = ReadJson<InstallerPlan>(Path.Combine(stageRoot, "mica-setup.json"));
+        Assert.Equal("download-update-zip", installerPlan.PayloadMode);
+        Assert.NotNull(installerPlan.OnlinePayload);
+
+        var distRoot = Path.Combine(stageRoot, ".dist");
+        Assert.False(File.Exists(Path.Combine(distRoot, "Resources", "Setups", "publish.7z")));
+        var installViewModel = File.ReadAllText(
+            Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs")
+        );
+        Assert.Contains("private const bool IsOnlinePayloadMode = true;", installViewModel, StringComparison.Ordinal);
+        Assert.Contains("DownloadAndPrepareOnlinePayloadArchive", installViewModel, StringComparison.Ordinal);
+        Assert.Contains("https://downloads.example.test/codex/CodexCliPlus.Update.9.9.9.win-x64.zip", installViewModel, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PackageUpdateRemovesStagingByDefault()
     {
         var repositoryRoot = CreateRepositoryRoot();
@@ -356,6 +411,15 @@ public sealed class InstallerPackagingTests : IDisposable
             )
         );
         Assert.Contains("removed package staging", output.ToString(), StringComparison.Ordinal);
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    outputRoot,
+                    "packages",
+                    "CodexCliPlus.Update.9.9.9.win-x64.zip.unsigned.json"
+                )
+            )
+        );
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -373,7 +437,8 @@ public sealed class InstallerPackagingTests : IDisposable
         StringWriter output,
         StringWriter error,
         IProcessRunner runner,
-        bool keepPackageStaging = false
+        bool keepPackageStaging = false,
+        string onlinePayloadBaseUrl = ""
     )
     {
         return new BuildContext(
@@ -384,7 +449,8 @@ public sealed class InstallerPackagingTests : IDisposable
                 "Release",
                 "win-x64",
                 "9.9.9",
-                keepPackageStaging
+                KeepPackageStaging: keepPackageStaging,
+                OnlinePayloadBaseUrl: onlinePayloadBaseUrl
             ),
             new BuildLogger(output, error),
             runner,
@@ -525,10 +591,24 @@ public sealed class InstallerPackagingTests : IDisposable
         File.WriteAllText(
             Path.Combine(overlayRoot, "ViewModels", "Inst", "InstallViewModel.cs.template"),
             $$"""
+            private const bool IsOnlinePayloadMode = __IS_ONLINE_PAYLOAD_MODE__;
+            private const string OnlinePayloadFileName = __ONLINE_PAYLOAD_FILE_NAME__;
+            private const string OnlinePayloadUrl = __ONLINE_PAYLOAD_URL__;
+            private const string OnlinePayloadSha256 = __ONLINE_PAYLOAD_SHA256__;
+            private const long OnlinePayloadSizeBytes = __ONLINE_PAYLOAD_SIZE_BYTES__;
+            private const string WebView2BootstrapperFileName = __WEBVIEW2_BOOTSTRAPPER_FILE_NAME__;
+            private const string WebView2BootstrapperUrl = __WEBVIEW2_BOOTSTRAPPER_URL__;
+            private const string WebView2StandaloneFileName = __WEBVIEW2_STANDALONE_FILE_NAME__;
+
+            private string DownloadAndPrepareOnlinePayloadArchive(string tempRoot)
+            {
+                return OnlinePayloadUrl + tempRoot;
+            }
+
             private bool EnsureCodexCliPlusWebView2RuntimeInstalled()
             {
-                string bootstrapperPath = "{{WebView2RuntimeAssets.BootstrapperFileName}}";
-                string standalonePath = "{{WebView2RuntimeAssets.StandaloneX64FileName}}";
+                string bootstrapperPath = WebView2BootstrapperFileName;
+                string standalonePath = WebView2StandaloneFileName;
                 string reason = "无法安装 Microsoft Edge WebView2 Runtime";
                 return bootstrapperPath.Length + standalonePath.Length + reason.Length > 0;
             }
@@ -624,6 +704,12 @@ public sealed class InstallerPackagingTests : IDisposable
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return JsonSerializer.Deserialize<T>(reader.ReadToEnd(), JsonDefaults.Options)
             ?? throw new Xunit.Sdk.XunitException($"Could not deserialize zip entry: {entryName}");
+    }
+
+    private static T ReadJson<T>(string path)
+    {
+        return JsonSerializer.Deserialize<T>(File.ReadAllText(path, Encoding.UTF8), JsonDefaults.Options)
+            ?? throw new Xunit.Sdk.XunitException($"Could not deserialize JSON file: {path}");
     }
 
     private static byte[] CreateExecutableBytes()

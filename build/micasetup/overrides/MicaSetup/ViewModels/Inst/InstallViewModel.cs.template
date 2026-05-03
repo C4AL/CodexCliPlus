@@ -9,6 +9,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace MicaSetup.ViewModels;
@@ -17,6 +21,15 @@ namespace MicaSetup.ViewModels;
 
 public partial class InstallViewModel : ObservableObject
 {
+    private const bool IsOnlinePayloadMode = __IS_ONLINE_PAYLOAD_MODE__;
+    private const string OnlinePayloadFileName = __ONLINE_PAYLOAD_FILE_NAME__;
+    private const string OnlinePayloadUrl = __ONLINE_PAYLOAD_URL__;
+    private const string OnlinePayloadSha256 = __ONLINE_PAYLOAD_SHA256__;
+    private const long OnlinePayloadSizeBytes = __ONLINE_PAYLOAD_SIZE_BYTES__;
+    private const string WebView2BootstrapperFileName = __WEBVIEW2_BOOTSTRAPPER_FILE_NAME__;
+    private const string WebView2BootstrapperUrl = __WEBVIEW2_BOOTSTRAPPER_URL__;
+    private const string WebView2StandaloneFileName = __WEBVIEW2_STANDALONE_FILE_NAME__;
+
     public string Message => Option.Current.MessageOfPage2;
 
     [ObservableProperty]
@@ -36,16 +49,36 @@ public partial class InstallViewModel : ObservableObject
 
             try
             {
-                using Stream archiveStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/publish.7z");
-                InstallInfo = "ProgressTipsInstalling".Tr();
-                InstallHelper.Install(archiveStream, (progress, key) =>
+                string? onlinePayloadTempRoot = null;
+                Stream archiveStream;
+                if (IsOnlinePayloadMode)
                 {
-                    ApplicationDispatcherHelper.BeginInvoke(() =>
+                    InstallInfo = "正在下载安装包";
+                    onlinePayloadTempRoot = Path.Combine(Path.GetTempPath(), "CodexCliPlus.OnlineSetup." + Guid.NewGuid().ToString("N"));
+                    archiveStream = File.OpenRead(DownloadAndPrepareOnlinePayloadArchive(onlinePayloadTempRoot));
+                }
+                else
+                {
+                    archiveStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/publish.7z");
+                }
+
+                InstallInfo = "ProgressTipsInstalling".Tr();
+                using (archiveStream)
+                {
+                    InstallHelper.Install(archiveStream, (progress, key) =>
                     {
-                        InstallProgress = progress * 100d;
-                        InstallInfo = key;
+                        ApplicationDispatcherHelper.BeginInvoke(() =>
+                        {
+                            InstallProgress = progress * 100d;
+                            InstallInfo = key;
+                        });
                     });
-                });
+                }
+
+                if (onlinePayloadTempRoot is not null)
+                {
+                    TryDeleteDirectory(onlinePayloadTempRoot);
+                }
 
                 using Stream uninstStream = ResourceHelper.GetStream("pack://application:,,,/MicaSetup;component/Resources/Setups/Uninst.exe");
                 InstallHelper.CreateUninst(uninstStream);
@@ -156,6 +189,70 @@ public partial class InstallViewModel : ObservableObject
         });
     }
 
+    private string DownloadAndPrepareOnlinePayloadArchive(string tempRoot)
+    {
+        Directory.CreateDirectory(tempRoot);
+        string updatePackagePath = Path.Combine(tempRoot, OnlinePayloadFileName);
+        string extractRoot = Path.Combine(tempRoot, "extract");
+        string payloadArchivePath = Path.Combine(tempRoot, "payload.zip");
+
+        DownloadFile(OnlinePayloadUrl, updatePackagePath);
+        ValidateDownloadedFile(updatePackagePath, OnlinePayloadSizeBytes, OnlinePayloadSha256, "安装包校验失败。");
+
+        InstallInfo = "正在解压安装包";
+        ZipFile.ExtractToDirectory(updatePackagePath, extractRoot);
+        string payloadRoot = Path.Combine(extractRoot, "payload");
+        if (!Directory.Exists(payloadRoot))
+        {
+            throw new InvalidDataException("安装包缺少 payload 目录。");
+        }
+
+        ZipFile.CreateFromDirectory(payloadRoot, payloadArchivePath, CompressionLevel.Optimal, includeBaseDirectory: false);
+        return payloadArchivePath;
+    }
+
+    private void DownloadFile(string url, string targetPath)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new InvalidOperationException("下载地址为空。");
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+        if (File.Exists(targetPath))
+        {
+            File.Delete(targetPath);
+        }
+
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        using WebClient client = new();
+        client.Headers[HttpRequestHeader.UserAgent] = "CodexCliPlus-Setup/1.0";
+        client.DownloadFile(url, targetPath);
+    }
+
+    private static void ValidateDownloadedFile(string path, long expectedSize, string expectedSha256, string errorMessage)
+    {
+        FileInfo file = new(path);
+        if (!file.Exists || file.Length <= 0)
+        {
+            throw new InvalidDataException(errorMessage);
+        }
+
+        if (expectedSize > 0 && file.Length != expectedSize)
+        {
+            throw new InvalidDataException(errorMessage);
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            string actual = ComputeCodexCliPlusSha256(path);
+            if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(errorMessage);
+            }
+        }
+    }
+
     private bool EnsureCodexCliPlusWebView2RuntimeInstalled()
     {
         InstallInfo = "正在检查 WebView2 运行时";
@@ -165,8 +262,10 @@ public partial class InstallViewModel : ObservableObject
         }
 
         string webView2Root = Path.Combine(Option.Current.InstallLocation, "packaging", "dependencies", "webview2");
-        string bootstrapperPath = Path.Combine(webView2Root, "MicrosoftEdgeWebview2Setup.exe");
-        string standalonePath = Path.Combine(webView2Root, "MicrosoftEdgeWebView2RuntimeInstallerX64.exe");
+        string bootstrapperPath = IsOnlinePayloadMode
+            ? DownloadCodexCliPlusWebView2Bootstrapper()
+            : Path.Combine(webView2Root, WebView2BootstrapperFileName);
+        string standalonePath = Path.Combine(webView2Root, WebView2StandaloneFileName);
 
         InstallInfo = "正在安装 WebView2 运行时（在线）";
         int? bootstrapperExitCode = RunCodexCliPlusWebView2Installer(bootstrapperPath, "/silent /install");
@@ -175,16 +274,20 @@ public partial class InstallViewModel : ObservableObject
             return true;
         }
 
-        InstallInfo = "正在安装 WebView2 运行时（离线）";
-        int? standaloneExitCode = RunCodexCliPlusWebView2Installer(standalonePath, "/silent /install");
-        if (WaitForCodexCliPlusWebView2Runtime())
+        int? standaloneExitCode = null;
+        if (!IsOnlinePayloadMode)
         {
-            return true;
+            InstallInfo = "正在安装 WebView2 运行时（离线）";
+            standaloneExitCode = RunCodexCliPlusWebView2Installer(standalonePath, "/silent /install");
+            if (WaitForCodexCliPlusWebView2Runtime())
+            {
+                return true;
+            }
         }
 
         string reason = "无法安装 Microsoft Edge WebView2 Runtime。"
             + $"在线安装退出码：{FormatCodexCliPlusExitCode(bootstrapperExitCode)}；"
-            + $"离线安装退出码：{FormatCodexCliPlusExitCode(standaloneExitCode)}。"
+            + (IsOnlinePayloadMode ? string.Empty : $"离线安装退出码：{FormatCodexCliPlusExitCode(standaloneExitCode)}。")
             + "请确认安装包完整，或手动安装 WebView2 Runtime 后再启动 CodexCliPlus。";
         Logger.Error(reason);
         InstallInfo = "WebView2 运行时安装失败";
@@ -193,6 +296,44 @@ public partial class InstallViewModel : ObservableObject
             _ = MessageBox.Info(null!, reason);
         });
         return false;
+    }
+
+    private string DownloadCodexCliPlusWebView2Bootstrapper()
+    {
+        string downloadRoot = Path.Combine(Path.GetTempPath(), "CodexCliPlus.WebView2");
+        string bootstrapperPath = Path.Combine(downloadRoot, WebView2BootstrapperFileName);
+        InstallInfo = "正在下载 WebView2 运行时";
+        DownloadFile(WebView2BootstrapperUrl, bootstrapperPath);
+        return bootstrapperPath;
+    }
+
+    private static void TryDeleteDirectory(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+        }
+    }
+
+    private static string ComputeCodexCliPlusSha256(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        using SHA256 sha256 = SHA256.Create();
+        byte[] hash = sha256.ComputeHash(stream);
+        StringBuilder builder = new(hash.Length * 2);
+        foreach (byte value in hash)
+        {
+            builder.Append(value.ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        return builder.ToString();
     }
 
     private static bool WaitForCodexCliPlusWebView2Runtime()

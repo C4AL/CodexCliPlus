@@ -230,6 +230,10 @@ public sealed class InstallerPlan
 
     public string PayloadDirectory { get; init; } = string.Empty;
 
+    public string PayloadMode { get; init; } = string.Empty;
+
+    public OnlineInstallerPayload? OnlinePayload { get; init; }
+
     public bool MicaSetupRoute { get; init; }
 
     public string RequestExecutionLevel { get; init; } = string.Empty;
@@ -243,6 +247,19 @@ public sealed class InstallerPlan
     public string StableReleaseSource { get; init; } = string.Empty;
 
     public bool BetaChannelReserved { get; init; }
+}
+
+public sealed class OnlineInstallerPayload
+{
+    public string FileName { get; init; } = string.Empty;
+
+    public string Url { get; init; } = string.Empty;
+
+    public long Size { get; init; }
+
+    public string Sha256 { get; init; } = string.Empty;
+
+    public string InstallRoot { get; init; } = "payload";
 }
 
 public sealed class MicaSetupConfig

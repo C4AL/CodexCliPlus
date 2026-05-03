@@ -230,12 +230,21 @@ public sealed class SigningTests : IDisposable
 
     private static void CreateUpdatePackage(string packageRoot)
     {
-        using var archive = ZipFile.Open(
-            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
-            ZipArchiveMode.Create
-        );
-        WriteEntry(archive, "update-manifest.json", Encoding.UTF8.GetBytes("{}"));
-        WriteEntry(archive, "payload/CodexCliPlus.exe", CreateExecutableBytes());
+        var packagePath = Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip");
+        using (var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create))
+        {
+            WriteEntry(archive, "update-manifest.json", Encoding.UTF8.GetBytes("{}"));
+            WriteEntry(archive, "payload/CodexCliPlus.exe", CreateExecutableBytes());
+        }
+
+        ArtifactSignatureMetadata
+            .WriteAttestationPlaceholderAsync(
+                packagePath,
+                "Non-PE release artifact; GitHub artifact attestation is expected.",
+                CancellationToken.None
+            )
+            .GetAwaiter()
+            .GetResult();
     }
 
     private static void CreateInstallerStagingZip(

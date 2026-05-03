@@ -140,6 +140,9 @@ public static class BuildToolApp
         logger.Info("  --repo-root <path>               Default: auto-detected repository root");
         logger.Info("  --output <path>                  Default: <repo>/artifacts/buildtool");
         logger.Info("  --keep-package-staging <bool>    Default: false");
+        logger.Info(
+            "  --online-payload-base-url <url>  Default: GitHub release download URL for this version"
+        );
         logger.Info("  --artifact-retention <count>     Default: 1; 0 disables pruning");
     }
 }
@@ -152,7 +155,8 @@ public sealed record BuildOptions(
     string Runtime,
     string Version,
     bool KeepPackageStaging = false,
-    int ArtifactRetention = 1
+    int ArtifactRetention = 1,
+    string OnlinePayloadBaseUrl = ""
 )
 {
     public static bool TryParse(string[] args, out BuildOptions? options, out string? error)
@@ -174,6 +178,7 @@ public sealed record BuildOptions(
         var version = "1.0.0";
         var keepPackageStaging = false;
         var artifactRetention = 1;
+        string? onlinePayloadBaseUrl = null;
 
         for (var index = 1; index < args.Length; index++)
         {
@@ -216,6 +221,9 @@ public sealed record BuildOptions(
                     }
 
                     break;
+                case "--online-payload-base-url":
+                    onlinePayloadBaseUrl = value;
+                    break;
                 case "--artifact-retention":
                     if (!int.TryParse(value, out artifactRetention) || artifactRetention < 0)
                     {
@@ -243,7 +251,10 @@ public sealed record BuildOptions(
             runtime,
             version,
             keepPackageStaging,
-            artifactRetention
+            artifactRetention,
+            string.IsNullOrWhiteSpace(onlinePayloadBaseUrl)
+                ? $"https://github.com/C4AL/CodexCliPlus/releases/download/v{version}"
+                : onlinePayloadBaseUrl.Trim().TrimEnd('/', '\\')
         );
         return true;
     }

@@ -49,6 +49,10 @@ public static class PublishCommands
             "--output",
             context.PublishRoot,
             "/p:PublishSingleFile=false",
+            "/p:SatelliteResourceLanguages=zh-Hans",
+            "/p:DebugType=None",
+            "/p:DebugSymbols=false",
+            "/p:GenerateDocumentationFile=false",
         };
         var exitCode = await context.ProcessRunner.RunAsync(
             "dotnet",
@@ -103,13 +107,13 @@ public static class PublishCommands
                 "--configuration",
                 context.Options.Configuration,
                 "--no-restore",
-                "--runtime",
-                context.Options.Runtime,
-                "--self-contained",
-                "true",
                 "--output",
                 updaterOutput,
                 "/p:PublishSingleFile=false",
+                "/p:SatelliteResourceLanguages=zh-Hans",
+                "/p:DebugType=None",
+                "/p:DebugSymbols=false",
+                "/p:GenerateDocumentationFile=false",
             ],
             context.Options.RepositoryRoot,
             context.Logger

@@ -165,7 +165,7 @@ public static class ReleaseArtifactCommands
             )
         )
         {
-            return "推荐安装器：不内置 WebView2 Standalone，适合已有 WebView2 或可联网安装的电脑。";
+            return "在线安装器：不内置应用 payload 和 WebView2 安装器，安装时下载更新包与 WebView2 bootstrapper。";
         }
 
         if (

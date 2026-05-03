@@ -43,9 +43,11 @@ public static class MicaSetupInstallerBuilder
     public static async Task<int> BuildAsync(
         BuildContext context,
         string micaConfigPath,
-        string payloadArchivePath,
+        string? payloadArchivePath,
         long payloadUncompressedBytes,
-        string installerOutputPath
+        string installerOutputPath,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(installerOutputPath)!);
@@ -62,16 +64,20 @@ public static class MicaSetupInstallerBuilder
             micaConfigPath,
             payloadArchivePath,
             payloadUncompressedBytes,
-            installerOutputPath
+            installerOutputPath,
+            packageKind,
+            onlinePayload
         );
     }
 
     private static async Task<int> BuildWithDotnetMsbuildAsync(
         BuildContext context,
         string micaConfigPath,
-        string payloadArchivePath,
+        string? payloadArchivePath,
         long payloadUncompressedBytes,
-        string installerOutputPath
+        string installerOutputPath,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
         var stageRoot = Path.GetDirectoryName(micaConfigPath)!;
@@ -97,8 +103,11 @@ public static class MicaSetupInstallerBuilder
             ApplyRepoOwnedInstallerSource(
                 context,
                 distRoot,
+                stageRoot,
                 payloadArchivePath,
-                payloadUncompressedBytes
+                payloadUncompressedBytes,
+                packageKind,
+                onlinePayload
             );
         }
         catch (Exception exception)
@@ -190,18 +199,30 @@ public static class MicaSetupInstallerBuilder
     private static void ApplyRepoOwnedInstallerSource(
         BuildContext context,
         string distRoot,
-        string payloadArchivePath,
-        long payloadUncompressedBytes
+        string stageRoot,
+        string? payloadArchivePath,
+        long payloadUncompressedBytes,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
-        var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
-        Directory.CreateDirectory(Path.GetDirectoryName(setupResourcePath)!);
-        File.Copy(payloadArchivePath, setupResourcePath, overwrite: true);
+        if (packageKind == InstallerPackageKind.Offline)
+        {
+            if (string.IsNullOrWhiteSpace(payloadArchivePath))
+            {
+                throw new InvalidOperationException("Offline installer payload archive is missing.");
+            }
 
-        var cleanupManifestSource = Path.Combine(
-            Path.GetDirectoryName(payloadArchivePath)!,
-            "uninstall-cleanup.json"
-        );
+            var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
+            Directory.CreateDirectory(Path.GetDirectoryName(setupResourcePath)!);
+            File.Copy(payloadArchivePath, setupResourcePath, overwrite: true);
+        }
+        else if (onlinePayload is null)
+        {
+            throw new InvalidOperationException("Online installer payload metadata is missing.");
+        }
+
+        var cleanupManifestSource = Path.Combine(stageRoot, "uninstall-cleanup.json");
         if (File.Exists(cleanupManifestSource))
         {
             File.Copy(
@@ -213,13 +234,21 @@ public static class MicaSetupInstallerBuilder
 
         CopyLicenseDocuments(context, Path.Combine(distRoot, "Resources", "Licenses"));
         CopyInstallerImages(context, Path.Combine(distRoot, "Resources", "Images"));
-        RenderRepoOwnedSourceTemplates(context, distRoot, payloadUncompressedBytes);
+        RenderRepoOwnedSourceTemplates(
+            context,
+            distRoot,
+            payloadUncompressedBytes,
+            packageKind,
+            onlinePayload
+        );
     }
 
     private static void RenderRepoOwnedSourceTemplates(
         BuildContext context,
         string distRoot,
-        long payloadUncompressedBytes
+        long payloadUncompressedBytes,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
         var overlayRoot = Path.Combine(
@@ -234,7 +263,12 @@ public static class MicaSetupInstallerBuilder
             throw new DirectoryNotFoundException(overlayRoot);
         }
 
-        var tokens = CreateTemplateTokens(context, payloadUncompressedBytes);
+        var tokens = CreateTemplateTokens(
+            context,
+            payloadUncompressedBytes,
+            packageKind,
+            onlinePayload
+        );
         foreach (var (templateRelativePath, targetRelativePath) in SourceTemplateFiles)
         {
             var templatePath = Path.Combine(overlayRoot, templateRelativePath);
@@ -255,7 +289,9 @@ public static class MicaSetupInstallerBuilder
 
     private static Dictionary<string, string> CreateTemplateTokens(
         BuildContext context,
-        long payloadUncompressedBytes
+        long payloadUncompressedBytes,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
         var noticePath = Path.Combine(
@@ -276,7 +312,33 @@ public static class MicaSetupInstallerBuilder
             ["__PAYLOAD_UNCOMPRESSED_BYTES__"] = payloadUncompressedBytes.ToString(
                 System.Globalization.CultureInfo.InvariantCulture
             ),
+            ["__IS_ONLINE_PAYLOAD_MODE__"] =
+                packageKind == InstallerPackageKind.Online ? "true" : "false",
+            ["__ONLINE_PAYLOAD_FILE_NAME__"] = ToCSharpString(onlinePayload?.FileName ?? string.Empty),
+            ["__ONLINE_PAYLOAD_URL__"] = ToCSharpString(onlinePayload?.Url ?? string.Empty),
+            ["__ONLINE_PAYLOAD_SHA256__"] = ToCSharpString(onlinePayload?.Sha256 ?? string.Empty),
+            ["__ONLINE_PAYLOAD_SIZE_BYTES__"] = (onlinePayload?.Size ?? 0).ToString(
+                System.Globalization.CultureInfo.InvariantCulture
+            ),
+            ["__WEBVIEW2_BOOTSTRAPPER_FILE_NAME__"] = ToCSharpString(
+                WebView2RuntimeAssets.BootstrapperFileName
+            ),
+            ["__WEBVIEW2_BOOTSTRAPPER_URL__"] = ToCSharpString(WebView2RuntimeAssets.BootstrapperUrl),
+            ["__WEBVIEW2_STANDALONE_FILE_NAME__"] = ToCSharpString(
+                WebView2RuntimeAssets.StandaloneX64FileName
+            ),
         };
+    }
+
+    private static string ToCSharpString(string value)
+    {
+        return "\""
+            + value
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal)
+                .Replace("\r", "\\r", StringComparison.Ordinal)
+                .Replace("\n", "\\n", StringComparison.Ordinal)
+            + "\"";
     }
 
     private static string RenderTemplate(string source, Dictionary<string, string> tokens)

@@ -37,52 +37,10 @@ public sealed class PackageVerifier
         var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
         var installerName =
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe";
-        var stagingPackagePath = Path.Combine(
-            context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
-        );
         var installerPath = Path.Combine(context.PackageRoot, installerName);
 
         VerifyExecutable(installerPath, failures);
-        VerifyZip(stagingPackagePath, $"app-package/{AppConstants.ExecutableName}", failures);
-        VerifyZip(
-            stagingPackagePath,
-            "app-package/assets/webui/upstream/dist/index.html",
-            failures
-        );
-        VerifyZipPrefix(
-            stagingPackagePath,
-            "app-package/assets/webui/upstream/dist/assets/",
-            failures
-        );
-        VerifyZip(stagingPackagePath, "app-package/assets/webui/upstream/sync.json", failures);
-        VerifyZip(stagingPackagePath, "mica-setup.json", failures);
-        VerifyZip(stagingPackagePath, "micasetup.json", failures);
-        VerifyZipExecutable(stagingPackagePath, $"output/{installerName}", failures);
-        VerifyZipExecutable(
-            stagingPackagePath,
-            $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.BootstrapperFileName}",
-            failures
-        );
-        if (packageKind == InstallerPackageKind.Offline)
-        {
-            VerifyZipExecutable(
-                stagingPackagePath,
-                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
-                failures
-            );
-        }
-        else
-        {
-            VerifyZipAbsent(
-                stagingPackagePath,
-                $"app-package/{WebView2RuntimeAssets.PackagedDirectory}/{WebView2RuntimeAssets.StandaloneX64FileName}",
-                failures
-            );
-        }
-        VerifyZip(stagingPackagePath, "app-package/packaging/uninstall-cleanup.json", failures);
-        VerifyZip(stagingPackagePath, "app-package/packaging/dependency-precheck.json", failures);
-        VerifyZip(stagingPackagePath, "app-package/packaging/update-policy.json", failures);
+        VerifyArtifactMetadata(installerPath, expectedSignatureKind: "authenticode", failures);
 
         if (!signingOptions.SigningRequired)
         {
@@ -90,26 +48,6 @@ public sealed class PackageVerifier
         }
 
         VerifySignatureMetadata(installerPath, "authenticode", expectedSigned: true, failures);
-        VerifySignatureMetadata(
-            stagingPackagePath,
-            "github-artifact-attestation",
-            expectedSigned: false,
-            failures
-        );
-        VerifyZipSignatureMetadata(
-            stagingPackagePath,
-            $"app-package/{AppConstants.ExecutableName}.signature.json",
-            "authenticode",
-            expectedSigned: true,
-            failures
-        );
-        VerifyZipSignatureMetadata(
-            stagingPackagePath,
-            $"output/{installerName}.signature.json",
-            "authenticode",
-            expectedSigned: true,
-            failures
-        );
     }
 
     private static void VerifyZipAbsent(string path, string forbiddenEntry, List<string> failures)
@@ -203,7 +141,55 @@ public sealed class PackageVerifier
             $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip"
         );
         VerifyZip(updatePackagePath, "update-manifest.json", failures);
-        VerifyZip(updatePackagePath, $"payload/{AppConstants.ExecutableName}", failures);
+        VerifyZipExecutable(updatePackagePath, $"payload/{AppConstants.ExecutableName}", failures);
+        VerifyArtifactMetadata(
+            updatePackagePath,
+            expectedSignatureKind: "github-artifact-attestation",
+            failures
+        );
+
+        if (signingOptions.SigningRequired)
+        {
+            VerifySignatureMetadata(
+                updatePackagePath,
+                "github-artifact-attestation",
+                expectedSigned: false,
+                failures
+            );
+        }
+    }
+
+    private static void VerifyArtifactMetadata(
+        string artifactPath,
+        string expectedSignatureKind,
+        List<string> failures
+    )
+    {
+        var signaturePath = ArtifactSignatureMetadata.GetSignaturePath(artifactPath);
+        var unsignedPath = ArtifactSignatureMetadata.GetUnsignedPath(artifactPath);
+        if (File.Exists(signaturePath))
+        {
+            VerifySignatureMetadataFile(
+                signaturePath,
+                expectedSignatureKind,
+                requireSignedState: false,
+                failures
+            );
+            return;
+        }
+
+        if (File.Exists(unsignedPath))
+        {
+            VerifySignatureMetadataFile(
+                unsignedPath,
+                expectedSignatureKind: "none",
+                requireSignedState: false,
+                failures
+            );
+            return;
+        }
+
+        failures.Add($"Signature sidecar missing: {signaturePath} or {unsignedPath}");
     }
 
     private static void VerifyZipExecutable(
@@ -300,6 +286,48 @@ public sealed class PackageVerifier
                 expectedSigned,
                 failures
             );
+        }
+        catch (JsonException exception)
+        {
+            failures.Add(
+                $"Signature metadata is not valid JSON: {metadataPath}: {exception.Message}"
+            );
+        }
+    }
+
+    private static void VerifySignatureMetadataFile(
+        string metadataPath,
+        string expectedSignatureKind,
+        bool requireSignedState,
+        List<string> failures
+    )
+    {
+        try
+        {
+            var metadata = JsonSerializer.Deserialize<ArtifactSignatureMetadata>(
+                File.ReadAllText(metadataPath, Encoding.UTF8),
+                JsonDefaults.Options
+            );
+            if (metadata is null)
+            {
+                failures.Add($"Signature metadata is empty: {metadataPath}");
+                return;
+            }
+
+            if (!string.Equals(metadata.SignatureKind, expectedSignatureKind, StringComparison.Ordinal))
+            {
+                failures.Add(
+                    $"Signature metadata kind mismatch: {metadataPath}; expected {expectedSignatureKind}, got {metadata.SignatureKind}."
+                );
+            }
+
+            if (
+                requireSignedState
+                && (!metadata.HasSignature || !metadata.Verified || metadata.Signing != "signed")
+            )
+            {
+                failures.Add($"Artifact is not recorded as signed and verified: {metadataPath}");
+            }
         }
         catch (JsonException exception)
         {

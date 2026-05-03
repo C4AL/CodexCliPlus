@@ -36,6 +36,25 @@ public sealed class WebView2RuntimeAssets
         CancellationToken cancellationToken = default
     )
     {
+        if (packageKind == InstallerPackageKind.Online)
+        {
+            return new WebView2RuntimeAssets
+            {
+                Assets =
+                [
+                    new WebView2RuntimeAsset(
+                        BootstrapperFileName,
+                        BootstrapperUrl,
+                        ToPackagePath(PackagedDirectory, BootstrapperFileName),
+                        "/silent /install",
+                        0,
+                        string.Empty,
+                        Bundled: false
+                    ),
+                ],
+            };
+        }
+
         var cachedRoot = Path.Combine(context.CacheRoot, "webview2");
         var stagedRoot = Path.Combine(
             appPackageRoot,
@@ -79,7 +98,8 @@ public sealed class WebView2RuntimeAssets
                     ToPackagePath(PackagedDirectory, descriptor.FileName),
                     descriptor.SilentArguments,
                     new FileInfo(stagedPath).Length,
-                    await ComputeSha256Async(stagedPath, cancellationToken)
+                    await ComputeSha256Async(stagedPath, cancellationToken),
+                    Bundled: true
                 )
             );
         }
@@ -199,5 +219,6 @@ public sealed record WebView2RuntimeAsset(
     string PackagedPath,
     string SilentArguments,
     long Size,
-    string Sha256
+    string Sha256,
+    bool Bundled
 );

@@ -22,15 +22,35 @@ public static class InstallerMetadata
 
     public static async Task WriteAsync(
         BuildContext context,
-        string appPackageRoot,
+        string? appPackageRoot,
         string installerStageRoot,
         WebView2RuntimeAssets webView2Assets,
-        InstallerPackageKind packageKind
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
     )
     {
-        var packagingRoot = Path.Combine(appPackageRoot, "packaging");
-        Directory.CreateDirectory(packagingRoot);
         var isOnline = packageKind == InstallerPackageKind.Online;
+        var packagingRoot = isOnline
+            ? Path.Combine(installerStageRoot, "packaging")
+            : Path.Combine(
+                appPackageRoot ?? throw new ArgumentNullException(nameof(appPackageRoot)),
+                "packaging"
+            );
+        Directory.CreateDirectory(packagingRoot);
+        var bootstrapper = webView2Assets.Bootstrapper;
+        var onlineBootstrapper = new Dictionary<string, object?>
+        {
+            ["fileName"] = bootstrapper.FileName,
+            ["sourceUrl"] = bootstrapper.SourceUrl,
+            ["silentArguments"] = bootstrapper.SilentArguments,
+        };
+        if (bootstrapper.Bundled)
+        {
+            onlineBootstrapper["packagedPath"] = bootstrapper.PackagedPath;
+            onlineBootstrapper["size"] = bootstrapper.Size;
+            onlineBootstrapper["sha256"] = bootstrapper.Sha256;
+        }
+
         var webView2 = new Dictionary<string, object?>
         {
             ["required"] = true,
@@ -38,21 +58,13 @@ public static class InstallerMetadata
             ["detection"] = "CoreWebView2Environment.GetAvailableBrowserVersionString",
             ["bundledFirst"] = !isOnline,
             ["installStrategy"] = isOnline
-                ? "online-bootstrapper-only"
+                ? "download-bootstrapper-only"
                 : "online-bootstrapper-then-bundled-standalone",
-            ["onlineBootstrapper"] = new
-            {
-                webView2Assets.Bootstrapper.FileName,
-                webView2Assets.Bootstrapper.PackagedPath,
-                webView2Assets.Bootstrapper.SourceUrl,
-                webView2Assets.Bootstrapper.SilentArguments,
-                webView2Assets.Bootstrapper.Size,
-                webView2Assets.Bootstrapper.Sha256,
-            },
+            ["onlineBootstrapper"] = onlineBootstrapper,
             ["downloadPage"] = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
             ["failureBehavior"] = "缺少 WebView2 且自动安装失败时阻止启动，并显示中文原因。",
             ["note"] = isOnline
-                ? "Online SKU does not bundle the standalone WebView2 runtime; machines that already have WebView2 should install quickly, while missing runtimes use the bootstrapper."
+                ? "Online SKU does not bundle WebView2 installers; machines missing WebView2 download Microsoft's bootstrapper during setup."
                 : "Offline SKU bundles the WebView2 standalone runtime for no-network fallback and does not promise a seconds-level install.",
         };
         if (!isOnline && webView2Assets.OptionalStandaloneX64 is { } standaloneX64)
@@ -120,6 +132,7 @@ public static class InstallerMetadata
                     fallbackInstallerAsset = $"{AppConstants.InstallerNamePrefix}.Offline.{context.Options.Version}.exe",
                     updateKind = "file-manifest-diff",
                     installedBuildCanLaunchUpdater = true,
+                    onlineInstallerPayload = onlinePayload,
                 },
                 beta = new { reserved = true, enabled = false },
             }

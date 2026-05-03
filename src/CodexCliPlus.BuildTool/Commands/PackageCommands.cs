@@ -18,25 +18,40 @@ public static class PackageCommands
         InstallerPackageKind packageKind
     )
     {
-        SafeFileSystem.RequirePublishRoot(context.PublishRoot);
         var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
         var packageType =
             packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        var isOnline = packageKind == InstallerPackageKind.Online;
         var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
-        var appPackageRoot = Path.Combine(stageRoot, "app-package");
-        var payloadArchivePath = Path.Combine(stageRoot, "publish.7z");
+        var appPackageRoot = isOnline ? null : Path.Combine(stageRoot, "app-package");
+        var payloadArchivePath = isOnline ? null : Path.Combine(stageRoot, "publish.7z");
         var installerOutputPath = Path.Combine(
             context.PackageRoot,
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe"
         );
 
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
-        SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot);
-        var webView2Assets = await WebView2RuntimeAssets.StageAsync(
-            context,
-            appPackageRoot,
-            packageKind
-        );
+        OnlineInstallerPayload? onlinePayload = null;
+        long payloadUncompressedBytes;
+        WebView2RuntimeAssets webView2Assets;
+        if (isOnline)
+        {
+            onlinePayload = await CreateOnlineInstallerPayloadAsync(context);
+            await WriteJsonAsync(Path.Combine(stageRoot, "online-payload.json"), onlinePayload);
+            payloadUncompressedBytes = GetUpdatePackagePayloadSize(context, onlinePayload);
+            webView2Assets = await WebView2RuntimeAssets.StageAsync(context, stageRoot, packageKind);
+        }
+        else
+        {
+            SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+            SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot!);
+            webView2Assets = await WebView2RuntimeAssets.StageAsync(
+                context,
+                appPackageRoot!,
+                packageKind
+            );
+            payloadUncompressedBytes = GetDirectorySize(appPackageRoot!);
+        }
 
         var installerPlan = new InstallerPlan
         {
@@ -44,7 +59,9 @@ public static class PackageCommands
             InstallerName = Path.GetFileName(installerOutputPath),
             AppUserModelId = AppConstants.AppUserModelId,
             CurrentUserDefault = false,
-            PayloadDirectory = "app-package",
+            PayloadDirectory = isOnline ? "payload" : "app-package",
+            PayloadMode = isOnline ? "download-update-zip" : "bundled-archive",
+            OnlinePayload = onlinePayload,
             MicaSetupRoute = true,
             RequestExecutionLevel = "admin",
             InstallDirectoryHint = $"%ProgramFiles%\\{AppConstants.ProductKey}",
@@ -59,22 +76,29 @@ public static class PackageCommands
             appPackageRoot,
             stageRoot,
             webView2Assets,
-            packageKind
+            packageKind,
+            onlinePayload
         );
-        var payloadUncompressedBytes = GetDirectorySize(appPackageRoot);
 
-        var archiveExitCode = await CreateMicaPayloadArchiveAsync(
-            context,
-            appPackageRoot,
-            payloadArchivePath
-        );
-        if (archiveExitCode != 0)
+        if (!isOnline)
         {
-            return archiveExitCode;
+            var archiveExitCode = await CreateMicaPayloadArchiveAsync(
+                context,
+                appPackageRoot!,
+                payloadArchivePath!
+            );
+            if (archiveExitCode != 0)
+            {
+                return archiveExitCode;
+            }
         }
 
         var micaConfigPath = Path.Combine(stageRoot, "micasetup.json");
-        var micaConfig = MicaSetupConfig.Create(context, payloadArchivePath, installerOutputPath);
+        var micaConfig = MicaSetupConfig.Create(
+            context,
+            payloadArchivePath ?? onlinePayload!.Url,
+            installerOutputPath
+        );
         await File.WriteAllTextAsync(
             micaConfigPath,
             JsonSerializer.Serialize(micaConfig, MicaSetupConfig.JsonOptions),
@@ -86,7 +110,9 @@ public static class PackageCommands
             micaConfigPath,
             payloadArchivePath,
             payloadUncompressedBytes,
-            installerOutputPath
+            installerOutputPath,
+            packageKind,
+            onlinePayload
         );
         if (buildExitCode != 0)
         {
@@ -105,11 +131,6 @@ public static class PackageCommands
             Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath))
         );
 
-        var stagingPackagePath = Path.Combine(
-            context.PackageRoot,
-            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.{context.Options.Runtime}.zip"
-        );
-        await CreatePackageAsync(context, stageRoot, stagingPackagePath, packageType);
         CleanupPackageStaging(context, stageRoot);
         context.Logger.Info($"installer executable: {installerOutputPath}");
         return 0;
@@ -196,13 +217,55 @@ public static class PackageCommands
         ZipFile.CreateFromDirectory(
             stageRoot,
             packagePath,
-            CompressionLevel.Optimal,
+            CompressionLevel.SmallestSize,
             includeBaseDirectory: false
         );
         await context.SigningService.SignAsync(packagePath, context);
         CleanupPackageStaging(context, stageRoot);
         context.Logger.Info($"update package: {packagePath}");
         return 0;
+    }
+
+    private static async Task<OnlineInstallerPayload> CreateOnlineInstallerPayloadAsync(
+        BuildContext context
+    )
+    {
+        var fileName = $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
+        var packagePath = Path.Combine(context.PackageRoot, fileName);
+        if (!File.Exists(packagePath))
+        {
+            throw new FileNotFoundException(
+                "Online installer requires the update package. Run package-update before package-online-installer.",
+                packagePath
+            );
+        }
+
+        var baseUrl = string.IsNullOrWhiteSpace(context.Options.OnlinePayloadBaseUrl)
+            ? $"https://github.com/C4AL/CodexCliPlus/releases/download/v{context.Options.Version}"
+            : context.Options.OnlinePayloadBaseUrl.Trim().TrimEnd('/', '\\');
+        return new OnlineInstallerPayload
+        {
+            FileName = fileName,
+            Url = $"{baseUrl}/{fileName}",
+            Size = new FileInfo(packagePath).Length,
+            Sha256 = await ComputeSha256Async(packagePath),
+            InstallRoot = "payload",
+        };
+    }
+
+    private static long GetUpdatePackagePayloadSize(
+        BuildContext context,
+        OnlineInstallerPayload onlinePayload
+    )
+    {
+        var packagePath = Path.Combine(context.PackageRoot, onlinePayload.FileName);
+        using var archive = ZipFile.OpenRead(packagePath);
+        return archive
+            .Entries.Where(entry =>
+                entry.FullName.StartsWith("payload/", StringComparison.OrdinalIgnoreCase)
+                && !entry.FullName.EndsWith('/')
+            )
+            .Sum(entry => entry.Length);
     }
 
     private static void CleanupPackageStaging(BuildContext context, string stageRoot)
@@ -262,7 +325,7 @@ public static class PackageCommands
         ZipFile.CreateFromDirectory(
             stageRoot,
             packagePath,
-            CompressionLevel.Optimal,
+            CompressionLevel.SmallestSize,
             includeBaseDirectory: false
         );
         await context.SigningService.SignAsync(packagePath, context);
@@ -319,7 +382,7 @@ public static class PackageCommands
         ZipFile.CreateFromDirectory(
             appPackageRoot,
             archivePath,
-            CompressionLevel.Optimal,
+            CompressionLevel.SmallestSize,
             includeBaseDirectory: false
         );
         context.Logger.Info("MicaSetup payload archive created from repo package contents.");

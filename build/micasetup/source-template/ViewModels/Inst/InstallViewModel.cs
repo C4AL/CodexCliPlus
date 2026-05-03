@@ -51,6 +51,8 @@ public partial class InstallViewModel : ObservableObject
             catch (Exception e)
             {
                 Logger.Error(e);
+                ShowInstallFailure();
+                return;
             }
 
             if (Option.Current.IsAllowFullFolderSecurity)
@@ -144,6 +146,16 @@ public partial class InstallViewModel : ObservableObject
                 }
             }
             ApplicationDispatcherHelper.Invoke(Routing.GoToNext);
+        });
+    }
+
+    private void ShowInstallFailure()
+    {
+        InstallInfo = "安装失败";
+        Option.Current.Installing = false;
+        ApplicationDispatcherHelper.Invoke(() =>
+        {
+            _ = MessageBox.Info(null!, "安装失败。请确认安装包完整，安装目录存在且可写，然后重新运行安装程序。");
         });
     }
 }

@@ -368,6 +368,47 @@ public sealed class UiTextLocalizationTests
         Assert.DoesNotContain("import_cpa", authFilesSection, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void InstallerFailureHandlingUsesChinesePromptAndSkipsRawAclStackTraceDialog()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var securityHelper = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "build",
+                "micasetup",
+                "source-template",
+                "Helper",
+                "System",
+                "SecurityControlHelper.cs"
+            ),
+            Encoding.UTF8
+        );
+        var installViewModelTemplate = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "build",
+                "micasetup",
+                "overrides",
+                "MicaSetup",
+                "ViewModels",
+                "Inst",
+                "InstallViewModel.cs.template"
+            ),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("安装失败", installViewModelTemplate, StringComparison.Ordinal);
+        Assert.Contains("ShowInstallFailure", installViewModelTemplate, StringComparison.Ordinal);
+        Assert.Contains("fileInfo.Exists", securityHelper, StringComparison.Ordinal);
+        Assert.Contains("dir.Exists", securityHelper, StringComparison.Ordinal);
+        Assert.Contains("WellKnownSidType.WorldSid", securityHelper, StringComparison.Ordinal);
+        Assert.Contains("WellKnownSidType.BuiltinUsersSid", securityHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain("Allow Full File Security Error", securityHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain("Allow Full Folder Security Error", securityHelper, StringComparison.Ordinal);
+        Assert.DoesNotContain("MessageBox.Show", securityHelper, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

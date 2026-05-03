@@ -44,8 +44,6 @@ interface QueueEntry<T> {
   reject: (reason?: unknown) => void;
 }
 
-const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
-
 const CODEX_BACKOFF_MS = [60_000, 120_000, 300_000] as const;
 const STANDARD_BACKOFF_MS = [30_000, 60_000, 180_000] as const;
 
@@ -162,18 +160,6 @@ export const buildQuotaResourceKey = <TState, TData>(
   return [scopeKey, config.type, file.name, authIndex, accountIdentity].join('::');
 };
 
-const isTransientQuotaError = (err: unknown): boolean => {
-  const status = getStatusFromError(err);
-  if (typeof status === 'number') {
-    return TRANSIENT_STATUS_CODES.has(status);
-  }
-
-  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-  return /network|timeout|timed?\s*out|temporar|connection|econn|aborted|failed to fetch/i.test(
-    message
-  );
-};
-
 const getErrorMessage = (err: unknown, t: TFunction) =>
   err instanceof Error ? err.message : typeof err === 'string' ? err : t('common.unknown_error');
 
@@ -214,7 +200,7 @@ const pumpQueue = (kind: 'codex' | 'standard') => {
     });
 };
 
-const runWithQuotaConcurrency = <T,>(
+const runWithQuotaConcurrency = <T>(
   kind: 'codex' | 'standard',
   run: () => Promise<T>
 ): Promise<T> =>
@@ -246,21 +232,6 @@ const setQuotaForFile = <TState, TData>(
   }));
 };
 
-const fetchQuotaData = async <TState, TData>(
-  config: QuotaConfig<TState, TData>,
-  file: AuthFileItem,
-  t: TFunction
-): Promise<TData> => {
-  try {
-    return await config.fetchQuota(file, t);
-  } catch (err: unknown) {
-    if (!isTransientQuotaError(err)) {
-      throw err;
-    }
-    return await config.fetchQuota(file, t);
-  }
-};
-
 const startQuotaFetch = <TState, TData>(
   config: QuotaConfig<TState, TData>,
   file: AuthFileItem,
@@ -273,7 +244,7 @@ const startQuotaFetch = <TState, TData>(
   const strategy = getQuotaStrategy(config.type);
   const request = runWithQuotaConcurrency(strategy.concurrency, async () => {
     try {
-      const data = await fetchQuotaData(config, file, options.t);
+      const data = await config.fetchQuota(file, options.t);
       state.lastSuccessAt = Date.now();
       state.lastData = data;
       state.failureCount = 0;
@@ -387,6 +358,15 @@ export const requestQuotaRefresh = async <TState, TData>(
   const targets = files.filter((file) => config.filterFn(file));
   if (targets.length === 0) {
     return [];
+  }
+
+  if (config.type === 'codex') {
+    const results: Array<QuotaRefreshResult<TData>> = [];
+    for (const file of targets) {
+      results.push(await requestQuotaFileRefresh(config, file, options));
+    }
+
+    return results;
   }
 
   return Promise.all(targets.map((file) => requestQuotaFileRefresh(config, file, options)));

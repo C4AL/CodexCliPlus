@@ -2,67 +2,142 @@
  * Quota management page - coordinates the three quota sections.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useNotificationStore } from '@/stores';
 import { authFilesApi, configFileApi } from '@/services/api';
-import {
-  QuotaSection,
-  CODEX_CONFIG,
-} from '@/components/quota';
+import { QuotaSection, CODEX_CONFIG } from '@/components/quota';
+import { runAccountRefreshSteps } from '@/features/accountCenter/refresh';
+import { getManagementAccessBlockedMessage } from '@/utils/managementAccess';
 import type { AuthFileItem } from '@/types';
 import styles from '@/pages/QuotaPage.module.scss';
+
+type RefreshLoadOptions = {
+  throwOnError?: boolean;
+};
 
 export function QuotaManagementSection() {
   const { t } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const showNotification = useNotificationStore((state) => state.showNotification);
 
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
+  const refreshScheduleRef = useRef<number | null>(null);
 
   const disableControls = connectionStatus !== 'connected';
 
-  const loadConfig = useCallback(async () => {
-    try {
-      await configFileApi.fetchConfigYaml();
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
-      setError((prev) => prev || errorMessage);
-    }
-  }, [t]);
+  const loadConfig = useCallback(
+    async (options?: RefreshLoadOptions) => {
+      try {
+        await configFileApi.fetchConfigYaml();
+      } catch (err: unknown) {
+        const errorMessage =
+          getManagementAccessBlockedMessage(err) ??
+          (err instanceof Error ? err.message : t('notification.refresh_failed'));
+        setError((prev) => prev || errorMessage);
+        if (options?.throwOnError) {
+          throw err;
+        }
+      }
+    },
+    [t]
+  );
 
-  const loadFiles = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await authFilesApi.list();
-      setFiles(data?.files || []);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const loadFiles = useCallback(
+    async (options?: RefreshLoadOptions) => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await authFilesApi.list();
+        setFiles(data?.files || []);
+      } catch (err: unknown) {
+        const errorMessage =
+          getManagementAccessBlockedMessage(err) ??
+          (err instanceof Error ? err.message : t('notification.refresh_failed'));
+        setError(errorMessage);
+        if (options?.throwOnError) {
+          throw err;
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   const handleHeaderRefresh = useCallback(async () => {
-    await Promise.all([loadConfig(), loadFiles()]);
-  }, [loadConfig, loadFiles]);
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return refreshInFlightRef.current;
+    }
 
-  useDesktopDataChanged(['quota', 'auth-files', 'providers'], () => {
-    void handleHeaderRefresh();
-  }, connectionStatus === 'connected');
+    const task = (async () => {
+      do {
+        refreshQueuedRef.current = false;
+        const result = await runAccountRefreshSteps(
+          [
+            { id: 'auth-files', run: () => loadFiles({ throwOnError: true }) },
+            { id: 'config', run: () => loadConfig({ throwOnError: true }) },
+          ],
+          (message) => {
+            setError(message);
+            showNotification(message, 'error');
+          }
+        );
+        if (result.stopped) {
+          refreshQueuedRef.current = false;
+          break;
+        }
+      } while (refreshQueuedRef.current);
+    })();
+
+    refreshInFlightRef.current = task.finally(() => {
+      refreshInFlightRef.current = null;
+    });
+    return refreshInFlightRef.current;
+  }, [loadConfig, loadFiles, showNotification]);
+
+  const scheduleHeaderRefresh = useCallback(() => {
+    if (refreshScheduleRef.current !== null) {
+      return;
+    }
+
+    refreshScheduleRef.current = window.setTimeout(() => {
+      refreshScheduleRef.current = null;
+      void handleHeaderRefresh();
+    }, 50);
+  }, [handleHeaderRefresh]);
+
+  useDesktopDataChanged(
+    ['quota', 'auth-files', 'providers'],
+    () => {
+      scheduleHeaderRefresh();
+    },
+    connectionStatus === 'connected'
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      loadFiles();
-      loadConfig();
+      void handleHeaderRefresh();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadFiles, loadConfig]);
+  }, [handleHeaderRefresh]);
+
+  useEffect(
+    () => () => {
+      if (refreshScheduleRef.current !== null) {
+        window.clearTimeout(refreshScheduleRef.current);
+        refreshScheduleRef.current = null;
+      }
+    },
+    []
+  );
 
   return (
     <div className={styles.container}>

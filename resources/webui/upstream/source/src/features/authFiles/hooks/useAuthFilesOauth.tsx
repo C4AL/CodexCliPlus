@@ -8,6 +8,10 @@ import { normalizeProviderKey } from '@/features/authFiles/constants';
 
 type UnsupportedError = 'unsupported' | null;
 type ViewMode = 'diagram' | 'list';
+type LoadOauthSettingsOptions = {
+  throwOnError?: boolean;
+};
+
 const CODEX_PROVIDER = 'codex';
 
 function filterCodexRecord<T>(record: Record<string, T>): Record<string, T> {
@@ -23,8 +27,8 @@ export type UseAuthFilesOauthResult = {
   modelAliasError: UnsupportedError;
   allProviderModels: Record<string, AuthFileModelItem[]>;
   providerList: string[];
-  loadExcluded: () => Promise<void>;
-  loadModelAlias: () => Promise<void>;
+  loadExcluded: (options?: LoadOauthSettingsOptions) => Promise<void>;
+  loadModelAlias: (options?: LoadOauthSettingsOptions) => Promise<void>;
   deleteExcluded: (provider: string) => void;
   deleteModelAlias: (provider: string) => void;
   handleMappingUpdate: (provider: string, sourceModel: string, newAlias: string) => Promise<void>;
@@ -103,55 +107,67 @@ export function useAuthFilesOauth(options: UseAuthFilesOauthOptions): UseAuthFil
     };
   }, [providerList, viewMode]);
 
-  const loadExcluded = useCallback(async () => {
-    try {
-      const res = await authFilesApi.getOauthExcludedModels();
-      excludedUnsupportedRef.current = false;
-      setExcluded(filterCodexRecord(res || {}));
-      setExcludedError(null);
-    } catch (err: unknown) {
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? (err as { status?: unknown }).status
-          : undefined;
+  const loadExcluded = useCallback(
+    async (options?: LoadOauthSettingsOptions) => {
+      try {
+        const res = await authFilesApi.getOauthExcludedModels();
+        excludedUnsupportedRef.current = false;
+        setExcluded(filterCodexRecord(res || {}));
+        setExcludedError(null);
+      } catch (err: unknown) {
+        const status =
+          typeof err === 'object' && err !== null && 'status' in err
+            ? (err as { status?: unknown }).status
+            : undefined;
 
-      if (status === 404) {
-        setExcluded({});
-        setExcludedError('unsupported');
-        if (!excludedUnsupportedRef.current) {
-          excludedUnsupportedRef.current = true;
-          showNotification(t('oauth_excluded.upgrade_required'), 'warning');
+        if (status === 404) {
+          setExcluded({});
+          setExcludedError('unsupported');
+          if (!excludedUnsupportedRef.current) {
+            excludedUnsupportedRef.current = true;
+            showNotification(t('oauth_excluded.upgrade_required'), 'warning');
+          }
+          return;
         }
-        return;
-      }
-      // 静默失败
-    }
-  }, [showNotification, t]);
-
-  const loadModelAlias = useCallback(async () => {
-    try {
-      const res = await authFilesApi.getOauthModelAlias();
-      mappingsUnsupportedRef.current = false;
-      setModelAlias(filterCodexRecord(res || {}));
-      setModelAliasError(null);
-    } catch (err: unknown) {
-      const status =
-        typeof err === 'object' && err !== null && 'status' in err
-          ? (err as { status?: unknown }).status
-          : undefined;
-
-      if (status === 404) {
-        setModelAlias({});
-        setModelAliasError('unsupported');
-        if (!mappingsUnsupportedRef.current) {
-          mappingsUnsupportedRef.current = true;
-          showNotification(t('oauth_model_alias.upgrade_required'), 'warning');
+        if (options?.throwOnError) {
+          throw err;
         }
-        return;
+        // 静默失败
       }
-      // 静默失败
-    }
-  }, [showNotification, t]);
+    },
+    [showNotification, t]
+  );
+
+  const loadModelAlias = useCallback(
+    async (options?: LoadOauthSettingsOptions) => {
+      try {
+        const res = await authFilesApi.getOauthModelAlias();
+        mappingsUnsupportedRef.current = false;
+        setModelAlias(filterCodexRecord(res || {}));
+        setModelAliasError(null);
+      } catch (err: unknown) {
+        const status =
+          typeof err === 'object' && err !== null && 'status' in err
+            ? (err as { status?: unknown }).status
+            : undefined;
+
+        if (status === 404) {
+          setModelAlias({});
+          setModelAliasError('unsupported');
+          if (!mappingsUnsupportedRef.current) {
+            mappingsUnsupportedRef.current = true;
+            showNotification(t('oauth_model_alias.upgrade_required'), 'warning');
+          }
+          return;
+        }
+        if (options?.throwOnError) {
+          throw err;
+        }
+        // 静默失败
+      }
+    },
+    [showNotification, t]
+  );
 
   const deleteExcluded = useCallback(
     (provider: string) => {

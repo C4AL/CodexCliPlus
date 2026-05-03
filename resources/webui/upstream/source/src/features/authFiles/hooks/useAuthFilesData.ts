@@ -7,6 +7,7 @@ import type { AuthFileItem } from '@/types';
 import { formatFileSize } from '@/utils/format';
 import { MAX_AUTH_FILE_SIZE } from '@/utils/constants';
 import { downloadBlob } from '@/utils/download';
+import { getManagementAccessBlockedMessage } from '@/utils/managementAccess';
 import {
   getTypeLabel,
   hasAuthFileStatusMessage,
@@ -18,6 +19,10 @@ type DeleteAllOptions = {
   problemOnly: boolean;
   onResetFilterToAll: () => void;
   onResetProblemOnly: () => void;
+};
+
+type LoadFilesOptions = {
+  throwOnError?: boolean;
 };
 
 export type UseAuthFilesDataResult = {
@@ -32,7 +37,7 @@ export type UseAuthFilesDataResult = {
   statusUpdating: Record<string, boolean>;
   batchStatusUpdating: boolean;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  loadFiles: () => Promise<void>;
+  loadFiles: (options?: LoadFilesOptions) => Promise<void>;
   handleUploadClick: () => void;
   handleFileChange: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleDelete: (name: string) => void;
@@ -156,21 +161,29 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
     });
   }, []);
 
-  const loadFiles = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await authFilesApi.list();
-      const nextFiles = data?.files || [];
-      setFiles(nextFiles);
-      setSelectedFiles((prev) => pruneSelectionToFiles(prev, nextFiles));
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : t('notification.refresh_failed');
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const loadFiles = useCallback(
+    async (options?: LoadFilesOptions) => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await authFilesApi.list();
+        const nextFiles = data?.files || [];
+        setFiles(nextFiles);
+        setSelectedFiles((prev) => pruneSelectionToFiles(prev, nextFiles));
+      } catch (err: unknown) {
+        const errorMessage =
+          getManagementAccessBlockedMessage(err) ??
+          (err instanceof Error ? err.message : t('notification.refresh_failed'));
+        setError(errorMessage);
+        if (options?.throwOnError) {
+          throw err;
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();

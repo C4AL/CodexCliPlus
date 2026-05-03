@@ -64,6 +64,7 @@ import {
   writePersistedAuthFilesCompactMode,
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
+import { runAccountRefreshSteps } from '@/features/accountCenter/refresh';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
 import { OAuthExcludedEditor } from './OAuthExcludedEditor';
 import { OAuthModelAliasEditor } from './OAuthModelAliasEditor';
@@ -118,6 +119,9 @@ export function AuthFilesSection() {
   const batchActionAnimationRef = useRef<AnimationPlaybackControlsWithThen | null>(null);
   const previousSelectionCountRef = useRef(0);
   const selectionCountRef = useRef(0);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
+  const refreshScheduleRef = useRef<number | null>(null);
 
   const { keyStats, usageDetails, loadKeyStats, refreshKeyStats } = useAuthFilesStats();
   const {
@@ -350,21 +354,82 @@ export function AuthFilesSection() {
     [loadFiles, sortMode]
   );
 
-  const handleHeaderRefresh = useCallback(async () => {
-    await Promise.all([loadFiles(), refreshKeyStats(), loadExcluded(), loadModelAlias()]);
-  }, [loadFiles, refreshKeyStats, loadExcluded, loadModelAlias]);
+  const runSequentialRefresh = useCallback(
+    async (statsLoader: () => Promise<void>) =>
+      runAccountRefreshSteps(
+        [
+          { id: 'auth-files', run: () => loadFiles({ throwOnError: true }) },
+          { id: 'usage', run: statsLoader },
+          { id: 'oauth-excluded', run: () => loadExcluded({ throwOnError: true }) },
+          { id: 'oauth-model-alias', run: () => loadModelAlias({ throwOnError: true }) },
+        ],
+        (message) => showNotification(message, 'error')
+      ),
+    [loadFiles, loadExcluded, loadModelAlias, showNotification]
+  );
 
-  useDesktopDataChanged(['auth-files', 'quota', 'providers'], () => {
-    void handleHeaderRefresh();
-  }, isCurrentLayer && connectionStatus === 'connected');
+  const handleHeaderRefresh = useCallback(
+    (statsLoader: () => Promise<void> = refreshKeyStats) => {
+      if (refreshInFlightRef.current) {
+        refreshQueuedRef.current = true;
+        return refreshInFlightRef.current;
+      }
+
+      const task = (async () => {
+        let nextStatsLoader = statsLoader;
+        do {
+          refreshQueuedRef.current = false;
+          const result = await runSequentialRefresh(nextStatsLoader);
+          if (result.stopped) {
+            refreshQueuedRef.current = false;
+            break;
+          }
+
+          nextStatsLoader = refreshKeyStats;
+        } while (refreshQueuedRef.current);
+      })();
+
+      refreshInFlightRef.current = task.finally(() => {
+        refreshInFlightRef.current = null;
+      });
+      return refreshInFlightRef.current;
+    },
+    [refreshKeyStats, runSequentialRefresh]
+  );
+
+  const scheduleHeaderRefresh = useCallback(() => {
+    if (refreshScheduleRef.current !== null) {
+      return;
+    }
+
+    refreshScheduleRef.current = window.setTimeout(() => {
+      refreshScheduleRef.current = null;
+      void handleHeaderRefresh();
+    }, 50);
+  }, [handleHeaderRefresh]);
+
+  useDesktopDataChanged(
+    ['auth-files', 'quota', 'providers'],
+    () => {
+      scheduleHeaderRefresh();
+    },
+    isCurrentLayer && connectionStatus === 'connected'
+  );
 
   useEffect(() => {
     if (!isCurrentLayer) return;
-    loadFiles();
-    void loadKeyStats().catch(() => {});
-    loadExcluded();
-    loadModelAlias();
-  }, [isCurrentLayer, loadFiles, loadKeyStats, loadExcluded, loadModelAlias]);
+    void handleHeaderRefresh(loadKeyStats);
+  }, [handleHeaderRefresh, isCurrentLayer, loadKeyStats]);
+
+  useEffect(
+    () => () => {
+      if (refreshScheduleRef.current !== null) {
+        window.clearTimeout(refreshScheduleRef.current);
+        refreshScheduleRef.current = null;
+      }
+    },
+    []
+  );
 
   useInterval(
     () => {
@@ -496,9 +561,13 @@ export function AuthFilesSection() {
     if (Array.isArray(payload)) {
       return payload.map(
         (item, index) =>
-          new File([JSON.stringify(item, null, 2)], normalizeName(`codex-import-${index + 1}`, index), {
-            type: 'application/json',
-          })
+          new File(
+            [JSON.stringify(item, null, 2)],
+            normalizeName(`codex-import-${index + 1}`, index),
+            {
+              type: 'application/json',
+            }
+          )
       );
     }
 
@@ -507,7 +576,9 @@ export function AuthFilesSection() {
     }
 
     const record = payload as Record<string, unknown>;
-    const entries = Object.entries(record.files && typeof record.files === 'object' ? record.files : record);
+    const entries = Object.entries(
+      record.files && typeof record.files === 'object' ? record.files : record
+    );
     return entries.map(
       ([name, value], index) =>
         new File([JSON.stringify(value, null, 2)], normalizeName(name, index), {
@@ -547,14 +618,7 @@ export function AuthFilesSection() {
     } finally {
       setImportingConfig(false);
     }
-  }, [
-    buildJsonImportFiles,
-    importJsonText,
-    loadFiles,
-    refreshKeyStats,
-    showNotification,
-    t,
-  ]);
+  }, [buildJsonImportFiles, importJsonText, loadFiles, refreshKeyStats, showNotification, t]);
 
   const handlePlainConfigImport = useCallback(() => {
     if (isDesktopMode() && importAccountConfigInDesktopShell('config')) {

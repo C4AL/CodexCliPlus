@@ -106,7 +106,11 @@ public partial class MainWindow
         EnterAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        StartupFlow.ShowFirstRunKey(_firstRunManagementKey, remember: false);
+        StartupFlow.ShowFirstRunKey(
+            _firstRunManagementKey,
+            rememberPassword: false,
+            autoLogin: false
+        );
         StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
@@ -121,7 +125,7 @@ public partial class MainWindow
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        StartupFlow.ShowLogin(errorMessage, _settings.RememberManagementKey);
+        StartupFlow.ShowLogin(errorMessage, _settings.RememberPassword, _settings.AutoLogin);
         StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
@@ -188,13 +192,13 @@ public partial class MainWindow
         MaxHeight = AuthenticationCompactWindowHeight;
         Width = AuthenticationCompactWindowWidth;
         Height = AuthenticationCompactWindowHeight;
-        ExtendsContentIntoTitleBar = false;
+        ExtendsContentIntoTitleBar = true;
         WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.None;
 
         MainWindowChromeBehavior.ResizeBorderThickness = new Thickness(0);
         MainWindowChromeBehavior.CornerPreference =
             ControlzEx.Behaviors.WindowCornerPreference.DoNotRound;
-        MainWindowChromeBehavior.UseNativeCaptionButtons = true;
+        MainWindowChromeBehavior.UseNativeCaptionButtons = false;
         MainWindowGlowBehavior.GlowDepth = 0;
 
         ShellTitleBar.Visibility = Visibility.Collapsed;

@@ -67,9 +67,13 @@ public partial class MainWindow
 
     private async Task ContinueAfterStartupGateAsync()
     {
-        StartupFlow.RememberManagementKey = _settings.RememberManagementKey;
+        StartupFlow.SetLoginPersistenceOptions(_settings.RememberPassword, _settings.AutoLogin);
 
-        if (_settings.RememberManagementKey && !string.IsNullOrWhiteSpace(_settings.ManagementKey))
+        if (
+            _settings.RememberPassword
+            && _settings.AutoLogin
+            && !string.IsNullOrWhiteSpace(_settings.ManagementKey)
+        )
         {
             if (_backendConfigWriter.VerifyManagementKey(_settings.ManagementKey))
             {
@@ -78,6 +82,9 @@ public partial class MainWindow
             }
 
             _settings.ManagementKey = string.Empty;
+            _settings.RememberPassword = false;
+            _settings.AutoLogin = false;
+            await _appConfigurationService.SaveAsync(_settings);
             await EnsureMinimumPreparationDisplayAsync();
             ShowLogin("本机保存的安全密钥无法通过验证，请重新输入。");
             return;
@@ -93,7 +100,8 @@ public partial class MainWindow
 
         _firstRunManagementKey = GenerateSecurityKey();
         _settings.ManagementKey = _firstRunManagementKey;
-        _settings.RememberManagementKey = false;
+        _settings.RememberPassword = false;
+        _settings.AutoLogin = false;
         _settings.SecurityKeyOnboardingCompleted = false;
 
         await _backendConfigWriter.WriteAsync(
@@ -163,12 +171,13 @@ public partial class MainWindow
         {
             _firstRunConfirmCountdown?.Cancel();
             _settings.ManagementKey = _firstRunManagementKey;
-            _settings.RememberManagementKey = StartupFlow.FirstRunRememberManagementKey;
+            _settings.RememberPassword = StartupFlow.FirstRunRememberPassword;
+            _settings.AutoLogin = StartupFlow.FirstRunAutoLogin;
             _settings.SecurityKeyOnboardingCompleted = true;
             _settings.LastSeenApplicationVersion = CurrentApplicationVersion;
             await _appConfigurationService.SaveAsync(_settings);
 
-            StartupFlow.RememberManagementKey = _settings.RememberManagementKey;
+            StartupFlow.SetLoginPersistenceOptions(_settings.RememberPassword, _settings.AutoLogin);
             StartupFlow.SetFirstRunConfirmVisible(
                 visible: false,
                 buttonText: "确认",
@@ -177,14 +186,18 @@ public partial class MainWindow
 
             _firstRunManagementKey = string.Empty;
             StartupFlow.ClearFirstRunKey();
-            if (_settings.RememberManagementKey)
+            if (_settings.RememberPassword && _settings.AutoLogin)
             {
                 await InitializeHostAsync(restartBackend: false);
                 return;
             }
 
-            _settings.ManagementKey = string.Empty;
-            await _appConfigurationService.SaveAsync(_settings);
+            if (!_settings.RememberPassword)
+            {
+                _settings.ManagementKey = string.Empty;
+                await _appConfigurationService.SaveAsync(_settings);
+            }
+
             ShowLogin("初始化已完成，请输入安全密钥登录。");
         }
         catch (Exception exception)
@@ -236,7 +249,8 @@ public partial class MainWindow
             }
 
             _settings.ManagementKey = managementKey;
-            _settings.RememberManagementKey = StartupFlow.RememberManagementKey;
+            _settings.RememberPassword = StartupFlow.RememberPassword;
+            _settings.AutoLogin = StartupFlow.AutoLogin;
             _settings.SecurityKeyOnboardingCompleted = true;
             await _appConfigurationService.SaveAsync(_settings);
             await InitializeHostAsync(restartBackend: false);

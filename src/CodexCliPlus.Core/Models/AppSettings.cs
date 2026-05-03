@@ -11,7 +11,9 @@ public sealed class AppSettings
 
     public string ManagementKeyReference { get; set; } = AppConstants.DefaultManagementKeyReference;
 
-    public bool RememberManagementKey { get; set; }
+    public bool RememberPassword { get; set; }
+
+    public bool AutoLogin { get; set; }
 
     public CodexSourceKind PreferredCodexSource { get; set; } = CodexSourceKind.Official;
 

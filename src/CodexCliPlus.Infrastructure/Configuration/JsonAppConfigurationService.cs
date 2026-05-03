@@ -55,11 +55,14 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             ?? new PersistedAppSettings();
 
         var settings = persisted.ToModel();
+        var shouldPersistRememberPasswordMigration =
+            persisted.RememberManagementKey.HasValue && !persisted.HasRememberPasswordFields();
         settings.BackendPort = AppConstants.DefaultBackendPort;
         if (!string.IsNullOrWhiteSpace(persisted.ManagementKey))
         {
             settings.ManagementKey = persisted.ManagementKey.Trim();
-            settings.RememberManagementKey = true;
+            settings.RememberPassword = true;
+            settings.AutoLogin = true;
             if (string.IsNullOrWhiteSpace(settings.ManagementKeyReference))
             {
                 settings.ManagementKeyReference = AppConstants.DefaultManagementKeyReference;
@@ -82,25 +85,24 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                     cancellationToken
                 ) ?? string.Empty;
 
-            if (
-                persisted.RememberManagementKey is null
-                && !string.IsNullOrWhiteSpace(storedManagementKey)
-            )
+            if (settings.RememberPassword)
             {
-                settings.RememberManagementKey = true;
                 settings.ManagementKey = storedManagementKey;
-                await SaveAsync(settings, cancellationToken);
-                return settings;
-            }
+                if (shouldPersistRememberPasswordMigration)
+                {
+                    await SaveAsync(settings, cancellationToken);
+                }
 
-            if (settings.RememberManagementKey)
-            {
-                settings.ManagementKey = storedManagementKey;
                 return settings;
             }
         }
 
         settings.ManagementKey = _sessionManagementKey;
+
+        if (shouldPersistRememberPasswordMigration)
+        {
+            await SaveAsync(settings, cancellationToken);
+        }
 
         return settings;
     }
@@ -116,7 +118,16 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             ? AppConstants.DefaultManagementKeyReference
             : settings.ManagementKeyReference.Trim();
 
-        if (settings.RememberManagementKey)
+        if (!settings.RememberPassword)
+        {
+            settings.AutoLogin = false;
+        }
+        else if (settings.AutoLogin)
+        {
+            settings.RememberPassword = true;
+        }
+
+        if (settings.RememberPassword)
         {
             _sessionManagementKey = string.Empty;
             if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
@@ -166,6 +177,10 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public string? ManagementKeyReference { get; init; }
 
+        public bool? RememberPassword { get; init; }
+
+        public bool? AutoLogin { get; init; }
+
         public bool? RememberManagementKey { get; init; }
 
         public Core.Enums.CodexSourceKind PreferredCodexSource { get; init; } =
@@ -196,13 +211,17 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public AppSettings ToModel()
         {
+            var rememberPassword = ResolveRememberPassword();
+            var autoLogin = ResolveAutoLogin(rememberPassword);
+
             return new AppSettings
             {
                 BackendPort = AppConstants.DefaultBackendPort,
                 ManagementKeyReference = string.IsNullOrWhiteSpace(ManagementKeyReference)
                     ? AppConstants.DefaultManagementKeyReference
                     : ManagementKeyReference.Trim(),
-                RememberManagementKey = RememberManagementKey ?? false,
+                RememberPassword = rememberPassword,
+                AutoLogin = autoLogin,
                 PreferredCodexSource = PreferredCodexSource,
                 StartWithWindows = StartWithWindows,
                 MinimizeToTrayOnClose = MinimizeToTrayOnClose,
@@ -221,13 +240,38 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             };
         }
 
+        public bool HasRememberPasswordFields()
+        {
+            return RememberPassword.HasValue || AutoLogin.HasValue;
+        }
+
+        private bool ResolveRememberPassword()
+        {
+            if (HasRememberPasswordFields())
+            {
+                return RememberPassword == true;
+            }
+
+            return RememberManagementKey == true;
+        }
+
+        private bool ResolveAutoLogin(bool rememberPassword)
+        {
+            var autoLogin = HasRememberPasswordFields()
+                ? AutoLogin == true
+                : RememberManagementKey == true;
+
+            return rememberPassword && autoLogin;
+        }
+
         public static PersistedAppSettings FromModel(AppSettings settings)
         {
             return new PersistedAppSettings
             {
                 BackendPort = AppConstants.DefaultBackendPort,
                 ManagementKeyReference = settings.ManagementKeyReference,
-                RememberManagementKey = settings.RememberManagementKey,
+                RememberPassword = settings.RememberPassword,
+                AutoLogin = settings.RememberPassword && settings.AutoLogin,
                 PreferredCodexSource = settings.PreferredCodexSource,
                 StartWithWindows = settings.StartWithWindows,
                 MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose,

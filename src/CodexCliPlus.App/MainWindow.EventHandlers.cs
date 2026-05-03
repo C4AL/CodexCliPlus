@@ -224,6 +224,8 @@ public partial class MainWindow
         StartupFlow.FirstRunConfirmationRequested += StartupFlow_FirstRunConfirmationRequested;
         StartupFlow.FirstRunConfirmationAccepted += StartupFlow_FirstRunConfirmationAccepted;
         StartupFlow.FirstRunConfirmationCancelled += StartupFlow_FirstRunConfirmationCancelled;
+        StartupFlow.CloseRequested += StartupFlow_CloseRequested;
+        StartupFlow.WindowDragRequested += StartupFlow_WindowDragRequested;
     }
 
     private async void StartupFlow_LoginSubmitted(object? sender, EventArgs e)
@@ -276,6 +278,27 @@ public partial class MainWindow
     private void StartupFlow_FirstRunConfirmationCancelled(object? sender, EventArgs e)
     {
         CancelFirstRunConfirmation();
+    }
+
+    private void StartupFlow_CloseRequested(object? sender, EventArgs e)
+    {
+        Close();
+    }
+
+    private void StartupFlow_WindowDragRequested(object? sender, MouseButtonEventArgs e)
+    {
+        if (e.ButtonState != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException) { }
     }
 
     private async void StartupFlow_ResetRequested(object? sender, EventArgs e)
@@ -445,9 +468,10 @@ public partial class MainWindow
         {
             await ResetWebUiLocalAuthStateAsync();
             _settings.ManagementKey = string.Empty;
-            _settings.RememberManagementKey = false;
+            _settings.RememberPassword = false;
+            _settings.AutoLogin = false;
             await _appConfigurationService.SaveAsync(_settings);
-            StartupFlow.RememberManagementKey = false;
+            StartupFlow.SetLoginPersistenceOptions(rememberPassword: false, autoLogin: false);
             await HideSettingsOverlayAsync();
             ShowLogin("本地登录信息已清理，请重新输入安全密钥。");
             _notificationService.ShowAuto("本地登录信息已清理。");

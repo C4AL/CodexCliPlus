@@ -85,8 +85,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const double MainWindowMinWidth = 960;
     private const double MainWindowMinHeight = 640;
     private const double ShellTitleBarHeight = 50;
-    private const double AuthenticationCompactWindowWidth = 284;
-    private const double AuthenticationCompactWindowHeight = 376;
+    private const double AuthenticationCompactWindowWidth = 320;
+    private const double AuthenticationCompactWindowHeight = 460;
     private const double NavigationDockRestingWidth = 56;
     private const double NavigationDockEdgeIntentWidth = 18;
     private const double NavigationDockIconsWidth = 92;

@@ -305,7 +305,7 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <Style x:Key="SilentLoginRiskIconStyle" TargetType="{x:Type Button}">
+  <Style x:Key="StartupRiskIconStyle" TargetType="{x:Type Button}">
     <Setter Property="Width" Value="18" />
     <Setter Property="Height" Value="20" />
     <Setter Property="Margin" Value="1,0,0,0" />

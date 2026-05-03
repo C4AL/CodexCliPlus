@@ -6,6 +6,26 @@
     <ResourceDictionary Source="/Views/Resources/ShellResources.xaml" />
   </ResourceDictionary.MergedDictionaries>
 
+  <LinearGradientBrush
+    x:Key="StartupAuthenticationBackgroundBrush"
+    StartPoint="0,0"
+    EndPoint="0,1"
+  >
+    <GradientStop Color="#DFF5FF" Offset="0" />
+    <GradientStop Color="#F4FBFF" Offset="0.48" />
+    <GradientStop Color="#FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+
+  <LinearGradientBrush
+    x:Key="StartupAuthenticationLightSweepBrush"
+    StartPoint="0,0"
+    EndPoint="1,1"
+  >
+    <GradientStop Color="#66FFFFFF" Offset="0" />
+    <GradientStop Color="#18FFFFFF" Offset="0.56" />
+    <GradientStop Color="#00FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+
   <Style
     x:Key="StartupFlowCardStyle"
     TargetType="{x:Type Border}"
@@ -23,7 +43,7 @@
   </Style>
 
   <Style x:Key="StartupCompactWindowTitleTextStyle" TargetType="{x:Type TextBlock}">
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="21" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="TextWrapping" Value="NoWrap" />
@@ -52,6 +72,25 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
   </Style>
 
+  <Style x:Key="StartupOptionTextStyle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#334155" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+  </Style>
+
+  <Style x:Key="StartupProtocolTextStyle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="#64748B" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style x:Key="StartupFooterLinkTextStyle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#3388CC" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+  </Style>
+
   <Style x:Key="StartupFlowHintTextStyle" TargetType="{x:Type TextBlock}">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="LineHeight" Value="18" />
@@ -76,8 +115,8 @@
   </Style>
 
   <Style x:Key="StartupFlowTextBoxStyle" TargetType="{x:Type TextBox}">
-    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="Background" Value="#F9FFFFFF" />
+    <Setter Property="BorderBrush" Value="#B9DBF2" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -91,7 +130,7 @@
             Background="{TemplateBinding Background}"
             BorderBrush="{TemplateBinding BorderBrush}"
             BorderThickness="{TemplateBinding BorderThickness}"
-            CornerRadius="9"
+            CornerRadius="6"
           >
             <ScrollViewer
               x:Name="PART_ContentHost"
@@ -132,12 +171,12 @@
   </Style>
 
   <Style x:Key="StartupFlowPasswordBoxStyle" TargetType="{x:Type PasswordBox}">
-    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="Background" Value="#F9FFFFFF" />
+    <Setter Property="BorderBrush" Value="#B9DBF2" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Padding" Value="12,9" />
     <Setter Property="SnapsToDevicePixels" Value="True" />
     <Setter Property="UseLayoutRounding" Value="True" />
     <Setter Property="Template">
@@ -148,7 +187,7 @@
             Background="{TemplateBinding Background}"
             BorderBrush="{TemplateBinding BorderBrush}"
             BorderThickness="{TemplateBinding BorderThickness}"
-            CornerRadius="9"
+            CornerRadius="6"
           >
             <ScrollViewer
               x:Name="PART_ContentHost"
@@ -189,11 +228,11 @@
   </Style>
 
   <Style x:Key="StartupPrimaryButtonStyle" TargetType="{x:Type Button}">
-    <Setter Property="Height" Value="34" />
+    <Setter Property="Height" Value="38" />
     <Setter Property="MinWidth" Value="126" />
     <Setter Property="Padding" Value="14,0" />
-    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Background" Value="#12B7F5" />
+    <Setter Property="BorderBrush" Value="#12B7F5" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="#FFFFFF" />
     <Setter Property="FontSize" Value="13" />
@@ -207,7 +246,7 @@
             Background="{TemplateBinding Background}"
             BorderBrush="{TemplateBinding BorderBrush}"
             BorderThickness="{TemplateBinding BorderThickness}"
-            CornerRadius="8"
+            CornerRadius="5"
           >
             <ContentPresenter
               Margin="{TemplateBinding Padding}"
@@ -325,6 +364,39 @@
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="StartupAuthenticationChromeButtonStyle" TargetType="{x:Type Button}">
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="#5E7891" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border
+            x:Name="ButtonChrome"
+            Background="{TemplateBinding Background}"
+            CornerRadius="5"
+          >
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="ButtonChrome" Property="Background" Value="#22FFFFFF" />
+              <Setter Property="Foreground" Value="#1D4F73" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="ButtonChrome" Property="Background" Value="#36B7D7EC" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>

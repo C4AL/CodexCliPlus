@@ -23,6 +23,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
             BackendPort = 9417,
             ManagementKey = "test-key",
             ManagementKeyReference = "desktop-management-key",
+            RememberPassword = true,
+            AutoLogin = false,
             PreferredCodexSource = CodexSourceKind.Cpa,
             ThemeMode = AppThemeMode.Dark,
             MinimumLogLevel = AppLogLevel.Warning,
@@ -39,6 +41,8 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppConstants.DefaultBackendPort, actual.BackendPort);
         Assert.Equal("test-key", actual.ManagementKey);
         Assert.Equal("desktop-management-key", actual.ManagementKeyReference);
+        Assert.True(actual.RememberPassword);
+        Assert.False(actual.AutoLogin);
         Assert.Equal(CodexSourceKind.Cpa, actual.PreferredCodexSource);
         Assert.Equal(AppThemeMode.Dark, actual.ThemeMode);
         Assert.Equal(AppLogLevel.Warning, actual.MinimumLogLevel);
@@ -50,6 +54,9 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9417", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"rememberPassword\": true", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"autoLogin\": false", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("rememberManagementKey", persistedJson, StringComparison.Ordinal);
         Assert.Contains(
             "\"securityKeyOnboardingCompleted\": true",
             persistedJson,
@@ -87,11 +94,15 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal("legacy-secret", settings.ManagementKey);
         Assert.Equal(AppConstants.DefaultManagementKeyReference, settings.ManagementKeyReference);
         Assert.Equal(AppThemeMode.White, settings.ThemeMode);
+        Assert.True(settings.RememberPassword);
+        Assert.True(settings.AutoLogin);
         Assert.True(settings.SecurityKeyOnboardingCompleted);
         Assert.DoesNotContain("legacy-secret", persistedJson, StringComparison.Ordinal);
         Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("9527", persistedJson, StringComparison.Ordinal);
         Assert.Contains("managementKeyReference", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"rememberPassword\": true", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"autoLogin\": true", persistedJson, StringComparison.Ordinal);
         Assert.True(
             File.Exists(
                 Path.Combine(
@@ -132,6 +143,86 @@ public sealed class JsonAppConfigurationServiceTests : IDisposable
         Assert.Equal(AppThemeMode.White, actual.ThemeMode);
         Assert.Equal(AppLogLevel.Error, actual.MinimumLogLevel);
         Assert.True(actual.EnableDebugTools);
+    }
+
+    [Fact]
+    public async Task SaveAsyncNormalizesAutoLoginWhenRememberPasswordIsDisabled()
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var service = new JsonAppConfigurationService(pathService);
+        var settings = new AppSettings
+        {
+            ManagementKey = "session-only-key",
+            RememberPassword = false,
+            AutoLogin = true,
+        };
+
+        await service.SaveAsync(settings);
+
+        var actual = await new JsonAppConfigurationService(pathService).LoadAsync();
+        var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
+
+        Assert.False(actual.RememberPassword);
+        Assert.False(actual.AutoLogin);
+        Assert.Empty(actual.ManagementKey);
+        Assert.Contains("\"rememberPassword\": false", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"autoLogin\": false", persistedJson, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true, true, true, true)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, false, false)]
+    public async Task LoadAsyncMigratesLegacyRememberManagementKey(
+        bool legacyRememberManagementKey,
+        bool hasSecret,
+        bool expectedRememberPassword,
+        bool expectedAutoLogin
+    )
+    {
+        var pathService = new TestPathService(_rootDirectory);
+        var service = new JsonAppConfigurationService(pathService);
+        await pathService.EnsureCreatedAsync();
+        if (hasSecret)
+        {
+            var seed = new AppSettings
+            {
+                ManagementKey = "legacy-secret",
+                ManagementKeyReference = "legacy-key",
+                RememberPassword = true,
+                AutoLogin = true,
+            };
+            await service.SaveAsync(seed);
+        }
+
+        await File.WriteAllTextAsync(
+            pathService.Directories.SettingsFilePath,
+            $$"""
+            {
+              "backendPort": 1327,
+              "managementKeyReference": "legacy-key",
+              "rememberManagementKey": {{legacyRememberManagementKey.ToString().ToLowerInvariant()}}
+            }
+            """
+        );
+
+        var settings = await new JsonAppConfigurationService(pathService).LoadAsync();
+        var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
+
+        Assert.Equal(expectedRememberPassword, settings.RememberPassword);
+        Assert.Equal(expectedAutoLogin, settings.AutoLogin);
+        Assert.Equal(expectedRememberPassword ? "legacy-secret" : string.Empty, settings.ManagementKey);
+        Assert.Contains(
+            $"\"rememberPassword\": {expectedRememberPassword.ToString().ToLowerInvariant()}",
+            persistedJson,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            $"\"autoLogin\": {expectedAutoLogin.ToString().ToLowerInvariant()}",
+            persistedJson,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("rememberManagementKey", persistedJson, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -29,7 +29,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
             BackendPort = 8517,
             ManagementKey = "test-key",
             ManagementKeyReference = "managed-by-marker",
-            RememberManagementKey = true,
+            RememberPassword = true,
+            AutoLogin = false,
             PreferredCodexSource = CodexSourceKind.Cpa,
             ThemeMode = AppThemeMode.Dark,
             CheckForUpdatesOnStartup = false,
@@ -50,6 +51,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
         );
         Assert.Equal(expected.ManagementKey, actual.ManagementKey);
         Assert.Equal(expected.ManagementKeyReference, actual.ManagementKeyReference);
+        Assert.True(actual.RememberPassword);
+        Assert.False(actual.AutoLogin);
         Assert.Equal(expected.PreferredCodexSource, actual.PreferredCodexSource);
         Assert.Equal(expected.ThemeMode, actual.ThemeMode);
         Assert.False(actual.CheckForUpdatesOnStartup);
@@ -88,7 +91,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
         {
             ManagementKey = "remembered-key",
             ManagementKeyReference = "remember-test",
-            RememberManagementKey = true,
+            RememberPassword = true,
+            AutoLogin = true,
         };
 
         await service.SaveAsync(settings);
@@ -100,7 +104,8 @@ public sealed class JsonAppConfigurationServicePathModeTests
         Assert.True(File.Exists(secretPath));
 
         settings.ManagementKey = "session-only-key";
-        settings.RememberManagementKey = false;
+        settings.RememberPassword = false;
+        settings.AutoLogin = true;
         await service.SaveAsync(settings);
 
         var loadedInProcess = await service.LoadAsync();
@@ -110,19 +115,53 @@ public sealed class JsonAppConfigurationServicePathModeTests
         Assert.False(File.Exists(secretPath));
         Assert.Equal("session-only-key", loadedInProcess.ManagementKey);
         Assert.Empty(loadedAfterRestart.ManagementKey);
-        Assert.Contains(
-            "\"rememberManagementKey\": false",
-            persistedJson,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("\"rememberPassword\": false", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"autoLogin\": false", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("rememberManagementKey", persistedJson, StringComparison.Ordinal);
         Assert.DoesNotContain("session-only-key", persistedJson, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task LoadAsyncMigratesLegacyDpapiManagementKeyToRememberedState()
+    public async Task LoadAsyncMigratesLegacyRememberManagementKeyToRememberPasswordAndAutoLogin()
     {
         using var scope = new AppPathServiceEnvironmentScope();
         var overrideRoot = scope.CreateTemporaryRoot("codexcliplus-config-legacy-secret");
+        AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
+
+        var pathService = new AppPathService();
+        var store = new CodexCliPlus.Infrastructure.Security.DpapiCredentialStore(pathService);
+        await pathService.EnsureCreatedAsync();
+        await store.SaveSecretAsync("legacy-key", "legacy-secret");
+        await File.WriteAllTextAsync(
+            pathService.Directories.SettingsFilePath,
+            """
+            {
+              "backendPort": 8317,
+              "managementKeyReference": "legacy-key",
+              "rememberManagementKey": true
+            }
+            """
+        );
+
+        var settings = await new JsonAppConfigurationService(pathService).LoadAsync();
+        var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
+
+        Assert.True(settings.RememberPassword);
+        Assert.True(settings.AutoLogin);
+        Assert.Equal("legacy-secret", settings.ManagementKey);
+        Assert.True(settings.SecurityKeyOnboardingCompleted);
+        Assert.Contains("\"rememberPassword\": true", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"autoLogin\": true", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("rememberManagementKey", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("8317", persistedJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LoadAsyncDefaultsMissingRememberManagementKeyToNoPersistence()
+    {
+        using var scope = new AppPathServiceEnvironmentScope();
+        var overrideRoot = scope.CreateTemporaryRoot("codexcliplus-config-missing-remember");
         AppPathServiceEnvironmentScope.SetRootOverride(overrideRoot);
 
         var pathService = new AppPathService();
@@ -140,13 +179,10 @@ public sealed class JsonAppConfigurationServicePathModeTests
         );
 
         var settings = await new JsonAppConfigurationService(pathService).LoadAsync();
-        var persistedJson = await File.ReadAllTextAsync(pathService.Directories.SettingsFilePath);
 
-        Assert.True(settings.RememberManagementKey);
-        Assert.Equal("legacy-secret", settings.ManagementKey);
+        Assert.False(settings.RememberPassword);
+        Assert.False(settings.AutoLogin);
+        Assert.Empty(settings.ManagementKey);
         Assert.True(settings.SecurityKeyOnboardingCompleted);
-        Assert.Contains("\"rememberManagementKey\": true", persistedJson, StringComparison.Ordinal);
-        Assert.Contains("\"backendPort\": 1327", persistedJson, StringComparison.Ordinal);
-        Assert.DoesNotContain("8317", persistedJson, StringComparison.Ordinal);
     }
 }

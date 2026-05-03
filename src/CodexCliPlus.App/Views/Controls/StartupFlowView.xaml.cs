@@ -25,6 +25,8 @@ public partial class StartupFlowView : WpfUserControl
     public event EventHandler? FirstRunConfirmationRequested;
     public event EventHandler? FirstRunConfirmationAccepted;
     public event EventHandler? FirstRunConfirmationCancelled;
+    public event EventHandler? CloseRequested;
+    public event EventHandler<MouseButtonEventArgs>? WindowDragRequested;
 
     internal StartupFlowScreen CurrentScreen { get; private set; } = StartupFlowScreen.Login;
 
@@ -40,14 +42,35 @@ public partial class StartupFlowView : WpfUserControl
 
     public string ManagementKey => ManagementKeyPasswordBox.Password.Trim();
 
-    public bool RememberManagementKey
+    public bool RememberPassword
     {
-        get => RememberManagementKeyCheckBox.IsChecked == true;
-        set => RememberManagementKeyCheckBox.IsChecked = value;
+        get => RememberPasswordCheckBox.IsChecked == true;
+        set
+        {
+            RememberPasswordCheckBox.IsChecked = value;
+            UpdatePersistenceDependencies();
+        }
     }
 
-    public bool FirstRunRememberManagementKey =>
-        FirstRunRememberSecurityKeyCheckBox.IsChecked == true;
+    public bool AutoLogin
+    {
+        get => AutoLoginCheckBox.IsChecked == true;
+        set
+        {
+            if (value)
+            {
+                RememberPasswordCheckBox.IsChecked = true;
+            }
+
+            AutoLoginCheckBox.IsChecked = value;
+            UpdatePersistenceDependencies();
+        }
+    }
+
+    public bool FirstRunRememberPassword =>
+        FirstRunRememberPasswordCheckBox.IsChecked == true;
+
+    public bool FirstRunAutoLogin => FirstRunAutoLoginCheckBox.IsChecked == true;
 
     public void ShowLoading(double progress, string title, string description, string status)
     {
@@ -76,31 +99,40 @@ public partial class StartupFlowView : WpfUserControl
         );
     }
 
-    public void ShowFirstRunKey(string key, bool remember)
+    public void ShowFirstRunKey(string key, bool rememberPassword, bool autoLogin)
     {
         FirstRunSecurityKeyTextBox.Text = key;
         FirstRunSecurityKeyTextBox.CaretIndex = 0;
         FirstRunSecurityKeyTextBox.ScrollToHome();
-        FirstRunRememberSecurityKeyCheckBox.IsChecked = remember;
+        FirstRunRememberPasswordCheckBox.IsChecked = rememberPassword || autoLogin;
+        FirstRunAutoLoginCheckBox.IsChecked = autoLogin;
+        UpdatePersistenceDependencies();
         FirstRunEnterManagementButton.IsEnabled = true;
         SetFirstRunConfirmVisible(visible: false, buttonText: "确认", canConfirm: false);
         SetScreen(StartupFlowScreen.FirstRunKey);
         FocusFirstRunKey();
     }
 
-    public void ShowLogin(string? errorMessage, bool remember)
+    public void ShowLogin(string? errorMessage, bool rememberPassword, bool autoLogin)
     {
-        RememberManagementKey = remember;
+        SetLoginPersistenceOptions(rememberPassword, autoLogin);
         SetLoginBusy(false);
         SetLoginError(errorMessage);
         SetScreen(StartupFlowScreen.Login);
         FocusLoginKey();
     }
 
+    public void SetLoginPersistenceOptions(bool rememberPassword, bool autoLogin)
+    {
+        RememberPasswordCheckBox.IsChecked = rememberPassword || autoLogin;
+        AutoLoginCheckBox.IsChecked = autoLogin;
+        UpdatePersistenceDependencies();
+    }
+
     public void SetLoginBusy(bool isBusy)
     {
         LoginButton.IsEnabled = !isBusy;
-        ForgotSecurityKeyButton.IsEnabled = !isBusy;
+        AuthenticationMenuButton.IsEnabled = !isBusy;
     }
 
     public void SetLoginError(string? message)
@@ -221,9 +253,30 @@ public partial class StartupFlowView : WpfUserControl
         LoginSubmitted?.Invoke(this, EventArgs.Empty);
     }
 
-    private void ForgotSecurityKeyButton_Click(object sender, RoutedEventArgs e)
+    private void AuthenticationMenuButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (AuthenticationMenuButton.ContextMenu is not { } menu)
+        {
+            return;
+        }
+
+        menu.PlacementTarget = AuthenticationMenuButton;
+        menu.IsOpen = true;
+    }
+
+    private void AuthenticationMenuResetItem_Click(object sender, RoutedEventArgs e)
     {
         ResetRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void AuthenticationCloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        CloseRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void AuthenticationDragRegion_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        WindowDragRequested?.Invoke(this, e);
     }
 
     private void FirstRunCopyKeyButton_Click(object sender, RoutedEventArgs e)
@@ -251,12 +304,51 @@ public partial class StartupFlowView : WpfUserControl
         FirstRunConfirmationCancelled?.Invoke(this, EventArgs.Empty);
     }
 
-    private void SilentLoginLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void PersistenceOptionLabel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement { Tag: WpfCheckBox checkBox })
         {
             checkBox.IsChecked = checkBox.IsChecked != true;
             e.Handled = true;
+        }
+    }
+
+    private void PersistenceOptionCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender == FirstRunAutoLoginCheckBox && FirstRunAutoLoginCheckBox.IsChecked == true)
+        {
+            FirstRunRememberPasswordCheckBox.IsChecked = true;
+        }
+        else if (sender == AutoLoginCheckBox && AutoLoginCheckBox.IsChecked == true)
+        {
+            RememberPasswordCheckBox.IsChecked = true;
+        }
+
+        UpdatePersistenceDependencies();
+    }
+
+    private void UpdatePersistenceDependencies()
+    {
+        if (
+            FirstRunRememberPasswordCheckBox is null
+            || FirstRunAutoLoginCheckBox is null
+            || RememberPasswordCheckBox is null
+            || AutoLoginCheckBox is null
+        )
+        {
+            return;
+        }
+
+        SyncPersistencePair(FirstRunRememberPasswordCheckBox, FirstRunAutoLoginCheckBox);
+        SyncPersistencePair(RememberPasswordCheckBox, AutoLoginCheckBox);
+    }
+
+    private static void SyncPersistencePair(WpfCheckBox rememberPassword, WpfCheckBox autoLogin)
+    {
+        autoLogin.IsEnabled = rememberPassword.IsChecked == true;
+        if (rememberPassword.IsChecked != true)
+        {
+            autoLogin.IsChecked = false;
         }
     }
 }

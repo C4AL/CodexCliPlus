@@ -70,17 +70,23 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "x:Name=\"RememberManagementKeyCheckBox\"",
+            "x:Name=\"RememberPasswordCheckBox\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
+        Assert.Contains("x:Name=\"AutoLoginCheckBox\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"FirstRunSecurityKeyTextBox\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
+            "x:Name=\"FirstRunRememberPasswordCheckBox\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"FirstRunAutoLoginCheckBox\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
@@ -812,8 +818,8 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"ShellTitleBar\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"MainWindowChromeBehavior\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"MainWindowGlowBehavior\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("AuthenticationCompactWindowWidth = 284", source, StringComparison.Ordinal);
-        Assert.Contains("AuthenticationCompactWindowHeight = 376", source, StringComparison.Ordinal);
+        Assert.Contains("AuthenticationCompactWindowWidth = 320", source, StringComparison.Ordinal);
+        Assert.Contains("AuthenticationCompactWindowHeight = 460", source, StringComparison.Ordinal);
         Assert.Contains("EnterAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
         Assert.Contains("ExitAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
         Assert.Contains(
@@ -832,12 +838,12 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "StartupFlow.ShowFirstRunKey(_firstRunManagementKey, remember: false);",
+            "rememberPassword: false",
             source,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "StartupFlow.ShowLogin(errorMessage, _settings.RememberManagementKey);",
+            "StartupFlow.ShowLogin(errorMessage, _settings.RememberPassword, _settings.AutoLogin);",
             source,
             StringComparison.Ordinal
         );
@@ -889,44 +895,69 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("Click=\"LoginButton_Click\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "Click=\"ForgotSecurityKeyButton_Click\"",
+            "AuthenticationMenuResetItem_Click",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("ForgotSecurityKeyButton", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "AutomationProperties.Name=\"记住密码\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "AutomationProperties.Name=\"静默登录\"",
+            "AutomationProperties.Name=\"自动登录\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "MouseLeftButtonDown=\"SilentLoginLabel_MouseLeftButtonDown\"",
+            "MouseLeftButtonDown=\"PersistenceOptionLabel_MouseLeftButtonDown\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
+        Assert.DoesNotContain("静默登录", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SilentLogin", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Content=\"本机记住安全密钥\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "x:Name=\"FirstRunSilentLoginRiskIndicator\"",
+            "x:Name=\"FirstRunPersistenceRiskIndicator\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "x:Name=\"LoginSilentLoginRiskIndicator\"",
+            "x:Name=\"LoginPersistenceRiskIndicator\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains("Kind=\"CircleAlert\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("仅在受信任的个人设备上使用", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
+            "x:Name=\"AuthenticationMenuButton\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"AuthenticationCloseButton\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Header=\"忘记安全密钥/重置\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("安全密钥登录", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("本机凭据保护", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
             "x:Key=\"ShellInlineIconButtonStyle\"",
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("Height=\"34\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("Padding=\"10,7,40,7\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"40\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"12,9,74,9\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellIconViewboxStyle\"",
             shellResources,
@@ -960,12 +991,12 @@ public sealed class NavigationShellTests
                 StringComparison.Ordinal
             )
                 < startupFlowXaml.IndexOf(
-                    "x:Name=\"FirstRunRememberSecurityKeyCheckBox\"",
+                    "x:Name=\"FirstRunRememberPasswordCheckBox\"",
                     StringComparison.Ordinal
                 )
         );
         Assert.DoesNotContain("MinWidth=\"360\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Height=\"64\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"64\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "<ColumnDefinition Width=\"Auto\" />",
             startupFlowXaml,
@@ -1012,7 +1043,8 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("Text=\"初始化\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"登录\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"安全密钥登录\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"登录\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "首次初始化安全密钥",
             startupFlowXaml,

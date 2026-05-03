@@ -103,6 +103,7 @@ public partial class MainWindow
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
         CloseSettingsOverlayImmediately();
+        CloseShellNotificationPopups();
         TrayIcon.Unregister();
     }
 
@@ -121,6 +122,7 @@ public partial class MainWindow
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
         CloseSettingsOverlayImmediately();
+        CloseShellNotificationPopups();
         GC.SuppressFinalize(this);
     }
 
@@ -128,6 +130,8 @@ public partial class MainWindow
     {
         _isMainWindowActive = true;
         UpdateNavigationDockPopupVisibility();
+        UpdateSettingsOverlayPopupVisibility();
+        UpdateShellNotificationPopupVisibility();
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
@@ -161,8 +165,10 @@ public partial class MainWindow
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         CloseShellDockPopups();
+        CloseShellNotificationPopups();
         if (_allowClose || _isExitRequested)
         {
+            CloseSettingsOverlayImmediately();
             return;
         }
 
@@ -170,7 +176,11 @@ public partial class MainWindow
         {
             e.Cancel = true;
             HideToTray();
+            UpdateSettingsOverlayPopupVisibility();
+            return;
         }
+
+        CloseSettingsOverlayImmediately();
     }
 
     private void Window_PlacementChanged(object? sender, EventArgs e)
@@ -181,6 +191,8 @@ public partial class MainWindow
         }
 
         RefreshShellDockPopupPlacements();
+        UpdateSettingsOverlayPopupVisibility();
+        UpdateShellNotificationPopupVisibility();
     }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)

@@ -265,7 +265,23 @@ public sealed class NavigationShellTests
         Assert.Contains("Width=\"17\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("M12,3 C7.029,3 3,7.029 3,12", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ShellSettingsButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"SettingsOverlayPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=ShellRootGrid}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("x:Name=\"SettingsOverlay\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Width=\"{Binding ActualWidth, ElementName=ShellRootGrid}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Height=\"{Binding ActualHeight, ElementName=ShellRootGrid}\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("SettingsWindow_Deactivated", hostSource, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"SettingsFollowSystemCheckBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CornerRadius=\"18,18,0,0\"", xaml, StringComparison.Ordinal);
@@ -436,12 +452,19 @@ public sealed class NavigationShellTests
             startupFlowResources,
             StringComparison.Ordinal
         );
+        Assert.Contains("x:Name=\"SettingsOverlayPopup\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("SettingsOverlayPopup.IsOpen", shellSettingsSource, StringComparison.Ordinal);
         Assert.Contains(
+            "RefreshDockPopupPlacement(SettingsOverlayPopup)",
+            shellSettingsSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
             "ManagementWebView.Visibility = Visibility.Collapsed;",
             shellSettingsSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "RestoreManagementWebViewAfterSettingsOverlay",
             shellSettingsSource,
             StringComparison.Ordinal
@@ -511,9 +534,12 @@ public sealed class NavigationShellTests
         );
 
         Assert.Contains("RefreshShellDockPopupPlacements();", placementChangedSource);
+        Assert.Contains("UpdateSettingsOverlayPopupVisibility();", placementChangedSource);
+        Assert.Contains("UpdateShellNotificationPopupVisibility();", placementChangedSource);
         Assert.Contains("RefreshShellBrandDockPopupPlacement();", brandPopupOpenedSource);
         Assert.Contains("RefreshShellBrandDockPopupPlacement();", refreshAllSource);
         Assert.Contains("RefreshNavigationDockPopupPlacement();", refreshAllSource);
+        Assert.Contains("RefreshShellNotificationPopupPlacements();", refreshAllSource);
         Assert.DoesNotContain(
             "ShellNavigationDockPopup.IsOpen = false",
             navigationRefreshSource,
@@ -1198,10 +1224,47 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
 
-        Assert.Contains("x:Name=\"AutoNotificationStack\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("HorizontalAlignment=\"Center\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManualNotificationStack\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
+        var autoNotificationPopupXaml = SliceBetween(
+            xaml,
+            "x:Name=\"AutoNotificationPopup\"",
+            "    </Popup>"
+        );
+        var manualNotificationPopupXaml = SliceBetween(
+            xaml,
+            "x:Name=\"ManualNotificationPopup\"",
+            "    </Popup>"
+        );
+
+        Assert.Contains("x:Name=\"AutoNotificationPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=ManagementContentHost}\"",
+            autoNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Placement=\"Relative\"", autoNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains("AllowsTransparency=\"True\"", autoNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains("StaysOpen=\"True\"", autoNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"AutoNotificationStack\"",
+            autoNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Width=\"380\"", autoNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManualNotificationPopup\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=ManagementContentHost}\"",
+            manualNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Placement=\"Relative\"", manualNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains("AllowsTransparency=\"True\"", manualNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains("StaysOpen=\"True\"", manualNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ManualNotificationStack\"",
+            manualNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Width=\"360\"", manualNotificationPopupXaml, StringComparison.Ordinal);
         Assert.Contains("BottomCenterAuto", requestSource, StringComparison.Ordinal);
         Assert.Contains("BottomRightManual", requestSource, StringComparison.Ordinal);
         Assert.Contains("ShellNotificationLevel", requestSource, StringComparison.Ordinal);
@@ -1213,7 +1276,18 @@ public sealed class NavigationShellTests
         Assert.Contains("ShowManual", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
-        Assert.Contains("HorizontalAlignment.Right", hostSource, StringComparison.Ordinal);
+        Assert.Contains("AutoNotificationBottomOffset = 28", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ManualNotificationRightOffset = 24", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ManualNotificationBottomOffset = 24", hostSource, StringComparison.Ordinal);
+        Assert.Contains("UpdateShellNotificationPopupPlacement", hostSource, StringComparison.Ordinal);
+        Assert.Contains("(hostWidth - ownerWidth) / 2", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "hostWidth - ownerWidth - ManualNotificationRightOffset",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("RefreshShellNotificationPopupPlacements", hostSource, StringComparison.Ordinal);
+        Assert.Contains("RefreshDockPopupPlacement(popup)", hostSource, StringComparison.Ordinal);
         Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("MaxVisibleShellNotifications = 3", hostSource, StringComparison.Ordinal);
         Assert.Contains(

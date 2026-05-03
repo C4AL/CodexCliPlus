@@ -30,11 +30,11 @@ public sealed class CodexConfigServiceTests : IDisposable
         var content = await File.ReadAllTextAsync(configPath);
         var backups = Directory.GetFiles(_codexHome, "config.codexcliplus-backup-*.toml");
 
-        Assert.Contains("profile = \"cpa\"", content, StringComparison.Ordinal);
+        Assert.Contains("profile = \"codexcliplus-cpa\"", content, StringComparison.Ordinal);
         Assert.Contains("model = \"gpt-5.4\"", content, StringComparison.Ordinal);
-        Assert.Contains("[profiles.official]", content, StringComparison.Ordinal);
-        Assert.Contains("[profiles.cpa]", content, StringComparison.Ordinal);
-        Assert.Contains("model_provider = \"cliproxyapi\"", content, StringComparison.Ordinal);
+        Assert.Contains("[profiles.codexcliplus-official]", content, StringComparison.Ordinal);
+        Assert.Contains("[profiles.codexcliplus-cpa]", content, StringComparison.Ordinal);
+        Assert.Contains("model_provider = \"codexcliplus-cpa\"", content, StringComparison.Ordinal);
         Assert.Contains(
             "base_url = \"http://127.0.0.1:9318/v1\"",
             content,
@@ -59,6 +59,41 @@ public sealed class CodexConfigServiceTests : IDisposable
 
         Assert.Equal("cpa", state.CurrentMode);
         Assert.Equal("official", state.TargetMode);
+        Assert.StartsWith("third-party-cpa:", state.CurrentTargetId, StringComparison.Ordinal);
+        Assert.Contains("第三方 CPA 127.0.0.1:8317", state.CurrentLabel, StringComparison.Ordinal);
+        Assert.Contains(
+            state.Targets,
+            target =>
+                target.Kind == "third-party-cpa"
+                && target.BaseUrl == "http://127.0.0.1:8317/v1"
+                && target.IsCurrent
+        );
+    }
+
+    [Fact]
+    public async Task GetCodexRouteStateAsyncRecognizesUnknownProviderWithConfiguredCpaBaseUrl()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        await File.WriteAllTextAsync(
+            Path.Combine(_codexHome, "config.toml"),
+            "model_provider = \"my-cpa\"\nbase_url = \"http://127.0.0.1:8317/v1\"\nwire_api = \"responses\"\n[model_providers.my-cpa]\nname = \"my-cpa\"\nbase_url = \"http://127.0.0.1:8317/v1\"\n"
+        );
+
+        var service = new CodexConfigService();
+        var state = await service.GetCodexRouteStateAsync();
+
+        Assert.Equal("cpa", state.CurrentMode);
+        Assert.Contains("第三方 CPA 127.0.0.1:8317", state.CurrentLabel, StringComparison.Ordinal);
+        Assert.Contains(
+            state.Targets,
+            target =>
+                target.Kind == "third-party-cpa"
+                && target.ProviderName == "my-cpa"
+                && target.BaseUrl == "http://127.0.0.1:8317/v1"
+                && target.IsCurrent
+        );
     }
 
     [Fact]

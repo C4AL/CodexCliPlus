@@ -69,8 +69,8 @@ public sealed class CodexAuthSwitchTests : IDisposable
         var config = await File.ReadAllTextAsync(service.GetUserConfigPath());
         var currentAuth = await File.ReadAllTextAsync(authPath);
 
-        Assert.Contains("profile = \"official\"", config, StringComparison.Ordinal);
-        Assert.Contains("[profiles.cpa]", config, StringComparison.Ordinal);
+        Assert.Contains("profile = \"codexcliplus-official\"", config, StringComparison.Ordinal);
+        Assert.Contains("[profiles.codexcliplus-cpa]", config, StringComparison.Ordinal);
         Assert.Contains("\"token\": \"official\"", currentAuth, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "\"OPENAI_API_KEY\": \"sk-dummy\"",
@@ -107,8 +107,8 @@ public sealed class CodexAuthSwitchTests : IDisposable
         Assert.True(result.Succeeded, result.ErrorMessage);
         Assert.Equal("official", result.State.CurrentMode);
         Assert.True(File.Exists(result.ConfigBackupPath));
-        Assert.Contains("profile = \"official\"", config, StringComparison.Ordinal);
-        Assert.DoesNotContain("http://127.0.0.1:8317/v1", config, StringComparison.Ordinal);
+        Assert.Contains("profile = \"codexcliplus-official\"", config, StringComparison.Ordinal);
+        Assert.Contains("http://127.0.0.1:8317/v1", config, StringComparison.Ordinal);
         Assert.DoesNotContain("[model_providers.cpa]", config, StringComparison.Ordinal);
         Assert.Contains("[model_providers.cliproxyapi]", config, StringComparison.Ordinal);
         Assert.Contains("\"token\": \"official\"", currentAuth, StringComparison.Ordinal);
@@ -133,11 +133,12 @@ public sealed class CodexAuthSwitchTests : IDisposable
 
         Assert.True(result.Succeeded, result.ErrorMessage);
         Assert.Equal("cpa", result.State.CurrentMode);
-        Assert.Contains("profile = \"cpa\"", config, StringComparison.Ordinal);
-        Assert.Contains("model_provider = \"cliproxyapi\"", config, StringComparison.Ordinal);
+        Assert.Equal("codexcliplus-cpa", result.State.CurrentTargetId);
+        Assert.Contains("profile = \"codexcliplus-cpa\"", config, StringComparison.Ordinal);
+        Assert.Contains("model_provider = \"codexcliplus-cpa\"", config, StringComparison.Ordinal);
         Assert.Contains("chatgpt_base_url = \"http://127.0.0.1:1327/backend-api\"", config, StringComparison.Ordinal);
         Assert.Contains("base_url = \"http://127.0.0.1:1327/v1\"", config, StringComparison.Ordinal);
-        Assert.Contains("[model_providers.cliproxyapi]", config, StringComparison.Ordinal);
+        Assert.Contains("[model_providers.codexcliplus-cpa]", config, StringComparison.Ordinal);
         Assert.DoesNotContain("[model_providers.cpa]", config, StringComparison.Ordinal);
         Assert.Contains("\"OPENAI_API_KEY\": \"sk-dummy\"", currentAuth, StringComparison.Ordinal);
         Assert.Contains("\"auth_mode\": \"chatgpt\"", officialBackup, StringComparison.Ordinal);
@@ -183,9 +184,42 @@ public sealed class CodexAuthSwitchTests : IDisposable
         var config = await File.ReadAllTextAsync(service.GetUserConfigPath());
 
         Assert.True(result.Succeeded, result.ErrorMessage);
-        Assert.Equal(1, CountOccurrences(config, "[profiles.cpa]"));
-        Assert.Equal(1, CountOccurrences(config, "[model_providers.cliproxyapi]"));
+        Assert.Equal(1, CountOccurrences(config, "[profiles.codexcliplus-cpa]"));
+        Assert.Equal(1, CountOccurrences(config, "[model_providers.codexcliplus-cpa]"));
         Assert.Equal(0, CountOccurrences(config, "[model_providers.cpa]"));
+    }
+
+    [Fact]
+    public async Task SwitchCodexRouteAsyncCanSwitchToConfiguredThirdPartyCpaWithoutOverwritingProvider()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var authPath = Path.Combine(_codexHome, "auth.json");
+        var configPath = Path.Combine(_codexHome, "config.toml");
+        await File.WriteAllTextAsync(authPath, "{\n  \"auth_mode\": \"chatgpt\"\n}\n");
+        await File.WriteAllTextAsync(
+            configPath,
+            "[model_providers.cliproxyapi]\nname = \"cliproxyapi-old\"\nbase_url = \"http://127.0.0.1:8317/v1\"\nwire_api = \"responses\"\n"
+        );
+
+        var service = new CodexConfigService();
+        var result = await service.SwitchCodexRouteAsync(
+            "third-party-cpa:http://127.0.0.1:8317/v1",
+            1327
+        );
+
+        var config = await File.ReadAllTextAsync(configPath);
+        var currentAuth = await File.ReadAllTextAsync(authPath);
+
+        Assert.True(result.Succeeded, result.ErrorMessage);
+        Assert.Equal("cpa", result.State.CurrentMode);
+        Assert.StartsWith("third-party-cpa:", result.State.CurrentTargetId, StringComparison.Ordinal);
+        Assert.Contains("model_provider = \"cliproxyapi\"", config, StringComparison.Ordinal);
+        Assert.Contains("[model_providers.cliproxyapi]", config, StringComparison.Ordinal);
+        Assert.Contains("name = \"cliproxyapi-old\"", config, StringComparison.Ordinal);
+        Assert.Contains("base_url = \"http://127.0.0.1:8317/v1\"", config, StringComparison.Ordinal);
+        Assert.Contains("\"OPENAI_API_KEY\": \"sk-dummy\"", currentAuth, StringComparison.Ordinal);
     }
 
     private static int CountOccurrences(string value, string pattern)

@@ -95,9 +95,10 @@ public static class DesktopBridgeScriptFactory
                   type: 'requestCodexRouteState',
                   requestId: typeof requestId === 'string' ? requestId : undefined
                 }),
-                switchCodexRoute: (targetMode, requestId) => postHostMessage({
+                switchCodexRoute: (targetId, requestId) => postHostMessage({
                   type: 'switchCodexRoute',
-                  targetMode: typeof targetMode === 'string' ? targetMode : '',
+                  targetId: typeof targetId === 'string' ? targetId : '',
+                  targetMode: typeof targetId === 'string' ? targetId : '',
                   requestId: typeof requestId === 'string' ? requestId : undefined
                 }),
                 managementRequest: (request) => {

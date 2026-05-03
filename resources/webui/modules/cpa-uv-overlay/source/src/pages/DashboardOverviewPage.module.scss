@@ -90,12 +90,24 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 .routeSwitch :global(.btn) {
-  min-width: 92px;
+  min-width: 64px;
   white-space: nowrap;
+}
+
+.routeSelect {
+  width: min(260px, 42vw);
+  min-width: 196px;
+}
+
+.routeSelect > button {
+  height: 32px;
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .routeStatus {
@@ -103,6 +115,16 @@
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.routeError {
+  max-width: 96px;
+  color: var(--danger-color, #dc2626);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .summaryPills {
@@ -163,17 +185,18 @@
 .accountGrid {
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, auto);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-auto-rows: max-content;
   gap: 8px;
   align-content: start;
+  align-items: start;
   overflow: auto;
   padding-right: 2px;
 }
 
 .accountCard {
-  min-width: 0;
-  min-height: 0;
+  min-width: 240px;
+  min-height: 198px;
   display: grid;
   grid-template-rows: auto auto auto;
   gap: 8px;
@@ -616,7 +639,7 @@
 
 @media (max-width: 1500px) {
   .accountGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
 }
 
@@ -630,8 +653,8 @@
   }
 
   .accountGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    overflow: visible;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    overflow: auto;
   }
 
   .eventsTableWrapper {
@@ -645,7 +668,7 @@
   }
 
   .accountGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 
   .eventsTableWrapper {
@@ -656,6 +679,11 @@
 @media (max-width: 640px) {
   .accountGrid {
     grid-template-columns: 1fr;
+  }
+
+  .routeSelect {
+    width: 100%;
+    min-width: 0;
   }
 
   .quotaGrid {

@@ -113,10 +113,28 @@ export interface DesktopManagementResponse {
 }
 
 export type CodexRouteMode = 'official' | 'cpa' | 'unknown';
+export type CodexRouteTargetKind = 'official' | 'managed-cpa' | 'third-party-cpa' | 'unknown';
+
+export interface CodexRouteTarget {
+  id: string;
+  mode: CodexRouteMode;
+  kind: CodexRouteTargetKind;
+  label: string;
+  baseUrl?: string | null;
+  port?: number | null;
+  profileName?: string | null;
+  providerName?: string | null;
+  isCurrent: boolean;
+  canSwitch: boolean;
+  statusMessage?: string | null;
+}
 
 export interface CodexRouteState {
   currentMode: CodexRouteMode;
   targetMode?: Exclude<CodexRouteMode, 'unknown'> | null;
+  currentTargetId?: string | null;
+  currentLabel: string;
+  targets: CodexRouteTarget[];
   configPath: string;
   authPath: string;
   canSwitch: boolean;
@@ -153,7 +171,7 @@ interface DesktopBridge {
   checkDesktopUpdate?: () => void;
   applyDesktopUpdate?: () => void;
   requestCodexRouteState?: (requestId: string) => boolean | void;
-  switchCodexRoute?: (targetMode: string, requestId: string) => boolean | void;
+  switchCodexRoute?: (targetId: string, requestId: string) => boolean | void;
   managementRequest?: (request: DesktopManagementRequest & { requestId: string }) => void;
   requestLocalDependencySnapshot?: (requestId: string) => boolean | void;
   runLocalDependencyRepair?: (actionId: string, requestId: string) => boolean | void;
@@ -396,15 +414,61 @@ function normalizeCodexRouteMode(value: unknown): CodexRouteMode {
   return value === 'official' || value === 'cpa' ? value : 'unknown';
 }
 
+function normalizeCodexRouteTargetKind(value: unknown): CodexRouteTargetKind {
+  return value === 'official' || value === 'managed-cpa' || value === 'third-party-cpa'
+    ? value
+    : 'unknown';
+}
+
 function normalizeCodexRouteTarget(value: unknown): Exclude<CodexRouteMode, 'unknown'> | null {
   return value === 'official' || value === 'cpa' ? value : null;
 }
 
+function normalizeCodexRouteTargetId(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeCodexRouteTargets(value: unknown): CodexRouteTarget[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((target) => {
+      if (!isRecord(target)) return null;
+      const id = normalizeCodexRouteTargetId(target.id);
+      const label = typeof target.label === 'string' ? target.label.trim() : '';
+      if (!id || !label) return null;
+      const normalizedTarget: CodexRouteTarget = {
+        id,
+        mode: normalizeCodexRouteMode(target.mode),
+        kind: normalizeCodexRouteTargetKind(target.kind),
+        label,
+        baseUrl: typeof target.baseUrl === 'string' ? target.baseUrl : null,
+        port: typeof target.port === 'number' ? target.port : null,
+        profileName: typeof target.profileName === 'string' ? target.profileName : null,
+        providerName: typeof target.providerName === 'string' ? target.providerName : null,
+        isCurrent: target.isCurrent === true,
+        canSwitch: target.canSwitch === true,
+        statusMessage: typeof target.statusMessage === 'string' ? target.statusMessage : null,
+      };
+      return normalizedTarget;
+    })
+    .filter((target): target is CodexRouteTarget => target !== null);
+}
+
 function normalizeCodexRouteState(value: unknown): CodexRouteState | null {
   if (!isRecord(value)) return null;
+  const targets = normalizeCodexRouteTargets(value.targets);
   return {
     currentMode: normalizeCodexRouteMode(value.currentMode),
     targetMode: normalizeCodexRouteTarget(value.targetMode),
+    currentTargetId:
+      typeof value.currentTargetId === 'string' && value.currentTargetId.trim()
+        ? value.currentTargetId.trim()
+        : (targets.find((target) => target.isCurrent)?.id ?? null),
+    currentLabel:
+      typeof value.currentLabel === 'string' && value.currentLabel.trim()
+        ? value.currentLabel.trim()
+        : (targets.find((target) => target.isCurrent)?.label ?? ''),
+    targets,
     configPath: typeof value.configPath === 'string' ? value.configPath : '',
     authPath: typeof value.authPath === 'string' ? value.authPath : '',
     canSwitch: value.canSwitch === true,
@@ -802,17 +866,15 @@ export function requestCodexRouteState(): Promise<CodexRouteState> {
   return request;
 }
 
-export function switchCodexRoute(
-  targetMode: Exclude<CodexRouteMode, 'unknown'>
-): Promise<CodexRouteSwitchResponse> {
+export function switchCodexRoute(targetId: string): Promise<CodexRouteSwitchResponse> {
   const bridge = getBridge();
   if (typeof bridge?.switchCodexRoute !== 'function') {
     return Promise.reject(new Error('Codex 路由切换需要桌面模式'));
   }
 
-  const normalizedTarget = normalizeCodexRouteTarget(targetMode);
+  const normalizedTarget = normalizeCodexRouteTargetId(targetId);
   if (!normalizedTarget) {
-    return Promise.reject(new Error('目标模式无效'));
+    return Promise.reject(new Error('目标路由无效'));
   }
 
   ensureDesktopCommandListener();

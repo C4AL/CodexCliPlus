@@ -631,6 +631,8 @@ public sealed class NavigationShellTests
         Assert.Contains("requestCodexRouteState", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", hostSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("targetId", hostSource, StringComparison.Ordinal);
+        Assert.Contains("targetId", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("codexRouteResponse", hostSource, StringComparison.Ordinal);
         Assert.Contains("codexRouteResponse", webBridgeSource, StringComparison.Ordinal);
         Assert.Contains("hasHostBridge", bridgeSource, StringComparison.Ordinal);
@@ -1819,8 +1821,11 @@ public sealed class NavigationShellTests
         Assert.Contains("requestCodexRouteState", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("当前：{codexRouteModeLabel}", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("切换到 CPA", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("切换到官方", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("selectedCodexRouteTargetId", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("Codex 路由目标", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("选择路由", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("检测失败", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("应用", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("usage_stats.total_5h_remaining_quota", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("label: '加载中'", dashboardOverviewPageSource, StringComparison.Ordinal);
@@ -1828,6 +1833,11 @@ public sealed class NavigationShellTests
         Assert.Contains("requestCodexRouteState", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("当前：{codexRouteModeLabel}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("selectedCodexRouteTargetId", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("Codex 路由目标", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("选择路由", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("检测失败", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("应用", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("usage_stats.total_5h_remaining_quota", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("label: '加载中'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);

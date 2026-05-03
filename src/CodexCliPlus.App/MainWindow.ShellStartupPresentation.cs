@@ -58,6 +58,7 @@ public partial class MainWindow
     private void ShowPreparationStep(double progress, string description, StartupState state)
     {
         _startupState = state;
+        ExitAuthenticationCompactWindowMode();
         if (!StartupFlow.IsLoadingVisible || _preparationPanelShownAt is null)
         {
             _preparationPanelShownAt = DateTimeOffset.UtcNow;
@@ -75,6 +76,7 @@ public partial class MainWindow
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
     }
@@ -82,6 +84,7 @@ public partial class MainWindow
     private void ShowUpgradeNotice()
     {
         _startupState = StartupState.UpgradeNotice;
+        ExitAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
         var previousVersion = string.IsNullOrWhiteSpace(_settings.LastSeenApplicationVersion)
             ? "旧版本"
@@ -92,6 +95,7 @@ public partial class MainWindow
         UpgradeNoticePanel.Visibility = Visibility.Visible;
         StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
     }
@@ -99,6 +103,7 @@ public partial class MainWindow
     private void ShowFirstRunKeyReveal()
     {
         _startupState = StartupState.FirstRunKeyReveal;
+        EnterAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         StartupFlow.ShowFirstRunKey(_firstRunManagementKey, remember: false);
@@ -111,6 +116,7 @@ public partial class MainWindow
     private void ShowLogin(string? errorMessage = null)
     {
         _startupState = StartupState.NativeLogin;
+        EnterAuthenticationCompactWindowMode();
         _shellConnectionStatus = "disconnected";
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
@@ -130,6 +136,7 @@ public partial class MainWindow
     private void ShowBlocker(string title, string description, string detail)
     {
         _startupState = StartupState.Blocked;
+        ExitAuthenticationCompactWindowMode();
         _shellConnectionStatus = "error";
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
@@ -139,20 +146,159 @@ public partial class MainWindow
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Visible;
+        ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
     }
 
     private void ShowWebView()
     {
+        ExitAuthenticationCompactWindowMode();
         _shellConnectionStatus = "connected";
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Visible;
         UpdateNavigationDockPopupVisibility();
+    }
+
+    private void EnterAuthenticationCompactWindowMode()
+    {
+        if (!_isAuthenticationCompactWindowMode)
+        {
+            _preAuthenticationWindowLayout = CaptureCurrentWindowLayout();
+        }
+
+        _isAuthenticationCompactWindowMode = true;
+        CloseShellDockPopups();
+        SetNavigationDockPopupOpen(false);
+
+        if (WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        ResizeMode = ResizeMode.NoResize;
+        MinWidth = AuthenticationCompactWindowWidth;
+        MinHeight = AuthenticationCompactWindowHeight;
+        MaxWidth = AuthenticationCompactWindowWidth;
+        MaxHeight = AuthenticationCompactWindowHeight;
+        Width = AuthenticationCompactWindowWidth;
+        Height = AuthenticationCompactWindowHeight;
+        ExtendsContentIntoTitleBar = false;
+        WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.None;
+
+        MainWindowChromeBehavior.ResizeBorderThickness = new Thickness(0);
+        MainWindowChromeBehavior.CornerPreference =
+            ControlzEx.Behaviors.WindowCornerPreference.DoNotRound;
+        MainWindowChromeBehavior.UseNativeCaptionButtons = true;
+        MainWindowGlowBehavior.GlowDepth = 0;
+
+        ShellTitleBar.Visibility = Visibility.Collapsed;
+        ShellTitleBarRow.Height = new GridLength(0);
+        ManagementContentHost.Visibility = Visibility.Collapsed;
+        CenterAuthenticationCompactWindow();
+    }
+
+    private void ExitAuthenticationCompactWindowMode()
+    {
+        ApplyMainWindowModeChrome();
+
+        if (!_isAuthenticationCompactWindowMode)
+        {
+            return;
+        }
+
+        _isAuthenticationCompactWindowMode = false;
+        var windowLayout = _preAuthenticationWindowLayout;
+        _preAuthenticationWindowLayout = null;
+
+        if (WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        if (windowLayout is { } layout)
+        {
+            Width = NormalizeWindowLength(layout.Width, MainWindowMinWidth, MainWindowDefaultWidth);
+            Height = NormalizeWindowLength(
+                layout.Height,
+                MainWindowMinHeight,
+                MainWindowDefaultHeight
+            );
+            if (IsFiniteWindowValue(layout.Left) && IsFiniteWindowValue(layout.Top))
+            {
+                Left = layout.Left;
+                Top = layout.Top;
+            }
+
+            if (layout.WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Maximized;
+            }
+        }
+        else
+        {
+            Width = MainWindowDefaultWidth;
+            Height = MainWindowDefaultHeight;
+        }
+
+        RefreshShellDockPopupPlacements();
+    }
+
+    private void ApplyMainWindowModeChrome()
+    {
+        MaxWidth = double.PositiveInfinity;
+        MaxHeight = double.PositiveInfinity;
+        MinWidth = MainWindowMinWidth;
+        MinHeight = MainWindowMinHeight;
+        ResizeMode = ResizeMode.CanResize;
+        ExtendsContentIntoTitleBar = true;
+        WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.Auto;
+
+        MainWindowChromeBehavior.ResizeBorderThickness = new Thickness(8);
+        MainWindowChromeBehavior.CornerPreference = ControlzEx.Behaviors.WindowCornerPreference.Round;
+        MainWindowChromeBehavior.UseNativeCaptionButtons = false;
+        MainWindowGlowBehavior.GlowDepth = 8;
+
+        ShellTitleBarRow.Height = new GridLength(ShellTitleBarHeight);
+        ShellTitleBar.Visibility = Visibility.Visible;
+        ManagementContentHost.Visibility = Visibility.Visible;
+    }
+
+    private WindowLayoutSnapshot CaptureCurrentWindowLayout()
+    {
+        var state = WindowState;
+        var bounds = state == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        return new WindowLayoutSnapshot(
+            bounds.Left,
+            bounds.Top,
+            NormalizeWindowLength(bounds.Width, MainWindowMinWidth, MainWindowDefaultWidth),
+            NormalizeWindowLength(bounds.Height, MainWindowMinHeight, MainWindowDefaultHeight),
+            state
+        );
+    }
+
+    private void CenterAuthenticationCompactWindow()
+    {
+        var workArea = SystemParameters.WorkArea;
+        Left = workArea.Left + Math.Max(0, (workArea.Width - AuthenticationCompactWindowWidth) / 2);
+        Top =
+            workArea.Top
+            + Math.Max(0, (workArea.Height - AuthenticationCompactWindowHeight) / 2);
+    }
+
+    private static double NormalizeWindowLength(double value, double minimum, double fallback)
+    {
+        return IsFiniteWindowValue(value) && value >= minimum ? value : fallback;
+    }
+
+    private static bool IsFiniteWindowValue(double value)
+    {
+        return !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
     private void UpdateNavigationDockPopupVisibility()

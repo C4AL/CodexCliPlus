@@ -174,13 +174,69 @@ public sealed class LocalDependencyHealthServiceTests
         Assert.Contains("%APPDATA%\\npm", path.Detail, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task CheckAsyncReportsRepairableUserPathWhenUserPathHasDuplicateOrUnreachableEntries()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ExistingDirectories.Add("C:\\Tools");
+        fixture.UserPath = "C:\\Tools;C:\\Tools;C:\\Missing;%NOT_EXPANDED%\\bin";
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var path = Assert.Single(snapshot.Items, item => item.Id == "path");
+        Assert.Equal(LocalDependencyStatus.Warning, path.Status);
+        Assert.Equal(LocalDependencyRepairActionIds.RepairUserPath, path.RepairActionId);
+        Assert.Contains("用户 PATH 发现 1 个重复目录", path.Detail, StringComparison.Ordinal);
+        Assert.Contains("用户 PATH 发现 1 个不可达目录", path.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckAsyncDoesNotOfferUserPathRepairForOnlyMachinePathIssues()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ExistingDirectories.Add("C:\\MachineTools");
+        fixture.MachinePath = "C:\\MachineTools;C:\\MachineTools;C:\\MissingMachine";
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var path = Assert.Single(snapshot.Items, item => item.Id == "path");
+        Assert.Equal(LocalDependencyStatus.Warning, path.Status);
+        Assert.Null(path.RepairActionId);
+        Assert.Contains("系统 PATH 发现 1 个重复目录", path.Detail, StringComparison.Ordinal);
+        Assert.Contains("系统 PATH 发现 1 个不可达目录", path.Detail, StringComparison.Ordinal);
+        var capability = Assert.Single(
+            snapshot.RepairCapabilities,
+            item => item.ActionId == LocalDependencyRepairActionIds.RepairUserPath
+        );
+        Assert.False(capability.IsAvailable);
+    }
+
+    [Fact]
+    public async Task CheckAsyncUsesInstallWslWhenWslStatusReportsSubsystemNotInstalled()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond(
+            "C:\\Windows\\System32\\wsl.exe",
+            "--status",
+            50,
+            "未安装适用于 Linux 的 Windows 子系统。运行 wsl.exe --install。"
+        );
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        Assert.Equal(100, snapshot.ReadinessScore);
+        var wsl = Assert.Single(snapshot.Items, item => item.Id == "wsl");
+        Assert.Equal(LocalDependencyStatus.OptionalUnavailable, wsl.Status);
+        Assert.Equal(LocalDependencySeverity.Optional, wsl.Severity);
+        Assert.Equal(LocalDependencyRepairActionIds.InstallWsl, wsl.RepairActionId);
+        Assert.Contains("未安装适用于 Linux 的 Windows 子系统", wsl.Detail, StringComparison.Ordinal);
+    }
+
     private sealed class LocalEnvironmentFixture
     {
         private const string AppData = "C:\\Users\\Tester\\AppData\\Roaming";
         private const string UserProfile = "C:\\Users\\Tester";
-        private readonly HashSet<string> _existingDirectories = new(
-            StringComparer.OrdinalIgnoreCase
-        )
+        public HashSet<string> ExistingDirectories { get; } = new(StringComparer.OrdinalIgnoreCase)
         {
             "C:\\Users\\Tester\\AppData\\Roaming\\npm",
             "C:\\Program Files\\nodejs",
@@ -199,6 +255,10 @@ public sealed class LocalDependencyHealthServiceTests
 
         public string ProcessPath { get; set; } =
             "C:\\Users\\Tester\\AppData\\Roaming\\npm;C:\\Program Files\\nodejs;C:\\Program Files\\PowerShell\\7;C:\\Users\\Tester\\AppData\\Local\\Microsoft\\WindowsApps";
+
+        public string UserPath { get; set; } = string.Empty;
+
+        public string MachinePath { get; set; } = string.Empty;
 
         public static LocalEnvironmentFixture CreateHealthy()
         {
@@ -289,9 +349,15 @@ public sealed class LocalDependencyHealthServiceTests
                         "PATH" => ProcessPath,
                         _ => null,
                     },
-                _ => string.Empty,
+                target =>
+                    target switch
+                    {
+                        EnvironmentVariableTarget.User => UserPath,
+                        EnvironmentVariableTarget.Machine => MachinePath,
+                        _ => string.Empty,
+                    },
                 path => ExistingFiles.Contains(path),
-                path => _existingDirectories.Contains(path),
+                path => ExistingDirectories.Contains(path),
                 () => new DateTimeOffset(2026, 4, 30, 12, 0, 0, TimeSpan.Zero)
             );
         }

@@ -298,7 +298,8 @@ public sealed class LocalDependencyRepairService
     {
         var logPath = GetRepairLogPath();
         var userPath = _userPathReader(EnvironmentVariableTarget.User) ?? string.Empty;
-        var existingEntries = SplitPath(userPath).ToList();
+        var cleanup = CleanUserPathEntries(SplitPath(userPath));
+        var existingEntries = cleanup.Entries.ToList();
         var additions = GetAllowedUserPathRepairDirectories()
             .Where(directory => directory.CreateIfMissing || _directoryExists(directory.Path))
             .Select(directory =>
@@ -314,7 +315,11 @@ public sealed class LocalDependencyRepairService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (additions.Length == 0)
+        if (
+            additions.Length == 0
+            && cleanup.DuplicateEntriesRemoved == 0
+            && cleanup.UnreachableEntriesRemoved == 0
+        )
         {
             return new LocalDependencyRepairResult
             {
@@ -322,7 +327,7 @@ public sealed class LocalDependencyRepairService
                 Succeeded = true,
                 ExitCode = 0,
                 Summary = "用户 PATH 无需修复。",
-                Detail = "没有发现需要补齐的安全目录。",
+                Detail = "没有发现需要补齐或清理的用户 PATH 项。",
                 LogPath = logPath,
             };
         }
@@ -334,7 +339,7 @@ public sealed class LocalDependencyRepairService
             logPath,
             string.Create(
                 CultureInfo.InvariantCulture,
-                $"Added {additions.Length} safe user PATH entries."
+                $"Added {additions.Length} safe user PATH entries; removed {cleanup.DuplicateEntriesRemoved} duplicate entries; removed {cleanup.UnreachableEntriesRemoved} unreachable entries."
             ),
             cancellationToken
         );
@@ -346,9 +351,50 @@ public sealed class LocalDependencyRepairService
             Succeeded = true,
             ExitCode = 0,
             Summary = "用户 PATH 已修复。",
-            Detail = "已补齐安全目录。新终端和重启后的 CodexCliPlus 会读取更新后的 PATH。",
+            Detail = BuildUserPathRepairDetail(
+                additions.Length,
+                cleanup.DuplicateEntriesRemoved,
+                cleanup.UnreachableEntriesRemoved
+            ),
             LogPath = logPath,
         };
+    }
+
+    private UserPathCleanupResult CleanUserPathEntries(IEnumerable<string> entries)
+    {
+        var cleanedEntries = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var duplicateEntriesRemoved = 0;
+        var unreachableEntriesRemoved = 0;
+
+        foreach (var entry in entries)
+        {
+            if (!TryNormalizeResolvedPath(entry, out var normalized))
+            {
+                cleanedEntries.Add(entry);
+                continue;
+            }
+
+            if (!_directoryExists(normalized))
+            {
+                unreachableEntriesRemoved++;
+                continue;
+            }
+
+            if (!seen.Add(normalized))
+            {
+                duplicateEntriesRemoved++;
+                continue;
+            }
+
+            cleanedEntries.Add(entry);
+        }
+
+        return new UserPathCleanupResult(
+            cleanedEntries,
+            duplicateEntriesRemoved,
+            unreachableEntriesRemoved
+        );
     }
 
     private async Task<LocalDependencyRepairResult> WaitForRepairStatusAsync(
@@ -523,6 +569,43 @@ public sealed class LocalDependencyRepairService
             .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
     }
 
+    private static string BuildUserPathRepairDetail(
+        int additions,
+        int duplicateEntriesRemoved,
+        int unreachableEntriesRemoved
+    )
+    {
+        var changes = new List<string>();
+        if (additions > 0)
+        {
+            changes.Add(
+                string.Create(CultureInfo.InvariantCulture, $"补齐 {additions} 个安全目录")
+            );
+        }
+
+        if (duplicateEntriesRemoved > 0)
+        {
+            changes.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"清理 {duplicateEntriesRemoved} 个重复目录"
+                )
+            );
+        }
+
+        if (unreachableEntriesRemoved > 0)
+        {
+            changes.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"清理 {unreachableEntriesRemoved} 个失效目录"
+                )
+            );
+        }
+
+        return $"已{string.Join("，", changes)}。新终端和重启后的 CodexCliPlus 会读取更新后的 PATH。";
+    }
+
     private static string[] SplitPath(string value)
     {
         return value
@@ -539,6 +622,33 @@ public sealed class LocalDependencyRepairService
             NormalizePath(right),
             StringComparison.OrdinalIgnoreCase
         );
+    }
+
+    private static bool TryNormalizeResolvedPath(string path, out string normalized)
+    {
+        normalized = string.Empty;
+        var trimmed = path.Trim().Trim('"');
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        var expanded = Environment.ExpandEnvironmentVariables(trimmed);
+        if (expanded.Contains('%', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            normalized = Path.GetFullPath(expanded)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return normalized.Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string NormalizePath(string path)
@@ -586,4 +696,10 @@ public sealed class LocalDependencyRepairService
     private sealed record RepairCommand(string FileName, IReadOnlyList<string> Arguments);
 
     private sealed record AllowedPathDirectory(string Path, bool CreateIfMissing = false);
+
+    private sealed record UserPathCleanupResult(
+        IReadOnlyList<string> Entries,
+        int DuplicateEntriesRemoved,
+        int UnreachableEntriesRemoved
+    );
 }

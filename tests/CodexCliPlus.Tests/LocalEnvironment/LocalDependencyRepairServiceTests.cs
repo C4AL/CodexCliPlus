@@ -94,6 +94,41 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RepairUserPathCleansDuplicateAndUnreachableUserEntries()
+    {
+        var processRunner = new RecordingProcessRunner();
+        var writtenPath = string.Empty;
+        var service = CreateService(
+            processRunner,
+            directoryExists: path =>
+                path.Equals("C:\\Keep", StringComparison.OrdinalIgnoreCase)
+                || path.Contains("nodejs", StringComparison.OrdinalIgnoreCase),
+            createDirectory: _ => { },
+            userPathReader: _ => "C:\\Keep;C:\\Keep;C:\\Missing;%NOT_EXPANDED%\\bin",
+            userPathWriter: value => writtenPath = value
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairUserPath,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.True(result.Succeeded);
+        var entries = writtenPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Single(entries, entry => entry.Equals("C:\\Keep", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            entries,
+            entry => entry.Equals("C:\\Missing", StringComparison.OrdinalIgnoreCase)
+        );
+        Assert.Contains(
+            entries,
+            entry => entry.Equals("%NOT_EXPANDED%\\bin", StringComparison.Ordinal)
+        );
+        Assert.Contains("重复目录", result.Detail, StringComparison.Ordinal);
+        Assert.Contains("失效目录", result.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RunElevatedRepairAsyncUsesRepairModeArgumentsAndRunAsVerb()
     {
         var processRunner = new RecordingProcessRunner();

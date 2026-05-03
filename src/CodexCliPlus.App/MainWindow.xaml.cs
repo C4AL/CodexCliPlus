@@ -65,6 +65,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         Expanded,
     }
 
+    private readonly record struct WindowLayoutSnapshot(
+        double Left,
+        double Top,
+        double Width,
+        double Height,
+        WindowState WindowState
+    );
+
     private const string AppHostName = "codexcliplus-webui.local";
     private const string UiTestModeEnvironmentVariable = "CODEXCLIPLUS_UI_TEST_MODE";
     private const string UiTestWebViewUserDataFolderEnvironmentVariable =
@@ -72,6 +80,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const string UiTestWebViewRemoteDebuggingPortEnvironmentVariable =
         "CODEXCLIPLUS_WEBVIEW2_REMOTE_DEBUGGING_PORT";
     private const int FirstRunConfirmationSeconds = 5;
+    private const double MainWindowDefaultWidth = 1440;
+    private const double MainWindowDefaultHeight = 920;
+    private const double MainWindowMinWidth = 960;
+    private const double MainWindowMinHeight = 640;
+    private const double ShellTitleBarHeight = 50;
+    private const double AuthenticationCompactWindowWidth = 284;
+    private const double AuthenticationCompactWindowHeight = 376;
     private const double NavigationDockRestingWidth = 56;
     private const double NavigationDockEdgeIntentWidth = 18;
     private const double NavigationDockIconsWidth = 92;
@@ -135,6 +150,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private long _lastStartupMarkMilliseconds;
     private CancellationTokenSource? _firstRunConfirmCountdown;
     private DateTimeOffset? _preparationPanelShownAt;
+    private WindowLayoutSnapshot? _preAuthenticationWindowLayout;
     private ManagementSettingsSummarySnapshot? _settingsOverview;
     private CancellationTokenSource? _settingsOverviewRefreshCts;
     private int _settingsOverviewRefreshRequestId;
@@ -147,6 +163,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _settingsOverlayOpen;
     private bool _settingsOverlayCoveredWebView;
     private bool _isShellBrandDockClosing;
+    private bool _isAuthenticationCompactWindowMode;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private bool _isExitRequested;

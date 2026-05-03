@@ -807,6 +807,44 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
+        Assert.Contains("x:Name=\"ShellTitleBarRow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellContentRow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellTitleBar\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MainWindowChromeBehavior\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MainWindowGlowBehavior\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AuthenticationCompactWindowWidth = 284", source, StringComparison.Ordinal);
+        Assert.Contains("AuthenticationCompactWindowHeight = 376", source, StringComparison.Ordinal);
+        Assert.Contains("EnterAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
+        Assert.Contains("ExitAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShowFirstRunKeyReveal",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "EnterAuthenticationCompactWindowMode();",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ExitAuthenticationCompactWindowMode();",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "StartupFlow.ShowFirstRunKey(_firstRunManagementKey, remember: false);",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "StartupFlow.ShowLogin(errorMessage, _settings.RememberManagementKey);",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("WindowBackdropType.None", source, StringComparison.Ordinal);
+        Assert.Contains("WindowBackdropType.Auto", source, StringComparison.Ordinal);
+        Assert.Contains("ResizeMode.NoResize", source, StringComparison.Ordinal);
+        Assert.Contains("ResizeMode.CanResize", source, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"FirstRunSaveToDesktopButton\"",
             startupFlowXaml,
@@ -814,11 +852,47 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("Content=\"保存到桌面\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
+            "Click=\"FirstRunSaveToDesktopButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "x:Name=\"FirstRunCopyKeyButton\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains("Content=\"复制密钥\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Click=\"FirstRunCopyKeyButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Click=\"FirstRunEnterManagementButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Click=\"FirstRunConfirmContinueButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Click=\"FirstRunConfirmCloseButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "KeyDown=\"ManagementKeyPasswordBox_KeyDown\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Click=\"LoginButton_Click\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Click=\"ForgotSecurityKeyButton_Click\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "AutomationProperties.Name=\"静默登录\"",
             startupFlowXaml,
@@ -851,8 +925,8 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("Height=\"64\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("Padding=\"10,9,48,9\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"34\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"10,7,40,7\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellIconViewboxStyle\"",
             shellResources,
@@ -890,7 +964,8 @@ public sealed class NavigationShellTests
                     StringComparison.Ordinal
                 )
         );
-        Assert.Contains("MinWidth=\"360\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinWidth=\"360\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Height=\"64\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "<ColumnDefinition Width=\"Auto\" />",
             startupFlowXaml,
@@ -906,9 +981,12 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("TextWrapping=\"Wrap\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"NoWrap\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("AcceptsReturn=\"False\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("MinLines=\"1\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLines=\"1\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "HorizontalScrollBarVisibility=\"Disabled\"",
+            "HorizontalScrollBarVisibility=\"Hidden\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
@@ -918,11 +996,6 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "VerticalAlignment=\"Stretch\"",
-            startupFlowTextBoxStyle,
-            StringComparison.Ordinal
-        );
-        Assert.DoesNotContain(
             "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
             startupFlowTextBoxStyle,
             StringComparison.Ordinal
@@ -934,16 +1007,44 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("HorizontalAlignment=\"Right\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
+            "x:Name=\"CompactAuthenticationHost\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Text=\"初始化\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"登录\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "首次初始化安全密钥",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "请立即保存下面的安全密钥",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "复制或保存到桌面后再继续",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "确认前请确保密钥已复制",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "x:Name=\"FirstRunConfirmCloseButton\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "Style=\"{StaticResource DialogCloseButtonStyle}\"",
+            "Style=\"{StaticResource StartupLinkButtonStyle}\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("CornerRadius=\"0,16,0,8\"", shellResources, StringComparison.Ordinal);
+        Assert.DoesNotContain("Width=\"420\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Background=\"#99000000\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "x:Name=\"FirstRunConfirmCancelButton\"",
             startupFlowXaml,

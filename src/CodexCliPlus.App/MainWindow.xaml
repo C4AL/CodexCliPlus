@@ -36,6 +36,7 @@
 >
   <i:Interaction.Behaviors>
     <controlzEx:WindowChromeBehavior
+      x:Name="MainWindowChromeBehavior"
       ResizeBorderThickness="8"
       KeepBorderOnMaximize="True"
       CornerPreference="Round"
@@ -43,6 +44,7 @@
       GlassFrameThickness="0"
     />
     <controlzEx:GlowWindowBehavior
+      x:Name="MainWindowGlowBehavior"
       GlowColor="#330F766E"
       NonActiveGlowColor="#180F172A"
       GlowDepth="8"
@@ -59,13 +61,13 @@
     </ResourceDictionary>
   </ui:FluentWindow.Resources>
 
-  <Grid>
+  <Grid x:Name="ShellRootGrid">
     <Grid.RowDefinitions>
-      <RowDefinition Height="50" />
-      <RowDefinition Height="*" />
+      <RowDefinition x:Name="ShellTitleBarRow" Height="50" />
+      <RowDefinition x:Name="ShellContentRow" Height="*" />
     </Grid.RowDefinitions>
 
-    <Grid Grid.Row="0" Background="{DynamicResource SurfaceBrush}">
+    <Grid x:Name="ShellTitleBar" Grid.Row="0" Background="{DynamicResource SurfaceBrush}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="10" />
         <ColumnDefinition Width="Auto" />

@@ -108,11 +108,13 @@ public partial class StartupFlowView : WpfUserControl
         if (string.IsNullOrWhiteSpace(message))
         {
             LoginErrorText.Text = string.Empty;
-            LoginErrorText.Visibility = Visibility.Collapsed;
+            LoginErrorText.ToolTip = null;
+            LoginErrorText.Visibility = Visibility.Hidden;
             return;
         }
 
         LoginErrorText.Text = message;
+        LoginErrorText.ToolTip = message;
         LoginErrorText.Visibility = Visibility.Visible;
     }
 
@@ -143,6 +145,10 @@ public partial class StartupFlowView : WpfUserControl
     private void SetScreen(StartupFlowScreen screen, bool animate = true)
     {
         CurrentScreen = screen;
+        StartupStepHost.Visibility =
+            screen == StartupFlowScreen.Loading ? Visibility.Visible : Visibility.Collapsed;
+        CompactAuthenticationHost.Visibility =
+            screen == StartupFlowScreen.Loading ? Visibility.Collapsed : Visibility.Visible;
         LoadingPanel.Visibility =
             screen == StartupFlowScreen.Loading ? Visibility.Visible : Visibility.Collapsed;
         FirstRunKeyPanel.Visibility =
@@ -158,14 +164,23 @@ public partial class StartupFlowView : WpfUserControl
 
     private void AnimateStepIn()
     {
-        StartupStepHost.BeginAnimation(
+        var stepHost =
+            CurrentScreen == StartupFlowScreen.Loading
+                ? (UIElement)StartupStepHost
+                : CompactAuthenticationHost;
+        var translateTransform =
+            CurrentScreen == StartupFlowScreen.Loading
+                ? StartupStepTranslateTransform
+                : CompactAuthenticationTranslateTransform;
+
+        stepHost.BeginAnimation(
             UIElement.OpacityProperty,
             new DoubleAnimation(0.88, 1, new Duration(TimeSpan.FromMilliseconds(140)))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             }
         );
-        StartupStepTranslateTransform.BeginAnimation(
+        translateTransform.BeginAnimation(
             System.Windows.Media.TranslateTransform.YProperty,
             new DoubleAnimation(8, 0, new Duration(TimeSpan.FromMilliseconds(160)))
             {

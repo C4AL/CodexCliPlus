@@ -7,6 +7,7 @@ namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 
 public sealed class LocalDependencyHealthService
 {
+    private const int WslNotInstalledExitCode = 50;
     private static readonly TimeSpan SnapshotBudget = TimeSpan.FromMilliseconds(1800);
     private static readonly TimeSpan ShortCommandTimeout = TimeSpan.FromMilliseconds(650);
     private static readonly TimeSpan LoginCommandTimeout = TimeSpan.FromMilliseconds(650);
@@ -406,43 +407,34 @@ public sealed class LocalDependencyHealthService
             };
         }
 
-        var duplicateCount =
-            CountDuplicatePathEntries(processEntries)
-            + CountDuplicatePathEntries(userEntries)
-            + CountDuplicatePathEntries(machineEntries);
-        var unreachableCount = CountUnreachablePathEntries(
-            allEntries.DistinctBy(NormalizePathForComparison, StringComparer.OrdinalIgnoreCase)
-        );
+        var processIssues = AnalyzePathEntries(processEntries);
+        var userIssues = AnalyzePathEntries(userEntries);
+        var machineIssues = AnalyzePathEntries(machineEntries);
         var missingSafeDirectories = FindMissingSafePathDirectories(toolState, processEntries);
         var userMachineEntries = userEntries.Concat(machineEntries).ToArray();
         var repairableMissingDirectories = missingSafeDirectories
             .Where(item => !userMachineEntries.Any(entry => IsSameDirectory(entry, item.Path)))
             .ToList();
+        var userPathCleanupAvailable = userIssues.HasIssues;
+        var repairUserPathAvailable =
+            repairableMissingDirectories.Count > 0 || userPathCleanupAvailable;
         toolState.MissingSafePathDirectories = repairableMissingDirectories
             .Select(item => item.Path)
             .ToArray();
+        toolState.UserPathCleanupAvailable = userPathCleanupAvailable;
 
         var issues = new List<string>();
         if (missingSafeDirectories.Count > 0)
         {
             issues.Add(
-                "缺少 " + string.Join("、", missingSafeDirectories.Select(item => item.DisplayName))
+                "当前进程 PATH 缺少 "
+                    + string.Join("、", missingSafeDirectories.Select(item => item.DisplayName))
             );
         }
 
-        if (duplicateCount > 0)
-        {
-            issues.Add(
-                string.Create(CultureInfo.InvariantCulture, $"发现 {duplicateCount} 个重复目录")
-            );
-        }
-
-        if (unreachableCount > 0)
-        {
-            issues.Add(
-                string.Create(CultureInfo.InvariantCulture, $"发现 {unreachableCount} 个不可达目录")
-            );
-        }
+        AddPathSourceIssues(issues, "用户 PATH", userIssues);
+        AddPathSourceIssues(issues, "系统 PATH", machineIssues);
+        AddPathSourceIssues(issues, "当前进程 PATH", processIssues);
 
         if (issues.Count == 0)
         {
@@ -464,16 +456,15 @@ public sealed class LocalDependencyHealthService
             Status = LocalDependencyStatus.Warning,
             Severity = LocalDependencySeverity.Required,
             Detail = string.Join("；", issues) + "。",
-            Recommendation =
+            Recommendation = BuildPathRecommendation(
+                repairUserPathAvailable,
+                repairableMissingDirectories.Count > 0,
+                userPathCleanupAvailable,
                 missingSafeDirectories.Count > 0
-                    ? repairableMissingDirectories.Count > 0
-                        ? "可使用内置修复补齐安全的用户 PATH 目录。"
-                        : "用户或系统 PATH 已包含关键目录，重启 CodexCliPlus 后重新检测。"
-                    : "清理重复或失效目录后重新检测。",
-            RepairActionId =
-                repairableMissingDirectories.Count > 0
-                    ? LocalDependencyRepairActionIds.RepairUserPath
-                    : null,
+            ),
+            RepairActionId = repairUserPathAvailable
+                ? LocalDependencyRepairActionIds.RepairUserPath
+                : null,
         };
     }
 
@@ -508,17 +499,46 @@ public sealed class LocalDependencyHealthService
             budget,
             cancellationToken
         );
-        var listAttempt = await TryRunExecutableAsync(
-            wslPath,
-            ["-l", "-q"],
-            ShortCommandTimeout,
-            budget,
-            cancellationToken
-        );
-        var distros = CountNonEmptyLines(listAttempt.Output);
-
-        if (statusAttempt.Succeeded && distros > 0)
+        if (IsWslNotInstalled(statusAttempt))
         {
+            return new LocalDependencyItem
+            {
+                Id = "wsl",
+                Name = "WSL",
+                Status = LocalDependencyStatus.OptionalUnavailable,
+                Severity = LocalDependencySeverity.Optional,
+                Path = wslPath,
+                Detail = "未安装适用于 Linux 的 Windows 子系统；WSL 仅影响可选 Linux 工作流。",
+                Recommendation = "需要 Linux 子系统时安装 WSL。",
+                RepairActionId = LocalDependencyRepairActionIds.InstallWsl,
+            };
+        }
+
+        if (statusAttempt.Succeeded)
+        {
+            var listAttempt = await TryRunExecutableAsync(
+                wslPath,
+                ["-l", "-q"],
+                ShortCommandTimeout,
+                budget,
+                cancellationToken
+            );
+            var distros = CountNonEmptyLines(listAttempt.Output);
+            if (distros == 0)
+            {
+                return new LocalDependencyItem
+                {
+                    Id = "wsl",
+                    Name = "WSL",
+                    Status = LocalDependencyStatus.OptionalUnavailable,
+                    Severity = LocalDependencySeverity.Optional,
+                    Path = wslPath,
+                    Detail = "WSL 命令可用，但未检测到已安装发行版。",
+                    Recommendation = "需要 Linux 子系统时安装 WSL 发行版。",
+                    RepairActionId = LocalDependencyRepairActionIds.InstallWsl,
+                };
+            }
+
             return new LocalDependencyItem
             {
                 Id = "wsl",
@@ -542,13 +562,9 @@ public sealed class LocalDependencyHealthService
             Status = LocalDependencyStatus.OptionalUnavailable,
             Severity = LocalDependencySeverity.Optional,
             Path = wslPath,
-            Detail = statusAttempt.Succeeded
-                ? "WSL 命令可用，但未检测到已安装发行版。"
-                : BuildFailureDetail("WSL 状态检测未通过", statusAttempt),
-            Recommendation = "需要 Linux 子系统时安装或更新 WSL。",
-            RepairActionId = statusAttempt.Succeeded
-                ? LocalDependencyRepairActionIds.InstallWsl
-                : LocalDependencyRepairActionIds.UpdateWsl,
+            Detail = BuildFailureDetail("WSL 状态检测未通过", statusAttempt),
+            Recommendation = "需要 Linux 子系统时更新 WSL，或检查 wsl.exe 是否可正常启动。",
+            RepairActionId = LocalDependencyRepairActionIds.UpdateWsl,
         };
     }
 
@@ -786,12 +802,13 @@ public sealed class LocalDependencyHealthService
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var duplicates = 0;
-        foreach (
-            var normalized in entries
-                .Select(NormalizePathForComparison)
-                .Where(item => item.Length > 0)
-        )
+        foreach (var entry in entries)
         {
+            if (!TryNormalizeResolvedPathForComparison(entry, out var normalized))
+            {
+                continue;
+            }
+
             if (!seen.Add(normalized))
             {
                 duplicates++;
@@ -799,6 +816,14 @@ public sealed class LocalDependencyHealthService
         }
 
         return duplicates;
+    }
+
+    private PathIssueCounts AnalyzePathEntries(IReadOnlyCollection<string> entries)
+    {
+        return new PathIssueCounts(
+            CountDuplicatePathEntries(entries),
+            CountUnreachablePathEntries(entries)
+        );
     }
 
     private int CountUnreachablePathEntries(IEnumerable<string> entries)
@@ -818,6 +843,57 @@ public sealed class LocalDependencyHealthService
         }
 
         return count;
+    }
+
+    private static void AddPathSourceIssues(
+        List<string> issues,
+        string sourceName,
+        PathIssueCounts counts
+    )
+    {
+        if (counts.DuplicateCount > 0)
+        {
+            issues.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{sourceName} 发现 {counts.DuplicateCount} 个重复目录"
+                )
+            );
+        }
+
+        if (counts.UnreachableCount > 0)
+        {
+            issues.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{sourceName} 发现 {counts.UnreachableCount} 个不可达目录"
+                )
+            );
+        }
+    }
+
+    private static string BuildPathRecommendation(
+        bool repairUserPathAvailable,
+        bool hasRepairableMissingDirectories,
+        bool hasUserPathCleanup,
+        bool hasMissingSafeDirectories
+    )
+    {
+        if (repairUserPathAvailable)
+        {
+            if (hasRepairableMissingDirectories && hasUserPathCleanup)
+            {
+                return "可使用内置修复补齐安全目录，并清理用户 PATH 中的重复或失效目录。";
+            }
+
+            return hasRepairableMissingDirectories
+                ? "可使用内置修复补齐安全的用户 PATH 目录。"
+                : "可使用内置修复清理用户 PATH 中的重复或失效目录。";
+        }
+
+        return hasMissingSafeDirectories
+            ? "用户或系统 PATH 已包含关键目录，重启 CodexCliPlus 后重新检测。"
+            : "请手动清理系统 PATH，或重新打开 CodexCliPlus 后重新检测。";
     }
 
     private static int CalculateReadinessScore(IEnumerable<LocalDependencyItem> items)
@@ -885,7 +961,9 @@ public sealed class LocalDependencyHealthService
         );
         var npmReady = toolState.NpmUsable;
         var wslPresent = !string.IsNullOrWhiteSpace(toolState.WslPath);
-        var pathRepairAvailable = toolState.MissingSafePathDirectories.Length > 0;
+        var hasMissingSafePathDirectories = toolState.MissingSafePathDirectories.Length > 0;
+        var pathRepairAvailable =
+            hasMissingSafePathDirectories || toolState.UserPathCleanupAvailable;
 
         return
         [
@@ -919,9 +997,10 @@ public sealed class LocalDependencyHealthService
                 ActionId = LocalDependencyRepairActionIds.RepairUserPath,
                 Name = "修复用户 PATH",
                 IsAvailable = pathRepairAvailable,
-                Detail = pathRepairAvailable
-                    ? "只补齐已确认缺失的安全目录。"
-                    : "没有需要补齐的安全目录。",
+                Detail = BuildRepairUserPathCapabilityDetail(
+                    hasMissingSafePathDirectories,
+                    toolState.UserPathCleanupAvailable
+                ),
             },
             new LocalDependencyRepairCapability
             {
@@ -940,6 +1019,20 @@ public sealed class LocalDependencyHealthService
                 Detail = wslPresent ? "将调用 wsl.exe --update。" : "需要系统提供 wsl.exe。",
             },
         ];
+    }
+
+    private static string BuildRepairUserPathCapabilityDetail(
+        bool hasMissingSafePathDirectories,
+        bool hasUserPathCleanup
+    )
+    {
+        return (hasMissingSafePathDirectories, hasUserPathCleanup) switch
+        {
+            (true, true) => "可补齐安全目录，并清理用户 PATH。",
+            (true, false) => "只补齐已确认缺失的安全目录。",
+            (false, true) => "只清理用户 PATH 中已确认的问题。",
+            _ => "没有需要补齐或清理的用户 PATH 项。",
+        };
     }
 
     private static string BuildNpmDetail(string? prefix)
@@ -972,6 +1065,16 @@ public sealed class LocalDependencyHealthService
                 $"{prefix}：退出码 {attempt.ExitCode.Value}。"
             )
             : $"{prefix}。";
+    }
+
+    private static bool IsWslNotInstalled(CommandAttempt attempt)
+    {
+        return attempt.ExitCode == WslNotInstalledExitCode
+            || attempt.Output.Contains("未安装适用于 Linux 的 Windows 子系统", StringComparison.Ordinal)
+            || attempt.Output.Contains(
+                "Windows Subsystem for Linux has not been installed",
+                StringComparison.OrdinalIgnoreCase
+            );
     }
 
     private static string PickExecutablePath(IReadOnlyList<string> candidates)
@@ -1141,6 +1244,31 @@ public sealed class LocalDependencyHealthService
         }
     }
 
+    private static bool TryNormalizeResolvedPathForComparison(string path, out string normalized)
+    {
+        normalized = string.Empty;
+        var expanded = Environment.ExpandEnvironmentVariables(path.Trim());
+        if (expanded.Length == 0 || expanded.Contains('%', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            normalized = System
+                .IO.Path.GetFullPath(expanded)
+                .TrimEnd(
+                    System.IO.Path.DirectorySeparatorChar,
+                    System.IO.Path.AltDirectorySeparatorChar
+                );
+            return normalized.Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private sealed record CommandAttempt(int? ExitCode, string Output, string? Error, bool TimedOut)
     {
         public bool Succeeded => ExitCode == 0 && !TimedOut;
@@ -1166,6 +1294,11 @@ public sealed class LocalDependencyHealthService
 
     private sealed record PathRepairDirectory(string DisplayName, string Path);
 
+    private sealed record PathIssueCounts(int DuplicateCount, int UnreachableCount)
+    {
+        public bool HasIssues => DuplicateCount > 0 || UnreachableCount > 0;
+    }
+
     private sealed class ToolState
     {
         public string? CodexPath { get; set; }
@@ -1185,5 +1318,7 @@ public sealed class LocalDependencyHealthService
         public string? WingetPath { get; set; }
 
         public string[] MissingSafePathDirectories { get; set; } = [];
+
+        public bool UserPathCleanupAvailable { get; set; }
     }
 }

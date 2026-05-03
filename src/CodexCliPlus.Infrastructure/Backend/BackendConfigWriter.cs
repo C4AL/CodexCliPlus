@@ -167,6 +167,7 @@ public sealed class BackendConfigWriter
         builder.Append("logging-to-file: true" + Environment.NewLine);
         builder.Append("logs-max-total-size-mb: 64" + Environment.NewLine);
         builder.Append("usage-statistics-enabled: true" + Environment.NewLine);
+        builder.Append("redis-usage-queue-retention-seconds: 60" + Environment.NewLine);
 
         AppendOauthModelAlias(builder);
         return builder.ToString();

@@ -3,6 +3,7 @@ import {
   normalizeAuthIndex,
   type KeyStatBucket,
   type KeyStats,
+  type StatusBarData,
   type UsageDetail,
 } from '@/utils/usage';
 import {
@@ -74,10 +75,7 @@ type UsageIdentity = {
   prefix?: string;
 };
 
-export const getStatsForIdentity = (
-  identity: UsageIdentity,
-  keyStats: KeyStats
-): KeyStatBucket => {
+export const getStatsForIdentity = (identity: UsageIdentity, keyStats: KeyStats): KeyStatBucket => {
   const authIndexKey = normalizeAuthIndex(identity.authIndex);
   if (authIndexKey) {
     const stats = keyStats.byAuthIndex?.[authIndexKey];
@@ -87,6 +85,21 @@ export const getStatsForIdentity = (
   }
 
   return getStatsBySource(identity.apiKey ?? '', keyStats, identity.prefix);
+};
+
+export const getStatusBarDataForIdentity = (
+  identity: UsageIdentity,
+  keyStats: KeyStats
+): StatusBarData | null => {
+  const candidates = buildCandidateUsageSourceIds({
+    apiKey: identity.apiKey,
+    prefix: identity.prefix,
+  });
+  for (const candidate of candidates) {
+    const statusData = keyStats.statusBySource?.[candidate];
+    if (statusData) return statusData;
+  }
+  return null;
 };
 
 export const collectUsageDetailsForIdentity = (

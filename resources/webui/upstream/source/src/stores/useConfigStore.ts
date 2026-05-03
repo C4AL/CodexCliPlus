@@ -42,6 +42,7 @@ const SECTION_KEYS: RawConfigSection[] = [
   'request-log',
   'logging-to-file',
   'logs-max-total-size-mb',
+  'redis-usage-queue-retention-seconds',
   'ws-auth',
   'force-model-prefix',
   'routing/strategy',
@@ -52,7 +53,7 @@ const SECTION_KEYS: RawConfigSection[] = [
   'claude-api-key',
   'vertex-api-key',
   'openai-compatibility',
-  'oauth-excluded-models'
+  'oauth-excluded-models',
 ];
 
 const extractSectionValue = (config: Config | null, section?: RawConfigSection) => {
@@ -74,6 +75,8 @@ const extractSectionValue = (config: Config | null, section?: RawConfigSection) 
       return config.loggingToFile;
     case 'logs-max-total-size-mb':
       return config.logsMaxTotalSizeMb;
+    case 'redis-usage-queue-retention-seconds':
+      return config.redisUsageQueueRetentionSeconds;
     case 'ws-auth':
       return config.wsAuth;
     case 'force-model-prefix':
@@ -162,17 +165,21 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       set({
         config: data,
         cache: newCache,
-        loading: false
+        loading: false,
       });
 
       return section ? extractSectionValue(data, section) : data;
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : typeof error === 'string' ? error : 'Failed to fetch config';
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Failed to fetch config';
       if (requestId === configRequestToken) {
         set({
           error: message || 'Failed to fetch config',
-          loading: false
+          loading: false,
         });
       }
       throw error;
@@ -213,6 +220,10 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           break;
         case 'logs-max-total-size-mb':
           nextConfig.logsMaxTotalSizeMb = value as Config['logsMaxTotalSizeMb'];
+          break;
+        case 'redis-usage-queue-retention-seconds':
+          nextConfig.redisUsageQueueRetentionSeconds =
+            value as Config['redisUsageQueueRetentionSeconds'];
           break;
         case 'ws-auth':
           nextConfig.wsAuth = value as Config['wsAuth'];
@@ -293,5 +304,5 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     if (!cached) return false;
 
     return Date.now() - cached.timestamp < CACHE_EXPIRY_MS;
-  }
+  },
 }));

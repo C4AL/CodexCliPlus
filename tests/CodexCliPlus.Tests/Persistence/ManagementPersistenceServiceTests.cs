@@ -452,6 +452,13 @@ public sealed class ManagementPersistenceServiceTests : IDisposable
             return Task.FromResult(Response(ExportPayload.Usage));
         }
 
+        public Task<ManagementApiResponse<ManagementApiKeyUsageSnapshot>> GetApiKeyUsageAsync(
+            CancellationToken cancellationToken = default
+        )
+        {
+            return Task.FromResult(Response(new ManagementApiKeyUsageSnapshot()));
+        }
+
         public Task<ManagementApiResponse<ManagementUsageExportPayload>> ExportUsageAsync(
             CancellationToken cancellationToken = default
         )

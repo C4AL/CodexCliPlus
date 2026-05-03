@@ -2,7 +2,14 @@ import { create } from 'zustand';
 import { notifyUsageStatsRefreshedInDesktopShell } from '@/desktop/bridge';
 import { requestUsageRefresh, resetUsageRefreshScheduler } from '@/services/refresh';
 import { useAuthStore } from '@/stores/useAuthStore';
-import { collectUsageDetails, computeKeyStatsFromDetails, type KeyStats, type UsageDetail } from '@/utils/usage';
+import {
+  collectUsageDetails,
+  computeKeyStatsFromApiKeyUsage,
+  computeKeyStatsFromDetails,
+  mergeKeyStats,
+  type KeyStats,
+  type UsageDetail,
+} from '@/utils/usage';
 import i18n from '@/i18n';
 
 export const USAGE_STATS_STALE_TIME_MS = 240_000;
@@ -75,7 +82,7 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
         usageDetails: [],
         error: null,
         lastRefreshedAt: null,
-        scopeKey
+        scopeKey,
       });
     }
 
@@ -91,14 +98,16 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
       if (requestId !== usageRequestToken || result.scopeKey !== scopeKey) return;
 
       const usageDetails = collectUsageDetails(usage);
+      const usageKeyStats = computeKeyStatsFromDetails(usageDetails);
+      const apiKeyStats = computeKeyStatsFromApiKeyUsage(result.apiKeyUsage);
       set({
         usage,
-        keyStats: computeKeyStatsFromDetails(usageDetails),
+        keyStats: mergeKeyStats(apiKeyStats, usageKeyStats),
         usageDetails,
         loading: false,
         error: null,
         lastRefreshedAt: result.refreshedAt,
-        scopeKey
+        scopeKey,
       });
       notifyUsageStatsRefreshedInDesktopShell();
     } catch (error: unknown) {
@@ -107,7 +116,7 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
       set({
         loading: false,
         error: message,
-        scopeKey
+        scopeKey,
       });
       const wrappedError = new Error(message) as Error & { cause?: unknown };
       wrappedError.cause = error;
@@ -125,7 +134,7 @@ export const useUsageStatsStore = create<UsageStatsState>((set, get) => ({
       loading: false,
       error: null,
       lastRefreshedAt: null,
-      scopeKey: ''
+      scopeKey: '',
     });
-  }
+  },
 }));

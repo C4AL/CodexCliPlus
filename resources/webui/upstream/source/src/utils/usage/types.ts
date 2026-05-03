@@ -8,6 +8,7 @@ export interface KeyStatBucket {
 export interface KeyStats {
   bySource: Record<string, KeyStatBucket>;
   byAuthIndex: Record<string, KeyStatBucket>;
+  statusBySource?: Record<string, StatusBarData>;
 }
 
 export interface TokenBreakdown {

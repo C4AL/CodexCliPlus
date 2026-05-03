@@ -1,5 +1,80 @@
 import { parseTimestampMs } from '../timestamp';
-import type { ServiceHealthData, StatusBarData, StatusBlockDetail, StatusBlockState, UsageDetail } from './types';
+import type {
+  ServiceHealthData,
+  StatusBarData,
+  StatusBlockDetail,
+  StatusBlockState,
+  UsageDetail,
+} from './types';
+
+const STATUS_BLOCK_COUNT = 20;
+const STATUS_BLOCK_DURATION_MS = 10 * 60 * 1000;
+
+type RecentRequestBucketLike = {
+  success?: unknown;
+  failed?: unknown;
+};
+
+const readCount = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, value);
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed);
+  }
+  return 0;
+};
+
+export function calculateStatusBarDataFromRecentRequests(
+  buckets: RecentRequestBucketLike[]
+): StatusBarData {
+  const normalizedBuckets = buckets.slice(-STATUS_BLOCK_COUNT);
+  while (normalizedBuckets.length < STATUS_BLOCK_COUNT) {
+    normalizedBuckets.unshift({});
+  }
+
+  const now = Date.now();
+  const windowStart = now - STATUS_BLOCK_COUNT * STATUS_BLOCK_DURATION_MS;
+  let totalSuccess = 0;
+  let totalFailure = 0;
+  const blocks: StatusBlockState[] = [];
+  const blockDetails: StatusBlockDetail[] = [];
+
+  normalizedBuckets.forEach((bucket, idx) => {
+    const success = readCount(bucket.success);
+    const failure = readCount(bucket.failed);
+    const total = success + failure;
+    totalSuccess += success;
+    totalFailure += failure;
+
+    if (total === 0) {
+      blocks.push('idle');
+    } else if (failure === 0) {
+      blocks.push('success');
+    } else if (success === 0) {
+      blocks.push('failure');
+    } else {
+      blocks.push('mixed');
+    }
+
+    const blockStartTime = windowStart + idx * STATUS_BLOCK_DURATION_MS;
+    blockDetails.push({
+      success,
+      failure,
+      rate: total > 0 ? success / total : -1,
+      startTime: blockStartTime,
+      endTime: blockStartTime + STATUS_BLOCK_DURATION_MS,
+    });
+  });
+
+  const total = totalSuccess + totalFailure;
+  return {
+    blocks,
+    blockDetails,
+    successRate: total > 0 ? (totalSuccess / total) * 100 : 100,
+    totalSuccess,
+    totalFailure,
+  };
+}
 
 /**
  * 计算状态栏数据（最近200分钟，分为20个10分钟的时间块）
@@ -10,8 +85,8 @@ export function calculateStatusBarData(
   sourceFilter?: string,
   authIndexFilter?: string | number
 ): StatusBarData {
-  const BLOCK_COUNT = 20;
-  const BLOCK_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+  const BLOCK_COUNT = STATUS_BLOCK_COUNT;
+  const BLOCK_DURATION_MS = STATUS_BLOCK_DURATION_MS; // 10 minutes
   const WINDOW_MS = BLOCK_COUNT * BLOCK_DURATION_MS; // 200 minutes
 
   const now = Date.now();
@@ -102,7 +177,6 @@ export function calculateStatusBarData(
     totalFailure,
   };
 }
-
 
 export function calculateServiceHealthData(usageDetails: UsageDetail[]): ServiceHealthData {
   const ROWS = 7;

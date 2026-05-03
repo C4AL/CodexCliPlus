@@ -26,6 +26,24 @@ public sealed class ManagementUsageSnapshot
         new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
 }
 
+public sealed class ManagementApiKeyUsageSnapshot
+{
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, ManagementApiKeyUsageEntry>>
+        Providers { get; init; } =
+        new Dictionary<string, IReadOnlyDictionary<string, ManagementApiKeyUsageEntry>>(
+            StringComparer.OrdinalIgnoreCase
+        );
+}
+
+public sealed class ManagementApiKeyUsageEntry
+{
+    public long Success { get; init; }
+
+    public long Failed { get; init; }
+
+    public IReadOnlyList<ManagementRecentRequestBucket> RecentRequests { get; init; } = [];
+}
+
 public sealed class ManagementUsageApiSnapshot
 {
     public long TotalRequests { get; init; }

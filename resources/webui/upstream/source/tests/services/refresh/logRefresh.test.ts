@@ -21,6 +21,7 @@ vi.mock('@/services/api/logs', () => ({
 vi.mock('@/services/api/usage', () => ({
   usageApi: {
     getUsage: vi.fn(),
+    getApiKeyUsage: vi.fn(),
   },
 }));
 
@@ -43,6 +44,7 @@ describe('log refresh scheduler', () => {
     resetLogStreamScheduler();
     resetUsageRefreshScheduler();
     mockedUsageApi.getUsage.mockResolvedValue({ usage: { total_requests: 1 } });
+    mockedUsageApi.getApiKeyUsage.mockResolvedValue({});
     mockedLogsApi.fetchLogs.mockResolvedValue({
       lines: ['2026-05-02T00:00:00Z INFO POST /v1/responses 200 123ms'],
       'line-count': 1,

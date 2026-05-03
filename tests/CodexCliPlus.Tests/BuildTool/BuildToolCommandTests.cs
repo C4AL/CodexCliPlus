@@ -405,7 +405,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("-trimpath", goBuildCall.Arguments);
         var ldflagsIndex = goBuildCall.Arguments.ToList().IndexOf("-ldflags") + 1;
         Assert.True(ldflagsIndex > 0);
-        Assert.Contains("main.Version=6.9.45", goBuildCall.Arguments[ldflagsIndex]);
+        Assert.Contains("main.Version=6.10.1", goBuildCall.Arguments[ldflagsIndex]);
         Assert.DoesNotContain("'main.Version", goBuildCall.Arguments[ldflagsIndex]);
         Assert.Equal("0", goBuildCall.Environment["CGO_ENABLED"]);
         Assert.Equal("windows", goBuildCall.Environment["GOOS"]);

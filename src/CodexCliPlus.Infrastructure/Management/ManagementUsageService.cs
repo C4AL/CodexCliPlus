@@ -31,6 +31,23 @@ public sealed class ManagementUsageService : IManagementUsageService
         );
     }
 
+    public async Task<ManagementApiResponse<ManagementApiKeyUsageSnapshot>> GetApiKeyUsageAsync(
+        CancellationToken cancellationToken = default
+    )
+    {
+        var response = await _apiClient.SendManagementAsync(
+            HttpMethod.Get,
+            "api-key-usage",
+            timeout: UsageTimeout,
+            cancellationToken: cancellationToken
+        );
+        using var document = ManagementJson.Parse(response.Value);
+        return ManagementResponseFactory.Map(
+            response,
+            ManagementMappers.MapApiKeyUsage(document.RootElement)
+        );
+    }
+
     public async Task<ManagementApiResponse<ManagementUsageExportPayload>> ExportUsageAsync(
         CancellationToken cancellationToken = default
     )

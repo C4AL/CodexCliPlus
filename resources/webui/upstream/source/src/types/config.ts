@@ -21,6 +21,7 @@ export interface Config {
   requestLog?: boolean;
   loggingToFile?: boolean;
   logsMaxTotalSizeMb?: number;
+  redisUsageQueueRetentionSeconds?: number;
   wsAuth?: boolean;
   forceModelPrefix?: boolean;
   disableImageGeneration?: boolean | 'chat';
@@ -46,6 +47,7 @@ export type RawConfigSection =
   | 'request-log'
   | 'logging-to-file'
   | 'logs-max-total-size-mb'
+  | 'redis-usage-queue-retention-seconds'
   | 'ws-auth'
   | 'force-model-prefix'
   | 'disable-image-generation'

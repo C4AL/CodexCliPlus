@@ -60,6 +60,11 @@ public sealed class BackendConfigWriterTests : IDisposable
         Assert.DoesNotContain("9317", desktopJson, StringComparison.Ordinal);
         Assert.DoesNotContain(".cli-proxy-api", yaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("panel-github-repository", yaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "redis-usage-queue-retention-seconds: 60",
+            yaml,
+            StringComparison.Ordinal
+        );
 
         var match = Regex.Match(yaml, "secret-key: \"(?<hash>.+)\"");
         var secondMatch = Regex.Match(secondYaml, "secret-key: \"(?<hash>.+)\"");

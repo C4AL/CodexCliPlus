@@ -30,10 +30,20 @@ export interface AuthFileItem {
   statusMessage?: string;
   lastRefresh?: string | number;
   modified?: number;
+  success?: number;
+  failed?: number;
+  recent_requests?: RecentRequestBucket[];
+  recentRequests?: RecentRequestBucket[];
   [key: string]: unknown;
 }
 
 export interface AuthFilesResponse {
   files: AuthFileItem[];
   total?: number;
+}
+
+export interface RecentRequestBucket {
+  time?: string;
+  success?: number;
+  failed?: number;
 }

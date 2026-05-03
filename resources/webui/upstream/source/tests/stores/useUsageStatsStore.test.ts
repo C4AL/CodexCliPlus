@@ -2,34 +2,45 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authState = vi.hoisted(() => ({
   apiBase: 'http://127.0.0.1:15345',
-  managementKey: 'secret'
+  managementKey: 'secret',
 }));
 
 vi.mock('@/services/api/usage', () => ({
   usageApi: {
-    getUsage: vi.fn()
-  }
+    getUsage: vi.fn(),
+    getApiKeyUsage: vi.fn(),
+  },
 }));
 
 vi.mock('@/stores/useAuthStore', () => ({
   useAuthStore: {
-    getState: () => authState
-  }
+    getState: () => authState,
+  },
 }));
 
 vi.mock('@/desktop/bridge', () => ({
-  notifyUsageStatsRefreshedInDesktopShell: vi.fn()
+  notifyUsageStatsRefreshedInDesktopShell: vi.fn(),
 }));
 
 vi.mock('@/utils/usage', () => ({
   collectUsageDetails: vi.fn(() => []),
-  computeKeyStatsFromDetails: vi.fn(() => ({ bySource: {}, byAuthIndex: {} }))
+  computeKeyStatsFromApiKeyUsage: vi.fn(() => ({
+    bySource: {},
+    byAuthIndex: {},
+    statusBySource: {},
+  })),
+  computeKeyStatsFromDetails: vi.fn(() => ({ bySource: {}, byAuthIndex: {} })),
+  mergeKeyStats: vi.fn((preferred, fallback) => ({
+    bySource: { ...(fallback.bySource ?? {}), ...(preferred.bySource ?? {}) },
+    byAuthIndex: { ...(fallback.byAuthIndex ?? {}), ...(preferred.byAuthIndex ?? {}) },
+    statusBySource: { ...(fallback.statusBySource ?? {}), ...(preferred.statusBySource ?? {}) },
+  })),
 }));
 
 vi.mock('@/i18n', () => ({
   default: {
-    t: vi.fn((key: string) => `translated:${key}`)
-  }
+    t: vi.fn((key: string) => `translated:${key}`),
+  },
 }));
 
 import { notifyUsageStatsRefreshedInDesktopShell } from '@/desktop/bridge';
@@ -48,9 +59,10 @@ describe('useUsageStatsStore desktop sync bridge', () => {
     mockedUsageApi.getUsage.mockResolvedValue({
       usage: {
         total_requests: 1,
-        apis: {}
-      }
+        apis: {},
+      },
     });
+    mockedUsageApi.getApiKeyUsage.mockResolvedValue({});
   });
 
   it('notifies the desktop shell after a successful usage refresh', async () => {
@@ -66,6 +78,7 @@ describe('useUsageStatsStore desktop sync bridge', () => {
     await useUsageStatsStore.getState().loadUsageStats();
 
     expect(mockedUsageApi.getUsage).toHaveBeenCalledTimes(1);
+    expect(mockedUsageApi.getApiKeyUsage).toHaveBeenCalledTimes(1);
     expect(mockedNotifyUsageStatsRefreshed).not.toHaveBeenCalled();
   });
 
@@ -105,9 +118,7 @@ describe('useUsageStatsStore desktop sync bridge', () => {
 
     expect(mockedUsageApi.getUsage).toHaveBeenCalledTimes(2);
     expect(mockedNotifyUsageStatsRefreshed).toHaveBeenCalledTimes(1);
-    expect(useUsageStatsStore.getState().scopeKey).toBe(
-      'http://127.0.0.1:15345::rotated-secret'
-    );
+    expect(useUsageStatsStore.getState().scopeKey).toBe('http://127.0.0.1:15345::rotated-secret');
   });
 
   it('stores and rethrows normalized refresh errors', async () => {

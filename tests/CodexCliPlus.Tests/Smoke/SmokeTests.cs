@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using CodexCliPlus.BuildTool;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
@@ -194,6 +195,37 @@ public sealed class SmokeTests
                 $"http://127.0.0.1:{port}/healthz",
                 TimeSpan.FromSeconds(20)
             );
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            httpClient.DefaultRequestHeaders.Add("X-Management-Key", "smoke-only");
+            var managementBaseUrl = $"http://127.0.0.1:{port}/v0/management";
+
+            using var configResponse = await httpClient.GetAsync($"{managementBaseUrl}/config");
+            Assert.Equal(HttpStatusCode.OK, configResponse.StatusCode);
+            using var configJson = JsonDocument.Parse(
+                await configResponse.Content.ReadAsStringAsync()
+            );
+            Assert.Equal(
+                60,
+                configJson
+                    .RootElement.GetProperty("redis-usage-queue-retention-seconds")
+                    .GetInt32()
+            );
+
+            using var apiKeyUsageResponse = await httpClient.GetAsync(
+                $"{managementBaseUrl}/api-key-usage"
+            );
+            Assert.Equal(HttpStatusCode.OK, apiKeyUsageResponse.StatusCode);
+            using var apiKeyUsageJson = JsonDocument.Parse(
+                await apiKeyUsageResponse.Content.ReadAsStringAsync()
+            );
+            Assert.Equal(JsonValueKind.Object, apiKeyUsageJson.RootElement.ValueKind);
+
+            using var usageResponse = await httpClient.GetAsync($"{managementBaseUrl}/usage");
+            Assert.Equal(HttpStatusCode.OK, usageResponse.StatusCode);
+            using var usageJson = JsonDocument.Parse(await usageResponse.Content.ReadAsStringAsync());
+            Assert.Equal(JsonValueKind.Object, usageJson.RootElement.ValueKind);
+
             if (process.HasExited)
             {
                 Assert.Fail(

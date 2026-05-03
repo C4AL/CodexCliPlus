@@ -47,12 +47,7 @@ export {
   extractTotalTokens,
   filterUsageByTimeRange,
 } from './usage/details';
-export {
-  calculateCost,
-  calculateTotalCost,
-  loadModelPrices,
-  saveModelPrices,
-} from './usage/cost';
+export { calculateCost, calculateTotalCost, loadModelPrices, saveModelPrices } from './usage/cost';
 export {
   calculateLatencyStats,
   calculateRecentPerMinuteRates,
@@ -68,7 +63,16 @@ export {
   formatDayLabel,
   formatHourLabel,
 } from './usage/chartSeries';
-export { calculateServiceHealthData, calculateStatusBarData } from './usage/status';
-export { computeKeyStats, computeKeyStatsFromDetails } from './usage/keyStats';
+export {
+  calculateServiceHealthData,
+  calculateStatusBarData,
+  calculateStatusBarDataFromRecentRequests,
+} from './usage/status';
+export {
+  computeKeyStats,
+  computeKeyStatsFromApiKeyUsage,
+  computeKeyStatsFromDetails,
+  mergeKeyStats,
+} from './usage/keyStats';
 export { buildDailyTokenBreakdown, buildHourlyTokenBreakdown } from './usage/tokenBreakdown';
 export { buildDailyCostSeries, buildHourlyCostSeries } from './usage/costSeries';

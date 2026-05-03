@@ -45,6 +45,21 @@ public sealed class ManagementAuthFileItem
     public DateTimeOffset? LastRefresh { get; init; }
 
     public DateTimeOffset? NextRetryAfter { get; init; }
+
+    public long Success { get; init; }
+
+    public long Failed { get; init; }
+
+    public IReadOnlyList<ManagementRecentRequestBucket> RecentRequests { get; init; } = [];
+}
+
+public sealed class ManagementRecentRequestBucket
+{
+    public string Time { get; init; } = string.Empty;
+
+    public long Success { get; init; }
+
+    public long Failed { get; init; }
 }
 
 public sealed class ManagementOAuthModelAliasEntry

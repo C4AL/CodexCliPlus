@@ -9,29 +9,29 @@ namespace CodexCliPlus.Tests.Backend;
 public sealed class BackendReleaseMetadataTests
 {
     [Fact]
-    public void BackendReleaseMetadataPinsCliProxyApi6945WindowsAsset()
+    public void BackendReleaseMetadataPinsCliProxyApi6101WindowsAsset()
     {
-        Assert.Equal("6.9.45", BackendReleaseMetadata.Version);
-        Assert.Equal("v6.9.45", BackendReleaseMetadata.ReleaseTag);
-        Assert.Equal("CLIProxyAPI_6.9.45_windows_amd64.zip", BackendReleaseMetadata.AssetName);
+        Assert.Equal("6.10.1", BackendReleaseMetadata.Version);
+        Assert.Equal("v6.10.1", BackendReleaseMetadata.ReleaseTag);
+        Assert.Equal("CLIProxyAPI_6.10.1_windows_amd64.zip", BackendReleaseMetadata.AssetName);
         Assert.Equal(
-            "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.9.45",
+            "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.1",
             BackendReleaseMetadata.ReleaseUrl
         );
         Assert.Equal(
-            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.9.45/CLIProxyAPI_6.9.45_windows_amd64.zip",
+            "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.10.1/CLIProxyAPI_6.10.1_windows_amd64.zip",
             BackendReleaseMetadata.ArchiveUrl
         );
         Assert.Equal(
-            "0fdf0122a98a54cdeaa8d368d364fa824d4fe4d6084d1d3d982dca1a34133cd0",
+            "6879be857337adbf2ce5ba03b7f62bccedb14c266efd2cb6c02a4719a653ac13",
             BackendReleaseMetadata.ArchiveSha256
         );
         Assert.Equal(
-            "6ba7c810a78c9afa88550a80b90c48b24e8b4852",
+            "56df36895a0ed21720a3aa315f5b394f8b20b1b3",
             BackendReleaseMetadata.SourceCommit
         );
         Assert.Equal(
-            "616a2d914bb7da2f16d6b3bf7e7d469e569b66b86892ae27b0059223d6f62a65",
+            "1f21a568661d20006a9e8998d5051bba3d03241957a2187b8dc0cda66990d985",
             BackendReleaseMetadata.BundledExecutableSha256
         );
         Assert.False(BackendReleaseMetadata.RemoteArchiveFallbackEnabled);
@@ -191,16 +191,16 @@ public sealed class BackendReleaseMetadataTests
     [Fact]
     public void BackendAssetServiceParsesAndRejectsCliProxyApiVersions()
     {
-        Assert.Equal("6.9.45", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.45"));
+        Assert.Equal("6.10.1", InvokeParseBackendVersion("CLIProxyAPI Version: 6.10.1"));
         Assert.Equal(
-            "6.9.45",
-            InvokeParseBackendVersion("CLIProxyAPI Version: v6.9.45\r\nBuild Date: 2026-04-30")
+            "6.10.1",
+            InvokeParseBackendVersion("CLIProxyAPI Version: v6.10.1\r\nBuild Date: 2026-05-02")
         );
         Assert.Equal("6.9.36", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.36"));
         Assert.Equal("6.9.34", InvokeParseBackendVersion("CLIProxyAPI Version: 6.9.34"));
 
-        Assert.True(InvokeIsExpectedBackendVersion("6.9.45"));
-        Assert.True(InvokeIsExpectedBackendVersion("v6.9.45"));
+        Assert.True(InvokeIsExpectedBackendVersion("6.10.1"));
+        Assert.True(InvokeIsExpectedBackendVersion("v6.10.1"));
         Assert.False(InvokeIsExpectedBackendVersion("6.9.36"));
         Assert.False(InvokeIsExpectedBackendVersion("6.9.34"));
         Assert.False(InvokeIsExpectedBackendVersion(null));

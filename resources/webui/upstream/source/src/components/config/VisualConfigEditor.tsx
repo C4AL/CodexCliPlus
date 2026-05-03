@@ -1,12 +1,4 @@
-import {
-  useLayoutEffect,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useLayoutEffect, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
@@ -62,7 +54,6 @@ interface VisualConfigEditorProps {
   onChange: (values: Partial<VisualConfigValues>) => void;
 }
 
-
 export function VisualConfigEditor({
   values,
   validationErrors,
@@ -104,6 +95,10 @@ export function VisualConfigEditor({
 
   const portError = getValidationMessage(t, validationErrors?.port);
   const logsMaxSizeError = getValidationMessage(t, validationErrors?.logsMaxTotalSizeMb);
+  const redisUsageQueueRetentionError = getValidationMessage(
+    t,
+    validationErrors?.redisUsageQueueRetentionSeconds
+  );
   const requestRetryError = getValidationMessage(t, validationErrors?.requestRetry);
   const maxRetryCredentialsError = getValidationMessage(t, validationErrors?.maxRetryCredentials);
   const maxRetryIntervalError = getValidationMessage(t, validationErrors?.maxRetryInterval);
@@ -496,6 +491,16 @@ export function VisualConfigEditor({
                   disabled={disabled}
                   error={logsMaxSizeError}
                 />
+                <Input
+                  label={t('config_management.visual.sections.system.redis_usage_retention')}
+                  type="number"
+                  placeholder="60"
+                  value={values.redisUsageQueueRetentionSeconds}
+                  onChange={(e) => onChange({ redisUsageQueueRetentionSeconds: e.target.value })}
+                  disabled={disabled}
+                  hint={t('config_management.visual.sections.system.redis_usage_retention_hint')}
+                  error={redisUsageQueueRetentionError}
+                />
               </SectionGrid>
             </SectionStack>
           </ConfigSection>
@@ -640,9 +645,7 @@ export function VisualConfigEditor({
               />
               <ToggleRow
                 title={t('config_management.visual.sections.quota.antigravity_credits')}
-                description={t(
-                  'config_management.visual.sections.quota.antigravity_credits_desc'
-                )}
+                description={t('config_management.visual.sections.quota.antigravity_credits_desc')}
                 checked={values.quotaAntigravityCredits}
                 disabled={disabled}
                 onChange={(quotaAntigravityCredits) => onChange({ quotaAntigravityCredits })}

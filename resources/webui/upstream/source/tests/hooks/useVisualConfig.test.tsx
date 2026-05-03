@@ -81,3 +81,39 @@ describe('useVisualConfig disable-image-generation', () => {
     ).toBe('chat');
   });
 });
+
+describe('useVisualConfig redis usage retention', () => {
+  it('loads and writes redis usage queue retention seconds', () => {
+    const { result } = renderHook(() => useVisualConfig());
+
+    act(() => {
+      result.current.loadVisualValuesFromYaml('redis-usage-queue-retention-seconds: 120\n');
+    });
+    expect(result.current.visualValues.redisUsageQueueRetentionSeconds).toBe('120');
+
+    act(() => {
+      result.current.setVisualValues({ redisUsageQueueRetentionSeconds: '60' });
+    });
+    expect(
+      parseRecord(
+        result.current.applyVisualChangesToYaml('redis-usage-queue-retention-seconds: 120\n')
+      )['redis-usage-queue-retention-seconds']
+    ).toBe(60);
+  });
+
+  it('validates redis usage queue retention range', () => {
+    const { result } = renderHook(() => useVisualConfig());
+
+    act(() => {
+      result.current.setVisualValues({ redisUsageQueueRetentionSeconds: '0' });
+    });
+    expect(result.current.visualValidationErrors.redisUsageQueueRetentionSeconds).toBe(
+      'redis_retention_range'
+    );
+
+    act(() => {
+      result.current.setVisualValues({ redisUsageQueueRetentionSeconds: '3600' });
+    });
+    expect(result.current.visualValidationErrors.redisUsageQueueRetentionSeconds).toBeUndefined();
+  });
+});

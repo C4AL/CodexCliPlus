@@ -14,6 +14,7 @@ vi.mock('@/stores/useAuthStore', () => ({
 vi.mock('@/services/api/usage', () => ({
   usageApi: {
     getUsage: vi.fn(),
+    getApiKeyUsage: vi.fn(),
   },
 }));
 
@@ -30,6 +31,7 @@ describe('requestUsageRefresh', () => {
     resetUsageRefreshScheduler();
     authState.apiBase = 'http://127.0.0.1:15345';
     authState.managementKey = 'secret';
+    mockedUsageApi.getApiKeyUsage.mockResolvedValue({});
   });
 
   afterEach(() => {

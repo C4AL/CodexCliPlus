@@ -161,12 +161,23 @@ function getPortError(value: string): 'port_range' | undefined {
   return parsed >= 1 && parsed <= 65535 ? undefined : 'port_range';
 }
 
+function getRedisUsageQueueRetentionError(value: string): 'redis_retention_range' | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (!/^\d+$/.test(trimmed)) return 'redis_retention_range';
+  const parsed = Number(trimmed);
+  return parsed >= 1 && parsed <= 3600 ? undefined : 'redis_retention_range';
+}
+
 export function getVisualConfigValidationErrors(
   values: VisualConfigValues
 ): VisualConfigValidationErrors {
   return {
     port: getPortError(values.port),
     logsMaxTotalSizeMb: getNonNegativeIntegerError(values.logsMaxTotalSizeMb),
+    redisUsageQueueRetentionSeconds: getRedisUsageQueueRetentionError(
+      values.redisUsageQueueRetentionSeconds
+    ),
     requestRetry: getNonNegativeIntegerError(values.requestRetry),
     maxRetryCredentials: getNonNegativeIntegerError(values.maxRetryCredentials),
     maxRetryInterval: getNonNegativeIntegerError(values.maxRetryInterval),
@@ -660,6 +671,12 @@ function getNextDirtyFields(
       nextValues.usageStatisticsEnabled === baselineValues.usageStatisticsEnabled
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'redisUsageQueueRetentionSeconds')) {
+    updateDirty(
+      'redisUsageQueueRetentionSeconds',
+      nextValues.redisUsageQueueRetentionSeconds === baselineValues.redisUsageQueueRetentionSeconds
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'disableImageGeneration')) {
     updateDirty(
       'disableImageGeneration',
@@ -864,9 +881,7 @@ export function useVisualConfig() {
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
       const routingSessionAffinity = Boolean(
-        routing?.['session-affinity'] ??
-          routing?.sessionAffinity ??
-          routing?.['sessionAffinity']
+        routing?.['session-affinity'] ?? routing?.sessionAffinity ?? routing?.['sessionAffinity']
       );
       const routingStrategy = resolveRoutingMode(routing?.strategy, routingSessionAffinity);
       const routingBackend = routingModeToBackend(routingStrategy);
@@ -900,6 +915,9 @@ export function useVisualConfig() {
         loggingToFile: Boolean(parsed['logging-to-file']),
         logsMaxTotalSizeMb: String(parsed['logs-max-total-size-mb'] ?? ''),
         usageStatisticsEnabled: Boolean(parsed['usage-statistics-enabled']),
+        redisUsageQueueRetentionSeconds: String(
+          parsed['redis-usage-queue-retention-seconds'] ?? ''
+        ),
         disableImageGeneration: parseDisableImageGenerationMode(
           parsed['disable-image-generation'] ?? parsed.disableImageGeneration
         ),
@@ -1014,6 +1032,11 @@ export function useVisualConfig() {
         setBooleanInDoc(doc, ['logging-to-file'], values.loggingToFile);
         setIntFromStringInDoc(doc, ['logs-max-total-size-mb'], values.logsMaxTotalSizeMb);
         setBooleanInDoc(doc, ['usage-statistics-enabled'], values.usageStatisticsEnabled);
+        setIntFromStringInDoc(
+          doc,
+          ['redis-usage-queue-retention-seconds'],
+          values.redisUsageQueueRetentionSeconds
+        );
         setDisableImageGenerationInDoc(doc, values.disableImageGeneration);
 
         setStringInDoc(doc, ['proxy-url'], values.proxyUrl);
@@ -1032,10 +1055,7 @@ export function useVisualConfig() {
           ensureMapInDoc(doc, ['quota-exceeded']);
           doc.setIn(['quota-exceeded', 'switch-project'], values.quotaSwitchProject);
           doc.setIn(['quota-exceeded', 'switch-preview-model'], values.quotaSwitchPreviewModel);
-          doc.setIn(
-            ['quota-exceeded', 'antigravity-credits'],
-            values.quotaAntigravityCredits
-          );
+          doc.setIn(['quota-exceeded', 'antigravity-credits'], values.quotaAntigravityCredits);
           deleteIfMapEmpty(doc, ['quota-exceeded']);
         }
 

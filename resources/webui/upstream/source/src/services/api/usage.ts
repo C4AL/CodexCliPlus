@@ -22,6 +22,14 @@ export interface UsageImportResponse {
   [key: string]: unknown;
 }
 
+export interface ApiKeyUsageEntry {
+  success?: number;
+  failed?: number;
+  recent_requests?: Array<{ time?: string; success?: number; failed?: number }>;
+}
+
+export type ApiKeyUsageResponse = Record<string, Record<string, ApiKeyUsageEntry>>;
+
 export const usageApi = {
   /**
    * 获取使用统计原始数据
@@ -29,9 +37,16 @@ export const usageApi = {
   getUsage: () => apiClient.get<Record<string, unknown>>('/usage', { timeout: USAGE_TIMEOUT_MS }),
 
   /**
+   * 获取上游 API Key 最近请求统计
+   */
+  getApiKeyUsage: () =>
+    apiClient.get<ApiKeyUsageResponse>('/api-key-usage', { timeout: USAGE_TIMEOUT_MS }),
+
+  /**
    * 导出使用统计快照
    */
-  exportUsage: () => apiClient.get<UsageExportPayload>('/usage/export', { timeout: USAGE_TIMEOUT_MS }),
+  exportUsage: () =>
+    apiClient.get<UsageExportPayload>('/usage/export', { timeout: USAGE_TIMEOUT_MS }),
 
   /**
    * 导入使用统计快照
@@ -45,9 +60,11 @@ export const usageApi = {
   async getKeyStats(usageData?: unknown): Promise<KeyStats> {
     let payload = usageData;
     if (!payload) {
-      const response = await apiClient.get<Record<string, unknown>>('/usage', { timeout: USAGE_TIMEOUT_MS });
+      const response = await apiClient.get<Record<string, unknown>>('/usage', {
+        timeout: USAGE_TIMEOUT_MS,
+      });
       payload = response?.usage ?? response;
     }
     return computeKeyStats(payload);
-  }
+  },
 };

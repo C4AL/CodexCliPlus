@@ -124,6 +124,10 @@ internal sealed class SmokeEnvironmentScope : IDisposable
             + Environment.NewLine
             + "logging-to-file: true"
             + Environment.NewLine
+            + "usage-statistics-enabled: true"
+            + Environment.NewLine
+            + "redis-usage-queue-retention-seconds: 60"
+            + Environment.NewLine
             + "oauth-model-alias:"
             + Environment.NewLine
             + "  codex:"

@@ -8,6 +8,7 @@ export type PayloadParamValidationErrorCode =
 export type VisualConfigFieldPath =
   | 'port'
   | 'logsMaxTotalSizeMb'
+  | 'redisUsageQueueRetentionSeconds'
   | 'requestRetry'
   | 'maxRetryCredentials'
   | 'maxRetryInterval'
@@ -15,7 +16,10 @@ export type VisualConfigFieldPath =
   | 'streaming.bootstrapRetries'
   | 'streaming.nonstreamKeepaliveInterval';
 
-export type VisualConfigValidationErrorCode = 'port_range' | 'non_negative_integer';
+export type VisualConfigValidationErrorCode =
+  | 'port_range'
+  | 'non_negative_integer'
+  | 'redis_retention_range';
 
 export type VisualConfigValidationErrors = Partial<
   Record<VisualConfigFieldPath, VisualConfigValidationErrorCode>
@@ -46,10 +50,7 @@ export type PayloadFilterRule = {
   params: string[];
 };
 
-export type RoutingMode =
-  | 'round-robin'
-  | 'session-round-robin-optimized'
-  | 'cache-first-optimized';
+export type RoutingMode = 'round-robin' | 'session-round-robin-optimized' | 'cache-first-optimized';
 
 export interface StreamingConfig {
   keepaliveSeconds: string;
@@ -74,6 +75,7 @@ export type VisualConfigValues = {
   loggingToFile: boolean;
   logsMaxTotalSizeMb: string;
   usageStatisticsEnabled: boolean;
+  redisUsageQueueRetentionSeconds: string;
   disableImageGeneration: DisableImageGenerationMode;
   proxyUrl: string;
   forceModelPrefix: boolean;
@@ -117,6 +119,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   loggingToFile: false,
   logsMaxTotalSizeMb: '',
   usageStatisticsEnabled: false,
+  redisUsageQueueRetentionSeconds: '',
   disableImageGeneration: 'false',
   proxyUrl: '',
   forceModelPrefix: false,

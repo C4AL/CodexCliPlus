@@ -15,6 +15,7 @@ import {
   collectUsageDetailsForIdentity,
   getProviderConfigKey,
   getStatsForIdentity,
+  getStatusBarDataForIdentity,
   hasDisableAllModelsRule,
 } from '../utils';
 
@@ -57,18 +58,22 @@ export function CodexSection({
       const configKey = getProviderConfigKey(config, index);
       cache.set(
         configKey,
-        calculateStatusBarData(
-          collectUsageDetailsForIdentity(
-            { authIndex: config.authIndex, apiKey: config.apiKey, prefix: config.prefix },
-            usageDetailsBySource,
-            usageDetailsByAuthIndex
+        getStatusBarDataForIdentity(
+          { authIndex: config.authIndex, apiKey: config.apiKey, prefix: config.prefix },
+          keyStats
+        ) ??
+          calculateStatusBarData(
+            collectUsageDetailsForIdentity(
+              { authIndex: config.authIndex, apiKey: config.apiKey, prefix: config.prefix },
+              usageDetailsBySource,
+              usageDetailsByAuthIndex
+            )
           )
-        )
       );
     });
 
     return cache;
-  }, [configs, usageDetailsByAuthIndex, usageDetailsBySource]);
+  }, [configs, keyStats, usageDetailsByAuthIndex, usageDetailsBySource]);
 
   return (
     <>
@@ -147,8 +152,12 @@ export function CodexSection({
                 )}
                 {item.websockets !== undefined && (
                   <div className={styles.fieldRow}>
-                    <span className={styles.fieldLabel}>{t('ai_providers.codex_websockets_label')}:</span>
-                    <span className={styles.fieldValue}>{item.websockets ? t('common.yes') : t('common.no')}</span>
+                    <span className={styles.fieldLabel}>
+                      {t('ai_providers.codex_websockets_label')}:
+                    </span>
+                    <span className={styles.fieldValue}>
+                      {item.websockets ? t('common.yes') : t('common.no')}
+                    </span>
                   </div>
                 )}
                 {headerEntries.length > 0 && (
@@ -187,7 +196,10 @@ export function CodexSection({
                     </div>
                     <div className={styles.modelTagList}>
                       {excludedModels.map((model) => (
-                        <span key={model} className={`${styles.modelTag} ${styles.excludedModelTag}`}>
+                        <span
+                          key={model}
+                          className={`${styles.modelTag} ${styles.excludedModelTag}`}
+                        >
                           <span className={styles.modelName}>{model}</span>
                         </span>
                       ))}

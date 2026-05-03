@@ -1,7 +1,87 @@
 import { maskApiKey } from '../format';
 import { getApisRecord, isRecord, normalizeAuthIndex } from './shared';
-import { normalizeUsageSourceId } from './sourceId';
+import { buildCandidateUsageSourceIds, normalizeUsageSourceId } from './sourceId';
+import { calculateStatusBarDataFromRecentRequests } from './status';
 import type { KeyStatBucket, KeyStats, UsageDetail } from './types';
+
+type ApiKeyUsageEntry = {
+  success?: unknown;
+  failed?: unknown;
+  recent_requests?: unknown;
+  recentRequests?: unknown;
+};
+
+const readCount = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, value);
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, parsed);
+  }
+  return 0;
+};
+
+const readCompositeApiKey = (value: string): string => {
+  const separatorIndex = value.indexOf('|');
+  return separatorIndex >= 0 ? value.slice(separatorIndex + 1).trim() : value.trim();
+};
+
+export function computeKeyStatsFromApiKeyUsage(payload: unknown): KeyStats {
+  if (!isRecord(payload)) {
+    return { bySource: {}, byAuthIndex: {}, statusBySource: {} };
+  }
+
+  const bySource: Record<string, KeyStatBucket> = {};
+  const statusBySource: NonNullable<KeyStats['statusBySource']> = {};
+
+  Object.values(payload).forEach((providerBucket) => {
+    if (!isRecord(providerBucket)) return;
+
+    Object.entries(providerBucket).forEach(([compositeKey, rawEntry]) => {
+      if (!isRecord(rawEntry)) return;
+      const entry = rawEntry as ApiKeyUsageEntry;
+      const apiKey = readCompositeApiKey(compositeKey);
+      if (!apiKey) return;
+
+      const candidates = buildCandidateUsageSourceIds({ apiKey });
+      if (!candidates.length) return;
+
+      const stats = {
+        success: readCount(entry.success),
+        failure: readCount(entry.failed),
+      };
+      const recentRequests = entry.recent_requests ?? entry.recentRequests;
+      const statusData = Array.isArray(recentRequests)
+        ? calculateStatusBarDataFromRecentRequests(recentRequests)
+        : undefined;
+
+      candidates.forEach((candidate) => {
+        bySource[candidate] = stats;
+        if (statusData && statusData.totalSuccess + statusData.totalFailure > 0) {
+          statusBySource[candidate] = statusData;
+        }
+      });
+    });
+  });
+
+  return { bySource, byAuthIndex: {}, statusBySource };
+}
+
+export function mergeKeyStats(preferred: KeyStats, fallback: KeyStats): KeyStats {
+  return {
+    bySource: {
+      ...(fallback.bySource ?? {}),
+      ...(preferred.bySource ?? {}),
+    },
+    byAuthIndex: {
+      ...(fallback.byAuthIndex ?? {}),
+      ...(preferred.byAuthIndex ?? {}),
+    },
+    statusBySource: {
+      ...(fallback.statusBySource ?? {}),
+      ...(preferred.statusBySource ?? {}),
+    },
+  };
+}
 
 export function computeKeyStats(
   usageData: unknown,

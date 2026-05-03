@@ -30,9 +30,7 @@ export type AuthFileIconAsset = string | { light: string; dark: string };
 
 export type QuotaProviderType = 'codex';
 
-export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>([
-  'codex',
-]);
+export const QUOTA_PROVIDER_TYPES = new Set<QuotaProviderType>(['codex']);
 
 export const MIN_CARD_PAGE_SIZE = 3;
 export const MAX_CARD_PAGE_SIZE = 30;
@@ -232,6 +230,14 @@ export function isRuntimeOnlyAuthFile(file: AuthFileItem): boolean {
 export function resolveAuthFileStats(file: AuthFileItem, stats: KeyStats): KeyStatBucket {
   const defaultStats: KeyStatBucket = { success: 0, failure: 0 };
   const rawFileName = file?.name || '';
+  const directSuccess = Number(file.success ?? file['success']);
+  const directFailure = Number(file.failed ?? file['failed']);
+  if (Number.isFinite(directSuccess) || Number.isFinite(directFailure)) {
+    return {
+      success: Number.isFinite(directSuccess) ? Math.max(0, directSuccess) : 0,
+      failure: Number.isFinite(directFailure) ? Math.max(0, directFailure) : 0,
+    };
+  }
 
   // 兼容 auth_index 和 authIndex 两种字段名（API 返回的是 auth_index）
   const rawAuthIndex = file['auth_index'] ?? file.authIndex;
@@ -276,7 +282,7 @@ export const formatModified = (item: AuthFileItem): string => {
   const date =
     Number.isFinite(asNumber) && !Number.isNaN(asNumber)
       ? new Date(asNumber < 1e12 ? asNumber * 1000 : asNumber)
-      : parseTimestamp(raw) ?? new Date(String(raw));
+      : (parseTimestamp(raw) ?? new Date(String(raw)));
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
 };
 

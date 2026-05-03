@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
@@ -56,6 +56,7 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
             var config = await configService.GetConfigAsync();
             Assert.Contains("sk-dummy", config.Value.ApiKeys);
             Assert.True(config.Value.LoggingToFile);
+            Assert.Equal(60, config.Value.RedisUsageQueueRetentionSeconds);
 
             var configYaml = await configService.GetConfigYamlAsync();
             Assert.Contains(
@@ -72,6 +73,9 @@ public sealed class ManagementDataServiceIntegrationTests : IDisposable
 
             var usage = await usageService.GetUsageAsync();
             Assert.True(usage.Value.TotalRequests >= 0);
+
+            var apiKeyUsage = await usageService.GetApiKeyUsageAsync();
+            Assert.NotNull(apiKeyUsage.Value.Providers);
 
             var logs = await logsService.GetLogsAsync(limit: 25);
             Assert.True(logs.Value.LineCount >= 0);

@@ -8,10 +8,7 @@ import {
   IconTimer,
   IconTrendingUp,
 } from '@/components/ui/icons';
-import type {
-  VisualConfigFieldPath,
-  VisualConfigValidationErrors,
-} from '@/types/visualConfig';
+import type { VisualConfigFieldPath, VisualConfigValidationErrors } from '@/types/visualConfig';
 import type { TranslationFn, VisualSection } from './VisualConfigEditor.types';
 
 export function buildVisualSections(
@@ -56,7 +53,7 @@ export function buildVisualSections(
       title: t('config_management.visual.sections.system.title'),
       description: t('config_management.visual.sections.system.description'),
       icon: IconDiamond,
-      errorCount: countErrors(['logsMaxTotalSizeMb']),
+      errorCount: countErrors(['logsMaxTotalSizeMb', 'redisUsageQueueRetentionSeconds']),
     },
     {
       id: 'network',

@@ -6,6 +6,7 @@ const USAGE_SHORT_THROTTLE_MS = 1_500;
 export interface UsageRefreshResult {
   scopeKey: string;
   response: Record<string, unknown>;
+  apiKeyUsage: Record<string, unknown> | null;
   refreshedAt: number;
 }
 
@@ -46,13 +47,19 @@ const getUsageScopeState = (scopeKey: string): UsageScopeState => {
   return next;
 };
 
-const startUsageRequest = (scopeKey: string, state: UsageScopeState): Promise<UsageRefreshResult> => {
-  const request = usageApi
-    .getUsage()
-    .then((response) => {
+const startUsageRequest = (
+  scopeKey: string,
+  state: UsageScopeState
+): Promise<UsageRefreshResult> => {
+  const request = Promise.all([usageApi.getUsage(), usageApi.getApiKeyUsage().catch(() => null)])
+    .then(([response, apiKeyUsage]) => {
       const result = {
         scopeKey,
         response,
+        apiKeyUsage:
+          apiKeyUsage && typeof apiKeyUsage === 'object'
+            ? (apiKeyUsage as Record<string, unknown>)
+            : null,
         refreshedAt: Date.now(),
       } satisfies UsageRefreshResult;
       state.lastCompletedAt = result.refreshedAt;

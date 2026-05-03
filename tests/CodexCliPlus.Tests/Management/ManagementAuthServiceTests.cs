@@ -81,7 +81,7 @@ public sealed class ManagementAuthServiceTests
     {
         var client = new RecordingManagementApiClient(
             CreateResponse(
-                """{"files":[{"name":"alpha.json","type":"codex","email":"alpha@example.com","disabled":true,"path":"C:\\auths\\alpha.json","updated_at":"2026-04-23T01:02:03Z"}]}"""
+                """{"files":[{"name":"alpha.json","type":"codex","email":"alpha@example.com","disabled":true,"path":"C:\\auths\\alpha.json","updated_at":"2026-04-23T01:02:03Z","success":3,"failed":1,"recent_requests":[{"time":"10:00-10:10","success":2,"failed":1}]}]}"""
             )
         );
         var service = new ManagementAuthService(client);
@@ -95,6 +95,12 @@ public sealed class ManagementAuthServiceTests
         Assert.Equal("codex", authFile.Type);
         Assert.Equal("alpha@example.com", authFile.Email);
         Assert.True(authFile.Disabled);
+        Assert.Equal(3, authFile.Success);
+        Assert.Equal(1, authFile.Failed);
+        var recentRequest = Assert.Single(authFile.RecentRequests);
+        Assert.Equal("10:00-10:10", recentRequest.Time);
+        Assert.Equal(2, recentRequest.Success);
+        Assert.Equal(1, recentRequest.Failed);
         Assert.Equal(@"C:\auths\alpha.json", authFile.Path);
         Assert.Equal(
             DateTimeOffset.Parse("2026-04-23T01:02:03Z", CultureInfo.InvariantCulture),

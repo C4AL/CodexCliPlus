@@ -576,6 +576,10 @@ public sealed class NavigationShellTests
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("shellNotification", hostSource, StringComparison.Ordinal);
+        Assert.Contains("shellNotification", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("showShellNotification", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("showShellNotification", webBridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("refreshAll", hostSource, StringComparison.Ordinal);
         Assert.Contains("setTheme", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigate", hostSource, StringComparison.Ordinal);
@@ -647,6 +651,94 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WebUiNotificationsUseShellBridgeOnly()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var appSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "App.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var storeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "stores",
+                "useNotificationStore.ts"
+            ),
+            Encoding.UTF8
+        );
+        var componentsSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "styles",
+                "components.scss"
+            ),
+            Encoding.UTF8
+        );
+        var mainLayoutSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "components",
+                "layout",
+                "MainLayout.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var notificationContainerPath = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "source",
+            "src",
+            "components",
+            "common",
+            "NotificationContainer.tsx"
+        );
+
+        Assert.False(File.Exists(notificationContainerPath));
+        Assert.DoesNotContain("NotificationContainer", appSource, StringComparison.Ordinal);
+        Assert.Contains("showShellNotification(message, type);", storeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "notifications: [...state.notifications",
+            storeSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(".notification-container", componentsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes notification-enter", componentsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("@keyframes notification-exit", componentsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(".notification {", componentsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "className=\"notification",
+            mainLayoutSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("className=\"theme-menu-popover\"", mainLayoutSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -976,8 +1068,14 @@ public sealed class NavigationShellTests
         Assert.Contains("HorizontalAlignment=\"Right\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BottomCenterAuto", requestSource, StringComparison.Ordinal);
         Assert.Contains("BottomRightManual", requestSource, StringComparison.Ordinal);
+        Assert.Contains("ShellNotificationLevel", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Info", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Success", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Warning", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Error", requestSource, StringComparison.Ordinal);
         Assert.Contains("ShowAuto", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ShowManual", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment.Right", hostSource, StringComparison.Ordinal);
         Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
@@ -1002,6 +1100,59 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    public void ShellNotificationLevelsMapToAutoAndManualDestinations()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var hostSource = ReadMainWindowSources(repositoryRoot);
+        var serviceSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "Notifications",
+                "ShellNotificationService.cs"
+            ),
+            Encoding.UTF8
+        );
+        var requestSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "Services",
+                "Notifications",
+                "ShellNotificationRequest.cs"
+            ),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("case \"shellNotification\":", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ReadString(root, \"notificationType\")", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ReadShellNotificationLevel", hostSource, StringComparison.Ordinal);
+        Assert.Contains("\"success\" => ShellNotificationLevel.Success", hostSource, StringComparison.Ordinal);
+        Assert.Contains("\"warning\" => ShellNotificationLevel.Warning", hostSource, StringComparison.Ordinal);
+        Assert.Contains("\"error\" => ShellNotificationLevel.Error", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_ => ShellNotificationLevel.Info", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "if (level == ShellNotificationLevel.Error)",
+            serviceSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ShowManual(\"操作失败\", message, ShellNotificationLevel.Error);",
+            serviceSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ShowAuto(message, level);", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("Warning", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Error", requestSource, StringComparison.Ordinal);
+        Assert.Contains("ShellNotificationLevel.Info", requestSource, StringComparison.Ordinal);
+        Assert.Contains("Success", requestSource, StringComparison.Ordinal);
     }
 
     [Fact]

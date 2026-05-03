@@ -216,6 +216,10 @@
         gap: $spacing-xs;
         width: max-content;
         max-width: calc(100vw - 16px);
+        border: 1px solid var(--border-color);
+        border-radius: $radius-md;
+        background: var(--bg-primary);
+        box-shadow: var(--shadow);
       }
 
       .theme-card {

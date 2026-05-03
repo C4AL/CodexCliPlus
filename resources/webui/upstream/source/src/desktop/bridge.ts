@@ -1,3 +1,5 @@
+import type { NotificationType } from '@/types';
+
 export interface DesktopBootstrapPayload {
   desktopMode: boolean;
   apiBase: string;
@@ -130,6 +132,7 @@ interface DesktopBridge {
   openExternal?: (url: string) => void;
   requestNativeLogin?: (message?: string) => void;
   shellStateChanged?: (state: DesktopShellState) => void;
+  showShellNotification?: (message: string, type?: NotificationType) => boolean | void;
   importAccountConfig?: (mode?: string) => void;
   exportAccountConfig?: (mode?: string) => void;
   importSacPackage?: () => void;
@@ -232,6 +235,10 @@ function normalizeDesktopTheme(theme: unknown): DesktopTheme {
 
 function normalizeResolvedTheme(theme: unknown): DesktopResolvedTheme {
   return theme === 'dark' ? 'dark' : 'light';
+}
+
+function normalizeNotificationType(type: unknown): NotificationType {
+  return type === 'success' || type === 'warning' || type === 'error' ? type : 'info';
 }
 
 function normalizeCommand(command: unknown): DesktopShellCommand | null {
@@ -647,6 +654,28 @@ export function sendShellStateChanged(state: DesktopShellState): boolean {
     return true;
   } catch (error) {
     console.warn('Failed to send desktop shell state.', error);
+    return false;
+  }
+}
+
+export function showShellNotification(
+  message: string,
+  type: NotificationType = 'info'
+): boolean {
+  const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+  if (!normalizedMessage) {
+    return false;
+  }
+
+  const bridge = getBridge();
+  if (typeof bridge?.showShellNotification !== 'function') {
+    return false;
+  }
+
+  try {
+    return bridge.showShellNotification(normalizedMessage, normalizeNotificationType(type)) !== false;
+  } catch (error) {
+    console.warn('Failed to show desktop shell notification.', error);
     return false;
   }
 }

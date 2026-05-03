@@ -6,8 +6,7 @@
 import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import type { Notification, NotificationType } from '@/types';
-import { generateId } from '@/utils/helpers';
-import { NOTIFICATION_DURATION_MS } from '@/utils/constants';
+import { showShellNotification } from '@/desktop/bridge';
 
 interface ConfirmationOptions {
   title?: string;
@@ -42,27 +41,8 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     options: null
   },
 
-  showNotification: (message, type = 'info', duration = NOTIFICATION_DURATION_MS) => {
-    const id = generateId();
-    const notification: Notification = {
-      id,
-      message,
-      type,
-      duration
-    };
-
-    set((state) => ({
-      notifications: [...state.notifications, notification]
-    }));
-
-    // 自动移除通知
-    if (duration > 0) {
-      setTimeout(() => {
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id)
-        }));
-      }, duration);
-    }
+  showNotification: (message, type = 'info') => {
+    showShellNotification(message, type);
   },
 
   removeNotification: (id) => {

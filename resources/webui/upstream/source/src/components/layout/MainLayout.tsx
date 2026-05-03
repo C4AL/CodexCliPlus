@@ -692,7 +692,7 @@ export function MainLayout() {
                 </Button>
                 {themeMenuOpen && (
                   <div
-                    className="notification entering theme-menu-popover"
+                    className="theme-menu-popover"
                     role="menu"
                     aria-label={t('theme.switch')}
                   >

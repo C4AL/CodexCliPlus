@@ -1,6 +1,5 @@
 import { Suspense, lazy, useEffect, type ComponentType } from 'react';
 import { Navigate, Outlet, RouterProvider, createHashRouter } from 'react-router-dom';
-import { NotificationContainer } from '@/components/common/NotificationContainer';
 import { ConfirmationModal } from '@/components/common/ConfirmationModal';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { ProtectedRoute } from '@/router/ProtectedRoute';
@@ -28,7 +27,6 @@ function RouteFallback() {
 function RootShell() {
   return (
     <>
-      <NotificationContainer />
       <ConfirmationModal />
       <Outlet />
     </>

@@ -338,6 +338,7 @@ public partial class MainWindow
     {
         RefreshShellBrandDockPopupPlacement();
         RefreshNavigationDockPopupPlacement();
+        RefreshShellNotificationPopupPlacements();
     }
 
     private void RefreshNavigationDockPopupPlacement()

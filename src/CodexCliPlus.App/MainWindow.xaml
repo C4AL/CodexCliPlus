@@ -476,7 +476,12 @@
       />
     </Grid>
 
-    <Grid x:Name="ManagementContentHost" Grid.Row="1" ClipToBounds="False">
+    <Grid
+      x:Name="ManagementContentHost"
+      Grid.Row="1"
+      ClipToBounds="False"
+      SizeChanged="ManagementContentHost_SizeChanged"
+    >
       <wv2:WebView2
         x:Name="ManagementWebView"
         Panel.ZIndex="0"
@@ -785,38 +790,62 @@
       </Border>
     </Grid>
 
-    <StackPanel
-      x:Name="AutoNotificationStack"
-      Grid.Row="1"
-      Width="380"
-      Margin="0,0,0,28"
-      HorizontalAlignment="Center"
-      VerticalAlignment="Bottom"
-      Panel.ZIndex="20"
-      AutomationProperties.AutomationId="AutoNotificationStack"
-    />
-
-    <StackPanel
-      x:Name="ManualNotificationStack"
-      Grid.Row="1"
-      Width="360"
-      Margin="0,0,24,24"
-      HorizontalAlignment="Right"
-      VerticalAlignment="Bottom"
-      Panel.ZIndex="21"
-      AutomationProperties.AutomationId="ManualNotificationStack"
-    />
-
-    <Grid
-      x:Name="SettingsOverlay"
-      Grid.RowSpan="2"
-      Visibility="Collapsed"
-      Opacity="0"
-      Background="#66000000"
-      Panel.ZIndex="60"
-      MouseLeftButtonDown="SettingsOverlay_MouseLeftButtonDown"
-      AutomationProperties.AutomationId="SettingsOverlay"
+    <Popup
+      x:Name="AutoNotificationPopup"
+      PlacementTarget="{Binding ElementName=ManagementContentHost}"
+      Placement="Relative"
+      HorizontalOffset="0"
+      VerticalOffset="0"
+      AllowsTransparency="True"
+      StaysOpen="True"
+      PopupAnimation="None"
     >
+      <StackPanel
+        x:Name="AutoNotificationStack"
+        Width="380"
+        SizeChanged="ShellNotificationStack_SizeChanged"
+        AutomationProperties.AutomationId="AutoNotificationStack"
+      />
+    </Popup>
+
+    <Popup
+      x:Name="ManualNotificationPopup"
+      PlacementTarget="{Binding ElementName=ManagementContentHost}"
+      Placement="Relative"
+      HorizontalOffset="0"
+      VerticalOffset="0"
+      AllowsTransparency="True"
+      StaysOpen="True"
+      PopupAnimation="None"
+    >
+      <StackPanel
+        x:Name="ManualNotificationStack"
+        Width="360"
+        SizeChanged="ShellNotificationStack_SizeChanged"
+        AutomationProperties.AutomationId="ManualNotificationStack"
+      />
+    </Popup>
+
+    <Popup
+      x:Name="SettingsOverlayPopup"
+      PlacementTarget="{Binding ElementName=ShellRootGrid}"
+      Placement="Relative"
+      HorizontalOffset="0"
+      VerticalOffset="0"
+      AllowsTransparency="True"
+      StaysOpen="True"
+      PopupAnimation="None"
+    >
+      <Grid
+        x:Name="SettingsOverlay"
+        Width="{Binding ActualWidth, ElementName=ShellRootGrid}"
+        Height="{Binding ActualHeight, ElementName=ShellRootGrid}"
+        Visibility="Collapsed"
+        Opacity="0"
+        Background="#66000000"
+        MouseLeftButtonDown="SettingsOverlay_MouseLeftButtonDown"
+        AutomationProperties.AutomationId="SettingsOverlay"
+      >
       <Border
         x:Name="SettingsDialogCard"
         Width="760"
@@ -1131,7 +1160,8 @@
           </Grid>
         </Border>
       </Border>
-    </Grid>
+      </Grid>
+    </Popup>
 
     <tray:NotifyIcon
       x:Name="TrayIcon"

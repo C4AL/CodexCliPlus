@@ -47,6 +47,7 @@ public partial class MainWindow
         if (_settingsOverlayOpen)
         {
             UpdateSettingsOverlayBaseline();
+            UpdateSettingsOverlayPopupVisibility();
             Activate();
             return;
         }
@@ -56,14 +57,9 @@ public partial class MainWindow
             _settingsOverlayOpen = true;
             SetNavigationDockPopupOpen(false);
             UpdateSettingsOverlayBaseline();
-            _settingsOverlayCoveredWebView = ManagementWebView.Visibility == Visibility.Visible;
-            if (_settingsOverlayCoveredWebView)
-            {
-                ManagementWebView.Visibility = Visibility.Collapsed;
-            }
-
             SettingsOverlay.Visibility = Visibility.Visible;
             SettingsOverlay.Opacity = 0;
+            UpdateSettingsOverlayPopupVisibility();
 
             if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
             {
@@ -119,6 +115,7 @@ public partial class MainWindow
         SettingsOverlay.BeginAnimation(UIElement.OpacityProperty, null);
         SettingsOverlay.Opacity = 0;
         SettingsOverlay.Visibility = Visibility.Collapsed;
+        SettingsOverlayPopup.IsOpen = false;
         if (SettingsDialogCard.RenderTransform is ScaleTransform scale)
         {
             scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
@@ -126,26 +123,28 @@ public partial class MainWindow
             scale.ScaleX = 0.96;
             scale.ScaleY = 0.96;
         }
-
-        RestoreManagementWebViewAfterSettingsOverlay();
     }
 
-    private void RestoreManagementWebViewAfterSettingsOverlay()
+    private void UpdateSettingsOverlayPopupVisibility()
     {
-        if (!_settingsOverlayCoveredWebView)
+        if (SettingsOverlayPopup is null)
         {
             return;
         }
 
-        _settingsOverlayCoveredWebView = false;
-        if (
-            _startupState == StartupState.LoadingManagement
-            && UpgradeNoticePanel.Visibility != Visibility.Visible
-            && StartupFlow.Visibility != Visibility.Visible
-            && BlockerPanel.Visibility != Visibility.Visible
-        )
+        var shouldOpen =
+            _settingsOverlayOpen
+            && SettingsOverlay.Visibility == Visibility.Visible
+            && IsVisible
+            && WindowState != WindowState.Minimized;
+        if (SettingsOverlayPopup.IsOpen != shouldOpen)
         {
-            ManagementWebView.Visibility = Visibility.Visible;
+            SettingsOverlayPopup.IsOpen = shouldOpen;
+        }
+
+        if (shouldOpen)
+        {
+            RefreshDockPopupPlacement(SettingsOverlayPopup);
         }
     }
 

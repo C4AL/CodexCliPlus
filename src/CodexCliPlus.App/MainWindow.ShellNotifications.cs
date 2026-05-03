@@ -44,6 +44,9 @@ namespace CodexCliPlus;
 public partial class MainWindow
 {
     private const int MaxVisibleShellNotifications = 3;
+    private const double AutoNotificationBottomOffset = 28;
+    private const double ManualNotificationRightOffset = 24;
+    private const double ManualNotificationBottomOffset = 24;
 
     private readonly HashSet<Border> _removingShellNotifications = [];
 
@@ -71,10 +74,15 @@ public partial class MainWindow
         card.RenderTransform = new TranslateTransform(0, 18);
         EnforceShellNotificationCapacity(AutoNotificationStack);
         AutoNotificationStack.Children.Add(card);
+        UpdateShellNotificationPopupVisibility();
 
         var progress = (Border)card.Tag;
-        card.Loaded += async (_, _) =>
+        card.Loaded += Card_Loaded;
+
+        async void Card_Loaded(object sender, RoutedEventArgs e)
         {
+            card.Loaded -= Card_Loaded;
+            UpdateShellNotificationPopupVisibility();
             AnimateNotificationIn(card);
             if (progress.RenderTransform is ScaleTransform progressScale)
             {
@@ -90,7 +98,7 @@ public partial class MainWindow
 
             await Task.Delay(TimeSpan.FromSeconds(2.15));
             await FadeOutAndRemoveAsync(AutoNotificationStack, card);
-        };
+        }
     }
 
     private void ShowManualNotification(string title, string message, ShellNotificationLevel level)
@@ -100,7 +108,15 @@ public partial class MainWindow
         card.RenderTransform = new TranslateTransform(18, 0);
         EnforceShellNotificationCapacity(ManualNotificationStack);
         ManualNotificationStack.Children.Add(card);
-        card.Loaded += (_, _) => AnimateNotificationIn(card);
+        UpdateShellNotificationPopupVisibility();
+        card.Loaded += Card_Loaded;
+
+        void Card_Loaded(object sender, RoutedEventArgs e)
+        {
+            card.Loaded -= Card_Loaded;
+            UpdateShellNotificationPopupVisibility();
+            AnimateNotificationIn(card);
+        }
     }
 
     private void EnforceShellNotificationCapacity(WpfPanel owner)
@@ -117,6 +133,8 @@ public partial class MainWindow
 
             _ = FadeOutAndRemoveAsync(owner, oldest);
         }
+
+        UpdateShellNotificationPopupVisibility();
     }
 
     private int CountActiveShellNotifications(WpfPanel owner)
@@ -391,6 +409,135 @@ public partial class MainWindow
         finally
         {
             _removingShellNotifications.Remove(card);
+            UpdateShellNotificationPopupVisibility();
+        }
+    }
+
+    private void ShellNotificationStack_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateShellNotificationPopupVisibility();
+    }
+
+    private void ManagementContentHost_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RefreshShellDockPopupPlacements();
+        UpdateSettingsOverlayPopupVisibility();
+        UpdateShellNotificationPopupVisibility();
+    }
+
+    private void UpdateShellNotificationPopupVisibility()
+    {
+        if (
+            AutoNotificationPopup is null
+            || AutoNotificationStack is null
+            || ManualNotificationPopup is null
+            || ManualNotificationStack is null
+        )
+        {
+            return;
+        }
+
+        UpdateShellNotificationPopup(
+            AutoNotificationPopup,
+            AutoNotificationStack,
+            bottomCenter: true
+        );
+        UpdateShellNotificationPopup(
+            ManualNotificationPopup,
+            ManualNotificationStack,
+            bottomCenter: false
+        );
+    }
+
+    private void RefreshShellNotificationPopupPlacements()
+    {
+        UpdateShellNotificationPopupVisibility();
+    }
+
+    private void UpdateShellNotificationPopup(
+        Popup popup,
+        WpfPanel owner,
+        bool bottomCenter
+    )
+    {
+        var shouldOpen = owner.Children.Count > 0 && CanShowShellNotificationPopups();
+        if (shouldOpen)
+        {
+            UpdateShellNotificationPopupPlacement(popup, owner, bottomCenter);
+        }
+
+        if (popup.IsOpen != shouldOpen)
+        {
+            popup.IsOpen = shouldOpen;
+        }
+
+        if (shouldOpen)
+        {
+            RefreshDockPopupPlacement(popup);
+        }
+    }
+
+    private bool CanShowShellNotificationPopups()
+    {
+        return IsVisible
+            && WindowState != WindowState.Minimized
+            && ManagementContentHost is not null
+            && ManagementContentHost.ActualWidth > 0
+            && ManagementContentHost.ActualHeight > 0;
+    }
+
+    private void UpdateShellNotificationPopupPlacement(
+        Popup popup,
+        FrameworkElement owner,
+        bool bottomCenter
+    )
+    {
+        var hostWidth = ManagementContentHost.ActualWidth;
+        var hostHeight = ManagementContentHost.ActualHeight;
+        var ownerWidth = ResolvePopupElementWidth(owner);
+        var ownerHeight = ResolvePopupElementHeight(owner);
+
+        popup.HorizontalOffset = bottomCenter
+            ? Math.Max(0, (hostWidth - ownerWidth) / 2)
+            : Math.Max(0, hostWidth - ownerWidth - ManualNotificationRightOffset);
+        popup.VerticalOffset = Math.Max(
+            0,
+            hostHeight
+                - ownerHeight
+                - (bottomCenter ? AutoNotificationBottomOffset : ManualNotificationBottomOffset)
+        );
+    }
+
+    private static double ResolvePopupElementWidth(FrameworkElement element)
+    {
+        if (element.ActualWidth > 0)
+        {
+            return element.ActualWidth;
+        }
+
+        return !double.IsNaN(element.Width) && element.Width > 0 ? element.Width : 0;
+    }
+
+    private static double ResolvePopupElementHeight(FrameworkElement element)
+    {
+        if (element.ActualHeight > 0)
+        {
+            return element.ActualHeight;
+        }
+
+        return element.DesiredSize.Height > 0 ? element.DesiredSize.Height : 0;
+    }
+
+    private void CloseShellNotificationPopups()
+    {
+        if (AutoNotificationPopup is not null)
+        {
+            AutoNotificationPopup.IsOpen = false;
+        }
+
+        if (ManualNotificationPopup is not null)
+        {
+            ManualNotificationPopup.IsOpen = false;
         }
     }
 }

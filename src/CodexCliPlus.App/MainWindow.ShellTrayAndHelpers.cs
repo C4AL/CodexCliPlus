@@ -56,8 +56,10 @@ public partial class MainWindow
     private void HideToTray()
     {
         CloseShellDockPopups();
+        CloseShellNotificationPopups();
         ShowInTaskbar = false;
         Hide();
+        UpdateSettingsOverlayPopupVisibility();
     }
 
     private void RestoreFromTray()
@@ -70,6 +72,8 @@ public partial class MainWindow
         }
 
         Activate();
+        UpdateSettingsOverlayPopupVisibility();
+        UpdateShellNotificationPopupVisibility();
     }
 
     private bool IsUpgradeNoticePending()

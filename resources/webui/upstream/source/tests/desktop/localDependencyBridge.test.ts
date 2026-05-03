@@ -10,7 +10,10 @@ const sampleSnapshot = {
   repairCapabilities: [],
 };
 
-async function loadBridge(requestSnapshot: (requestId: string) => boolean | void) {
+async function loadBridge(actions: {
+  requestSnapshot?: (requestId: string) => boolean | void;
+  runRepair?: (actionId: string, requestId: string) => boolean | void;
+}) {
   let listener: WebViewListener | null = null;
   vi.resetModules();
   Object.assign(window, {
@@ -23,13 +26,15 @@ async function loadBridge(requestSnapshot: (requestId: string) => boolean | void
     },
     __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
       isDesktopMode: () => true,
-      requestLocalDependencySnapshot: requestSnapshot,
+      requestLocalDependencySnapshot: actions.requestSnapshot,
+      runLocalDependencyRepair: actions.runRepair,
     },
   });
 
   const bridge = await import('@/desktop/bridge');
   return {
     requestLocalDependencySnapshot: bridge.requestLocalDependencySnapshot,
+    runLocalDependencyRepair: bridge.runLocalDependencyRepair,
     emit: (data: unknown) => listener?.({ data } as MessageEvent),
   };
 }
@@ -48,9 +53,11 @@ describe('local dependency desktop bridge', () => {
 
   it('reuses one in-flight snapshot request for repeated callers', async () => {
     const requestIds: string[] = [];
-    const bridge = await loadBridge((requestId) => {
-      requestIds.push(requestId);
-      return true;
+    const bridge = await loadBridge({
+      requestSnapshot: (requestId) => {
+        requestIds.push(requestId);
+        return true;
+      },
     });
 
     const first = bridge.requestLocalDependencySnapshot();
@@ -71,12 +78,85 @@ describe('local dependency desktop bridge', () => {
 
   it('uses a two second timeout for missing desktop responses', async () => {
     vi.useFakeTimers();
-    const bridge = await loadBridge(() => true);
+    const bridge = await loadBridge({ requestSnapshot: () => true });
 
     const request = bridge.requestLocalDependencySnapshot();
     const rejected = expect(request).rejects.toThrow('桌面端响应超时');
     await vi.advanceTimersByTimeAsync(2_000);
 
     await rejected;
+  });
+
+  it('delivers repair progress without resolving before final result', async () => {
+    const repairRequestIds: string[] = [];
+    const bridge = await loadBridge({
+      requestSnapshot: () => true,
+      runRepair: (_actionId, requestId) => {
+        repairRequestIds.push(requestId);
+        return true;
+      },
+    });
+    const progressEvents: unknown[] = [];
+
+    let settled = false;
+    const request = bridge
+      .runLocalDependencyRepair('repair-user-path', (progress) => {
+        progressEvents.push(progress);
+      })
+      .then((response) => {
+        settled = true;
+        return response;
+      });
+
+    expect(repairRequestIds).toHaveLength(1);
+    bridge.emit({
+      type: 'localDependencyRepairStarted',
+      requestId: repairRequestIds[0],
+      actionId: 'repair-user-path',
+    });
+    bridge.emit({
+      type: 'localDependencyRepairProgress',
+      requestId: repairRequestIds[0],
+      progress: {
+        actionId: 'repair-user-path',
+        phase: 'commandRunning',
+        message: '正在执行命令。',
+        commandLine: 'winget install OpenJS.NodeJS.LTS',
+        recentOutput: ['准备安装'],
+        logPath: 'C:\\logs\\local-environment-repair.log',
+        updatedAt: '2026-05-02T00:00:01.000Z',
+        exitCode: null,
+      },
+    });
+
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(progressEvents).toEqual([
+      expect.objectContaining({
+        actionId: 'repair-user-path',
+        phase: 'commandRunning',
+        commandLine: 'winget install OpenJS.NodeJS.LTS',
+        recentOutput: ['准备安装'],
+      }),
+    ]);
+
+    bridge.emit({
+      type: 'localDependencyRepairResult',
+      requestId: repairRequestIds[0],
+      result: {
+        actionId: 'repair-user-path',
+        succeeded: true,
+        exitCode: 0,
+        summary: '用户 PATH 已修复。',
+        detail: '已补齐 1 个安全目录。',
+        logPath: 'C:\\logs\\local-environment-repair.log',
+      },
+      snapshot: sampleSnapshot,
+    });
+
+    await expect(request).resolves.toMatchObject({
+      result: { succeeded: true, summary: '用户 PATH 已修复。' },
+      snapshot: { readinessScore: 100 },
+    });
   });
 });

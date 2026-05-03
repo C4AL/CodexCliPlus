@@ -598,6 +598,9 @@ public sealed class NavigationShellTests
         Assert.Contains("requestLocalDependencySnapshot", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", hostSource, StringComparison.Ordinal);
         Assert.Contains("runLocalDependencyRepair", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("localDependencyRepairProgress", hostSource, StringComparison.Ordinal);
+        Assert.Contains("localDependencyRepairProgress", webBridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("确认本地环境修复", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestCodexRouteState", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestCodexRouteState", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", hostSource, StringComparison.Ordinal);
@@ -1896,8 +1899,12 @@ public sealed class NavigationShellTests
         Assert.Contains("runLocalDependencyRepair", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("local_environment", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("repairCapabilities", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("LocalDependencyRepairProgress", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("localDependencyRepairResult", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("localDependencyRepairProgress", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("LocalDependencyRepairProgress", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("本地环境", zhCn, StringComparison.Ordinal);
+        Assert.Contains("日志路径", zhCn, StringComparison.Ordinal);
         Assert.Contains("修复入口仅在桌面模式可用", zhCn, StringComparison.Ordinal);
     }
 

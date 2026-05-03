@@ -59,6 +59,17 @@ export interface LocalDependencyRepairResult {
   logPath?: string | null;
 }
 
+export interface LocalDependencyRepairProgress {
+  actionId: string;
+  phase: string;
+  message: string;
+  commandLine?: string | null;
+  recentOutput: string[];
+  logPath?: string | null;
+  updatedAt: string;
+  exitCode?: number | null;
+}
+
 export interface LocalDependencyRepairResponse {
   result: LocalDependencyRepairResult;
   snapshot?: LocalDependencySnapshot | null;
@@ -177,6 +188,7 @@ const pendingLocalDependencyRequests = new Map<
     resolve: (value: unknown) => void;
     reject: (reason?: unknown) => void;
     timer: ReturnType<typeof window.setTimeout>;
+    onProgress?: (progress: LocalDependencyRepairProgress) => void;
   }
 >();
 const pendingCodexRouteRequests = new Map<
@@ -358,6 +370,28 @@ function normalizeLocalDependencyRepairResult(value: unknown): LocalDependencyRe
   };
 }
 
+function normalizeLocalDependencyRepairProgress(
+  value: unknown
+): LocalDependencyRepairProgress | null {
+  if (!isRecord(value)) return null;
+  const actionId = typeof value.actionId === 'string' ? value.actionId : '';
+  const phase = typeof value.phase === 'string' ? value.phase : '';
+  const message = typeof value.message === 'string' ? value.message : '';
+  if (!actionId || !phase || !message) return null;
+  return {
+    actionId,
+    phase,
+    message,
+    commandLine: typeof value.commandLine === 'string' ? value.commandLine : null,
+    recentOutput: Array.isArray(value.recentOutput)
+      ? value.recentOutput.filter((line): line is string => typeof line === 'string')
+      : [],
+    logPath: typeof value.logPath === 'string' ? value.logPath : null,
+    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+    exitCode: typeof value.exitCode === 'number' ? value.exitCode : null,
+  };
+}
+
 function normalizeCodexRouteMode(value: unknown): CodexRouteMode {
   return value === 'official' || value === 'cpa' ? value : 'unknown';
 }
@@ -468,6 +502,18 @@ function handleLocalDependencyMessage(message: unknown): boolean {
     return true;
   }
 
+  if (message.type === 'localDependencyRepairProgress') {
+    const requestId = typeof message.requestId === 'string' ? message.requestId : '';
+    if (!requestId) return true;
+    const pending = pendingLocalDependencyRequests.get(requestId);
+    if (!pending) return true;
+    const progress = normalizeLocalDependencyRepairProgress(message.progress);
+    if (progress) {
+      pending.onProgress?.(progress);
+    }
+    return true;
+  }
+
   if (message.type === 'localDependencyRepairResult') {
     const result = normalizeLocalDependencyRepairResult(message.result);
     const snapshot = normalizeLocalDependencySnapshot(message.snapshot);
@@ -515,7 +561,11 @@ function handleCodexRouteMessage(message: unknown): boolean {
   return true;
 }
 
-function registerLocalDependencyRequest<T>(requestId: string, timeoutMs: number): Promise<T> {
+function registerLocalDependencyRequest<T>(
+  requestId: string,
+  timeoutMs: number,
+  onProgress?: (progress: LocalDependencyRepairProgress) => void
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
       pendingLocalDependencyRequests.delete(requestId);
@@ -525,6 +575,7 @@ function registerLocalDependencyRequest<T>(requestId: string, timeoutMs: number)
       resolve: (value) => resolve(value as T),
       reject,
       timer,
+      onProgress,
     });
   });
 }
@@ -819,7 +870,8 @@ export function requestLocalDependencySnapshot(): Promise<LocalDependencySnapsho
 }
 
 export function runLocalDependencyRepair(
-  actionId: string
+  actionId: string,
+  onProgress?: (progress: LocalDependencyRepairProgress) => void
 ): Promise<LocalDependencyRepairResponse> {
   const bridge = getBridge();
   if (typeof bridge?.runLocalDependencyRepair !== 'function') {
@@ -830,7 +882,8 @@ export function runLocalDependencyRepair(
   const requestId = createDesktopRequestId('local-env-repair');
   const request = registerLocalDependencyRequest<LocalDependencyRepairResponse>(
     requestId,
-    LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS
+    LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS,
+    onProgress
   );
   try {
     const posted = bridge.runLocalDependencyRepair(actionId, requestId);

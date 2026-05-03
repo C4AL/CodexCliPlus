@@ -964,32 +964,6 @@ public partial class MainWindow
             return;
         }
 
-        var confirm = MessageBox.Show(
-            this,
-            "即将以管理员权限启动受控修复进程。修复过程只会执行内置白名单动作，是否继续？",
-            "确认本地环境修复",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Warning
-        );
-        if (confirm != MessageBoxResult.OK)
-        {
-            PostWebUiCommand(
-                new
-                {
-                    type = "localDependencyRepairResult",
-                    requestId,
-                    result = new
-                    {
-                        actionId,
-                        succeeded = false,
-                        summary = "用户取消了修复。",
-                        detail = "未执行任何修复动作。",
-                    },
-                }
-            );
-            return;
-        }
-
         PostWebUiCommand(
             new
             {
@@ -999,7 +973,20 @@ public partial class MainWindow
             }
         );
 
-        var result = await _localDependencyRepairService.RunElevatedRepairAsync(actionId);
+        var result = await _localDependencyRepairService.RunElevatedRepairAsync(
+            actionId,
+            progress =>
+                Dispatcher.InvokeAsync(() =>
+                    PostWebUiCommand(
+                        new
+                        {
+                            type = "localDependencyRepairProgress",
+                            requestId,
+                            progress,
+                        }
+                    )
+                )
+        );
         var snapshot = await _localDependencyHealthService.CheckAsync();
         PostWebUiCommand(
             new

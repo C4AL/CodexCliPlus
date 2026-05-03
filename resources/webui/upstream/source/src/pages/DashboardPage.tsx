@@ -13,6 +13,7 @@ import {
   requestLocalDependencySnapshot,
   runLocalDependencyRepair,
   type LocalDependencyItem,
+  type LocalDependencyRepairProgress,
   type LocalDependencySnapshot,
 } from '@/desktop/bridge';
 import { useDesktopDataChanged } from '@/hooks/useDesktopDataChanged';
@@ -102,6 +103,8 @@ export function DashboardPage() {
   const [localEnvironmentSnapshot, setLocalEnvironmentSnapshot] =
     useState<LocalDependencySnapshot | null>(null);
   const [repairingActionId, setRepairingActionId] = useState<string | null>(null);
+  const [localRepairProgress, setLocalRepairProgress] =
+    useState<LocalDependencyRepairProgress | null>(null);
 
   // Time-of-day state for dynamic greeting
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(getTimeOfDay);
@@ -309,6 +312,18 @@ export function DashboardPage() {
     return styles.localStatusError;
   };
 
+  const getLocalRepairPhaseLabel = (phase: string) => {
+    const labels: Record<string, string> = {
+      starting: t('dashboard.local_environment_repair_phase_starting'),
+      running: t('dashboard.local_environment_repair_phase_running'),
+      commandRunning: t('dashboard.local_environment_repair_phase_command_running'),
+      commandCompleted: t('dashboard.local_environment_repair_phase_command_completed'),
+      completed: t('dashboard.local_environment_repair_phase_completed'),
+      failed: t('dashboard.local_environment_repair_phase_failed'),
+    };
+    return labels[phase] ?? t('dashboard.local_environment_repair_phase_unknown');
+  };
+
   const handleRepairLocalDependency = (item: LocalDependencyItem) => {
     if (!item.repairActionId) return;
 
@@ -331,9 +346,32 @@ export function DashboardPage() {
       confirmText: t('common.confirm'),
       variant: 'danger',
       onConfirm: async () => {
-        setRepairingActionId(item.repairActionId ?? null);
+        const actionId = item.repairActionId!;
+        setRepairingActionId(actionId);
+        setLocalRepairProgress({
+          actionId,
+          phase: 'starting',
+          message: t('dashboard.local_environment_repair_progress_starting'),
+          commandLine: null,
+          recentOutput: [],
+          logPath: null,
+          updatedAt: new Date().toISOString(),
+          exitCode: null,
+        });
         try {
-          const response = await runLocalDependencyRepair(item.repairActionId!);
+          const response = await runLocalDependencyRepair(actionId, (progress) => {
+            setLocalRepairProgress(progress);
+          });
+          setLocalRepairProgress((current) => ({
+            actionId,
+            phase: response.result.succeeded ? 'completed' : 'failed',
+            message: response.result.summary,
+            commandLine: current?.actionId === actionId ? current.commandLine : null,
+            recentOutput: current?.actionId === actionId ? current.recentOutput : [],
+            logPath: response.result.logPath ?? (current?.actionId === actionId ? current.logPath : null),
+            updatedAt: new Date().toISOString(),
+            exitCode: response.result.exitCode ?? null,
+          }));
           if (response.snapshot) {
             setLocalEnvironmentSnapshot(response.snapshot);
           } else {
@@ -589,38 +627,80 @@ export function DashboardPage() {
             )}
             {localEnvironmentSnapshot && (
               <div className={styles.localEnvironmentItems}>
-                {localEnvironmentSnapshot.items.map((item) => (
-                  <div key={item.id} className={styles.localDependencyItem}>
-                    <div className={styles.localDependencyMain}>
-                      <div className={styles.localDependencyTitleRow}>
-                        <strong>{item.name}</strong>
-                        <span
-                          className={`${styles.localStatusBadge} ${getLocalStatusClass(item.status)}`}
+                {localEnvironmentSnapshot.items.map((item) => {
+                  const itemRepairProgress =
+                    item.repairActionId && localRepairProgress?.actionId === item.repairActionId
+                      ? localRepairProgress
+                      : null;
+                  return (
+                    <div key={item.id} className={styles.localDependencyItem}>
+                      <div className={styles.localDependencyMain}>
+                        <div className={styles.localDependencyTitleRow}>
+                          <strong>{item.name}</strong>
+                          <span
+                            className={`${styles.localStatusBadge} ${getLocalStatusClass(item.status)}`}
+                          >
+                            {getLocalStatusLabel(item.status)}
+                          </span>
+                        </div>
+                        <div className={styles.localDependencyMeta}>
+                          {item.version && <span>{item.version}</span>}
+                          {item.path && <span>{item.path}</span>}
+                        </div>
+                        <p>{item.detail}</p>
+                        {item.recommendation && <small>{item.recommendation}</small>}
+                      </div>
+                      {item.repairActionId && localEnvironmentDesktopMode && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRepairLocalDependency(item)}
+                          loading={repairingActionId === item.repairActionId}
+                          disabled={repairingActionId !== null}
                         >
-                          {getLocalStatusLabel(item.status)}
-                        </span>
-                      </div>
-                      <div className={styles.localDependencyMeta}>
-                        {item.version && <span>{item.version}</span>}
-                        {item.path && <span>{item.path}</span>}
-                      </div>
-                      <p>{item.detail}</p>
-                      {item.recommendation && <small>{item.recommendation}</small>}
+                          {repairingActionId === item.repairActionId
+                            ? t('dashboard.local_environment_repairing_button')
+                            : t('dashboard.local_environment_repair')}
+                        </Button>
+                      )}
+                      {itemRepairProgress && (
+                        <div className={styles.localDependencyRepairProgress}>
+                          <div className={styles.localDependencyRepairProgressHeader}>
+                            <strong>{getLocalRepairPhaseLabel(itemRepairProgress.phase)}</strong>
+                            {itemRepairProgress.exitCode !== null &&
+                              itemRepairProgress.exitCode !== undefined && (
+                                <span>
+                                  {t('dashboard.local_environment_repair_exit_code', {
+                                    code: itemRepairProgress.exitCode,
+                                  })}
+                                </span>
+                              )}
+                          </div>
+                          <p>{itemRepairProgress.message}</p>
+                          {itemRepairProgress.commandLine && (
+                            <div className={styles.localDependencyRepairField}>
+                              <span>{t('dashboard.local_environment_repair_command')}</span>
+                              <code>{itemRepairProgress.commandLine}</code>
+                            </div>
+                          )}
+                          {itemRepairProgress.recentOutput.length > 0 && (
+                            <div className={styles.localDependencyRepairField}>
+                              <span>{t('dashboard.local_environment_repair_recent_output')}</span>
+                              <pre>{itemRepairProgress.recentOutput.join('\n')}</pre>
+                            </div>
+                          )}
+                          {itemRepairProgress.logPath && (
+                            <div className={styles.localDependencyRepairField}>
+                              <span>{t('dashboard.local_environment_repair_log_path')}</span>
+                              <code>{itemRepairProgress.logPath}</code>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {item.repairActionId && localEnvironmentDesktopMode && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleRepairLocalDependency(item)}
-                        loading={repairingActionId === item.repairActionId}
-                        disabled={repairingActionId !== null}
-                      >
-                        {t('dashboard.local_environment_repair')}
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

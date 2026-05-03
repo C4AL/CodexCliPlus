@@ -46,6 +46,74 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.NotNull(status);
         Assert.True(status!.Succeeded);
         Assert.Equal(LocalDependencyRepairActionIds.InstallNodeNpm, status.ActionId);
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.NotNull(progress);
+        Assert.True(progress!.IsCompleted);
+        Assert.Equal("completed", progress.Phase);
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(statusPath)!, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncWritesVisibleProgressBeforeCommandFinishes()
+    {
+        var processRunner = new BlockingProcessRunner();
+        var service = CreateService(processRunner);
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var repairTask = service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.InstallCodexCli,
+            statusPath
+        );
+        await processRunner.CommandStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.NotNull(progress);
+        Assert.False(progress!.IsCompleted);
+        Assert.Equal("commandRunning", progress.Phase);
+        Assert.NotNull(progress.CommandLine);
+        Assert.Contains("npm install -g @openai/codex", progress.CommandLine, StringComparison.Ordinal);
+        Assert.NotNull(progress.LogPath);
+
+        processRunner.Complete(new LocalEnvironmentProcessResult(0, "installed", ""));
+        var result = await repairTask;
+
+        Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncReturnsExitCodeDetailAndLogPathForCommandFailure()
+    {
+        var processRunner = new RecordingProcessRunner(
+            new LocalEnvironmentProcessResult(7, "", "winget 安装失败")
+        );
+        var service = CreateService(processRunner);
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.InstallNodeNpm,
+            statusPath
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(7, result.ExitCode);
+        Assert.Contains("退出码 7", result.Detail, StringComparison.Ordinal);
+        Assert.Contains("winget 安装失败", result.Detail, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(result.LogPath));
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.NotNull(progress);
+        Assert.True(progress!.IsCompleted);
+        Assert.Equal("failed", progress.Phase);
+        Assert.Equal(7, progress.ExitCode);
+        Assert.Contains("winget 安装失败", progress.RecentOutput);
     }
 
     [Fact]
@@ -160,6 +228,29 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.Contains("--status", captured.Arguments, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RunElevatedRepairAsyncReportsStartingProgressBeforeLaunchingProcess()
+    {
+        var processRunner = new RecordingProcessRunner();
+        var progressEvents = new List<LocalDependencyRepairProgress>();
+        var service = CreateService(
+            processRunner,
+            currentProcessPathResolver: () => "C:\\Program Files\\CodexCliPlus\\CodexCliPlus.exe",
+            processStarter: _ => null
+        );
+
+        var result = await service.RunElevatedRepairAsync(
+            LocalDependencyRepairActionIds.InstallCodexCli,
+            progressEvents.Add
+        );
+
+        Assert.False(result.Succeeded);
+        var progress = Assert.Single(progressEvents);
+        Assert.Equal(LocalDependencyRepairActionIds.InstallCodexCli, progress.ActionId);
+        Assert.Equal("starting", progress.Phase);
+        Assert.False(progress.IsCompleted);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_rootDirectory))
@@ -169,7 +260,7 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     }
 
     private LocalDependencyRepairService CreateService(
-        RecordingProcessRunner processRunner,
+        ILocalEnvironmentProcessRunner processRunner,
         Func<string?>? currentProcessPathResolver = null,
         Func<ProcessStartInfo, Process?>? processStarter = null,
         Func<string, bool>? directoryExists = null,
@@ -194,6 +285,16 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
 
     private sealed class RecordingProcessRunner : ILocalEnvironmentProcessRunner
     {
+        private readonly LocalEnvironmentProcessResult _result;
+
+        public RecordingProcessRunner()
+            : this(new LocalEnvironmentProcessResult(0, "ok", "")) { }
+
+        public RecordingProcessRunner(LocalEnvironmentProcessResult result)
+        {
+            _result = result;
+        }
+
         public List<(string FileName, string Arguments)> Commands { get; } = [];
 
         public Task<LocalEnvironmentProcessResult> RunAsync(
@@ -205,7 +306,35 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             Commands.Add((fileName, string.Join(" ", arguments)));
-            return Task.FromResult(new LocalEnvironmentProcessResult(0, "ok", ""));
+            return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class BlockingProcessRunner : ILocalEnvironmentProcessRunner
+    {
+        private readonly TaskCompletionSource<LocalEnvironmentProcessResult> _completion = new(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+
+        public TaskCompletionSource<bool> CommandStarted { get; } = new(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+
+        public Task<LocalEnvironmentProcessResult> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default
+        )
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CommandStarted.TrySetResult(true);
+            return _completion.Task.WaitAsync(cancellationToken);
+        }
+
+        public void Complete(LocalEnvironmentProcessResult result)
+        {
+            _completion.TrySetResult(result);
         }
     }
 

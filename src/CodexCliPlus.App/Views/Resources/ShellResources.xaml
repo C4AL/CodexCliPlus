@@ -76,7 +76,8 @@
             <ScrollViewer
               x:Name="PART_ContentHost"
               Margin="{TemplateBinding Padding}"
-              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
             />
           </Border>
           <ControlTemplate.Triggers>

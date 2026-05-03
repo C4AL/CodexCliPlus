@@ -822,6 +822,16 @@ public sealed class NavigationShellTests
             "x:Key=\"StartupFlowTextBoxStyle\"",
             "  <Style x:Key=\"StartupFlowPasswordBoxStyle\""
         );
+        var startupFlowPasswordBoxStyle = SliceBetween(
+            startupFlowResources,
+            "x:Key=\"StartupFlowPasswordBoxStyle\"",
+            "  <Style x:Key=\"StartupPrimaryButtonStyle\""
+        );
+        var shellPasswordInputStyle = SliceBetween(
+            shellResources,
+            "x:Key=\"ShellPasswordInputStyle\"",
+            "  <Style x:Key=\"ShellIconViewboxStyle\""
+        );
 
         Assert.Contains(
             "Source=\"Views/Resources/ShellResources.xaml\"",
@@ -1058,8 +1068,33 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "VerticalAlignment=\"Stretch\"",
+            startupFlowTextBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "VerticalAlignment=\"Stretch\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "VerticalAlignment=\"Stretch\"",
+            shellPasswordInputStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
             "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
             startupFlowTextBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
+            shellPasswordInputStyle,
             StringComparison.Ordinal
         );
         Assert.Contains(

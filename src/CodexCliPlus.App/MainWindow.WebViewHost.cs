@@ -447,13 +447,18 @@ public partial class MainWindow
                     break;
 
                 case "switchCodexRoute":
-                    var targetMode =
+                    var targetId =
+                        root.TryGetProperty("targetId", out var targetIdElement)
+                        && targetIdElement.ValueKind == JsonValueKind.String
+                            ? targetIdElement.GetString()
+                            : null;
+                    targetId ??=
                         root.TryGetProperty("targetMode", out var targetModeElement)
                         && targetModeElement.ValueKind == JsonValueKind.String
                             ? targetModeElement.GetString()
                             : null;
                     _ = Dispatcher.InvokeAsync(async () =>
-                        await SwitchCodexRouteAsync(ReadRequestId(root), targetMode)
+                        await SwitchCodexRouteAsync(ReadRequestId(root), targetId)
                     );
                     break;
 
@@ -1022,7 +1027,9 @@ public partial class MainWindow
     {
         try
         {
-            var state = await _codexConfigService.GetCodexRouteStateAsync();
+            var state = await _codexConfigService.GetCodexRouteStateAsync(
+                _backendProcessManager.CurrentStatus.Runtime?.Port ?? AppConstants.DefaultBackendPort
+            );
             PostWebUiCommand(
                 new
                 {
@@ -1047,13 +1054,13 @@ public partial class MainWindow
         }
     }
 
-    private async Task SwitchCodexRouteAsync(string? requestId, string? targetMode)
+    private async Task SwitchCodexRouteAsync(string? requestId, string? targetId)
     {
         try
         {
             var result = await _codexConfigService.SwitchCodexRouteAsync(
-                targetMode ?? string.Empty,
-                AppConstants.DefaultBackendPort
+                targetId ?? string.Empty,
+                _backendProcessManager.CurrentStatus.Runtime?.Port ?? AppConstants.DefaultBackendPort
             );
 
             PostWebUiCommand(
@@ -1074,9 +1081,9 @@ public partial class MainWindow
             {
                 _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
                 _notificationService.ShowAuto(
-                    result.State.CurrentMode == "cpa"
-                        ? "已切换到 CPA 模式。"
-                        : "已切换到官方模式。"
+                    string.IsNullOrWhiteSpace(result.State.CurrentLabel)
+                        ? "Codex 路由已切换。"
+                        : $"已切换到{result.State.CurrentLabel}。"
                 );
                 return;
             }

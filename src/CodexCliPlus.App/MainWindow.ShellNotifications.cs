@@ -56,17 +56,17 @@ public partial class MainWindow
         {
             if (request.Placement == ShellNotificationPlacement.BottomCenterAuto)
             {
-                ShowAutoNotification(request.Message);
+                ShowAutoNotification(request.Message, request.Level);
                 return;
             }
 
-            ShowManualNotification(request.Title, request.Message);
+            ShowManualNotification(request.Title, request.Message, request.Level);
         });
     }
 
-    private void ShowAutoNotification(string message)
+    private void ShowAutoNotification(string message, ShellNotificationLevel level)
     {
-        var card = CreateNotificationCard(message, title: null, showCloseButton: false);
+        var card = CreateNotificationCard(message, null, false, level);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(0, 18);
         EnforceShellNotificationCapacity(AutoNotificationStack);
@@ -93,9 +93,9 @@ public partial class MainWindow
         };
     }
 
-    private void ShowManualNotification(string title, string message)
+    private void ShowManualNotification(string title, string message, ShellNotificationLevel level)
     {
-        var card = CreateNotificationCard(message, title, showCloseButton: true);
+        var card = CreateNotificationCard(message, title, true, level);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(18, 0);
         EnforceShellNotificationCapacity(ManualNotificationStack);
@@ -126,9 +126,14 @@ public partial class MainWindow
             .Count(card => !_removingShellNotifications.Contains(card));
     }
 
-    private Border CreateNotificationCard(string message, string? title, bool showCloseButton)
+    private Border CreateNotificationCard(
+        string message,
+        string? title,
+        bool showCloseButton,
+        ShellNotificationLevel level
+    )
     {
-        var accent = ResolveNotificationAccent(title, showCloseButton);
+        var accent = ResolveNotificationAccent(level, title, showCloseButton);
         var progress = new Border
         {
             Height = 2,
@@ -158,7 +163,7 @@ public partial class MainWindow
 
         var iconText = new TextBlock
         {
-            Text = showCloseButton ? "!" : "✓",
+            Text = ResolveNotificationIcon(level, showCloseButton),
             Width = 26,
             Height = 26,
             Margin = new Thickness(0, 1, 10, 0),
@@ -294,7 +299,36 @@ public partial class MainWindow
         );
     }
 
-    private static WpfColor ResolveNotificationAccent(string? title, bool manual)
+    private static string ResolveNotificationIcon(
+        ShellNotificationLevel level,
+        bool manual
+    ) =>
+        level switch
+        {
+            ShellNotificationLevel.Success => "✓",
+            ShellNotificationLevel.Info => "i",
+            ShellNotificationLevel.Warning => "!",
+            ShellNotificationLevel.Error => "!",
+            _ => manual ? "!" : "✓",
+        };
+
+    private static WpfColor ResolveNotificationAccent(
+        ShellNotificationLevel level,
+        string? title,
+        bool manual
+    )
+    {
+        return level switch
+        {
+            ShellNotificationLevel.Error => WpfColor.FromRgb(225, 29, 72),
+            ShellNotificationLevel.Warning => WpfColor.FromRgb(245, 158, 11),
+            ShellNotificationLevel.Success => WpfColor.FromRgb(22, 163, 74),
+            ShellNotificationLevel.Info => WpfColor.FromRgb(20, 184, 166),
+            _ => ResolveNotificationAccentFromLegacyTitle(title, manual),
+        };
+    }
+
+    private static WpfColor ResolveNotificationAccentFromLegacyTitle(string? title, bool manual)
     {
         if (
             manual

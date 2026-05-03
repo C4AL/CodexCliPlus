@@ -352,6 +352,23 @@ public partial class MainWindow
                     ApplyWebUiShellState(root);
                     break;
 
+                case "shellNotification":
+                    var shellNotificationMessage = ReadString(root, "message")?.Trim();
+                    if (!string.IsNullOrWhiteSpace(shellNotificationMessage))
+                    {
+                        var shellNotificationLevel = ReadShellNotificationLevel(
+                            ReadString(root, "notificationType")
+                        );
+                        Dispatcher.InvokeAsync(() =>
+                            _notificationService.ShowShellNotification(
+                                shellNotificationMessage,
+                                shellNotificationLevel
+                            )
+                        );
+                    }
+
+                    break;
+
                 case "navigationHoverZone":
                     var navigationHoverZoneActive =
                         root.TryGetProperty("active", out var activeElement)
@@ -719,6 +736,15 @@ public partial class MainWindow
             ? value.GetString()
             : null;
     }
+
+    private static ShellNotificationLevel ReadShellNotificationLevel(string? type) =>
+        type?.Trim().ToLowerInvariant() switch
+        {
+            "success" => ShellNotificationLevel.Success,
+            "warning" => ShellNotificationLevel.Warning,
+            "error" => ShellNotificationLevel.Error,
+            _ => ShellNotificationLevel.Info,
+        };
 
     private static HttpMethod CreateHttpMethod(string method)
     {

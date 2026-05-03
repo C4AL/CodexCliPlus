@@ -67,6 +67,22 @@ public static class DesktopBridgeScriptFactory
                     pathname: typeof normalized.pathname === 'string' ? normalized.pathname : '/'
                   });
                 },
+                showShellNotification: (message, type) => {
+                  const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+                  if (!normalizedMessage) {
+                    return false;
+                  }
+
+                  const normalizedType =
+                    type === 'success' || type === 'warning' || type === 'error'
+                      ? type
+                      : 'info';
+                  return postHostMessage({
+                    type: 'shellNotification',
+                    message: normalizedMessage,
+                    notificationType: normalizedType
+                  });
+                },
                 importAccountConfig: (mode) => postHostMessage({ type: 'importAccountConfig', mode: typeof mode === 'string' ? mode : 'json' }),
                 exportAccountConfig: (mode) => postHostMessage({ type: 'exportAccountConfig', mode: typeof mode === 'string' ? mode : 'json' }),
                 importSacPackage: () => postHostMessage({ type: 'importSacPackage' }),

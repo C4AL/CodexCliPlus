@@ -98,7 +98,9 @@ export function QuotaSection<TState extends QuotaStatusState, TData>({
 
   return (
     <Card title={titleNode}>
-      {filteredFiles.length === 0 ? (
+      {loading && filteredFiles.length === 0 ? (
+        <div className={styles.hint}>{t('common.loading')}</div>
+      ) : filteredFiles.length === 0 ? (
         <EmptyState
           title={t(`${config.i18nPrefix}.empty_title`)}
           description={t(`${config.i18nPrefix}.empty_desc`)}

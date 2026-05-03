@@ -16,6 +16,10 @@ export function extractCodexChatgptAccountId(value: unknown): string | null {
 }
 
 export function resolveCodexChatgptAccountId(file: AuthFileItem): string | null {
+  const topLevel =
+    file && typeof file === 'object'
+      ? (file as Record<string, unknown>)
+      : null;
   const metadata =
     file && typeof file.metadata === 'object' && file.metadata !== null
       ? (file.metadata as Record<string, unknown>)
@@ -25,9 +29,29 @@ export function resolveCodexChatgptAccountId(file: AuthFileItem): string | null 
       ? (file.attributes as Record<string, unknown>)
       : null;
 
-  const candidates = [file.id_token, metadata?.id_token, attributes?.id_token];
+  const identityCandidates = [
+    topLevel?.chatgpt_account_id,
+    topLevel?.chatgptAccountId,
+    topLevel?.account_id,
+    topLevel?.accountId,
+    metadata?.chatgpt_account_id,
+    metadata?.chatgptAccountId,
+    metadata?.account_id,
+    metadata?.accountId,
+    attributes?.chatgpt_account_id,
+    attributes?.chatgptAccountId,
+    attributes?.account_id,
+    attributes?.accountId
+  ];
 
-  for (const candidate of candidates) {
+  for (const candidate of identityCandidates) {
+    const id = normalizeStringValue(candidate);
+    if (id) return id;
+  }
+
+  const idTokenCandidates = [file.id_token, metadata?.id_token, attributes?.id_token];
+
+  for (const candidate of idTokenCandidates) {
     const id = extractCodexChatgptAccountId(candidate);
     if (id) return id;
   }

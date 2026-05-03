@@ -333,6 +333,33 @@ func (m *Manager) ReconcileRegistryModelStates(ctx context.Context, authID strin
 	}
 }
 
+// ClearRuntimeBlockingState removes transient quota/cooldown state for an auth.
+func (m *Manager) ClearRuntimeBlockingState(authID string) {
+	if m == nil || authID == "" {
+		return
+	}
+
+	var snapshot *Auth
+	m.mu.Lock()
+	auth, ok := m.auths[authID]
+	if ok && auth != nil {
+		for modelKey := range auth.ModelStates {
+			registry.GetGlobalRegistry().ClearModelQuotaExceeded(auth.ID, modelKey)
+		}
+		auth.Unavailable = false
+		auth.LastError = nil
+		auth.NextRetryAfter = time.Time{}
+		auth.Quota = QuotaState{}
+		auth.ModelStates = nil
+		snapshot = auth.Clone()
+	}
+	m.mu.Unlock()
+
+	if m.scheduler != nil && snapshot != nil {
+		m.scheduler.upsertAuth(snapshot)
+	}
+}
+
 func (m *Manager) SetSelector(selector Selector) {
 	if m == nil {
 		return

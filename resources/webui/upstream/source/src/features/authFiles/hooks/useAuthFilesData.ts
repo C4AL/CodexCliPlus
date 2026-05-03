@@ -23,6 +23,7 @@ type DeleteAllOptions = {
 
 type LoadFilesOptions = {
   throwOnError?: boolean;
+  background?: boolean;
 };
 
 export type UseAuthFilesDataResult = {
@@ -92,6 +93,7 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const batchStatusPendingRef = useRef(false);
+  const filesLoadedRef = useRef(false);
   const selectionCount = selectedFiles.size;
   const toggleSelect = useCallback((name: string) => {
     setSelectedFiles((prev) => {
@@ -163,11 +165,15 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
 
   const loadFiles = useCallback(
     async (options?: LoadFilesOptions) => {
-      setLoading(true);
+      const showBlockingLoading = options?.background !== true && !filesLoadedRef.current;
+      if (showBlockingLoading) {
+        setLoading(true);
+      }
       setError('');
       try {
         const data = await authFilesApi.list();
         const nextFiles = data?.files || [];
+        filesLoadedRef.current = true;
         setFiles(nextFiles);
         setSelectedFiles((prev) => pruneSelectionToFiles(prev, nextFiles));
       } catch (err: unknown) {
@@ -179,7 +185,9 @@ export function useAuthFilesData(options: UseAuthFilesDataOptions): UseAuthFiles
           throw err;
         }
       } finally {
-        setLoading(false);
+        if (showBlockingLoading || !filesLoadedRef.current) {
+          setLoading(false);
+        }
       }
     },
     [t]

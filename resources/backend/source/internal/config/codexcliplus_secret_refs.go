@@ -119,6 +119,14 @@ func ResolveCodexCliPlusSecretRefs(cfg *Config) error {
 	return nil
 }
 
+func ResolveCodexCliPlusSecretRefForRead(path, value string) (string, error) {
+	resolver := newCodexCliPlusSecretResolver()
+	if resolver == nil {
+		return value, nil
+	}
+	return resolver.resolve(path, value)
+}
+
 func ProtectCodexCliPlusConfigYAMLForWrite(data []byte) ([]byte, error) {
 	resolver := newCodexCliPlusSecretResolver()
 	if resolver == nil || len(bytes.TrimSpace(data)) == 0 {

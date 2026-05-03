@@ -432,8 +432,10 @@ func (h *Handler) buildAuthFileEntry(auth *coreauth.Auth) gin.H {
 			log.WithError(err).Warnf("failed to stat auth file %s", path)
 		}
 	}
-	if claims := extractCodexIDTokenClaims(auth); claims != nil {
-		entry["id_token"] = claims
+	if fields := extractCodexAuthFileFields(auth); fields != nil {
+		for key, value := range fields {
+			entry[key] = value
+		}
 	}
 	// Expose priority from Attributes (set by synthesizer from JSON "priority" field).
 	// Fall back to Metadata for auths registered via UploadAuthFile (no synthesizer).
@@ -469,20 +471,51 @@ func (h *Handler) buildAuthFileEntry(auth *coreauth.Auth) gin.H {
 	return entry
 }
 
+func extractCodexAuthFileFields(auth *coreauth.Auth) gin.H {
+	if auth == nil || !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
+		return nil
+	}
+
+	result := gin.H{}
+	if claims := extractCodexIDTokenClaims(auth); claims != nil {
+		result["id_token"] = claims
+		for key, value := range claims {
+			result[key] = value
+		}
+	}
+	if _, ok := result["chatgpt_account_id"]; !ok {
+		if accountID := authStringField(auth, "chatgpt_account_id", "chatgptAccountId", "account_id", "accountId"); accountID != "" {
+			result["chatgpt_account_id"] = accountID
+		}
+	}
+	if _, ok := result["plan_type"]; !ok {
+		if planType := authStringField(auth, "plan_type", "planType"); planType != "" {
+			result["plan_type"] = planType
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
-	if auth == nil || auth.Metadata == nil {
+	if auth == nil {
 		return nil
 	}
-	if !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
-		return nil
-	}
-	idTokenRaw, ok := auth.Metadata["id_token"].(string)
-	if !ok {
+	idTokenRaw := authStringField(auth, "id_token", "idToken")
+	if idTokenRaw == "" {
 		return nil
 	}
 	idToken := strings.TrimSpace(idTokenRaw)
 	if idToken == "" {
 		return nil
+	}
+	if resolved, err := config.ResolveCodexCliPlusSecretRefForRead("auth-files."+strings.TrimSpace(auth.ID)+".id_token", idToken); err == nil {
+		idToken = strings.TrimSpace(resolved)
+	} else {
+		log.WithError(err).Debugf("failed to resolve Codex id_token secret reference for auth %s", auth.ID)
 	}
 	claims, err := codex.ParseJWTToken(idToken)
 	if err != nil || claims == nil {
@@ -507,6 +540,40 @@ func extractCodexIDTokenClaims(auth *coreauth.Auth) gin.H {
 		return nil
 	}
 	return result
+}
+
+func authStringField(auth *coreauth.Auth, keys ...string) string {
+	if auth == nil {
+		return ""
+	}
+	if auth.Metadata != nil {
+		for _, key := range keys {
+			if value := strings.TrimSpace(authMetadataString(auth.Metadata[key])); value != "" {
+				return value
+			}
+		}
+	}
+	if auth.Attributes != nil {
+		for _, key := range keys {
+			if value := strings.TrimSpace(auth.Attributes[key]); value != "" {
+				return value
+			}
+		}
+	}
+	return ""
+}
+
+func authMetadataString(value any) string {
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case json.Number:
+		return strings.TrimSpace(v.String())
+	case fmt.Stringer:
+		return strings.TrimSpace(v.String())
+	default:
+		return ""
+	}
 }
 
 func authEmail(auth *coreauth.Auth) string {
@@ -1109,6 +1176,8 @@ func (h *Handler) PatchAuthFileStatus(c *gin.Context) {
 	}
 
 	// Update disabled state
+	clearAuthRuntimeBlockingState(targetAuth)
+	h.authManager.ClearRuntimeBlockingState(targetAuth.ID)
 	targetAuth.Disabled = *req.Disabled
 	if *req.Disabled {
 		targetAuth.Status = coreauth.StatusDisabled
@@ -1125,6 +1194,23 @@ func (h *Handler) PatchAuthFileStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "disabled": *req.Disabled})
+}
+
+func clearAuthRuntimeBlockingState(auth *coreauth.Auth) {
+	if auth == nil {
+		return
+	}
+	if auth.ID != "" && len(auth.ModelStates) > 0 {
+		modelRegistry := registry.GetGlobalRegistry()
+		for model := range auth.ModelStates {
+			modelRegistry.ClearModelQuotaExceeded(auth.ID, model)
+		}
+	}
+	auth.Unavailable = false
+	auth.LastError = nil
+	auth.NextRetryAfter = time.Time{}
+	auth.Quota = coreauth.QuotaState{}
+	auth.ModelStates = nil
 }
 
 // PatchAuthFileFields updates editable fields (prefix, proxy_url, headers, priority, note) of an auth file.

@@ -34,6 +34,15 @@ export interface AuthFileItem {
   failed?: number;
   recent_requests?: RecentRequestBucket[];
   recentRequests?: RecentRequestBucket[];
+  chatgpt_account_id?: string | number | null;
+  chatgptAccountId?: string | number | null;
+  account_id?: string | number | null;
+  accountId?: string | number | null;
+  plan_type?: string | null;
+  planType?: string | null;
+  id_token?: unknown;
+  metadata?: Record<string, unknown> | null;
+  attributes?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 

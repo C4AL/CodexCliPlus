@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 func TestManager_Update_PreservesModelStates(t *testing.T) {
@@ -200,5 +201,62 @@ func TestManager_Update_ActiveInheritsModelStates(t *testing.T) {
 	}
 	if state.Quota.BackoffLevel != backoffLevel {
 		t.Fatalf("expected BackoffLevel to be %d, got %d", backoffLevel, state.Quota.BackoffLevel)
+	}
+}
+
+func TestManager_ClearRuntimeBlockingState(t *testing.T) {
+	m := NewManager(nil, nil, nil)
+
+	next := time.Now().Add(time.Hour)
+	if _, err := m.Register(context.Background(), &Auth{
+		ID:             "auth-clear",
+		Provider:       "codex",
+		Status:         StatusActive,
+		Unavailable:    true,
+		LastError:      &Error{Code: "quota", Message: "quota exceeded"},
+		NextRetryAfter: next,
+		Quota: QuotaState{
+			Exceeded:      true,
+			Reason:        "quota",
+			NextRecoverAt: next,
+			BackoffLevel:  2,
+		},
+		ModelStates: map[string]*ModelState{
+			"gpt-5.1-codex": {
+				Unavailable:    true,
+				NextRetryAfter: next,
+				LastError:      &Error{Code: "model_quota", Message: "model quota exceeded"},
+				Quota: QuotaState{
+					Exceeded:      true,
+					Reason:        "quota",
+					NextRecoverAt: next,
+					BackoffLevel:  1,
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register auth: %v", err)
+	}
+
+	m.ClearRuntimeBlockingState("auth-clear")
+
+	updated, ok := m.GetByID("auth-clear")
+	if !ok || updated == nil {
+		t.Fatalf("expected auth to be present")
+	}
+	if updated.Unavailable {
+		t.Fatalf("expected Unavailable to be false")
+	}
+	if updated.LastError != nil {
+		t.Fatalf("expected LastError to be nil")
+	}
+	if !updated.NextRetryAfter.IsZero() {
+		t.Fatalf("expected NextRetryAfter to be zero, got %v", updated.NextRetryAfter)
+	}
+	if updated.Quota != (QuotaState{}) {
+		t.Fatalf("expected zero quota state, got %#v", updated.Quota)
+	}
+	if len(updated.ModelStates) != 0 {
+		t.Fatalf("expected ModelStates to be empty, got %d", len(updated.ModelStates))
 	}
 }

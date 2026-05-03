@@ -28,6 +28,7 @@ export function QuotaManagementSection() {
   const refreshInFlightRef = useRef<Promise<void> | null>(null);
   const refreshQueuedRef = useRef(false);
   const refreshScheduleRef = useRef<number | null>(null);
+  const filesLoadedRef = useRef(false);
 
   const disableControls = connectionStatus !== 'connected';
 
@@ -50,10 +51,14 @@ export function QuotaManagementSection() {
 
   const loadFiles = useCallback(
     async (options?: RefreshLoadOptions) => {
-      setLoading(true);
+      const showBlockingLoading = !filesLoadedRef.current;
+      if (showBlockingLoading) {
+        setLoading(true);
+      }
       setError('');
       try {
         const data = await authFilesApi.list();
+        filesLoadedRef.current = true;
         setFiles(data?.files || []);
       } catch (err: unknown) {
         const errorMessage =
@@ -64,7 +69,9 @@ export function QuotaManagementSection() {
           throw err;
         }
       } finally {
-        setLoading(false);
+        if (showBlockingLoading || !filesLoadedRef.current) {
+          setLoading(false);
+        }
       }
     },
     [t]

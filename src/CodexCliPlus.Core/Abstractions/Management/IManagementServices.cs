@@ -374,6 +374,10 @@ public interface IManagementUsageService
         CancellationToken cancellationToken = default
     );
 
+    Task<ManagementApiResponse<ManagementApiKeyUsageSnapshot>> GetApiKeyUsageAsync(
+        CancellationToken cancellationToken = default
+    );
+
     Task<ManagementApiResponse<ManagementUsageExportPayload>> ExportUsageAsync(
         CancellationToken cancellationToken = default
     );

@@ -72,6 +72,11 @@ internal static class ManagementMappers
                 "usage-statistics-enabled",
                 "usageStatisticsEnabled"
             ),
+            RedisUsageQueueRetentionSeconds = ManagementJson.GetInt32(
+                root,
+                "redis-usage-queue-retention-seconds",
+                "redisUsageQueueRetentionSeconds"
+            ),
             RequestLog = ManagementJson.GetBoolean(root, "request-log", "requestLog"),
             LoggingToFile = ManagementJson.GetBoolean(root, "logging-to-file", "loggingToFile"),
             LogsMaxTotalSizeMb = ManagementJson.GetInt32(
@@ -189,11 +194,88 @@ internal static class ManagementMappers
                         "next_retry_after",
                         "nextRetryAfter"
                     ),
+                    Success = ManagementJson.GetInt64(item, "success") ?? 0,
+                    Failed = ManagementJson.GetInt64(item, "failed") ?? 0,
+                    RecentRequests = MapRecentRequestBuckets(item),
                 }
             );
         }
 
         return files;
+    }
+
+    public static ManagementApiKeyUsageSnapshot MapApiKeyUsage(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return new ManagementApiKeyUsageSnapshot();
+        }
+
+        var providers = new Dictionary<
+            string,
+            IReadOnlyDictionary<string, ManagementApiKeyUsageEntry>
+        >(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var providerProperty in root.EnumerateObject())
+        {
+            if (providerProperty.Value.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var entries = new Dictionary<string, ManagementApiKeyUsageEntry>(
+                StringComparer.Ordinal
+            );
+            foreach (var entryProperty in providerProperty.Value.EnumerateObject())
+            {
+                if (entryProperty.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                entries[entryProperty.Name] = new ManagementApiKeyUsageEntry
+                {
+                    Success = ManagementJson.GetInt64(entryProperty.Value, "success") ?? 0,
+                    Failed = ManagementJson.GetInt64(entryProperty.Value, "failed") ?? 0,
+                    RecentRequests = MapRecentRequestBuckets(entryProperty.Value),
+                };
+            }
+
+            providers[providerProperty.Name] = entries;
+        }
+
+        return new ManagementApiKeyUsageSnapshot { Providers = providers };
+    }
+
+    private static List<ManagementRecentRequestBucket> MapRecentRequestBuckets(
+        JsonElement root
+    )
+    {
+        var array = ManagementJson.GetArray(root, "recent_requests", "recentRequests");
+        if (array is null)
+        {
+            return [];
+        }
+
+        var buckets = new List<ManagementRecentRequestBucket>();
+        foreach (var item in array.Value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            buckets.Add(
+                new ManagementRecentRequestBucket
+                {
+                    Time = ManagementJson.GetString(item, "time") ?? string.Empty,
+                    Success = ManagementJson.GetInt64(item, "success") ?? 0,
+                    Failed = ManagementJson.GetInt64(item, "failed") ?? 0,
+                }
+            );
+        }
+
+        return buckets;
     }
 
     public static IReadOnlyDictionary<string, IReadOnlyList<string>> MapOAuthExcludedModels(

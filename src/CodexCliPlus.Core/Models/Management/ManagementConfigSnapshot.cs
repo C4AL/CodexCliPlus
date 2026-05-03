@@ -16,6 +16,8 @@ public sealed class ManagementConfigSnapshot
 
     public bool? UsageStatisticsEnabled { get; init; }
 
+    public int? RedisUsageQueueRetentionSeconds { get; init; }
+
     public bool? RequestLog { get; init; }
 
     public bool? LoggingToFile { get; init; }

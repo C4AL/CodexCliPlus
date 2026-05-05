@@ -227,7 +227,8 @@ public partial class MainWindow
         var managementKey = StartupFlow.ManagementKey;
         if (string.IsNullOrWhiteSpace(managementKey))
         {
-            ShowLoginError("请输入安全密钥。");
+            StartupFlow.SetLoginError(null);
+            _notificationService.ShowAuto("请输入安全密钥。", ShellNotificationLevel.Warning);
             return;
         }
 
@@ -244,7 +245,8 @@ public partial class MainWindow
 
             if (!_backendConfigWriter.VerifyManagementKey(managementKey))
             {
-                ShowLoginError("安全密钥不正确。");
+                StartupFlow.SetLoginError(null);
+                _notificationService.ShowAuto("安全密钥不正确。", ShellNotificationLevel.Error);
                 return;
             }
 

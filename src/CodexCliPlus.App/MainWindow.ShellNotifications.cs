@@ -44,6 +44,8 @@ namespace CodexCliPlus;
 public partial class MainWindow
 {
     private const int MaxVisibleShellNotifications = 3;
+    private const double AutoNotificationDefaultWidth = 380;
+    private const double ManualNotificationDefaultWidth = 360;
     private const double AutoNotificationBottomOffset = 28;
     private const double ManualNotificationRightOffset = 24;
     private const double ManualNotificationBottomOffset = 24;
@@ -460,10 +462,16 @@ public partial class MainWindow
         bool bottomCenter
     )
     {
-        var shouldOpen = owner.Children.Count > 0 && CanShowShellNotificationPopups();
-        if (shouldOpen)
+        var placementHost = ResolveShellNotificationPlacementHost();
+        var shouldOpen = false;
+        if (
+            owner.Children.Count > 0
+            && placementHost is not null
+            && CanShowShellNotificationPopups(placementHost)
+        )
         {
-            UpdateShellNotificationPopupPlacement(popup, owner, bottomCenter);
+            shouldOpen = true;
+            UpdateShellNotificationPopupPlacement(popup, owner, bottomCenter, placementHost);
         }
 
         if (popup.IsOpen != shouldOpen)
@@ -477,23 +485,47 @@ public partial class MainWindow
         }
     }
 
-    private bool CanShowShellNotificationPopups()
+    private bool CanShowShellNotificationPopups(FrameworkElement placementHost)
     {
         return IsVisible
             && WindowState != WindowState.Minimized
-            && ManagementContentHost is not null
-            && ManagementContentHost.ActualWidth > 0
-            && ManagementContentHost.ActualHeight > 0;
+            && IsUsableShellNotificationHost(placementHost);
     }
 
-    private void UpdateShellNotificationPopupPlacement(
+    private FrameworkElement? ResolveShellNotificationPlacementHost()
+    {
+        if (IsUsableShellNotificationHost(ManagementContentHost))
+        {
+            return ManagementContentHost;
+        }
+
+        if (IsUsableShellNotificationHost(StartupFlow))
+        {
+            return StartupFlow;
+        }
+
+        return null;
+    }
+
+    private static bool IsUsableShellNotificationHost(FrameworkElement? host)
+    {
+        return host is not null
+            && host.IsVisible
+            && host.ActualWidth > 0
+            && host.ActualHeight > 0;
+    }
+
+    private static void UpdateShellNotificationPopupPlacement(
         Popup popup,
         FrameworkElement owner,
-        bool bottomCenter
+        bool bottomCenter,
+        FrameworkElement placementHost
     )
     {
-        var hostWidth = ManagementContentHost.ActualWidth;
-        var hostHeight = ManagementContentHost.ActualHeight;
+        popup.PlacementTarget = placementHost;
+        var hostWidth = placementHost.ActualWidth;
+        var hostHeight = placementHost.ActualHeight;
+        ApplyShellNotificationStackWidth(owner, hostWidth, bottomCenter);
         var ownerWidth = ResolvePopupElementWidth(owner);
         var ownerHeight = ResolvePopupElementHeight(owner);
 
@@ -508,14 +540,31 @@ public partial class MainWindow
         );
     }
 
+    private static void ApplyShellNotificationStackWidth(
+        FrameworkElement owner,
+        double hostWidth,
+        bool bottomCenter
+    )
+    {
+        var defaultWidth = bottomCenter
+            ? AutoNotificationDefaultWidth
+            : ManualNotificationDefaultWidth;
+        owner.Width = hostWidth > 0 ? Math.Min(defaultWidth, hostWidth) : defaultWidth;
+    }
+
     private static double ResolvePopupElementWidth(FrameworkElement element)
     {
+        if (!double.IsNaN(element.Width) && element.Width > 0)
+        {
+            return element.Width;
+        }
+
         if (element.ActualWidth > 0)
         {
             return element.ActualWidth;
         }
 
-        return !double.IsNaN(element.Width) && element.Width > 0 ? element.Width : 0;
+        return 0;
     }
 
     private static double ResolvePopupElementHeight(FrameworkElement element)

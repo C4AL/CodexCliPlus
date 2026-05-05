@@ -150,7 +150,7 @@
               x:Name="PART_ContentHost"
               Margin="{TemplateBinding Padding}"
               HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
             />
           </Border>
           <ControlTemplate.Triggers>

@@ -778,7 +778,7 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
-    public void FirstRunOnboardingUsesIconActionsFullKeyDisplayAndCountdownConfirm()
+    public void FirstRunOnboardingUsesIconActionsSingleLineKeyDisplayAndCountdownConfirm()
     {
         var repositoryRoot = FindRepositoryRoot();
         var xaml = File.ReadAllText(
@@ -838,7 +838,7 @@ public sealed class NavigationShellTests
         );
         var firstRunSecurityKeyRegionXaml = SliceBetween(
             startupFlowXaml,
-            "<Grid Height=\"72\" Margin=\"0,8,0,0\">",
+            "<Grid Height=\"40\" Margin=\"0,8,0,0\">",
             "              <StackPanel"
         );
         var firstRunSecurityKeyTextBoxXaml = SliceBetween(
@@ -1118,13 +1118,13 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "<Grid Height=\"72\" Margin=\"0,8,0,0\">",
+            "<Grid Height=\"40\" Margin=\"0,8,0,0\">",
             firstRunSecurityKeyRegionXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("Height=\"72\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"40\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "Padding=\"12,9,74,9\"",
+            "Padding=\"4,0,72,0\"",
             firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
@@ -1183,7 +1183,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "TextWrapping=\"Wrap\"",
+            "TextWrapping=\"NoWrap\"",
             firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
@@ -1192,10 +1192,10 @@ public sealed class NavigationShellTests
             firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("MinLines=\"3\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
-        Assert.Contains("MaxLines=\"3\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MinLines=", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxLines=", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "HorizontalScrollBarVisibility=\"Disabled\"",
+            "HorizontalScrollBarVisibility=\"Hidden\"",
             firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
@@ -1205,7 +1205,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "VerticalAlignment=\"Stretch\"",
+            "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
             startupFlowTextBoxStyle,
             StringComparison.Ordinal
         );
@@ -1239,11 +1239,6 @@ public sealed class NavigationShellTests
         Assert.Contains(
             "VerticalAlignment=\"Stretch\"",
             shellPasswordInputStyle,
-            StringComparison.Ordinal
-        );
-        Assert.DoesNotContain(
-            "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
-            startupFlowTextBoxStyle,
             StringComparison.Ordinal
         );
         Assert.DoesNotContain(

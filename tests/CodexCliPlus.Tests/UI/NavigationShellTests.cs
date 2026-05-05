@@ -963,17 +963,44 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"FirstRunPersistenceRiskIndicator\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"LoginPersistenceRiskIndicator\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("Kind=\"CircleAlert\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Kind=\"CircleAlert\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "已阅读并同意本机安全密钥使用规则",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "StartupFooterLinkTextStyle",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Text=\"本机凭据保护\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Text=\"已阅读并同意本机\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Text=\"安全密钥规则\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Cursor=\"Help\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Style=\"{StaticResource ShellRiskToolTipStyle}\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("仅在受信任的个人设备上使用", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"AuthenticationMenuButton\"",
@@ -991,7 +1018,6 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("安全密钥登录", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("本机凭据保护", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellInlineIconButtonStyle\"",
             shellResources,

@@ -328,7 +328,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
 
@@ -446,7 +445,6 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
               <CheckBox
@@ -488,45 +486,9 @@
                 Text="自动登录"
               />
             </StackPanel>
-            <Button
-              x:Name="FirstRunPersistenceRiskIndicator"
-              Grid.Column="2"
-              Style="{StaticResource StartupRiskIconStyle}"
-              AutomationProperties.AutomationId="FirstRunPersistenceRiskIndicator"
-              AutomationProperties.Name="登录保存提示"
-              ToolTipService.ShowDuration="20000"
-            >
-              <Button.ToolTip>
-                <ToolTip
-                  Style="{StaticResource ShellRiskToolTipStyle}"
-                  AutomationProperties.Name="登录保存提示"
-                >
-                  <TextBlock
-                    MaxWidth="236"
-                    Text="记住密码会把安全密钥保存在本机凭据存储中；自动登录会在启动时用已保存密钥直接进入管理界面。仅在受信任的个人设备上使用。"
-                    TextWrapping="Wrap"
-                    Foreground="#B42318"
-                  />
-                </ToolTip>
-              </Button.ToolTip>
-              <iconPacks:PackIconLucide
-                Kind="CircleAlert"
-                Width="16"
-                Height="16"
-                Foreground="#B42318"
-              />
-            </Button>
           </Grid>
 
-          <TextBlock
-            Grid.Row="4"
-            Margin="0,12,0,0"
-            HorizontalAlignment="Center"
-            Style="{StaticResource StartupProtocolTextStyle}"
-            Text="已阅读并同意本机安全密钥使用规则"
-          />
-
-          <StackPanel Grid.Row="5" Margin="0,14,0,0" VerticalAlignment="Bottom">
+          <StackPanel Grid.Row="4" Margin="0,14,0,0" VerticalAlignment="Bottom">
             <Button
               x:Name="FirstRunEnterManagementButton"
               Style="{StaticResource StartupPrimaryButtonStyle}"
@@ -616,7 +578,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
 
@@ -669,7 +630,6 @@
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
               <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
               <CheckBox
@@ -709,45 +669,9 @@
                 Text="自动登录"
               />
             </StackPanel>
-            <Button
-              x:Name="LoginPersistenceRiskIndicator"
-              Grid.Column="2"
-              Style="{StaticResource StartupRiskIconStyle}"
-              AutomationProperties.AutomationId="LoginPersistenceRiskIndicator"
-              AutomationProperties.Name="登录保存提示"
-              ToolTipService.ShowDuration="20000"
-            >
-              <Button.ToolTip>
-                <ToolTip
-                  Style="{StaticResource ShellRiskToolTipStyle}"
-                  AutomationProperties.Name="登录保存提示"
-                >
-                  <TextBlock
-                    MaxWidth="236"
-                    Text="记住密码会把安全密钥保存在本机凭据存储中；自动登录会在启动时用已保存密钥直接进入管理界面。仅在受信任的个人设备上使用。"
-                    TextWrapping="Wrap"
-                    Foreground="#B42318"
-                  />
-                </ToolTip>
-              </Button.ToolTip>
-              <iconPacks:PackIconLucide
-                Kind="CircleAlert"
-                Width="16"
-                Height="16"
-                Foreground="#B42318"
-              />
-            </Button>
           </Grid>
 
-          <TextBlock
-            Grid.Row="4"
-            Margin="0,12,0,0"
-            HorizontalAlignment="Center"
-            Style="{StaticResource StartupProtocolTextStyle}"
-            Text="已阅读并同意本机安全密钥使用规则"
-          />
-
-          <StackPanel Grid.Row="5" Margin="0,12,0,0" VerticalAlignment="Bottom">
+          <StackPanel Grid.Row="4" Margin="0,12,0,0" VerticalAlignment="Bottom">
             <TextBlock
               x:Name="LoginErrorText"
               Height="34"
@@ -773,9 +697,30 @@
         HorizontalAlignment="Center"
         VerticalAlignment="Center"
       >
-        <TextBlock Style="{StaticResource StartupFooterLinkTextStyle}" Text="安全密钥登录" />
-        <TextBlock Margin="10,0" Style="{StaticResource StartupFooterLinkTextStyle}" Text="|" />
-        <TextBlock Style="{StaticResource StartupFooterLinkTextStyle}" Text="本机凭据保护" />
+        <TextBlock Style="{StaticResource StartupProtocolTextStyle}" Text="已阅读并同意本机" />
+        <TextBlock
+          Style="{StaticResource StartupProtocolTextStyle}"
+          Text="安全密钥规则"
+          Cursor="Help"
+          AutomationProperties.Name="安全密钥规则"
+          ToolTipService.InitialShowDelay="120"
+          ToolTipService.BetweenShowDelay="0"
+          ToolTipService.ShowDuration="20000"
+        >
+          <TextBlock.ToolTip>
+            <ToolTip
+              Style="{StaticResource ShellRiskToolTipStyle}"
+              AutomationProperties.Name="安全密钥规则"
+            >
+              <TextBlock
+                MaxWidth="236"
+                Text="记住密码会把安全密钥保存在本机凭据存储中；自动登录会在启动时用已保存密钥直接进入管理界面。仅在受信任的个人设备上使用。"
+                TextWrapping="Wrap"
+                Foreground="#B42318"
+              />
+            </ToolTip>
+          </TextBlock.ToolTip>
+        </TextBlock>
       </StackPanel>
     </Grid>
   </Grid>

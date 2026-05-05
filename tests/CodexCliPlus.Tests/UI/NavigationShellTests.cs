@@ -1078,6 +1078,28 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "<Setter Property=\"Background\" Value=\"{DynamicResource SurfaceBrush}\" />",
+            startupFlowTextBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"BorderBrush\" Value=\"{DynamicResource BorderBrush}\" />",
+            startupFlowTextBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"Background\" Value=\"{DynamicResource SurfaceBrush}\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"BorderBrush\" Value=\"{DynamicResource BorderBrush}\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("#F9FFFFFF", startupFlowTextBoxStyle, StringComparison.Ordinal);
+        Assert.DoesNotContain("#F9FFFFFF", startupFlowPasswordBoxStyle, StringComparison.Ordinal);
+        Assert.Contains(
             "VerticalAlignment=\"Stretch\"",
             shellPasswordInputStyle,
             StringComparison.Ordinal

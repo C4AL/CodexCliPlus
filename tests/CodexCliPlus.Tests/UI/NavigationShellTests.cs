@@ -1361,9 +1361,21 @@ public sealed class NavigationShellTests
         Assert.Contains("ShowManual", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
+        Assert.Contains("AutoNotificationDefaultWidth = 380", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ManualNotificationDefaultWidth = 360", hostSource, StringComparison.Ordinal);
         Assert.Contains("AutoNotificationBottomOffset = 28", hostSource, StringComparison.Ordinal);
         Assert.Contains("ManualNotificationRightOffset = 24", hostSource, StringComparison.Ordinal);
         Assert.Contains("ManualNotificationBottomOffset = 24", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ResolveShellNotificationPlacementHost", hostSource, StringComparison.Ordinal);
+        Assert.Contains("return ManagementContentHost;", hostSource, StringComparison.Ordinal);
+        Assert.Contains("return StartupFlow;", hostSource, StringComparison.Ordinal);
+        Assert.Contains("popup.PlacementTarget = placementHost;", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ApplyShellNotificationStackWidth(owner, hostWidth, bottomCenter);",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Math.Min(defaultWidth, hostWidth)", hostSource, StringComparison.Ordinal);
         Assert.Contains("UpdateShellNotificationPopupPlacement", hostSource, StringComparison.Ordinal);
         Assert.Contains("(hostWidth - ownerWidth) / 2", hostSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -1395,6 +1407,40 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    public void NativeLoginShortValidationErrorsUseAutoShellNotifications()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var startupSource = ReadAppSource(repositoryRoot, "MainWindow.StartupAndSecurity.cs");
+
+        var emptyPasswordBranch = SliceBetween(
+            startupSource,
+            "if (string.IsNullOrWhiteSpace(managementKey))",
+            "StartupFlow.SetLoginBusy(true);"
+        );
+        Assert.Contains("StartupFlow.SetLoginError(null);", emptyPasswordBranch, StringComparison.Ordinal);
+        Assert.Contains(
+            "_notificationService.ShowAuto(\"请输入安全密钥。\", ShellNotificationLevel.Warning);",
+            emptyPasswordBranch,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("ShowLoginError(", emptyPasswordBranch, StringComparison.Ordinal);
+
+        var wrongPasswordBranch = SliceBetween(
+            startupSource,
+            "if (!_backendConfigWriter.VerifyManagementKey(managementKey))",
+            "_settings.ManagementKey = managementKey;"
+        );
+        Assert.Contains("StartupFlow.SetLoginError(null);", wrongPasswordBranch, StringComparison.Ordinal);
+        Assert.Contains(
+            "_notificationService.ShowAuto(\"安全密钥不正确。\", ShellNotificationLevel.Error);",
+            wrongPasswordBranch,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("ShowLoginError(", wrongPasswordBranch, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartupFlow.ClearLoginPassword();", wrongPasswordBranch, StringComparison.Ordinal);
     }
 
     [Fact]

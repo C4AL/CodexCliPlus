@@ -827,6 +827,16 @@ public sealed class NavigationShellTests
             "x:Key=\"StartupFlowPasswordBoxStyle\"",
             "  <Style x:Key=\"StartupPrimaryButtonStyle\""
         );
+        var firstRunActionPanelXaml = SliceBetween(
+            startupFlowXaml,
+            "<StackPanel Grid.Row=\"4\" Margin=\"0,14,0,0\" VerticalAlignment=\"Bottom\">",
+            "          </StackPanel>"
+        );
+        var firstRunConfirmPopupXaml = SliceBetween(
+            startupFlowXaml,
+            "x:Name=\"FirstRunConfirmPopup\"",
+            "    </Popup>"
+        );
         var shellPasswordInputStyle = SliceBetween(
             shellResources,
             "x:Key=\"ShellPasswordInputStyle\"",
@@ -929,6 +939,46 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
+        Assert.DoesNotContain(
+            "x:Name=\"FirstRunConfirmPanel\"",
+            firstRunActionPanelXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"FirstRunConfirmPopup\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=FirstRunEnterManagementButton}\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Placement=\"Bottom\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "VerticalOffset=\"10\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "AllowsTransparency=\"True\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("StaysOpen=\"True\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Width=\"{Binding ActualWidth, ElementName=FirstRunEnterManagementButton}\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"FirstRunConfirmPanel\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("FirstRunConfirmPopup.IsOpen = visible;", source, StringComparison.Ordinal);
+        Assert.Contains("FirstRunConfirmPopup.IsOpen = false;", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FirstRunConfirmPanel.Visibility", source, StringComparison.Ordinal);
         Assert.Contains(
             "KeyDown=\"ManagementKeyPasswordBox_KeyDown\"",
             startupFlowXaml,

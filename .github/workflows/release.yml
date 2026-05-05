@@ -10,6 +10,10 @@ on:
         description: "Release version without leading v"
         required: true
         default: "1.0.0"
+      packages:
+        description: "Release packages: all, offline, online, update, or comma-separated values"
+        required: true
+        default: "all"
 
 permissions:
   contents: write
@@ -64,7 +68,13 @@ jobs:
             throw "Release version is required."
           }
 
+          $packages = "${{ github.event.inputs.packages }}"
+          if ([string]::IsNullOrWhiteSpace($packages)) {
+            $packages = "all"
+          }
+
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "RELEASE_PACKAGES=$packages" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Restore tools
         run: dotnet tool restore
@@ -101,31 +111,17 @@ jobs:
         shell: pwsh
         run: |
           $project = "src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj"
-          dotnet run --project $project -- fetch-assets --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- verify-assets --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- build-webui --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- publish --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- package-update --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- package-online-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- package-offline-installer --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          dotnet run --project $project -- verify-package --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+          dotnet run --project $project -- build-release --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION --packages $env:RELEASE_PACKAGES
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Generate SBOM
         run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
 
       - name: Write checksums
-        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION --packages $env:RELEASE_PACKAGES
 
       - name: Export public release files
-        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- export-public-release --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION
+        run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- export-public-release --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION --packages $env:RELEASE_PACKAGES
 
       - name: Generate artifact attestations
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26

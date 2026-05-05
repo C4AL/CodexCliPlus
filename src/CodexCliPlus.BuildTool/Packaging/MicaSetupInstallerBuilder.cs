@@ -210,7 +210,9 @@ public static class MicaSetupInstallerBuilder
         {
             if (string.IsNullOrWhiteSpace(payloadArchivePath))
             {
-                throw new InvalidOperationException("Offline installer payload archive is missing.");
+                throw new InvalidOperationException(
+                    "Offline installer payload archive is missing."
+                );
             }
 
             var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
@@ -314,7 +316,9 @@ public static class MicaSetupInstallerBuilder
             ),
             ["__IS_ONLINE_PAYLOAD_MODE__"] =
                 packageKind == InstallerPackageKind.Online ? "true" : "false",
-            ["__ONLINE_PAYLOAD_FILE_NAME__"] = ToCSharpString(onlinePayload?.FileName ?? string.Empty),
+            ["__ONLINE_PAYLOAD_FILE_NAME__"] = ToCSharpString(
+                onlinePayload?.FileName ?? string.Empty
+            ),
             ["__ONLINE_PAYLOAD_URL__"] = ToCSharpString(onlinePayload?.Url ?? string.Empty),
             ["__ONLINE_PAYLOAD_SHA256__"] = ToCSharpString(onlinePayload?.Sha256 ?? string.Empty),
             ["__ONLINE_PAYLOAD_SIZE_BYTES__"] = (onlinePayload?.Size ?? 0).ToString(
@@ -323,7 +327,9 @@ public static class MicaSetupInstallerBuilder
             ["__WEBVIEW2_BOOTSTRAPPER_FILE_NAME__"] = ToCSharpString(
                 WebView2RuntimeAssets.BootstrapperFileName
             ),
-            ["__WEBVIEW2_BOOTSTRAPPER_URL__"] = ToCSharpString(WebView2RuntimeAssets.BootstrapperUrl),
+            ["__WEBVIEW2_BOOTSTRAPPER_URL__"] = ToCSharpString(
+                WebView2RuntimeAssets.BootstrapperUrl
+            ),
             ["__WEBVIEW2_STANDALONE_FILE_NAME__"] = ToCSharpString(
                 WebView2RuntimeAssets.StandaloneX64FileName
             ),

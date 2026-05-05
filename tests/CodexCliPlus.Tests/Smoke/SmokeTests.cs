@@ -380,9 +380,9 @@ public sealed class SmokeTests
 
         Directory.CreateDirectory(packageRoot);
 
-        CreateInstallerSmokePackage(packageRoot, "Online", version);
-        CreateInstallerSmokePackage(packageRoot, "Offline", version);
-        CreateUpdateSmokePackage(packageRoot, version);
+        await CreateInstallerSmokePackageAsync(packageRoot, "Online", version);
+        await CreateInstallerSmokePackageAsync(packageRoot, "Offline", version);
+        await CreateUpdateSmokePackageAsync(packageRoot, version);
 
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -407,14 +407,20 @@ public sealed class SmokeTests
         Assert.Equal(string.Empty, error.ToString());
     }
 
-    private static void CreateInstallerSmokePackage(
+    private static async Task CreateInstallerSmokePackageAsync(
         string packageRoot,
         string moniker,
         string version
     )
     {
         var installerName = $"CodexCliPlus.Setup.{moniker}.{version}.exe";
-        SmokeEnvironmentScope.CreatePeStub(Path.Combine(packageRoot, installerName));
+        var installerPath = Path.Combine(packageRoot, installerName);
+        SmokeEnvironmentScope.CreatePeStub(installerPath);
+        await ArtifactSignatureMetadata.WriteUnsignedAsync(
+            installerPath,
+            "Smoke package verification uses local unsigned artifacts.",
+            CancellationToken.None
+        );
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
@@ -449,15 +455,21 @@ public sealed class SmokeTests
         );
     }
 
-    private static void CreateUpdateSmokePackage(string packageRoot, string version)
+    private static async Task CreateUpdateSmokePackageAsync(string packageRoot, string version)
     {
+        var packagePath = Path.Combine(packageRoot, $"CodexCliPlus.Update.{version}.win-x64.zip");
         SmokeEnvironmentScope.CreateZipWithByteEntries(
-            Path.Combine(packageRoot, $"CodexCliPlus.Update.{version}.win-x64.zip"),
+            packagePath,
             new Dictionary<string, byte[]>
             {
                 ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["payload/CodexCliPlus.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
             }
+        );
+        await ArtifactSignatureMetadata.WriteUnsignedAsync(
+            packagePath,
+            "Smoke package verification uses local unsigned artifacts.",
+            CancellationToken.None
         );
     }
 }

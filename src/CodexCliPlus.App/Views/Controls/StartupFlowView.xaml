@@ -364,23 +364,23 @@
 
           <StackPanel Grid.Row="2" Margin="0,20,0,0">
             <TextBlock Style="{StaticResource StartupFlowLabelTextStyle}" Text="安全密钥" />
-            <Grid Height="40" Margin="0,8,0,0">
+            <Grid Height="72" Margin="0,8,0,0">
               <TextBox
                 x:Name="FirstRunSecurityKeyTextBox"
-                Height="40"
+                Height="72"
                 Padding="12,9,74,9"
                 HorizontalAlignment="Stretch"
                 FontFamily="Consolas"
                 FontSize="13"
                 Style="{StaticResource StartupFlowTextBoxStyle}"
                 AcceptsReturn="False"
-                HorizontalScrollBarVisibility="Hidden"
+                HorizontalScrollBarVisibility="Disabled"
                 IsReadOnly="True"
-                MinLines="1"
-                MaxLines="1"
+                MinLines="3"
+                MaxLines="3"
                 AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
                 AutomationProperties.Name="安全密钥"
-                TextWrapping="NoWrap"
+                TextWrapping="Wrap"
                 VerticalContentAlignment="Center"
                 VerticalScrollBarVisibility="Disabled"
               />

@@ -832,6 +832,16 @@ public sealed class NavigationShellTests
             "<StackPanel Grid.Row=\"4\" Margin=\"0,14,0,0\" VerticalAlignment=\"Bottom\">",
             "          </StackPanel>"
         );
+        var firstRunSecurityKeyRegionXaml = SliceBetween(
+            startupFlowXaml,
+            "<Grid Height=\"72\" Margin=\"0,8,0,0\">",
+            "              <StackPanel"
+        );
+        var firstRunSecurityKeyTextBoxXaml = SliceBetween(
+            startupFlowXaml,
+            "x:Name=\"FirstRunSecurityKeyTextBox\"",
+            "              />"
+        );
         var firstRunConfirmPopupXaml = SliceBetween(
             startupFlowXaml,
             "x:Name=\"FirstRunConfirmPopup\"",
@@ -1073,8 +1083,17 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
-        Assert.Contains("Height=\"40\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("Padding=\"12,9,74,9\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Grid Height=\"72\" Margin=\"0,8,0,0\">",
+            firstRunSecurityKeyRegionXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Height=\"72\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Padding=\"12,9,74,9\"",
+            firstRunSecurityKeyTextBoxXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Key=\"ShellIconViewboxStyle\"",
             shellResources,
@@ -1126,21 +1145,29 @@ public sealed class NavigationShellTests
         );
         Assert.Contains(
             "AutomationProperties.AutomationId=\"FirstRunSecurityKeyTextBox\"",
-            startupFlowXaml,
+            firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("TextWrapping=\"NoWrap\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("AcceptsReturn=\"False\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("MinLines=\"1\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("MaxLines=\"1\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "HorizontalScrollBarVisibility=\"Hidden\"",
-            startupFlowXaml,
+            "TextWrapping=\"Wrap\"",
+            firstRunSecurityKeyTextBoxXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "AcceptsReturn=\"False\"",
+            firstRunSecurityKeyTextBoxXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("MinLines=\"3\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.Contains("MaxLines=\"3\"", firstRunSecurityKeyTextBoxXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "HorizontalScrollBarVisibility=\"Disabled\"",
+            firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(
             "VerticalScrollBarVisibility=\"Disabled\"",
-            startupFlowXaml,
+            firstRunSecurityKeyTextBoxXaml,
             StringComparison.Ordinal
         );
         Assert.Contains(

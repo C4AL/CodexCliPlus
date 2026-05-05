@@ -115,8 +115,8 @@
   </Style>
 
   <Style x:Key="StartupFlowTextBoxStyle" TargetType="{x:Type TextBox}">
-    <Setter Property="Background" Value="#F9FFFFFF" />
-    <Setter Property="BorderBrush" Value="#B9DBF2" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -172,8 +172,8 @@
   </Style>
 
   <Style x:Key="StartupFlowPasswordBoxStyle" TargetType="{x:Type PasswordBox}">
-    <Setter Property="Background" Value="#F9FFFFFF" />
-    <Setter Property="BorderBrush" Value="#B9DBF2" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />

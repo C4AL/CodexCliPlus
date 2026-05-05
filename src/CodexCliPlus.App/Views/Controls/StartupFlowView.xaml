@@ -497,74 +497,6 @@
               AutomationProperties.AutomationId="FirstRunEnterManagementButton"
               Content="进入管理界面"
             />
-
-            <Border
-              x:Name="FirstRunConfirmPanel"
-              Margin="0,10,0,0"
-              Padding="10"
-              CornerRadius="8"
-              Visibility="Collapsed"
-              ClipToBounds="True"
-              Background="#EFFFFFFF"
-              BorderBrush="#80B7D7EC"
-              BorderThickness="1"
-              AutomationProperties.AutomationId="FirstRunConfirmPanel"
-            >
-              <Grid>
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto" />
-                  <RowDefinition Height="Auto" />
-                  <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock
-                  Grid.Row="0"
-                  Grid.Column="0"
-                  Style="{StaticResource StartupCompactConfirmTitleTextStyle}"
-                  Text="确认已保存安全密钥"
-                />
-                <Button
-                  x:Name="FirstRunConfirmCloseButton"
-                  Grid.Row="0"
-                  Grid.Column="1"
-                  Width="24"
-                  Height="24"
-                  Padding="0"
-                  Style="{StaticResource StartupLinkButtonStyle}"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Top"
-                  Click="FirstRunConfirmCloseButton_Click"
-                  Content="×"
-                  AutomationProperties.AutomationId="FirstRunConfirmCloseButton"
-                  AutomationProperties.Name="关闭"
-                />
-                <TextBlock
-                  Grid.Row="1"
-                  Grid.ColumnSpan="2"
-                  Margin="0,4,0,0"
-                  MaxHeight="34"
-                  Style="{StaticResource StartupCompactHintTextStyle}"
-                  Text="关闭本页后，完整安全密钥不会再次显示。"
-                  TextWrapping="Wrap"
-                  TextTrimming="CharacterEllipsis"
-                />
-                <Button
-                  x:Name="FirstRunConfirmContinueButton"
-                  Grid.Row="2"
-                  Grid.ColumnSpan="2"
-                  Height="30"
-                  Margin="0,8,0,0"
-                  HorizontalAlignment="Stretch"
-                  Style="{StaticResource StartupSecondaryButtonStyle}"
-                  Click="FirstRunConfirmContinueButton_Click"
-                  AutomationProperties.AutomationId="FirstRunConfirmContinueButton"
-                  Content="确认"
-                />
-              </Grid>
-            </Border>
           </StackPanel>
         </Grid>
 
@@ -723,5 +655,83 @@
         </TextBlock>
       </StackPanel>
     </Grid>
+
+    <Popup
+      x:Name="FirstRunConfirmPopup"
+      PlacementTarget="{Binding ElementName=FirstRunEnterManagementButton}"
+      Placement="Bottom"
+      HorizontalOffset="0"
+      VerticalOffset="10"
+      AllowsTransparency="True"
+      StaysOpen="True"
+      PopupAnimation="None"
+      AutomationProperties.AutomationId="FirstRunConfirmPopup"
+    >
+      <Border
+        x:Name="FirstRunConfirmPanel"
+        Width="{Binding ActualWidth, ElementName=FirstRunEnterManagementButton}"
+        Padding="10"
+        CornerRadius="8"
+        Background="#EFFFFFFF"
+        BorderBrush="#80B7D7EC"
+        BorderThickness="1"
+        AutomationProperties.AutomationId="FirstRunConfirmPanel"
+      >
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock
+            Grid.Row="0"
+            Grid.Column="0"
+            Style="{StaticResource StartupCompactConfirmTitleTextStyle}"
+            Text="确认已保存安全密钥"
+          />
+          <Button
+            x:Name="FirstRunConfirmCloseButton"
+            Grid.Row="0"
+            Grid.Column="1"
+            Width="24"
+            Height="24"
+            Padding="0"
+            Style="{StaticResource StartupLinkButtonStyle}"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Click="FirstRunConfirmCloseButton_Click"
+            Content="×"
+            AutomationProperties.AutomationId="FirstRunConfirmCloseButton"
+            AutomationProperties.Name="关闭"
+          />
+          <TextBlock
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Margin="0,4,0,0"
+            MaxHeight="34"
+            Style="{StaticResource StartupCompactHintTextStyle}"
+            Text="关闭本页后，完整安全密钥不会再次显示。"
+            TextWrapping="Wrap"
+            TextTrimming="CharacterEllipsis"
+          />
+          <Button
+            x:Name="FirstRunConfirmContinueButton"
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            Height="30"
+            Margin="0,8,0,0"
+            HorizontalAlignment="Stretch"
+            Style="{StaticResource StartupSecondaryButtonStyle}"
+            Click="FirstRunConfirmContinueButton_Click"
+            AutomationProperties.AutomationId="FirstRunConfirmContinueButton"
+            Content="确认"
+          />
+        </Grid>
+      </Border>
+    </Popup>
   </Grid>
 </UserControl>

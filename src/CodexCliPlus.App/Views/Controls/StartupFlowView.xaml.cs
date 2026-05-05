@@ -152,7 +152,7 @@ public partial class StartupFlowView : WpfUserControl
 
     public void SetFirstRunConfirmVisible(bool visible, string buttonText, bool canConfirm)
     {
-        FirstRunConfirmPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        FirstRunConfirmPopup.IsOpen = visible;
         FirstRunConfirmContinueButton.Content = buttonText;
         FirstRunConfirmContinueButton.IsEnabled = canConfirm;
         FirstRunConfirmCloseButton.IsEnabled = true;
@@ -187,6 +187,11 @@ public partial class StartupFlowView : WpfUserControl
             screen == StartupFlowScreen.FirstRunKey ? Visibility.Visible : Visibility.Collapsed;
         LoginPanel.Visibility =
             screen == StartupFlowScreen.Login ? Visibility.Visible : Visibility.Collapsed;
+
+        if (screen != StartupFlowScreen.FirstRunKey)
+        {
+            FirstRunConfirmPopup.IsOpen = false;
+        }
 
         if (animate && IsLoaded)
         {

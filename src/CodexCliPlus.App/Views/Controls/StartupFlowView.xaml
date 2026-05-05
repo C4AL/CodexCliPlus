@@ -631,7 +631,7 @@
       >
         <TextBlock Style="{StaticResource StartupProtocolTextStyle}" Text="已阅读并同意本机" />
         <TextBlock
-          Style="{StaticResource StartupProtocolTextStyle}"
+          Style="{StaticResource StartupProtocolLinkTextStyle}"
           Text="安全密钥规则"
           Cursor="Help"
           AutomationProperties.Name="安全密钥规则"

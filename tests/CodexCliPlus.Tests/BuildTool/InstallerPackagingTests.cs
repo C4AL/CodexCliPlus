@@ -48,18 +48,83 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.True(File.Exists(installerPath));
         Assert.Null(WindowsExecutableValidation.ValidateFile(installerPath));
 
-        var stagingPackagePath = Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip");
+        var stagingPackagePath = Path.Combine(
+            outputRoot,
+            "packages",
+            "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"
+        );
         Assert.False(File.Exists(stagingPackagePath));
 
-        var stageRoot = Path.Combine(outputRoot, "installer", "win-x64", "offline-installer", "stage");
-        Assert.True(File.Exists(Path.Combine(stageRoot, "output", "CodexCliPlus.Setup.Offline.9.9.9.exe")));
+        var stageRoot = Path.Combine(
+            outputRoot,
+            "installer",
+            "win-x64",
+            "offline-installer",
+            "stage"
+        );
+        Assert.True(
+            File.Exists(Path.Combine(stageRoot, "output", "CodexCliPlus.Setup.Offline.9.9.9.exe"))
+        );
         Assert.True(File.Exists(Path.Combine(stageRoot, "publish.7z")));
         Assert.True(File.Exists(Path.Combine(stageRoot, "micasetup.json")));
-        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "dist", "index.html")));
-        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "dist", "assets", "app.js")));
-        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "sync.json")));
-        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.BootstrapperFileName)));
-        Assert.True(File.Exists(Path.Combine(stageRoot, "app-package", WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.StandaloneX64FileName)));
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    "assets",
+                    "webui",
+                    "upstream",
+                    "dist",
+                    "index.html"
+                )
+            )
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    "assets",
+                    "webui",
+                    "upstream",
+                    "dist",
+                    "assets",
+                    "app.js"
+                )
+            )
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "sync.json")
+            )
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    WebView2RuntimeAssets.PackagedDirectory.Replace(
+                        '/',
+                        Path.DirectorySeparatorChar
+                    ),
+                    WebView2RuntimeAssets.BootstrapperFileName
+                )
+            )
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    WebView2RuntimeAssets.PackagedDirectory.Replace(
+                        '/',
+                        Path.DirectorySeparatorChar
+                    ),
+                    WebView2RuntimeAssets.StandaloneX64FileName
+                )
+            )
+        );
 
         var installerPlan = ReadJson<InstallerPlan>(Path.Combine(stageRoot, "mica-setup.json"));
         Assert.True(installerPlan.CleanupInstallerAfterInstallDefault);
@@ -340,9 +405,7 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.Equal(0, exitCode);
         Assert.Equal(string.Empty, error.ToString());
         Assert.True(
-            File.Exists(
-                Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Online.9.9.9.exe")
-            )
+            File.Exists(Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Online.9.9.9.exe"))
         );
         Assert.False(
             File.Exists(
@@ -350,13 +413,26 @@ public sealed class InstallerPackagingTests : IDisposable
             )
         );
 
-        var stageRoot = Path.Combine(outputRoot, "installer", "win-x64", "online-installer", "stage");
+        var stageRoot = Path.Combine(
+            outputRoot,
+            "installer",
+            "win-x64",
+            "online-installer",
+            "stage"
+        );
         Assert.True(Directory.Exists(stageRoot));
         Assert.False(Directory.Exists(Path.Combine(stageRoot, "app-package")));
         Assert.False(File.Exists(Path.Combine(stageRoot, "publish.7z")));
         Assert.False(
             File.Exists(
-                Path.Combine(stageRoot, WebView2RuntimeAssets.PackagedDirectory.Replace('/', Path.DirectorySeparatorChar), WebView2RuntimeAssets.StandaloneX64FileName)
+                Path.Combine(
+                    stageRoot,
+                    WebView2RuntimeAssets.PackagedDirectory.Replace(
+                        '/',
+                        Path.DirectorySeparatorChar
+                    ),
+                    WebView2RuntimeAssets.StandaloneX64FileName
+                )
             )
         );
 
@@ -380,9 +456,21 @@ public sealed class InstallerPackagingTests : IDisposable
         var installViewModel = File.ReadAllText(
             Path.Combine(distRoot, "ViewModels", "Inst", "InstallViewModel.cs")
         );
-        Assert.Contains("private const bool IsOnlinePayloadMode = true;", installViewModel, StringComparison.Ordinal);
-        Assert.Contains("DownloadAndPrepareOnlinePayloadArchive", installViewModel, StringComparison.Ordinal);
-        Assert.Contains("https://downloads.example.test/codex/CodexCliPlus.Update.9.9.9.win-x64.zip", installViewModel, StringComparison.Ordinal);
+        Assert.Contains(
+            "private const bool IsOnlinePayloadMode = true;",
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "DownloadAndPrepareOnlinePayloadArchive",
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "https://downloads.example.test/codex/CodexCliPlus.Update.9.9.9.win-x64.zip",
+            installViewModel,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -708,8 +796,10 @@ public sealed class InstallerPackagingTests : IDisposable
 
     private static T ReadJson<T>(string path)
     {
-        return JsonSerializer.Deserialize<T>(File.ReadAllText(path, Encoding.UTF8), JsonDefaults.Options)
-            ?? throw new Xunit.Sdk.XunitException($"Could not deserialize JSON file: {path}");
+        return JsonSerializer.Deserialize<T>(
+                File.ReadAllText(path, Encoding.UTF8),
+                JsonDefaults.Options
+            ) ?? throw new Xunit.Sdk.XunitException($"Could not deserialize JSON file: {path}");
     }
 
     private static byte[] CreateExecutableBytes()

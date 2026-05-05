@@ -13,6 +13,57 @@ namespace CodexCliPlus.BuildTool;
 
 public static class PackageCommands
 {
+    public static async Task<int> BuildReleaseAsync(BuildContext context)
+    {
+        context.Logger.Info(
+            $"selected release package(s): {context.Options.ReleasePackages.ToDisplayString()}"
+        );
+
+        var publishExitCode = await PublishCommands.PublishAsync(context);
+        if (publishExitCode != 0)
+        {
+            return publishExitCode;
+        }
+
+        if (
+            context.Options.ReleasePackages.IncludesUpdatePackage()
+            || context.Options.ReleasePackages.IncludesOnlineInstaller()
+        )
+        {
+            var updateExitCode = await PackageUpdateAsync(context);
+            if (updateExitCode != 0)
+            {
+                return updateExitCode;
+            }
+        }
+
+        if (context.Options.ReleasePackages.IncludesOnlineInstaller())
+        {
+            var onlineInstallerExitCode = await PackageInstallerAsync(
+                context,
+                InstallerPackageKind.Online
+            );
+            if (onlineInstallerExitCode != 0)
+            {
+                return onlineInstallerExitCode;
+            }
+        }
+
+        if (context.Options.ReleasePackages.IncludesOfflineInstaller())
+        {
+            var offlineInstallerExitCode = await PackageInstallerAsync(
+                context,
+                InstallerPackageKind.Offline
+            );
+            if (offlineInstallerExitCode != 0)
+            {
+                return offlineInstallerExitCode;
+            }
+        }
+
+        return await VerifyPackagesAsync(context);
+    }
+
     public static async Task<int> PackageInstallerAsync(
         BuildContext context,
         InstallerPackageKind packageKind
@@ -39,7 +90,11 @@ public static class PackageCommands
             onlinePayload = await CreateOnlineInstallerPayloadAsync(context);
             await WriteJsonAsync(Path.Combine(stageRoot, "online-payload.json"), onlinePayload);
             payloadUncompressedBytes = GetUpdatePackagePayloadSize(context, onlinePayload);
-            webView2Assets = await WebView2RuntimeAssets.StageAsync(context, stageRoot, packageKind);
+            webView2Assets = await WebView2RuntimeAssets.StageAsync(
+                context,
+                stageRoot,
+                packageKind
+            );
         }
         else
         {
@@ -138,7 +193,10 @@ public static class PackageCommands
 
     public static Task<int> VerifyPackagesAsync(BuildContext context)
     {
-        var verifier = new PackageVerifier(context);
+        var verifier = new PackageVerifier(
+            context,
+            releasePackages: context.Options.ReleasePackages
+        );
         var failures = verifier.VerifyAll();
         if (failures.Count > 0)
         {
@@ -230,7 +288,8 @@ public static class PackageCommands
         BuildContext context
     )
     {
-        var fileName = $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
+        var fileName =
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
         var packagePath = Path.Combine(context.PackageRoot, fileName);
         if (!File.Exists(packagePath))
         {

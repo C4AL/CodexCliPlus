@@ -69,6 +69,7 @@ public static class ReleaseArtifactCommands
             version = context.Options.Version,
             runtime = context.Options.Runtime,
             configuration = context.Options.Configuration,
+            packages = context.Options.ReleasePackages.ToManifestValues(),
             generatedAtUtc = DateTimeOffset.UtcNow,
             signing = SigningOptions.FromEnvironment().SigningRequired
                 ? "required"
@@ -89,13 +90,10 @@ public static class ReleaseArtifactCommands
 
     public static async Task<int> ExportPublicReleaseAsync(BuildContext context)
     {
-        if (!File.Exists(context.ChecksumsPath) || !File.Exists(context.ReleaseManifestPath))
+        var checksumExitCode = await WriteChecksumsAsync(context);
+        if (checksumExitCode != 0)
         {
-            var checksumExitCode = await WriteChecksumsAsync(context);
-            if (checksumExitCode != 0)
-            {
-                return checksumExitCode;
-            }
+            return checksumExitCode;
         }
 
         SafeFileSystem.CleanDirectory(context.PublicReleaseRoot, context.Options.OutputRoot);
@@ -149,9 +147,18 @@ public static class ReleaseArtifactCommands
         var updatePackageName =
             $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
 
-        return string.Equals(fileName, onlineInstallerName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fileName, offlineInstallerName, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(fileName, updatePackageName, StringComparison.OrdinalIgnoreCase);
+        return (
+                context.Options.ReleasePackages.IncludesOnlineInstaller()
+                && string.Equals(fileName, onlineInstallerName, StringComparison.OrdinalIgnoreCase)
+            )
+            || (
+                context.Options.ReleasePackages.IncludesOfflineInstaller()
+                && string.Equals(fileName, offlineInstallerName, StringComparison.OrdinalIgnoreCase)
+            )
+            || (
+                context.Options.ReleasePackages.IncludesUpdatePackage()
+                && string.Equals(fileName, updatePackageName, StringComparison.OrdinalIgnoreCase)
+            );
     }
 
     private static string GetPublicArtifactPurpose(BuildContext context, string path)

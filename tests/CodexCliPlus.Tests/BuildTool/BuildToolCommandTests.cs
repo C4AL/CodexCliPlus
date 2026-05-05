@@ -29,6 +29,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("fetch-assets", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("build-webui", output.ToString(), StringComparison.Ordinal);
         Assert.DoesNotContain("sync-backend-source", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("build-release", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("package-online-installer", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("package-offline-installer", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("verify-package", output.ToString(), StringComparison.Ordinal);
@@ -38,6 +39,7 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("--keep-package-staging", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--online-payload-base-url", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--artifact-retention", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--packages", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -60,6 +62,8 @@ public sealed class BuildToolCommandTests : IDisposable
                 "https://example.test/releases/v9.9.9",
                 "--artifact-retention",
                 "2",
+                "--packages",
+                "offline,update",
             ],
             out var options,
             out var error
@@ -70,6 +74,10 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.True(options.KeepPackageStaging);
         Assert.Equal(2, options.ArtifactRetention);
         Assert.Equal("https://example.test/releases/v9.9.9", options.OnlinePayloadBaseUrl);
+        Assert.Equal(
+            ReleasePackageSelection.OfflineInstaller | ReleasePackageSelection.UpdatePackage,
+            options.ReleasePackages
+        );
         Assert.Equal(Path.GetFullPath(outputRoot), options.OutputRoot);
     }
 
@@ -85,6 +93,20 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.False(parsed);
         Assert.Null(options);
         Assert.Contains("--artifact-retention", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildOptionsRejectsInvalidPackageSelection()
+    {
+        var parsed = BuildOptions.TryParse(
+            ["build-release", "--packages", "portable"],
+            out var options,
+            out var error
+        );
+
+        Assert.False(parsed);
+        Assert.Null(options);
+        Assert.Contains("Unknown release package selection", error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -549,6 +571,44 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task VerifyPackageCanValidateOnlySelectedPackage()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(_rootDirectory, "out-selected-verify");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        CreateInstallerPackage(
+            packageRoot,
+            "Offline",
+            CreateStubExecutableBytes(),
+            CreateStubExecutableBytes()
+        );
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "verify-package",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+                "--packages",
+                "offline",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("package verification passed", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task WriteChecksumsCreatesReleaseManifestForGeneratedArtifacts()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
@@ -643,6 +703,64 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task WriteChecksumsCanLimitReleaseArtifactsToSelectedPackages()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"),
+            "online installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
+            "offline installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            "update"
+        );
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "write-checksums",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+                "--packages",
+                "offline",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        var checksums = await File.ReadAllTextAsync(Path.Combine(outputRoot, "SHA256SUMS.txt"));
+        var manifest = await File.ReadAllTextAsync(
+            Path.Combine(outputRoot, "release-manifest.json")
+        );
+        Assert.Contains(
+            "artifacts/buildtool/packages/CodexCliPlus.Setup.Offline.9.9.9.exe",
+            checksums,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("CodexCliPlus.Setup.Online.9.9.9.exe", checksums);
+        Assert.DoesNotContain("CodexCliPlus.Update.9.9.9.win-x64.zip", checksums);
+        Assert.Contains("\"packages\": [", manifest, StringComparison.Ordinal);
+        Assert.Contains("\"offline\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"online\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"update\"", manifest, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task ExportPublicReleaseCopiesOnlyInstallableAssetsAndMetadata()
     {
         var repositoryRoot = CreateRepositoryWithBackendAssets();
@@ -700,6 +818,54 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.False(
             File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.win-x64.zip"))
         );
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task ExportPublicReleaseCanLimitFilesToSelectedPackages()
+    {
+        var repositoryRoot = CreateRepositoryWithBackendAssets();
+        var outputRoot = Path.Combine(repositoryRoot, "artifacts", "buildtool");
+        var packageRoot = Path.Combine(outputRoot, "packages");
+        Directory.CreateDirectory(packageRoot);
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Online.9.9.9.exe"),
+            "online installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe"),
+            "offline installer"
+        );
+        await File.WriteAllTextAsync(
+            Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"),
+            "update"
+        );
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await BuildToolApp.ExecuteAsync(
+            [
+                "export-public-release",
+                "--repo-root",
+                repositoryRoot,
+                "--output",
+                outputRoot,
+                "--version",
+                "9.9.9",
+                "--packages",
+                "update",
+            ],
+            output,
+            error,
+            new RecordingProcessRunner()
+        );
+
+        Assert.Equal(0, exitCode);
+        var publicRoot = Path.Combine(outputRoot, "public-release");
+        Assert.True(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip")));
+        Assert.True(File.Exists(Path.Combine(publicRoot, "release-manifest.json")));
+        Assert.False(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Online.9.9.9.exe")));
+        Assert.False(File.Exists(Path.Combine(publicRoot, "CodexCliPlus.Setup.Offline.9.9.9.exe")));
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -787,11 +953,7 @@ public sealed class BuildToolCommandTests : IDisposable
         );
 
         Assert.Equal(1, exitCode);
-        Assert.Contains(
-            "payload/CodexCliPlus.exe",
-            error.ToString(),
-            StringComparison.Ordinal
-        );
+        Assert.Contains("payload/CodexCliPlus.exe", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

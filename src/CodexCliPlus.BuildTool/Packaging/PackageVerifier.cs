@@ -14,20 +14,37 @@ namespace CodexCliPlus.BuildTool;
 public sealed class PackageVerifier
 {
     private readonly BuildContext context;
+    private readonly ReleasePackageSelection releasePackages;
     private readonly SigningOptions signingOptions;
 
-    public PackageVerifier(BuildContext context, SigningOptions? signingOptions = null)
+    public PackageVerifier(
+        BuildContext context,
+        SigningOptions? signingOptions = null,
+        ReleasePackageSelection releasePackages = ReleasePackageSelection.All
+    )
     {
         this.context = context;
+        this.releasePackages = releasePackages;
         this.signingOptions = signingOptions ?? SigningOptions.FromEnvironment();
     }
 
     public IReadOnlyList<string> VerifyAll()
     {
         var failures = new List<string>();
-        VerifyInstallerPackage(InstallerPackageKind.Online, failures);
-        VerifyInstallerPackage(InstallerPackageKind.Offline, failures);
-        VerifyUpdatePackage(failures);
+        if (releasePackages.IncludesOnlineInstaller())
+        {
+            VerifyInstallerPackage(InstallerPackageKind.Online, failures);
+        }
+
+        if (releasePackages.IncludesOfflineInstaller())
+        {
+            VerifyInstallerPackage(InstallerPackageKind.Offline, failures);
+        }
+
+        if (releasePackages.IncludesUpdatePackage())
+        {
+            VerifyUpdatePackage(failures);
+        }
 
         return failures;
     }
@@ -314,7 +331,13 @@ public sealed class PackageVerifier
                 return;
             }
 
-            if (!string.Equals(metadata.SignatureKind, expectedSignatureKind, StringComparison.Ordinal))
+            if (
+                !string.Equals(
+                    metadata.SignatureKind,
+                    expectedSignatureKind,
+                    StringComparison.Ordinal
+                )
+            )
             {
                 failures.Add(
                     $"Signature metadata kind mismatch: {metadataPath}; expected {expectedSignatureKind}, got {metadata.SignatureKind}."

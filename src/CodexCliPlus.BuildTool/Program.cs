@@ -27,6 +27,7 @@ public static class BuildToolApp
         "verify-assets",
         "build-webui",
         "publish",
+        "build-release",
         "package-online-installer",
         "package-offline-installer",
         "package-update",
@@ -88,6 +89,7 @@ public static class BuildToolApp
                 "verify-assets" => await AssetCommands.VerifyAssetsAsync(context),
                 "build-webui" => await WebUiCommands.BuildVendoredAsync(context),
                 "publish" => await PublishCommands.PublishAsync(context),
+                "build-release" => await PackageCommands.BuildReleaseAsync(context),
                 "package-online-installer" => await PackageCommands.PackageInstallerAsync(
                     context,
                     InstallerPackageKind.Online
@@ -144,6 +146,7 @@ public static class BuildToolApp
             "  --online-payload-base-url <url>  Default: GitHub release download URL for this version"
         );
         logger.Info("  --artifact-retention <count>     Default: 1; 0 disables pruning");
+        logger.Info("  --packages <all|online|offline|update[,..]>  Default: all");
     }
 }
 
@@ -156,7 +159,8 @@ public sealed record BuildOptions(
     string Version,
     bool KeepPackageStaging = false,
     int ArtifactRetention = 1,
-    string OnlinePayloadBaseUrl = ""
+    string OnlinePayloadBaseUrl = "",
+    ReleasePackageSelection ReleasePackages = ReleasePackageSelection.All
 )
 {
     public static bool TryParse(string[] args, out BuildOptions? options, out string? error)
@@ -179,6 +183,7 @@ public sealed record BuildOptions(
         var keepPackageStaging = false;
         var artifactRetention = 1;
         string? onlinePayloadBaseUrl = null;
+        var releasePackages = ReleasePackageSelection.All;
 
         for (var index = 1; index < args.Length; index++)
         {
@@ -232,6 +237,21 @@ public sealed record BuildOptions(
                     }
 
                     break;
+                case "--packages":
+                case "--release-packages":
+                    if (
+                        !ReleasePackageSelectionExtensions.TryParse(
+                            value,
+                            out releasePackages,
+                            out var packagesError
+                        )
+                    )
+                    {
+                        error = packagesError;
+                        return false;
+                    }
+
+                    break;
                 default:
                     error = $"Unknown option: {arg}";
                     return false;
@@ -254,7 +274,8 @@ public sealed record BuildOptions(
             artifactRetention,
             string.IsNullOrWhiteSpace(onlinePayloadBaseUrl)
                 ? $"https://github.com/C4AL/CodexCliPlus/releases/download/v{version}"
-                : onlinePayloadBaseUrl.Trim().TrimEnd('/', '\\')
+                : onlinePayloadBaseUrl.Trim().TrimEnd('/', '\\'),
+            releasePackages
         );
         return true;
     }

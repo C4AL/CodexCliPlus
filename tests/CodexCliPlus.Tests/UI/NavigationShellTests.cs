@@ -43,7 +43,6 @@ public sealed class NavigationShellTests
             "x:Name=\"ShellBrandDockPopup\"",
             "      </Popup>"
         );
-
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
         Assert.Contains(
             "Source=\"Views/Resources/ShellResources.xaml\"",
@@ -827,6 +826,11 @@ public sealed class NavigationShellTests
             "x:Key=\"StartupFlowPasswordBoxStyle\"",
             "  <Style x:Key=\"StartupPrimaryButtonStyle\""
         );
+        var startupProtocolLinkTextStyle = SliceBetween(
+            startupFlowResources,
+            "x:Key=\"StartupProtocolLinkTextStyle\"",
+            "  <Style x:Key=\"StartupFooterLinkTextStyle\""
+        );
         var firstRunActionPanelXaml = SliceBetween(
             startupFlowXaml,
             "<StackPanel Grid.Row=\"4\" Margin=\"0,14,0,0\" VerticalAlignment=\"Bottom\">",
@@ -1051,6 +1055,36 @@ public sealed class NavigationShellTests
         );
         Assert.Contains(
             "Text=\"已阅读并同意本机\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BasedOn=\"{StaticResource StartupProtocolTextStyle}\"",
+            startupProtocolLinkTextStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"Foreground\" Value=\"#3388CC\" />",
+            startupProtocolLinkTextStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Trigger Property=\"IsMouseOver\" Value=\"True\">",
+            startupProtocolLinkTextStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"Foreground\" Value=\"#12B7F5\" />",
+            startupProtocolLinkTextStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"TextDecorations\" Value=\"Underline\" />",
+            startupProtocolLinkTextStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Style=\"{StaticResource StartupProtocolLinkTextStyle}\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );

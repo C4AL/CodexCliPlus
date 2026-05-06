@@ -683,6 +683,154 @@
       </Popup>
     </Grid>
 
+    <Popup
+      x:Name="ManagementEntryTransitionPopup"
+      PlacementTarget="{Binding ElementName=ShellRootGrid}"
+      Placement="Relative"
+      HorizontalOffset="0"
+      VerticalOffset="0"
+      AllowsTransparency="True"
+      StaysOpen="True"
+      PopupAnimation="None"
+      AutomationProperties.AutomationId="ManagementEntryTransitionPopup"
+    >
+      <Grid
+        x:Name="ManagementEntryTransitionOverlay"
+        Width="{Binding ActualWidth, ElementName=ShellRootGrid}"
+        Height="{Binding ActualHeight, ElementName=ShellRootGrid}"
+        ClipToBounds="True"
+        IsHitTestVisible="True"
+        Opacity="0"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        AutomationProperties.AutomationId="ManagementEntryTransitionOverlay"
+      >
+        <Grid.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#F9FFFFFF" Offset="0" />
+            <GradientStop Color="#F0F7FAFC" Offset="0.48" />
+            <GradientStop Color="#F8FFFFFF" Offset="1" />
+          </LinearGradientBrush>
+        </Grid.Background>
+        <Rectangle
+          Width="520"
+          HorizontalAlignment="Left"
+          Fill="{StaticResource ShellGlassSweepBrush}"
+          IsHitTestVisible="False"
+          Opacity="0.45"
+        >
+          <Rectangle.RenderTransform>
+            <TranslateTransform X="-560" />
+          </Rectangle.RenderTransform>
+          <Rectangle.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+              <BeginStoryboard>
+                <Storyboard RepeatBehavior="Forever">
+                  <DoubleAnimation
+                    Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                    From="-560"
+                    To="1680"
+                    Duration="0:0:4.2"
+                  >
+                    <DoubleAnimation.EasingFunction>
+                      <SineEase EasingMode="EaseInOut" />
+                    </DoubleAnimation.EasingFunction>
+                  </DoubleAnimation>
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+          </Rectangle.Triggers>
+        </Rectangle>
+        <Border
+          Margin="22"
+          BorderBrush="#BFFFFFFF"
+          BorderThickness="1"
+          CornerRadius="22"
+          IsHitTestVisible="False"
+          Opacity="0.86"
+        />
+        <StackPanel
+          Width="520"
+          MaxWidth="520"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Orientation="Vertical"
+        >
+          <TextBlock
+            x:Name="ManagementEntryTransitionTitleText"
+            HorizontalAlignment="Center"
+            Text="欢迎回来"
+            FontSize="34"
+            FontWeight="SemiBold"
+            Foreground="{DynamicResource PrimaryTextBrush}"
+            TextAlignment="Center"
+            TextWrapping="NoWrap"
+          />
+          <TextBlock
+            x:Name="ManagementEntryTransitionSubtitleText"
+            Margin="0,14,0,0"
+            HorizontalAlignment="Center"
+            Text="正在打开管理界面"
+            FontSize="15"
+            Foreground="{DynamicResource SecondaryTextBrush}"
+            TextAlignment="Center"
+            TextWrapping="NoWrap"
+          />
+          <TextBlock
+            x:Name="ManagementEntryTransitionDetailText"
+            Margin="0,8,0,0"
+            HorizontalAlignment="Center"
+            FontSize="12"
+            Foreground="{DynamicResource SecondaryTextBrush}"
+            Opacity="0.74"
+            Text="正在接入本地服务"
+            TextAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            TextWrapping="NoWrap"
+          />
+          <Border
+            Width="112"
+            Height="3"
+            Margin="0,28,0,0"
+            HorizontalAlignment="Center"
+            Background="#220F766E"
+            ClipToBounds="True"
+            CornerRadius="2"
+          >
+            <Rectangle
+              Width="40"
+              Fill="{DynamicResource AccentBrush}"
+              Opacity="0.72"
+              RadiusX="2"
+              RadiusY="2"
+            >
+              <Rectangle.RenderTransform>
+                <TranslateTransform X="-44" />
+              </Rectangle.RenderTransform>
+              <Rectangle.Triggers>
+                <EventTrigger RoutedEvent="Loaded">
+                  <BeginStoryboard>
+                    <Storyboard RepeatBehavior="Forever">
+                      <DoubleAnimation
+                        Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                        From="-44"
+                        To="116"
+                        Duration="0:0:1.45"
+                      >
+                        <DoubleAnimation.EasingFunction>
+                          <SineEase EasingMode="EaseInOut" />
+                        </DoubleAnimation.EasingFunction>
+                      </DoubleAnimation>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </EventTrigger>
+              </Rectangle.Triggers>
+            </Rectangle>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Popup>
+
     <Grid
       x:Name="UpgradeNoticePanel"
       Grid.Row="1"

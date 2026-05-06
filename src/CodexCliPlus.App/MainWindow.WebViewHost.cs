@@ -75,10 +75,20 @@ public partial class MainWindow
         _isInitializing = true;
         _shellConnectionStatus = "connecting";
         UpdateShellConnectionPresentation();
-        ShowPreparationStep(10, "正在准备本地目录。", StartupState.Preparing);
+        var useManagementEntryTransition = ShouldUseManagementEntryTransition();
 
         try
         {
+            if (useManagementEntryTransition)
+            {
+                await BeginManagementEntryTransitionAsync();
+                ShowPreparationStep(10, "正在准备本地目录。", StartupState.Preparing);
+            }
+            else
+            {
+                ShowPreparationStep(10, "正在准备本地目录。", StartupState.Preparing);
+            }
+
             await _pathService.EnsureCreatedAsync();
             _changeBroadcastService.Start();
             MarkStartupPhase("paths-ready");
@@ -122,10 +132,27 @@ public partial class MainWindow
             UpdateShellConnectionPresentation();
 
             ShowPreparationStep(95, "正在打开管理界面。", StartupState.LoadingManagement);
-            await EnsureWebViewAsync(bundle, payload);
-            MarkStartupPhase("webview-navigation-started");
+            if (useManagementEntryTransition)
+            {
+                PrepareManagementWebViewForTransitionNavigation();
+            }
+
+            await EnsureWebViewAsync(
+                bundle,
+                payload,
+                waitForNavigation: useManagementEntryTransition
+            );
             await EnsureMinimumPreparationDisplayAsync();
-            ShowWebView();
+            if (useManagementEntryTransition)
+            {
+                await DispatchManagementWebViewResizeAsync();
+                await CompleteManagementEntryTransitionAsync();
+            }
+            else
+            {
+                ShowWebView();
+            }
+
             MarkStartupPhase("webview-visible");
             StartPostStartupPersistenceImport();
         }
@@ -155,11 +182,20 @@ public partial class MainWindow
         }
         finally
         {
+            if (useManagementEntryTransition && _isManagementEntryTransitionActive)
+            {
+                CloseManagementEntryTransitionImmediately();
+            }
+
             _isInitializing = false;
         }
     }
 
-    private async Task EnsureWebViewAsync(WebUiBundleInfo bundle, DesktopBootstrapPayload payload)
+    private async Task EnsureWebViewAsync(
+        WebUiBundleInfo bundle,
+        DesktopBootstrapPayload payload,
+        bool waitForNavigation
+    )
     {
         if (!_webViewConfigured)
         {
@@ -178,7 +214,36 @@ public partial class MainWindow
         }
 
         await UpdateBootstrapScriptAsync(payload);
+        await NavigateManagementWebViewAsync(waitForNavigation);
+    }
+
+    private async Task NavigateManagementWebViewAsync(bool waitForNavigation)
+    {
+        if (!waitForNavigation)
+        {
+            ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+            MarkStartupPhase("webview-navigation-started");
+            return;
+        }
+
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        _webViewNavigationCompletion = completion;
         ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+        MarkStartupPhase("webview-navigation-started");
+
+        try
+        {
+            await completion.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        finally
+        {
+            if (ReferenceEquals(_webViewNavigationCompletion, completion))
+            {
+                _webViewNavigationCompletion = null;
+            }
+        }
     }
 
     private async Task<CoreWebView2Environment?> CreateWebViewEnvironmentAsync()
@@ -296,6 +361,24 @@ public partial class MainWindow
         MarkStartupPhase(
             e.IsSuccess ? "webview-navigation-completed" : "webview-navigation-failed"
         );
+
+        var completion = _webViewNavigationCompletion;
+        if (completion is null)
+        {
+            return;
+        }
+
+        _webViewNavigationCompletion = null;
+        if (e.IsSuccess)
+        {
+            completion.TrySetResult(true);
+        }
+        else
+        {
+            completion.TrySetException(
+                new InvalidOperationException($"管理界面导航失败：{e.WebErrorStatus}")
+            );
+        }
     }
 
     private void CoreWebView2_NewWindowRequested(

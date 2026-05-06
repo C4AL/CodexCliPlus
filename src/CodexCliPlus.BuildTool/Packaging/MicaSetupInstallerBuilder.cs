@@ -462,10 +462,14 @@ public static class MicaSetupInstallerBuilder
                 System.Globalization.CultureInfo.InvariantCulture
             ),
             ["__WEBVIEW2_BOOTSTRAPPER_FILE_NAME__"] = ToCSharpString(
-                WebView2RuntimeAssets.BootstrapperFileName
+                packageKind == InstallerPackageKind.Online
+                    ? WebView2RuntimeAssets.BootstrapperFileName
+                    : string.Empty
             ),
             ["__WEBVIEW2_BOOTSTRAPPER_URL__"] = ToCSharpString(
-                WebView2RuntimeAssets.BootstrapperUrl
+                packageKind == InstallerPackageKind.Online
+                    ? WebView2RuntimeAssets.BootstrapperUrl
+                    : string.Empty
             ),
             ["__WEBVIEW2_STANDALONE_FILE_NAME__"] = ToCSharpString(
                 WebView2RuntimeAssets.StandaloneX64FileName

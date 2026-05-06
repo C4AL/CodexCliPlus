@@ -99,7 +99,7 @@ public sealed class InstallerPackagingTests : IDisposable
                 Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "sync.json")
             )
         );
-        Assert.True(
+        Assert.False(
             File.Exists(
                 Path.Combine(
                     stageRoot,
@@ -169,16 +169,11 @@ public sealed class InstallerPackagingTests : IDisposable
             dependencyPrecheck.GetProperty("webView2").GetProperty("bundledFirst").GetBoolean()
         );
         Assert.Equal(
-            "online-bootstrapper-then-bundled-standalone",
+            "bundled-standalone-only",
             dependencyPrecheck.GetProperty("webView2").GetProperty("installStrategy").GetString()
         );
-        Assert.Equal(
-            WebView2RuntimeAssets.BootstrapperFileName,
-            dependencyPrecheck
-                .GetProperty("webView2")
-                .GetProperty("onlineBootstrapper")
-                .GetProperty("fileName")
-                .GetString()
+        Assert.False(
+            dependencyPrecheck.GetProperty("webView2").TryGetProperty("onlineBootstrapper", out _)
         );
         Assert.Equal(
             WebView2RuntimeAssets.StandaloneX64FileName,
@@ -298,6 +293,11 @@ public sealed class InstallerPackagingTests : IDisposable
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "private const string WebView2BootstrapperFileName = \"\";",
+            installViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
             WebView2RuntimeAssets.BootstrapperFileName,
             installViewModel,
             StringComparison.Ordinal

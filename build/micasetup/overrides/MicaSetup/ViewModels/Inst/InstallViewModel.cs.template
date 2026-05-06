@@ -281,11 +281,14 @@ public partial class InstallViewModel : ObservableObject
             return true;
         }
 
-        string webView2Root = Path.Combine(Option.Current.InstallLocation, "packaging", "dependencies", "webview2");
-        string bootstrapperPath = IsOnlinePayloadMode
-            ? DownloadCodexCliPlusWebView2Bootstrapper()
-            : Path.Combine(webView2Root, WebView2BootstrapperFileName);
-        string standalonePath = Path.Combine(webView2Root, WebView2StandaloneFileName);
+        return IsOnlinePayloadMode
+            ? EnsureCodexCliPlusWebView2RuntimeInstalledFromOnlineBootstrapper()
+            : EnsureCodexCliPlusWebView2RuntimeInstalledFromBundledStandalone();
+    }
+
+    private bool EnsureCodexCliPlusWebView2RuntimeInstalledFromOnlineBootstrapper()
+    {
+        string bootstrapperPath = DownloadCodexCliPlusWebView2Bootstrapper();
 
         InstallInfo = "正在安装 WebView2 运行时（在线）";
         int? bootstrapperExitCode = RunCodexCliPlusWebView2Installer(bootstrapperPath, "/silent /install");
@@ -294,21 +297,32 @@ public partial class InstallViewModel : ObservableObject
             return true;
         }
 
-        int? standaloneExitCode = null;
-        if (!IsOnlinePayloadMode)
+        string reason = "无法安装 Microsoft Edge WebView2 Runtime。"
+            + $"在线安装退出码：{FormatCodexCliPlusExitCode(bootstrapperExitCode)}。"
+            + "请确认网络可用，或手动安装 WebView2 Runtime 后再启动 CodexCliPlus。";
+        return ReportCodexCliPlusWebView2InstallFailure(reason);
+    }
+
+    private bool EnsureCodexCliPlusWebView2RuntimeInstalledFromBundledStandalone()
+    {
+        string webView2Root = Path.Combine(Option.Current.InstallLocation, "packaging", "dependencies", "webview2");
+        string standalonePath = Path.Combine(webView2Root, WebView2StandaloneFileName);
+
+        InstallInfo = "正在安装 WebView2 运行时（离线）";
+        int? standaloneExitCode = RunCodexCliPlusWebView2Installer(standalonePath, "/silent /install");
+        if (WaitForCodexCliPlusWebView2Runtime())
         {
-            InstallInfo = "正在安装 WebView2 运行时（离线）";
-            standaloneExitCode = RunCodexCliPlusWebView2Installer(standalonePath, "/silent /install");
-            if (WaitForCodexCliPlusWebView2Runtime())
-            {
-                return true;
-            }
+            return true;
         }
 
         string reason = "无法安装 Microsoft Edge WebView2 Runtime。"
-            + $"在线安装退出码：{FormatCodexCliPlusExitCode(bootstrapperExitCode)}；"
-            + (IsOnlinePayloadMode ? string.Empty : $"离线安装退出码：{FormatCodexCliPlusExitCode(standaloneExitCode)}。")
+            + $"离线安装退出码：{FormatCodexCliPlusExitCode(standaloneExitCode)}。"
             + "请确认安装包完整，或手动安装 WebView2 Runtime 后再启动 CodexCliPlus。";
+        return ReportCodexCliPlusWebView2InstallFailure(reason);
+    }
+
+    private bool ReportCodexCliPlusWebView2InstallFailure(string reason)
+    {
         Logger.Error(reason);
         InstallInfo = "WebView2 运行时安装失败";
         ApplicationDispatcherHelper.Invoke(() =>

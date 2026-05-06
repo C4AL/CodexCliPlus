@@ -836,6 +836,11 @@ public sealed class NavigationShellTests
             "x:Key=\"StartupFlowPasswordBoxStyle\"",
             "  <Style x:Key=\"StartupPrimaryButtonStyle\""
         );
+        var shellInlineIconButtonStyle = SliceBetween(
+            shellResources,
+            "x:Key=\"ShellInlineIconButtonStyle\"",
+            "  <Style x:Key=\"ShellBrandDockButtonStyle\""
+        );
         var startupProtocolLinkTextStyle = SliceBetween(
             startupFlowResources,
             "x:Key=\"StartupProtocolLinkTextStyle\"",
@@ -1154,6 +1159,17 @@ public sealed class NavigationShellTests
             shellResources,
             StringComparison.Ordinal
         );
+        Assert.Contains("IsMouseOver", shellInlineIconButtonStyle, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "IsKeyboardFocusWithin",
+            shellInlineIconButtonStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"BorderBrush\" Value=\"Transparent\" />",
+            shellInlineIconButtonStyle,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "Style=\"{StaticResource StartupFlowKeyDisplayStyle}\"",
             firstRunSecurityKeyRegionXaml,
@@ -1258,17 +1274,63 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("VerticalAlignment=\"Stretch\"", startupFlowPasswordBoxStyle, StringComparison.Ordinal);
+        Assert.Contains(
+            "HorizontalAlignment=\"{TemplateBinding HorizontalContentAlignment}\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "HorizontalAlignment=\"Stretch\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
         Assert.Contains("<Grid Grid.Row=\"0\" Height=\"78\">", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("Width=\"64\"", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("Height=\"64\"", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("Margin=\"0,12,0,0\"", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("<StackPanel Grid.Row=\"2\" Margin=\"0,20,0,0\">", loginPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("Height=\"40\"", loginPasswordBoxXaml, StringComparison.Ordinal);
         Assert.Contains(
+            "Style=\"{StaticResource StartupFlowPasswordBoxStyle}\"",
+            loginPasswordBoxXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "HorizontalAlignment=\"Stretch\"",
+            loginPasswordBoxXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("Height=\"40\"", loginPasswordBoxXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
             "VerticalContentAlignment=\"Center\"",
             loginPasswordBoxXaml,
             StringComparison.Ordinal
         );
+        Assert.DoesNotContain(
+            "HorizontalContentAlignment=\"Center\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"Height\" Value=\"40\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"Padding\" Value=\"12,0,5,0\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"HorizontalContentAlignment\" Value=\"Left\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"VerticalContentAlignment\" Value=\"Center\" />",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("CornerRadius=\"6\"", startupFlowPasswordBoxStyle, StringComparison.Ordinal);
         Assert.Contains("MinHeight=\"34\"", loginErrorTextXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("              Height=\"34\"", loginErrorTextXaml, StringComparison.Ordinal);
         Assert.Contains("<Setter Property=\"TextWrapping\" Value=\"Wrap\" />", startupFlowErrorTextStyle, StringComparison.Ordinal);
@@ -1316,8 +1378,14 @@ public sealed class NavigationShellTests
             source,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "FirstRunCopyKeyButton.Focus()",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Keyboard.ClearFocus();", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "FocusManager.SetFocusedElement(this, FirstRunSecurityKeyDisplay);",
             source,
             StringComparison.Ordinal
         );

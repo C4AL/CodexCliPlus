@@ -351,14 +351,16 @@ public partial class MainWindow
             : normalized.TrimEnd('。');
     }
 
-    private void PrepareManagementWebViewForTransitionNavigation()
+    private async Task PrepareManagementWebViewForStableNavigationAsync()
     {
-        StartupFlow.Visibility = Visibility.Collapsed;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementContentHost.Visibility = Visibility.Visible;
-        ManagementWebView.Visibility = Visibility.Visible;
+        ManagementWebView.Visibility = Visibility.Hidden;
         SetNavigationDockPopupOpen(false);
+        ManagementContentHost.UpdateLayout();
+        ManagementWebView.UpdateLayout();
+        await Dispatcher.Yield(DispatcherPriority.Render);
         ManagementContentHost.UpdateLayout();
         ManagementWebView.UpdateLayout();
     }

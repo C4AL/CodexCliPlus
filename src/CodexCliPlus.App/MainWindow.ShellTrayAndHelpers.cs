@@ -64,6 +64,16 @@ public partial class MainWindow
 
     private void RestoreFromTray()
     {
+        RestoreMainWindowToForeground();
+    }
+
+    internal void RestoreFromExternalActivation()
+    {
+        RestoreMainWindowToForeground();
+    }
+
+    private void RestoreMainWindowToForeground()
+    {
         ShowInTaskbar = true;
         Show();
         if (WindowState == WindowState.Minimized)
@@ -72,6 +82,10 @@ public partial class MainWindow
         }
 
         Activate();
+        var wasTopmost = Topmost;
+        Topmost = true;
+        Topmost = wasTopmost;
+        Focus();
         UpdateSettingsOverlayPopupVisibility();
         UpdateShellNotificationPopupVisibility();
     }

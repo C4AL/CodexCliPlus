@@ -349,7 +349,7 @@ public sealed class MicaSetupConfig
 
     public bool IsEnvironmentVariable { get; init; }
 
-    public bool IsUseTempPathFork { get; init; } = true;
+    public bool IsUseTempPathFork { get; init; }
 
     public string OverlayInstallRemoveExt { get; init; } = "exe,dll,pdb,json,config";
 

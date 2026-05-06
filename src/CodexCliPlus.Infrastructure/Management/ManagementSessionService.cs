@@ -1,4 +1,5 @@
 using CodexCliPlus.Core.Abstractions.Management;
+using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
 
@@ -22,8 +23,9 @@ public sealed class ManagementSessionService : IManagementSessionService
         CancellationToken cancellationToken = default
     )
     {
-        var runtime = _backendProcessManager.CurrentStatus.Runtime;
-        if (runtime is not null)
+        var status = _backendProcessManager.CurrentStatus;
+        var runtime = status.Runtime;
+        if (runtime is not null && status.State == BackendStateKind.Running)
         {
             return new ManagementConnectionInfo
             {

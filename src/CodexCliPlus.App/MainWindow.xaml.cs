@@ -94,7 +94,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const double NavigationDockPanelIconsWidth = 58;
     private const double NavigationDockPanelExpandedWidth = 188;
     private const double NavigationDockPanelRestingHeight = 132;
-    private const double NavigationDockPanelOpenHeight = 392;
     private const double NavigationDockPanelRestingOffset = -8;
     private const double NavigationDockPanelOpenOffset = -18;
     private const double NavigationDockLabelExpandedWidth = 112;

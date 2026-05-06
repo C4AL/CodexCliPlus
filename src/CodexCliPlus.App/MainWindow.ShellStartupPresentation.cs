@@ -793,6 +793,7 @@ public partial class MainWindow
         }
 
         RefreshDockPopupPlacement(ShellNavigationDockPopup);
+        UpdateNavigationDockPanelHeightForCurrentState();
     }
 
     private void RefreshShellBrandDockPopupPlacement()

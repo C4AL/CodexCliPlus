@@ -305,7 +305,27 @@ public sealed class NavigationShellTests
         Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockEdgeIntentWidth = 18", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockPanelOpenOffset", hostSource, StringComparison.Ordinal);
-        Assert.Contains("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ResolveNavigationDockPanelMeasuredOpenHeight",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ResolveVisibleNavigationItemsHeight", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShellNavigationItemsHost.Children.OfType<WpfButton>()",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("button.Measure(", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ManagementContentHost.ActualHeight", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ShellNavigationPanel.Padding.Top", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Height=\"392\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ShellNavigationItemsHost\" VerticalAlignment=\"Top\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("ApplyNavigationDockLabelState", hostSource, StringComparison.Ordinal);
         Assert.Contains(
             "button.HorizontalContentAlignment = System.Windows.HorizontalAlignment.Center",

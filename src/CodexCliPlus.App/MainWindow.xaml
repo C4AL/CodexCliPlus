@@ -486,6 +486,8 @@
         x:Name="ManagementWebView"
         Panel.ZIndex="0"
         AutomationProperties.AutomationId="ManagementWebView"
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Stretch"
         Visibility="Collapsed"
       />
 

@@ -85,6 +85,57 @@ public sealed class ManagementDesignSystemTests
     }
 
     [Fact]
+    public void ManagementHomeAndTransitionLayersPreserveFullContentWidth()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var sourceRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "source",
+            "src"
+        );
+        var dashboardStyles = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "DashboardPage.module.scss"),
+            Encoding.UTF8
+        );
+        var pageTransitionStyles = File.ReadAllText(
+            Path.Combine(sourceRoot, "components", "common", "PageTransition.scss"),
+            Encoding.UTF8
+        );
+        var mainWindowXaml = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "MainWindow.xaml"),
+            Encoding.UTF8
+        );
+
+        var dashboardBlock = SliceBetween(dashboardStyles, ".dashboard {", ".backgroundOrbs");
+        var transitionBlock = SliceBetween(
+            pageTransitionStyles,
+            ".page-transition {",
+            "  &__layer {"
+        );
+        var transitionLayerBlock = SliceBetween(
+            pageTransitionStyles,
+            "  &__layer {",
+            "    // During animation"
+        );
+        var webViewBlock = SliceBetween(mainWindowXaml, "<wv2:WebView2", "      />");
+
+        Assert.Contains("width: 100%;", dashboardBlock, StringComparison.Ordinal);
+        Assert.Contains("max-width: 1000px;", dashboardBlock, StringComparison.Ordinal);
+        Assert.Contains("min-width: 0;", dashboardBlock, StringComparison.Ordinal);
+        Assert.Contains("margin: 0 auto;", dashboardBlock, StringComparison.Ordinal);
+        Assert.Contains("width: 100%;", transitionBlock, StringComparison.Ordinal);
+        Assert.Contains("min-width: 0;", transitionBlock, StringComparison.Ordinal);
+        Assert.Contains("width: 100%;", transitionLayerBlock, StringComparison.Ordinal);
+        Assert.Contains("min-width: 0;", transitionLayerBlock, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManagementWebView\"", webViewBlock, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Stretch\"", webViewBlock, StringComparison.Ordinal);
+        Assert.Contains("VerticalAlignment=\"Stretch\"", webViewBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void LegacyNativeManagementDesignSystemIsNotReferencedByRuntimeShell()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -188,6 +239,15 @@ public sealed class ManagementDesignSystemTests
         }
 
         throw new InvalidOperationException("Repository root not found.");
+    }
+
+    private static string SliceBetween(string source, string start, string end)
+    {
+        var startIndex = source.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(startIndex >= 0, $"Expected to find '{start}'.");
+        var endIndex = source.IndexOf(end, startIndex, StringComparison.Ordinal);
+        Assert.True(endIndex >= 0, $"Expected to find '{end}'.");
+        return source[startIndex..endIndex];
     }
 
     private static string ReadBuildToolSources(string repositoryRoot)

@@ -233,13 +233,91 @@ public partial class MainWindow
         button.Opacity = active ? 1 : 0.72;
     }
 
-    private void SetBrushResource(string key, string color)
+    private void SetBrushResource(string key, string color, int transitionMilliseconds = 0)
     {
         if (WpfColorConverter.ConvertFromString(color) is WpfColor parsed)
         {
-            Resources[key] = new SolidColorBrush(parsed);
-            System.Windows.Application.Current.Resources[key] = new SolidColorBrush(parsed);
+            if (!TryUpdateBrushResource(Resources, key, parsed, transitionMilliseconds))
+            {
+                Resources[key] = new SolidColorBrush(parsed);
+            }
+
+            if (
+                System.Windows.Application.Current is { } application
+                && !TryUpdateBrushResource(
+                    application.Resources,
+                    key,
+                    parsed,
+                    transitionMilliseconds
+                )
+            )
+            {
+                application.Resources[key] = new SolidColorBrush(parsed);
+            }
         }
+    }
+
+    private static bool TryUpdateBrushResource(
+        ResourceDictionary resources,
+        string key,
+        WpfColor color,
+        int transitionMilliseconds
+    )
+    {
+        if (resources.Contains(key))
+        {
+            UpdateBrushResourceValue(resources, key, color, transitionMilliseconds);
+            return true;
+        }
+
+        foreach (var mergedDictionary in resources.MergedDictionaries)
+        {
+            if (
+                TryUpdateBrushResource(
+                    mergedDictionary,
+                    key,
+                    color,
+                    transitionMilliseconds
+                )
+            )
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void UpdateBrushResourceValue(
+        ResourceDictionary resources,
+        string key,
+        WpfColor color,
+        int transitionMilliseconds
+    )
+    {
+        if (resources[key] is not SolidColorBrush brush || brush.IsFrozen)
+        {
+            resources[key] = new SolidColorBrush(color);
+            return;
+        }
+
+        brush.BeginAnimation(SolidColorBrush.ColorProperty, null);
+        if (transitionMilliseconds <= 0)
+        {
+            brush.Color = color;
+            return;
+        }
+
+        brush.BeginAnimation(
+            SolidColorBrush.ColorProperty,
+            new ColorAnimation(
+                color,
+                new Duration(TimeSpan.FromMilliseconds(transitionMilliseconds))
+            )
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            }
+        );
     }
 
     private static void OpenExternal(string url)

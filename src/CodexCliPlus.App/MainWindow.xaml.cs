@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -98,6 +99,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private const double NavigationDockPanelOpenOffset = -18;
     private const double NavigationDockLabelExpandedWidth = 112;
     private const double NavigationDockMeasuredLabelWidthLimit = 118;
+    private const int ShellThemeTransitionMilliseconds = 180;
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         300
     );
@@ -166,10 +168,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private bool _isExitRequested;
+    private long _shellThemePersistenceVersion;
     private Task? _applicationExitTask;
     private TaskCompletionSource<bool>? _webViewNavigationCompletion;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
     private CancellationTokenSource? _postStartupPersistenceCts;
+    private readonly SemaphoreSlim _shellThemePersistenceLock = new(1, 1);
     private readonly object _localDependencySnapshotLock = new();
     private Task<LocalDependencySnapshot>? _localDependencySnapshotTask;
     private DateTimeOffset _lastUsageSnapshotSyncAt = DateTimeOffset.MinValue;

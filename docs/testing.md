@@ -59,19 +59,11 @@ dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj --
 dotnet run --project src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj -- write-checksums
 ```
 
-Release 签名链路额外要求：
-
-```powershell
-$env:CODEXCLIPLUS_SIGNING_REQUIRED = "true"
-$env:WINDOWS_CODESIGN_PFX_BASE64 = "<base64-pfx>"
-$env:WINDOWS_CODESIGN_PFX_PASSWORD = "<pfx-password>"
-$env:WINDOWS_CODESIGN_TIMESTAMP_URL = "http://timestamp.digicert.com"
-```
+Release 不依赖发布代码签名证书。包验证只检查安装器、更新包结构和关键可执行文件有效性；公开发布资产完整性由 SHA-256 与 GitHub artifact attestation 覆盖。
 
 包结构至少应包含：
 
 - `CodexCliPlus.exe`
-- `CodexCliPlus.exe.signature.json`（强制签名发布）
 - `assets/backend/windows-x64/ccp-core.exe`
 - `assets/webui/upstream/dist/index.html`
 - `assets/webui/upstream/sync.json`

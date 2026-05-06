@@ -26,11 +26,6 @@ jobs:
   release:
     name: build-release
     runs-on: windows-latest
-    env:
-      CODEXCLIPLUS_SIGNING_REQUIRED: "true"
-      WINDOWS_CODESIGN_PFX_BASE64: ${{ secrets.WINDOWS_CODESIGN_PFX_BASE64 }}
-      WINDOWS_CODESIGN_PFX_PASSWORD: ${{ secrets.WINDOWS_CODESIGN_PFX_PASSWORD }}
-      WINDOWS_CODESIGN_TIMESTAMP_URL: ${{ vars.WINDOWS_CODESIGN_TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
 
     steps:
       - name: Checkout

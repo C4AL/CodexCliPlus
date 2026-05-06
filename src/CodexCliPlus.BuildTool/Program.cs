@@ -41,8 +41,7 @@ public static class BuildToolApp
         string[] args,
         TextWriter? standardOutput = null,
         TextWriter? standardError = null,
-        IProcessRunner? processRunner = null,
-        ISigningService? signingService = null
+        IProcessRunner? processRunner = null
     )
     {
         standardOutput ??= Console.Out;
@@ -73,9 +72,8 @@ public static class BuildToolApp
         try
         {
             processRunner ??= new ProcessRunner();
-            signingService ??= SigningServiceFactory.CreateFromEnvironment();
 
-            var context = new BuildContext(options, logger, processRunner, signingService);
+            var context = new BuildContext(options, logger, processRunner);
             logger.Info($"CodexCliPlus.BuildTool {options.Command}");
             logger.Info($"Repository: {options.RepositoryRoot}");
             logger.Info($"Output: {options.OutputRoot}");
@@ -345,8 +343,7 @@ public sealed record BuildOptions(
 public sealed class BuildContext(
     BuildOptions options,
     BuildLogger logger,
-    IProcessRunner processRunner,
-    ISigningService signingService
+    IProcessRunner processRunner
 )
 {
     public BuildOptions Options { get; } = options;
@@ -354,8 +351,6 @@ public sealed class BuildContext(
     public BuildLogger Logger { get; } = logger;
 
     public IProcessRunner ProcessRunner { get; } = processRunner;
-
-    public ISigningService SigningService { get; } = signingService;
 
     public string AssetsRoot => Path.Combine(Options.OutputRoot, "assets");
 
@@ -546,30 +541,5 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         return process.ExitCode;
-    }
-}
-
-public interface ISigningService
-{
-    Task SignAsync(
-        string artifactPath,
-        BuildContext context,
-        CancellationToken cancellationToken = default
-    );
-}
-
-public sealed class NoOpSigningService : ISigningService
-{
-    public async Task SignAsync(
-        string artifactPath,
-        BuildContext context,
-        CancellationToken cancellationToken = default
-    )
-    {
-        await ArtifactSignatureMetadata.WriteUnsignedAsync(
-            artifactPath,
-            "No signing certificate configured for this local build.",
-            cancellationToken
-        );
     }
 }

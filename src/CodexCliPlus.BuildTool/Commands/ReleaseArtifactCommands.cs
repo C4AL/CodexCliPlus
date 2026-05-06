@@ -35,10 +35,6 @@ public static class ReleaseArtifactCommands
         {
             var sha256 = await ComputeSha256Async(file);
             var relativePath = ToRepositoryRelativePath(context, file);
-            var signature = await ArtifactSignatureMetadata.ReadForArtifactAsync(file);
-            var signatureMetadataPath = signature is null
-                ? null
-                : ToRepositoryRelativePath(context, signature.MetadataPath);
             checksumLines.Add($"{sha256}  {relativePath}");
             artifacts.Add(
                 new
@@ -48,10 +44,7 @@ public static class ReleaseArtifactCommands
                     size = new FileInfo(file).Length,
                     sha256,
                     purpose = GetPublicArtifactPurpose(context, file),
-                    signed = signature?.Metadata.HasSignature ?? false,
-                    signatureKind = signature?.Metadata.SignatureKind ?? "none",
-                    signatureMetadataPath,
-                    attestationExpected = signature?.Metadata.AttestationExpected ?? true,
+                    attestationExpected = true,
                 }
             );
         }
@@ -71,9 +64,6 @@ public static class ReleaseArtifactCommands
             configuration = context.Options.Configuration,
             packages = context.Options.ReleasePackages.ToManifestValues(),
             generatedAtUtc = DateTimeOffset.UtcNow,
-            signing = SigningOptions.FromEnvironment().SigningRequired
-                ? "required"
-                : "unsigned-or-optional",
             attestation = new { provider = "github-artifact-attestation", expected = true },
             artifacts,
         };

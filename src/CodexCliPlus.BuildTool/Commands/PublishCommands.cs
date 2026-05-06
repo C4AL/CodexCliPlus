@@ -48,6 +48,7 @@ public static class PublishCommands
             if (cache.Hit)
             {
                 SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+                DeletePublishLegacySidecars(context);
                 return 0;
             }
         }
@@ -113,10 +114,7 @@ public static class PublishCommands
             return updaterExitCode;
         }
 
-        await context.SigningService.SignAsync(
-            Path.Combine(context.PublishRoot, AppConstants.ExecutableName),
-            context
-        );
+        DeletePublishLegacySidecars(context);
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
         if (context.Options.Incremental)
@@ -202,11 +200,20 @@ public static class PublishCommands
             return exitCode;
         }
 
-        await context.SigningService.SignAsync(
-            Path.Combine(updaterOutput, "CodexCliPlus.Updater.exe"),
-            context
+        ArtifactSidecarCleanup.DeleteLegacySidecars(
+            Path.Combine(updaterOutput, "CodexCliPlus.Updater.exe")
         );
         return 0;
+    }
+
+    private static void DeletePublishLegacySidecars(BuildContext context)
+    {
+        ArtifactSidecarCleanup.DeleteLegacySidecars(
+            Path.Combine(context.PublishRoot, AppConstants.ExecutableName)
+        );
+        ArtifactSidecarCleanup.DeleteLegacySidecars(
+            Path.Combine(context.PublishRoot, "updater", "CodexCliPlus.Updater.exe")
+        );
     }
 
     private static void CopyBackendLicenseDocument(BuildContext context)

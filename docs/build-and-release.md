@@ -44,18 +44,12 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 - `--version <version>`，默认 `1.0.0`
 - `--repo-root <path>`，默认自动查找包含 `CodexCliPlus.sln` 的仓库根目录
 - `--output <path>`，默认 `artifacts/buildtool`
-- `--keep-package-staging true|false`，默认 `false`；安装器或更新包成功生成并签名后自动删除 `installer/<rid>/*/stage` 中间目录
+- `--keep-package-staging true|false`，默认 `false`；安装器或更新包成功生成后自动删除 `installer/<rid>/*/stage` 中间目录
 - `--artifact-retention <count>`，默认 `1`；仅当输出根是仓库内 `artifacts/buildtool*` 时生效，保留当前输出根并按修改时间保留最多 `count - 1` 个旧兄弟输出根，`0` 表示关闭修剪
 
 ## 发布流程
 
-正式 GitHub Release 强制启用 Windows Authenticode 签名。Release workflow 需要以下配置：
-
-- `WINDOWS_CODESIGN_PFX_BASE64`：代码签名 PFX 的 Base64 内容。
-- `WINDOWS_CODESIGN_PFX_PASSWORD`：PFX 密码。
-- `WINDOWS_CODESIGN_TIMESTAMP_URL`：可选 repository variable，默认 `http://timestamp.digicert.com`。
-
-本地未配置证书时，BuildTool 会写入 `.unsigned.json` 侧车文件；Release workflow 设置 `CODEXCLIPLUS_SIGNING_REQUIRED=true`，缺少签名密钥会直接失败。
+正式 GitHub Release 不依赖发布代码签名证书。发布产物使用 `SHA256SUMS.txt`、`release-manifest.json` 和 GitHub artifact attestation 校验来源与完整性。
 
 ```powershell
 dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets --version <version>
@@ -70,7 +64,7 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 
 `build-webui` 会从 `resources/webui/upstream/source` 构建 WebUI，并把产物写入 `artifacts/buildtool/assets/webui/upstream`。`publish` 会校验后端资产、刷新 WebUI 生成产物，再执行桌面端 self-contained publish，并把后端、WebUI、许可证和发布清单复制到输出目录。
 
-`publish` 会签名桌面主程序；`package-offline-installer` 会签名安装器 exe；`package-update` 会生成更新包并写入签名或未签名侧车元数据。安装器和更新包命令默认会清理临时 staging，调试 MicaSetup 渲染产物时可追加 `--keep-package-staging true`。zip、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录 `signed`、`signatureKind`、`signatureMetadataPath` 和 `attestationExpected`。
+`publish` 会生成桌面主程序和更新器；`package-offline-installer` 会生成安装器 exe；`package-update` 会生成更新包。安装器和更新包命令默认会清理临时 staging，调试 MicaSetup 渲染产物时可追加 `--keep-package-staging true`。公开发布资产、SBOM、manifest 和 checksum 文件由 GitHub artifact attestation 覆盖，`release-manifest.json` 会记录路径、大小、SHA-256、用途和 attestation 预期。
 
 ## 输出结构
 
@@ -83,7 +77,6 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 - `packages/CodexCliPlus.Setup.Offline.<version>.exe`
 - `packages/CodexCliPlus.Setup.Offline.<version>.<rid>.zip`
 - `packages/CodexCliPlus.Update.<version>.<rid>.zip`
-- `packages/*.signature.json` 或 `packages/*.unsigned.json`
 - `SHA256SUMS.txt`
 - `release-manifest.json`
 
@@ -91,14 +84,14 @@ dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj --
 
 ## 发布校验
 
-下载 Release 资产后，先用 `SHA256SUMS.txt` 校验字节，再核对 `release-manifest.json` 中的签名和 attestation 状态：
+下载 Release 资产后，先用 `SHA256SUMS.txt` 校验字节，再核对 `release-manifest.json` 中的路径、大小、SHA-256、用途和 attestation 预期：
 
 ```powershell
 Get-FileHash .\CodexCliPlus.Setup.Offline.<version>.exe -Algorithm SHA256
 gh attestation verify .\CodexCliPlus.Setup.Offline.<version>.exe --repo C4AL/CodexCliPlus
 ```
 
-安装器 exe 应包含 Authenticode 签名；非 PE 资产应有 GitHub artifact attestation。
+公开发布资产应能通过 GitHub artifact attestation 验证。
 
 ## 发布约束
 

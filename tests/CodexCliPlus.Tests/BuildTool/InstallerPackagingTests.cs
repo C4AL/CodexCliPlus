@@ -520,6 +520,12 @@ public sealed class InstallerPackagingTests : IDisposable
         var repositoryRoot = CreateRepositoryRoot();
         var outputRoot = Path.Combine(_rootDirectory, "out-update");
         CreatePublishRoot(outputRoot);
+        var updatePackagePath = Path.Combine(
+            outputRoot,
+            "packages",
+            "CodexCliPlus.Update.9.9.9.win-x64.zip"
+        );
+        WriteLegacySidecars(updatePackagePath);
 
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -529,25 +535,15 @@ public sealed class InstallerPackagingTests : IDisposable
         var exitCode = await PackageCommands.PackageUpdateAsync(context);
 
         Assert.Equal(0, exitCode);
-        Assert.True(
-            File.Exists(
-                Path.Combine(outputRoot, "packages", "CodexCliPlus.Update.9.9.9.win-x64.zip")
-            )
-        );
+        Assert.True(File.Exists(updatePackagePath));
         Assert.False(
             Directory.Exists(
                 Path.Combine(outputRoot, "installer", "win-x64", "update-package", "stage")
             )
         );
         Assert.Contains("removed package staging", output.ToString(), StringComparison.Ordinal);
-        Assert.True(
-            File.Exists(
-                Path.Combine(
-                    outputRoot,
-                    "packages",
-                    "CodexCliPlus.Update.9.9.9.win-x64.zip.unsigned.json"
-                )
-            )
+        AssertLegacySidecarsDoNotExist(
+            updatePackagePath
         );
         Assert.Equal(string.Empty, error.ToString());
     }
@@ -582,9 +578,21 @@ public sealed class InstallerPackagingTests : IDisposable
                 OnlinePayloadBaseUrl: onlinePayloadBaseUrl
             ),
             new BuildLogger(output, error),
-            runner,
-            new NoOpSigningService()
+            runner
         );
+    }
+
+    private static void AssertLegacySidecarsDoNotExist(string artifactPath)
+    {
+        Assert.False(File.Exists(artifactPath + ".signature" + ".json"));
+        Assert.False(File.Exists(artifactPath + ".unsigned" + ".json"));
+    }
+
+    private static void WriteLegacySidecars(string artifactPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(artifactPath)!);
+        File.WriteAllText(artifactPath + ".signature" + ".json", "{}");
+        File.WriteAllText(artifactPath + ".unsigned" + ".json", "{}");
     }
 
     private string CreateRepositoryRoot()

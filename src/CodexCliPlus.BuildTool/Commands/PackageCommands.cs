@@ -121,16 +121,10 @@ public static class PackageCommands
                 installerInputHash,
                 installerOutputPath
             );
-            var cacheHit = cache.Hit && HasSigningMetadata(installerOutputPath);
-            context.Logger.Info(
-                cacheHit
-                    ? $"{packageType} cache hit"
-                    : cache.Hit
-                        ? $"{packageType} signature metadata missing"
-                        : cache.Reason
-            );
-            if (cacheHit)
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
             {
+                ArtifactSidecarCleanup.DeleteLegacySidecars(installerOutputPath);
                 return 0;
             }
         }
@@ -246,7 +240,7 @@ public static class PackageCommands
             return buildExitCode;
         }
 
-        await context.SigningService.SignAsync(installerOutputPath, context);
+        ArtifactSidecarCleanup.DeleteLegacySidecars(installerOutputPath);
         if (context.Options.Incremental)
         {
             await IncrementalBuildCache.WriteFileAsync(
@@ -262,10 +256,6 @@ public static class PackageCommands
             installerOutputPath,
             Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath)),
             overwrite: true
-        );
-        CopySigningMetadataIfExists(
-            installerOutputPath,
-            Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath))
         );
 
         CleanupPackageStaging(context, stageRoot);
@@ -337,9 +327,6 @@ public static class PackageCommands
             runtime = context.Options.Runtime,
             createdAtUtc = DateTimeOffset.UtcNow,
             updateKind = "file-manifest-diff",
-            signing = SigningOptions.FromEnvironment().SigningRequired
-                ? "required"
-                : "optional-unsigned",
             files = entries,
         };
 
@@ -358,6 +345,7 @@ public static class PackageCommands
         {
             File.Delete(packagePath);
         }
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
 
         ZipFile.CreateFromDirectory(
             stageRoot,
@@ -365,7 +353,7 @@ public static class PackageCommands
             context.Options.Compression.ToCompressionLevel(),
             includeBaseDirectory: false
         );
-        await context.SigningService.SignAsync(packagePath, context);
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
         CleanupPackageStaging(context, stageRoot);
         context.Logger.Info($"update package: {packagePath}");
         return 0;
@@ -477,6 +465,7 @@ public static class PackageCommands
         {
             File.Delete(packagePath);
         }
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
 
         var manifest = new PackageManifest
         {
@@ -498,7 +487,7 @@ public static class PackageCommands
             context.Options.Compression.ToCompressionLevel(),
             includeBaseDirectory: false
         );
-        await context.SigningService.SignAsync(packagePath, context);
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
         context.Logger.Info($"{packageType} package: {packagePath}");
     }
 
@@ -507,34 +496,6 @@ public static class PackageCommands
         await using var stream = File.OpenRead(path);
         var hash = await SHA256.HashDataAsync(stream);
         return Convert.ToHexStringLower(hash);
-    }
-
-    private static void CopySigningMetadataIfExists(
-        string sourceArtifactPath,
-        string targetArtifactPath
-    )
-    {
-        foreach (
-            var metadataPath in new[]
-            {
-                ArtifactSignatureMetadata.GetSignaturePath(sourceArtifactPath),
-                ArtifactSignatureMetadata.GetUnsignedPath(sourceArtifactPath),
-            }
-        )
-        {
-            if (!File.Exists(metadataPath))
-            {
-                continue;
-            }
-
-            var targetMetadataPath = metadataPath.EndsWith(
-                ".signature.json",
-                StringComparison.OrdinalIgnoreCase
-            )
-                ? ArtifactSignatureMetadata.GetSignaturePath(targetArtifactPath)
-                : ArtifactSignatureMetadata.GetUnsignedPath(targetArtifactPath);
-            File.Copy(metadataPath, targetMetadataPath, overwrite: true);
-        }
     }
 
     private static void CleanInstallerStage(BuildContext context, string stageRoot)
@@ -560,10 +521,6 @@ public static class PackageCommands
         hasher.AddText("runtime", context.Options.Runtime);
         hasher.AddText("configuration", context.Options.Configuration);
         hasher.AddText("compression", context.Options.Compression.ToArgumentValue());
-        hasher.AddText(
-            "signing-required",
-            SigningOptions.FromEnvironment().SigningRequired ? "true" : "false"
-        );
         await hasher.AddDirectoryAsync("publish", context.PublishRoot);
         await hasher.AddDirectoryAsync(
             "micasetup-source",
@@ -610,12 +567,6 @@ public static class PackageCommands
         }
 
         return hasher.Finish();
-    }
-
-    private static bool HasSigningMetadata(string installerOutputPath)
-    {
-        return File.Exists(ArtifactSignatureMetadata.GetSignaturePath(installerOutputPath))
-            || File.Exists(ArtifactSignatureMetadata.GetUnsignedPath(installerOutputPath));
     }
 
     private static Task<int> CreateMicaPayloadArchiveAsync(

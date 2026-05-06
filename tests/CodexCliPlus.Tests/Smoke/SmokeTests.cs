@@ -416,11 +416,6 @@ public sealed class SmokeTests
         var installerName = $"CodexCliPlus.Setup.{moniker}.{version}.exe";
         var installerPath = Path.Combine(packageRoot, installerName);
         SmokeEnvironmentScope.CreatePeStub(installerPath);
-        await ArtifactSignatureMetadata.WriteUnsignedAsync(
-            installerPath,
-            "Smoke package verification uses local unsigned artifacts.",
-            CancellationToken.None
-        );
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
@@ -453,6 +448,7 @@ public sealed class SmokeTests
             Path.Combine(packageRoot, $"CodexCliPlus.Setup.{moniker}.{version}.win-x64.zip"),
             entries
         );
+        await Task.CompletedTask;
     }
 
     private static async Task CreateUpdateSmokePackageAsync(string packageRoot, string version)
@@ -466,10 +462,6 @@ public sealed class SmokeTests
                 ["payload/CodexCliPlus.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
             }
         );
-        await ArtifactSignatureMetadata.WriteUnsignedAsync(
-            packagePath,
-            "Smoke package verification uses local unsigned artifacts.",
-            CancellationToken.None
-        );
+        await Task.CompletedTask;
     }
 }

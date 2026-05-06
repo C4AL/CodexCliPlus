@@ -763,6 +763,11 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.DoesNotContain("publish-manifest.json", checksums, StringComparison.Ordinal);
         Assert.Contains("\"version\": \"9.9.9\"", manifest, StringComparison.Ordinal);
         Assert.Contains("\"sha256\"", manifest, StringComparison.Ordinal);
+        Assert.Contains("\"attestationExpected\": true", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"signing\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"signed\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"signatureKind\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"signatureMetadataPath\"", manifest, StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -997,7 +1002,6 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["payload/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("bad"),
             }
         );
-        WriteUnsignedSidecar(Path.Combine(packageRoot, "CodexCliPlus.Update.9.9.9.win-x64.zip"));
         using var output = new StringWriter();
         using var error = new StringWriter();
 
@@ -1039,8 +1043,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 "9.9.9"
             ),
             logger,
-            runner,
-            new NoOpSigningService()
+            runner
         );
 
         var exitCode = await WebUiCommands.BuildVendoredAsync(context);
@@ -1102,8 +1105,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 "9.9.9"
             ),
             logger,
-            runner,
-            new NoOpSigningService()
+            runner
         );
 
         Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
@@ -1136,8 +1138,7 @@ public sealed class BuildToolCommandTests : IDisposable
                 ForceRebuild: ForceRebuildStage.WebUi
             ),
             logger,
-            runner,
-            new NoOpSigningService()
+            runner
         );
 
         Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
@@ -1326,7 +1327,6 @@ public sealed class BuildToolCommandTests : IDisposable
         var installerName = $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.exe";
         var installerPath = Path.Combine(packageRoot, installerName);
         File.WriteAllBytes(installerPath, installerBytes);
-        WriteUnsignedSidecar(installerPath);
         CreateInstallerStagingZip(
             Path.Combine(packageRoot, $"CodexCliPlus.Setup.{packageMoniker}.9.9.9.win-x64.zip"),
             installerName,
@@ -1345,7 +1345,6 @@ public sealed class BuildToolCommandTests : IDisposable
                 ["payload/CodexCliPlus.exe"] = CreateStubExecutableBytes(),
             }
         );
-        WriteUnsignedSidecar(updatePackagePath);
     }
 
     private static void CreateInstallerStagingZip(
@@ -1388,15 +1387,6 @@ public sealed class BuildToolCommandTests : IDisposable
     private static void CreateStubExecutable(string path)
     {
         File.WriteAllBytes(path, CreateStubExecutableBytes());
-        WriteUnsignedSidecar(path);
-    }
-
-    private static void WriteUnsignedSidecar(string path)
-    {
-        ArtifactSignatureMetadata
-            .WriteUnsignedAsync(path, "test artifact", CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
     }
 
     private static byte[] CreateStubExecutableBytes()

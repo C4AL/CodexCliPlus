@@ -610,6 +610,23 @@
                     </StackPanel>
                   </Button>
                   <Button
+                    x:Name="ShellNavCodexConfigButton"
+                    Style="{StaticResource ShellNavigationButtonStyle}"
+                    Click="ShellNavigationButton_Click"
+                    CommandParameter="/codex-config"
+                  >
+                    <StackPanel Orientation="Horizontal">
+                      <iconPacks:PackIconLucide
+                        Kind="Settings"
+                        Width="18"
+                        Height="18"
+                        VerticalAlignment="Center"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
+                      />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text=".codex配置" />
+                    </StackPanel>
+                  </Button>
+                  <Button
                     x:Name="ShellNavConfigButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"
                     Click="ShellNavigationButton_Click"
@@ -623,7 +640,7 @@
                         VerticalAlignment="Center"
                         Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                       />
-                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="配置" />
+                      <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Text="API配置" />
                     </StackPanel>
                   </Button>
                   <Button

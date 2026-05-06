@@ -760,6 +760,7 @@ public partial class MainWindow
             {
                 ShellNavDashboardButton,
                 ShellNavDashboardOverviewButton,
+                ShellNavCodexConfigButton,
                 ShellNavConfigButton,
                 ShellNavAccountButton,
                 ShellNavUsageButton,

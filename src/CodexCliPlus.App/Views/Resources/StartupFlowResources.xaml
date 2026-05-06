@@ -124,8 +124,25 @@
     <Setter Property="LineHeight" Value="17" />
     <Setter Property="Foreground" Value="#B42318" />
     <Setter Property="TextWrapping" Value="Wrap" />
-    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <Style x:Key="StartupFlowKeyDisplayStyle" TargetType="{x:Type Border}">
+    <Setter Property="Height" Value="40" />
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+      <Trigger Property="IsKeyboardFocusWithin" Value="True">
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+      </Trigger>
+    </Style.Triggers>
   </Style>
 
   <Style x:Key="StartupFlowTextBoxStyle" TargetType="{x:Type TextBox}">
@@ -208,7 +225,7 @@
               x:Name="PART_ContentHost"
               Margin="{TemplateBinding Padding}"
               HorizontalAlignment="Stretch"
-              VerticalAlignment="Stretch"
+              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
             />
           </Border>
           <ControlTemplate.Triggers>

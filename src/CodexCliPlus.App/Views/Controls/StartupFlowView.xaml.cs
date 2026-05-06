@@ -101,9 +101,7 @@ public partial class StartupFlowView : WpfUserControl
 
     public void ShowFirstRunKey(string key, bool rememberPassword, bool autoLogin)
     {
-        FirstRunSecurityKeyTextBox.Text = key;
-        FirstRunSecurityKeyTextBox.CaretIndex = 0;
-        FirstRunSecurityKeyTextBox.ScrollToHome();
+        FirstRunSecurityKeyText.Text = key;
         FirstRunRememberPasswordCheckBox.IsChecked = rememberPassword || autoLogin;
         FirstRunAutoLoginCheckBox.IsChecked = autoLogin;
         UpdatePersistenceDependencies();
@@ -171,7 +169,7 @@ public partial class StartupFlowView : WpfUserControl
 
     public void ClearFirstRunKey()
     {
-        FirstRunSecurityKeyTextBox.Text = string.Empty;
+        FirstRunSecurityKeyText.Text = string.Empty;
     }
 
     private void SetScreen(StartupFlowScreen screen, bool animate = true)
@@ -237,7 +235,7 @@ public partial class StartupFlowView : WpfUserControl
     private void FocusFirstRunKey()
     {
         Dispatcher.BeginInvoke(
-            () => FirstRunSecurityKeyTextBox.Focus(),
+            () => FirstRunCopyKeyButton.Focus(),
             DispatcherPriority.Background
         );
     }

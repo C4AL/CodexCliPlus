@@ -364,79 +364,88 @@
 
           <StackPanel Grid.Row="2" Margin="0,20,0,0">
             <TextBlock Style="{StaticResource StartupFlowLabelTextStyle}" Text="安全密钥" />
-            <Grid Height="40" Margin="0,8,0,0">
-              <TextBox
-                x:Name="FirstRunSecurityKeyTextBox"
-                Height="40"
-                Padding="4,0,72,0"
-                HorizontalAlignment="Stretch"
-                FontFamily="Consolas"
-                FontSize="13"
-                Style="{StaticResource StartupFlowTextBoxStyle}"
-                AcceptsReturn="False"
-                HorizontalScrollBarVisibility="Hidden"
-                IsReadOnly="True"
-                AutomationProperties.AutomationId="FirstRunSecurityKeyTextBox"
-                AutomationProperties.Name="安全密钥"
-                TextWrapping="NoWrap"
-                VerticalContentAlignment="Center"
-                VerticalScrollBarVisibility="Disabled"
-              />
-              <StackPanel
-                Margin="0,0,5,0"
-                Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Center"
-              >
-                <Button
-                  x:Name="FirstRunCopyKeyButton"
-                  Style="{StaticResource ShellInlineIconButtonStyle}"
-                  Width="30"
-                  Height="30"
-                  Click="FirstRunCopyKeyButton_Click"
-                  AutomationProperties.AutomationId="FirstRunCopyKeyButton"
-                  AutomationProperties.Name="复制密钥"
+            <Border
+              x:Name="FirstRunSecurityKeyDisplay"
+              Margin="0,8,0,0"
+              Padding="12,0,5,0"
+              Focusable="True"
+              Style="{StaticResource StartupFlowKeyDisplayStyle}"
+              AutomationProperties.AutomationId="FirstRunSecurityKeyDisplay"
+              AutomationProperties.Name="安全密钥"
+            >
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                  x:Name="FirstRunSecurityKeyText"
+                  Grid.Column="0"
+                  Margin="0,0,8,0"
+                  VerticalAlignment="Center"
+                  FontFamily="Consolas"
+                  FontSize="13"
+                  Foreground="{DynamicResource PrimaryTextBrush}"
+                  AutomationProperties.AutomationId="FirstRunSecurityKeyText"
+                  TextTrimming="CharacterEllipsis"
+                  TextWrapping="NoWrap"
+                />
+                <StackPanel
+                  Grid.Column="1"
+                  Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
                 >
-                  <Button.ToolTip>
-                    <ToolTip
-                      Style="{StaticResource ShellTextToolTipStyle}"
-                      AutomationProperties.Name="复制密钥"
-                      Content="复制密钥"
+                  <Button
+                    x:Name="FirstRunCopyKeyButton"
+                    Style="{StaticResource ShellInlineIconButtonStyle}"
+                    Width="30"
+                    Height="30"
+                    Click="FirstRunCopyKeyButton_Click"
+                    AutomationProperties.AutomationId="FirstRunCopyKeyButton"
+                    AutomationProperties.Name="复制密钥"
+                  >
+                    <Button.ToolTip>
+                      <ToolTip
+                        Style="{StaticResource ShellTextToolTipStyle}"
+                        AutomationProperties.Name="复制密钥"
+                        Content="复制密钥"
+                      />
+                    </Button.ToolTip>
+                    <iconPacks:PackIconLucide
+                      Kind="Copy"
+                      Width="15"
+                      Height="15"
+                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                     />
-                  </Button.ToolTip>
-                  <iconPacks:PackIconLucide
-                    Kind="Copy"
-                    Width="15"
-                    Height="15"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                </Button>
-                <Button
-                  x:Name="FirstRunSaveToDesktopButton"
-                  Margin="3,0,0,0"
-                  Style="{StaticResource ShellInlineIconButtonStyle}"
-                  Width="30"
-                  Height="30"
-                  Click="FirstRunSaveToDesktopButton_Click"
-                  AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
-                  AutomationProperties.Name="保存到桌面"
-                >
-                  <Button.ToolTip>
-                    <ToolTip
-                      Style="{StaticResource ShellTextToolTipStyle}"
-                      AutomationProperties.Name="保存到桌面"
-                      Content="保存到桌面"
+                  </Button>
+                  <Button
+                    x:Name="FirstRunSaveToDesktopButton"
+                    Margin="3,0,0,0"
+                    Style="{StaticResource ShellInlineIconButtonStyle}"
+                    Width="30"
+                    Height="30"
+                    Click="FirstRunSaveToDesktopButton_Click"
+                    AutomationProperties.AutomationId="FirstRunSaveToDesktopButton"
+                    AutomationProperties.Name="保存到桌面"
+                  >
+                    <Button.ToolTip>
+                      <ToolTip
+                        Style="{StaticResource ShellTextToolTipStyle}"
+                        AutomationProperties.Name="保存到桌面"
+                        Content="保存到桌面"
+                      />
+                    </Button.ToolTip>
+                    <iconPacks:PackIconLucide
+                      Kind="Save"
+                      Width="15"
+                      Height="15"
+                      Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
                     />
-                  </Button.ToolTip>
-                  <iconPacks:PackIconLucide
-                    Kind="Save"
-                    Width="15"
-                    Height="15"
-                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Button}}}"
-                  />
-                </Button>
-              </StackPanel>
-            </Grid>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
           </StackPanel>
 
           <Grid Grid.Row="3" Margin="0,14,0,0">
@@ -511,20 +520,20 @@
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
 
-          <Grid Grid.Row="0" Height="98">
+          <Grid Grid.Row="0" Height="78">
             <Border
-              Width="72"
-              Height="72"
+              Width="64"
+              Height="64"
               HorizontalAlignment="Center"
               VerticalAlignment="Bottom"
-              CornerRadius="36"
+              CornerRadius="32"
               Background="#F7FFFFFF"
               BorderBrush="#B8FFFFFF"
               BorderThickness="1"
             >
               <Image
-                Width="50"
-                Height="50"
+                Width="44"
+                Height="44"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 RenderOptions.BitmapScalingMode="HighQuality"
@@ -536,13 +545,13 @@
 
           <TextBlock
             Grid.Row="1"
-            Margin="0,16,0,0"
+            Margin="0,12,0,0"
             Style="{StaticResource StartupCompactWindowTitleTextStyle}"
             HorizontalAlignment="Center"
             Text="安全密钥登录"
           />
 
-          <StackPanel Grid.Row="2" Margin="0,24,0,0">
+          <StackPanel Grid.Row="2" Margin="0,20,0,0">
             <TextBlock Style="{StaticResource StartupFlowLabelTextStyle}" Text="安全密钥" />
             <PasswordBox
               x:Name="ManagementKeyPasswordBox"
@@ -604,7 +613,7 @@
           <StackPanel Grid.Row="4" Margin="0,12,0,0" VerticalAlignment="Bottom">
             <TextBlock
               x:Name="LoginErrorText"
-              Height="34"
+              MinHeight="34"
               Margin="0,0,0,10"
               Style="{StaticResource StartupFlowErrorTextStyle}"
               Visibility="Hidden"
@@ -657,9 +666,9 @@
     <Popup
       x:Name="FirstRunConfirmPopup"
       PlacementTarget="{Binding ElementName=FirstRunEnterManagementButton}"
-      Placement="Bottom"
+      Placement="Top"
       HorizontalOffset="0"
-      VerticalOffset="10"
+      VerticalOffset="-8"
       AllowsTransparency="True"
       StaysOpen="True"
       PopupAnimation="None"

@@ -43,7 +43,68 @@ public sealed class NavigationShellTests
             "x:Name=\"ShellBrandDockPopup\"",
             "      </Popup>"
         );
+        var managementEntryTransitionPopupXaml = SliceBetween(
+            xaml,
+            "x:Name=\"ManagementEntryTransitionPopup\"",
+            "    </Popup>"
+        );
         Assert.Contains("<wv2:WebView2", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionPopup\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PlacementTarget=\"{Binding ElementName=ShellRootGrid}\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("欢迎回来", managementEntryTransitionPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "正在打开管理界面",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BeginManagementEntryTransitionAsync",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "RestoreMainWindowForManagementEntryTransitionAsync",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PrepareManagementWebViewForTransitionNavigation",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "waitForNavigation: useManagementEntryTransition",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "await DispatchManagementWebViewResizeAsync();",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "window.dispatchEvent(new Event('resize'));",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "await CompleteManagementEntryTransitionAsync();",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "SystemParameters.ClientAreaAnimation",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "Source=\"Views/Resources/ShellResources.xaml\"",
             xaml,

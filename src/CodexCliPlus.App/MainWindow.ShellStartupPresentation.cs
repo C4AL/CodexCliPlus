@@ -58,6 +58,22 @@ public partial class MainWindow
     private void ShowPreparationStep(double progress, string description, StartupState state)
     {
         _startupState = state;
+        if (_isManagementEntryTransitionActive)
+        {
+            if (_preparationPanelShownAt is null)
+            {
+                _preparationPanelShownAt = DateTimeOffset.UtcNow;
+            }
+
+            UpdateManagementEntryTransitionStatus(description);
+            UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+            StartupFlow.Visibility = Visibility.Collapsed;
+            BlockerPanel.Visibility = Visibility.Collapsed;
+            ManagementContentHost.Visibility = Visibility.Visible;
+            SetNavigationDockPopupOpen(false);
+            return;
+        }
+
         ExitAuthenticationCompactWindowMode();
         if (!StartupFlow.IsLoadingVisible || _preparationPanelShownAt is null)
         {
@@ -83,6 +99,7 @@ public partial class MainWindow
 
     private void ShowUpgradeNotice()
     {
+        CloseManagementEntryTransitionImmediately();
         _startupState = StartupState.UpgradeNotice;
         ExitAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
@@ -102,6 +119,7 @@ public partial class MainWindow
 
     private void ShowFirstRunKeyReveal()
     {
+        CloseManagementEntryTransitionImmediately();
         _startupState = StartupState.FirstRunKeyReveal;
         EnterAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
@@ -119,6 +137,7 @@ public partial class MainWindow
 
     private void ShowLogin(string? errorMessage = null)
     {
+        CloseManagementEntryTransitionImmediately();
         _startupState = StartupState.NativeLogin;
         EnterAuthenticationCompactWindowMode();
         _shellConnectionStatus = "disconnected";
@@ -139,6 +158,7 @@ public partial class MainWindow
 
     private void ShowBlocker(string title, string description, string detail)
     {
+        CloseManagementEntryTransitionImmediately();
         _startupState = StartupState.Blocked;
         ExitAuthenticationCompactWindowMode();
         _shellConnectionStatus = "error";
@@ -167,6 +187,258 @@ public partial class MainWindow
         ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Visible;
         UpdateNavigationDockPopupVisibility();
+    }
+
+    private bool ShouldUseManagementEntryTransition()
+    {
+        return _isAuthenticationCompactWindowMode
+            && Math.Abs(Width - AuthenticationCompactWindowWidth) < 1
+            && Math.Abs(Height - AuthenticationCompactWindowHeight) < 1;
+    }
+
+    private async Task BeginManagementEntryTransitionAsync()
+    {
+        _isManagementEntryTransitionActive = true;
+        _preparationPanelShownAt = DateTimeOffset.UtcNow;
+        CloseShellDockPopups();
+        SetNavigationDockPopupOpen(false);
+
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+        ManagementEntryTransitionOverlay.Opacity = 0;
+        ManagementEntryTransitionPopup.IsOpen = false;
+
+        var targetState = await RestoreMainWindowForManagementEntryTransitionAsync();
+        ShowManagementEntryTransitionPopup();
+
+        if (targetState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Maximized;
+            RefreshManagementEntryTransitionPopupPlacement();
+        }
+    }
+
+    private async Task<WindowState> RestoreMainWindowForManagementEntryTransitionAsync()
+    {
+        var target = ResolveAuthenticationExitLayout();
+        _isAuthenticationCompactWindowMode = false;
+        _preAuthenticationWindowLayout = null;
+
+        if (WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        ResizeMode = ResizeMode.NoResize;
+        MaxWidth = double.PositiveInfinity;
+        MaxHeight = double.PositiveInfinity;
+        MinWidth = 0;
+        MinHeight = 0;
+
+        ShellTitleBar.Visibility = Visibility.Collapsed;
+        ShellTitleBarRow.Height = new GridLength(0);
+        ManagementContentHost.Visibility = Visibility.Collapsed;
+
+        if (ShouldUseWindowTransitionAnimations())
+        {
+            await Task.WhenAll(
+                AnimateWindowDoubleAsync(System.Windows.Window.LeftProperty, target.Left, 260),
+                AnimateWindowDoubleAsync(FrameworkElement.WidthProperty, target.Width, 260)
+            );
+            await Task.WhenAll(
+                AnimateWindowDoubleAsync(System.Windows.Window.TopProperty, target.Top, 180),
+                AnimateWindowDoubleAsync(FrameworkElement.HeightProperty, target.Height, 180)
+            );
+        }
+        else
+        {
+            Left = target.Left;
+            Top = target.Top;
+            Width = target.Width;
+            Height = target.Height;
+        }
+
+        ApplyMainWindowModeChrome();
+        RefreshShellDockPopupPlacements();
+        await Dispatcher.Yield(DispatcherPriority.Render);
+        return target.WindowState;
+    }
+
+    private WindowLayoutSnapshot ResolveAuthenticationExitLayout()
+    {
+        if (_preAuthenticationWindowLayout is { } layout)
+        {
+            return new WindowLayoutSnapshot(
+                IsFiniteWindowValue(layout.Left) ? layout.Left : ResolveDefaultMainWindowLeft(),
+                IsFiniteWindowValue(layout.Top) ? layout.Top : ResolveDefaultMainWindowTop(),
+                NormalizeWindowLength(layout.Width, MainWindowMinWidth, MainWindowDefaultWidth),
+                NormalizeWindowLength(layout.Height, MainWindowMinHeight, MainWindowDefaultHeight),
+                layout.WindowState
+            );
+        }
+
+        return new WindowLayoutSnapshot(
+            ResolveDefaultMainWindowLeft(),
+            ResolveDefaultMainWindowTop(),
+            MainWindowDefaultWidth,
+            MainWindowDefaultHeight,
+            WindowState.Normal
+        );
+    }
+
+    private static double ResolveDefaultMainWindowLeft()
+    {
+        var workArea = SystemParameters.WorkArea;
+        return workArea.Left + Math.Max(0, (workArea.Width - MainWindowDefaultWidth) / 2);
+    }
+
+    private static double ResolveDefaultMainWindowTop()
+    {
+        var workArea = SystemParameters.WorkArea;
+        return workArea.Top + Math.Max(0, (workArea.Height - MainWindowDefaultHeight) / 2);
+    }
+
+    private static bool ShouldUseWindowTransitionAnimations()
+    {
+        try
+        {
+            return SystemParameters.ClientAreaAnimation;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private Task<bool> AnimateWindowDoubleAsync(
+        DependencyProperty property,
+        double to,
+        int milliseconds
+    )
+    {
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        var animation = new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.Stop,
+        };
+        animation.Completed += (_, _) =>
+        {
+            SetCurrentValue(property, to);
+            completion.TrySetResult(true);
+        };
+        BeginAnimation(property, animation);
+        return completion.Task;
+    }
+
+    private void ShowManagementEntryTransitionPopup()
+    {
+        UpdateManagementEntryTransitionStatus("正在打开管理界面");
+        ManagementEntryTransitionOverlay.Opacity = 1;
+        ManagementEntryTransitionPopup.IsOpen = true;
+        RefreshManagementEntryTransitionPopupPlacement();
+    }
+
+    private void UpdateManagementEntryTransitionStatus(string description)
+    {
+        var normalized = description.Trim();
+        ManagementEntryTransitionDetailText.Text = string.IsNullOrWhiteSpace(normalized)
+            ? "正在接入本地服务"
+            : normalized.TrimEnd('。');
+    }
+
+    private void PrepareManagementWebViewForTransitionNavigation()
+    {
+        StartupFlow.Visibility = Visibility.Collapsed;
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementContentHost.Visibility = Visibility.Visible;
+        ManagementWebView.Visibility = Visibility.Visible;
+        SetNavigationDockPopupOpen(false);
+        ManagementContentHost.UpdateLayout();
+        ManagementWebView.UpdateLayout();
+    }
+
+    private async Task DispatchManagementWebViewResizeAsync()
+    {
+        await Dispatcher.Yield(DispatcherPriority.Render);
+        ManagementContentHost.UpdateLayout();
+        ManagementWebView.UpdateLayout();
+
+        if (!_webViewConfigured || ManagementWebView.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await ManagementWebView.CoreWebView2.ExecuteScriptAsync(
+                "window.dispatchEvent(new Event('resize'));"
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"管理界面 resize 事件派发失败：{exception.Message}");
+        }
+
+        await Dispatcher.Yield(DispatcherPriority.Render);
+    }
+
+    private async Task CompleteManagementEntryTransitionAsync()
+    {
+        _shellConnectionStatus = "connected";
+        UpdateShellConnectionPresentation();
+        _preparationPanelShownAt = null;
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementContentHost.Visibility = Visibility.Visible;
+        ManagementWebView.Visibility = Visibility.Visible;
+        UpdateNavigationDockPopupVisibility();
+
+        await FadeManagementEntryTransitionOverlayAsync(0, 220);
+        ManagementEntryTransitionPopup.IsOpen = false;
+        _isManagementEntryTransitionActive = false;
+    }
+
+    private Task FadeManagementEntryTransitionOverlayAsync(double opacity, int milliseconds)
+    {
+        if (!ManagementEntryTransitionPopup.IsOpen)
+        {
+            ManagementEntryTransitionOverlay.Opacity = opacity;
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        var animation = CreateEaseAnimation(opacity, milliseconds);
+        animation.FillBehavior = FillBehavior.Stop;
+        animation.Completed += (_, _) =>
+        {
+            ManagementEntryTransitionOverlay.Opacity = opacity;
+            completion.TrySetResult(true);
+        };
+        ManagementEntryTransitionOverlay.BeginAnimation(UIElement.OpacityProperty, animation);
+        return completion.Task;
+    }
+
+    private void CloseManagementEntryTransitionImmediately()
+    {
+        _isManagementEntryTransitionActive = false;
+
+        if (ManagementEntryTransitionOverlay is null || ManagementEntryTransitionPopup is null)
+        {
+            return;
+        }
+
+        ManagementEntryTransitionOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+        ManagementEntryTransitionOverlay.Opacity = 0;
+        ManagementEntryTransitionPopup.IsOpen = false;
     }
 
     private void EnterAuthenticationCompactWindowMode()
@@ -336,9 +608,20 @@ public partial class MainWindow
 
     private void RefreshShellDockPopupPlacements()
     {
+        RefreshManagementEntryTransitionPopupPlacement();
         RefreshShellBrandDockPopupPlacement();
         RefreshNavigationDockPopupPlacement();
         RefreshShellNotificationPopupPlacements();
+    }
+
+    private void RefreshManagementEntryTransitionPopupPlacement()
+    {
+        if (ManagementEntryTransitionPopup is null || !ManagementEntryTransitionPopup.IsOpen)
+        {
+            return;
+        }
+
+        RefreshDockPopupPlacement(ManagementEntryTransitionPopup);
     }
 
     private void RefreshNavigationDockPopupPlacement()

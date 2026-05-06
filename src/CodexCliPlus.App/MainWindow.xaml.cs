@@ -163,10 +163,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _settingsOverlayOpen;
     private bool _isShellBrandDockClosing;
     private bool _isAuthenticationCompactWindowMode;
+    private bool _isManagementEntryTransitionActive;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
     private bool _isExitRequested;
     private Task? _applicationExitTask;
+    private TaskCompletionSource<bool>? _webViewNavigationCompletion;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
     private CancellationTokenSource? _postStartupPersistenceCts;
     private readonly object _localDependencySnapshotLock = new();

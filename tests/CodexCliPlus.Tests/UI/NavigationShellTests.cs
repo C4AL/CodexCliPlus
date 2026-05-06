@@ -82,6 +82,36 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandRing\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandOuterHalo\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandInnerHalo\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandOrbit\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandLightSweep\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandIcon\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "BeginManagementEntryTransitionAsync",
             hostSource,
             StringComparison.Ordinal
@@ -92,7 +122,17 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "return _isAuthenticationCompactWindowMode;",
+            "return true;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "var shouldExpandFromAuthentication = _isAuthenticationCompactWindowMode;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "if (shouldExpandFromAuthentication)",
             hostSource,
             StringComparison.Ordinal
         );
@@ -215,7 +255,13 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"LoginPanel\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"UpgradeNoticePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunKeyPanel\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"LoadingPanel\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"LoadingPanel\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("x:Name=\"StartupStepHost\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"PreparationProgressBar\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Name=\"ManagementKeyPasswordBox\"",
             startupFlowXaml,
@@ -604,7 +650,7 @@ public sealed class NavigationShellTests
             mainXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "Style=\"{StaticResource ShellRaisedPanelShadowHostStyle}\"",
             startupFlowXaml,
             StringComparison.Ordinal
@@ -1282,7 +1328,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("MahApps.Metro.IconPacks.Lucide", appProject, StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.DoesNotContain(
             "Style=\"{StaticResource StartupFlowCardStyle}\"",
             startupFlowXaml,
             StringComparison.Ordinal
@@ -1830,36 +1876,39 @@ public sealed class NavigationShellTests
         Assert.Contains("MinimumPreparationDisplayDuration", source, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromMilliseconds", source, StringComparison.Ordinal);
         Assert.Contains("300", source, StringComparison.Ordinal);
-        Assert.Contains("DoubleAnimation", source, StringComparison.Ordinal);
-        Assert.Contains("PreparationProgressBar.BeginAnimation", source, StringComparison.Ordinal);
-        Assert.Contains(
-            "PreparationProgressFillScale.BeginAnimation",
-            source,
-            StringComparison.Ordinal
-        );
-        Assert.Contains("ScaleTransform.ScaleXProperty", source, StringComparison.Ordinal);
-        Assert.Contains("LoadingBrandBadge", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartupFlow.ShowLoading", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartupFlowScreen.Loading", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsLoadingVisible", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadingBrandBadge", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("codexcliplus-display.png", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Source=\"pack://application:,,,/Resources/Icons/codexcliplus.ico\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"PreparationProgressTrack\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"PreparationProgressBar\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"PreparationProgressFillScale\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
+        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandRing\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandOuterHalo\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandInnerHalo\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandOrbit\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandLightSweep\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Storyboard RepeatBehavior=\"Forever\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ScaleTransform ScaleX=\"0.92\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("RotateTransform Angle=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ClipToBounds=\"True\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "x:Name=\"PreparationStepText\"",

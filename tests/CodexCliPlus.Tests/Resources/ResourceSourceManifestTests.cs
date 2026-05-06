@@ -4,6 +4,7 @@ using System.Text.Json;
 
 namespace CodexCliPlus.Tests.Resources;
 
+[Trait("Category", "Packaging")]
 public sealed class ResourceSourceManifestTests
 {
     private static readonly string[] RequiredBinaryResources =

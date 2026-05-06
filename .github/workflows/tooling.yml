@@ -50,44 +50,10 @@ jobs:
         working-directory: resources/webui/upstream/source
         run: npm run type-check
 
-      - name: Test web
+      - name: Test web fast suite
         working-directory: resources/webui/upstream/source
-        run: npm run test
+        run: npm run test:fast
 
       - name: Build web
         working-directory: resources/webui/upstream/source
         run: npm run build
-
-      - name: Coverage web
-        if: github.event_name != 'push'
-        working-directory: resources/webui/upstream/source
-        run: npm run coverage -- --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html
-
-      - name: Enforce web coverage baseline
-        if: github.event_name != 'push'
-        working-directory: resources/webui/upstream/source
-        shell: pwsh
-        run: |
-          $summaryPath = "coverage/coverage-summary.json"
-          if (!(Test-Path $summaryPath)) {
-            throw "Web coverage summary not found: $summaryPath"
-          }
-
-          $summary = Get-Content -Raw $summaryPath | ConvertFrom-Json
-          $lineCoverage = [decimal]$summary.total.lines.pct
-          $minimumLineCoverage = [decimal]16.5
-          if ($lineCoverage -lt $minimumLineCoverage) {
-            throw "Web line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
-          }
-
-      - name: Upload web coverage artifacts
-        if: ${{ always() && github.event_name != 'push' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: web-coverage
-          path: resources/webui/upstream/source/coverage
-          if-no-files-found: warn
-
-      - name: Check unused frontend surface
-        working-directory: resources/webui/upstream/source
-        run: npm run knip:strict

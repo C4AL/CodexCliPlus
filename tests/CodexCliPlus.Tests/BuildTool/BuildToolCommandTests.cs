@@ -5,6 +5,7 @@ using CodexCliPlus.Core.Constants;
 
 namespace CodexCliPlus.Tests.BuildTool;
 
+[Trait("Category", "Packaging")]
 public sealed class BuildToolCommandTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

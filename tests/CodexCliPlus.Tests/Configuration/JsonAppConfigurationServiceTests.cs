@@ -7,6 +7,7 @@ using CodexCliPlus.Tests.Paths;
 namespace CodexCliPlus.Tests.Configuration;
 
 [Collection("AppPathServiceEnvironment")]
+[Trait("Category", "LocalIntegration")]
 public sealed class JsonAppConfigurationServicePathModeTests
 {
     [Theory]

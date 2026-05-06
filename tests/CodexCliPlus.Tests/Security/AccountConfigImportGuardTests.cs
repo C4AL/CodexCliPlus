@@ -3,6 +3,7 @@ using CodexCliPlus.Infrastructure.Security;
 
 namespace CodexCliPlus.Tests.Security;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class AccountConfigImportGuardTests
 {
     [Fact]

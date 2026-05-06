@@ -4,6 +4,7 @@ using CodexCliPlus.Infrastructure.Codex;
 namespace CodexCliPlus.Tests.Codex;
 
 [Collection("CodexConfigService")]
+[Trait("Category", "Fast")]
 public sealed class CodexAuthSwitchTests : IDisposable
 {
     private readonly string _codexHome = Path.Combine(

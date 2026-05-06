@@ -5,6 +5,7 @@ using CodexCliPlus.Infrastructure.Updates;
 
 namespace CodexCliPlus.Tests.Updates;
 
+[Trait("Category", "Fast")]
 public sealed class GitHubReleaseUpdateServiceTests
 {
     [Fact]

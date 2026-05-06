@@ -6,6 +6,7 @@ using CodexCliPlus.Infrastructure.LocalEnvironment;
 
 namespace CodexCliPlus.Tests.LocalEnvironment;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class LocalDependencyHealthServiceTests
 {
     [Fact]

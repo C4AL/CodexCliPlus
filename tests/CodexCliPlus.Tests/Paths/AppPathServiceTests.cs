@@ -5,6 +5,7 @@ using CodexCliPlus.Infrastructure.Paths;
 namespace CodexCliPlus.Tests.Paths;
 
 [Collection("AppPathServiceEnvironment")]
+[Trait("Category", "LocalIntegration")]
 public sealed class AppPathServiceTests
 {
     [Fact]

@@ -1,0 +1,155 @@
+name: Deep Checks
+
+on:
+  schedule:
+    - cron: "11 18 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet-coverage:
+    name: dotnet-coverage
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore .NET tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore CodexCliPlus.sln --locked-mode
+
+      - name: Build
+        run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
+
+      - name: Test deterministic suite with coverage
+        shell: pwsh
+        run: ./tools/Invoke-Tests.ps1 -Scope Coverage -NoBuild
+
+      - name: Publish .NET coverage summary
+        if: always()
+        shell: pwsh
+        run: |
+          $summaryPath = "artifacts/coverage/Summary.txt"
+          if (Test-Path $summaryPath) {
+            "## .NET coverage" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            Get-Content -Raw $summaryPath | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
+
+      - name: Upload .NET coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: dotnet-test-coverage
+          path: |
+            artifacts/test-results
+            artifacts/coverage
+          if-no-files-found: warn
+
+  web-quality:
+    name: web-quality
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: resources/webui/upstream/source/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: resources/webui/upstream/source
+        run: npm ci
+
+      - name: Test full web suite
+        working-directory: resources/webui/upstream/source
+        run: npm run test
+
+      - name: Coverage web
+        working-directory: resources/webui/upstream/source
+        run: npm run coverage -- --coverage.reporter=text --coverage.reporter=json-summary --coverage.reporter=html
+
+      - name: Enforce web coverage baseline
+        working-directory: resources/webui/upstream/source
+        shell: pwsh
+        run: |
+          $summaryPath = "coverage/coverage-summary.json"
+          if (!(Test-Path $summaryPath)) {
+            throw "Web coverage summary not found: $summaryPath"
+          }
+
+          $summary = Get-Content -Raw $summaryPath | ConvertFrom-Json
+          $lineCoverage = [decimal]$summary.total.lines.pct
+          $minimumLineCoverage = [decimal]16.5
+          if ($lineCoverage -lt $minimumLineCoverage) {
+            throw "Web line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
+          }
+
+      - name: Check unused frontend surface
+        working-directory: resources/webui/upstream/source
+        run: npm run knip:strict
+
+      - name: Upload web coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: web-coverage
+          path: resources/webui/upstream/source/coverage
+          if-no-files-found: warn
+
+  sbom:
+    name: sbom
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore .NET packages
+        run: dotnet restore CodexCliPlus.sln --locked-mode
+
+      - name: Generate CycloneDX SBOM
+        run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
+
+      - name: Generate Syft SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: artifacts/sbom/codexcliplus.syft.cyclonedx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sbom
+          path: artifacts/sbom

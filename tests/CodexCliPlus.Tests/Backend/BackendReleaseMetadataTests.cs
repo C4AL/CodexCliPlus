@@ -6,6 +6,7 @@ using CodexCliPlus.Infrastructure.Backend;
 
 namespace CodexCliPlus.Tests.Backend;
 
+[Trait("Category", "Packaging")]
 public sealed class BackendReleaseMetadataTests
 {
     [Fact]

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CodexCliPlus.Tests.Management;
 
+[Trait("Category", "Fast")]
 public sealed class ManagementApiClientTests
 {
     [Fact]

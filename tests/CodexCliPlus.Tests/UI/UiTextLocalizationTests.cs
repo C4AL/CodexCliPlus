@@ -3,6 +3,7 @@ using System.Text.Json;
 
 namespace CodexCliPlus.Tests.UI;
 
+[Trait("Category", "Fast")]
 public sealed class UiTextLocalizationTests
 {
     [Fact]

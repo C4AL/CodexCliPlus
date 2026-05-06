@@ -10,6 +10,7 @@ using CodexCliPlus.Infrastructure.Platform;
 
 namespace CodexCliPlus.Tests.Dependencies;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class DependencyHealthServiceTests : IDisposable
 {
     private static readonly string[] ManagedBackendFiles =

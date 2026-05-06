@@ -4,6 +4,7 @@ using CodexCliPlus.Services;
 
 namespace CodexCliPlus.Tests.UI;
 
+[Trait("Category", "Fast")]
 public sealed class NavigationShellTests
 {
     [Fact]

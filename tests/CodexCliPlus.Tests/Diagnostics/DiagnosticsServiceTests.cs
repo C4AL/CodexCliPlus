@@ -7,6 +7,7 @@ using CodexCliPlus.Infrastructure.Diagnostics;
 
 namespace CodexCliPlus.Tests.Diagnostics;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class DiagnosticsServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

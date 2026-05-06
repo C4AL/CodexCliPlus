@@ -4,6 +4,7 @@ using CodexCliPlus.Infrastructure.Logging;
 
 namespace CodexCliPlus.Tests.Logging;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class FileAppLoggerTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

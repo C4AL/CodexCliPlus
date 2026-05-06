@@ -11,6 +11,7 @@ using CodexCliPlus.Infrastructure.Configuration;
 namespace CodexCliPlus.Tests.Backend;
 
 [Collection("BackendProcessManager")]
+[Trait("Category", "LocalIntegration")]
 public sealed class BackendConfigWriterTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

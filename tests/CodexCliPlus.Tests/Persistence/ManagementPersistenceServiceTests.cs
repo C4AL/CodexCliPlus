@@ -10,6 +10,7 @@ using CodexCliPlus.Infrastructure.Persistence;
 
 namespace CodexCliPlus.Tests.Persistence;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class ManagementPersistenceServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

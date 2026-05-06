@@ -1,9 +1,6 @@
 name: OSV-Scanner
 
 on:
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: "17 21 * * 4"
   workflow_dispatch:

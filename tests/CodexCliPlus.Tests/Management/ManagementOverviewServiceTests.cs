@@ -5,6 +5,7 @@ using CodexCliPlus.Infrastructure.Management;
 
 namespace CodexCliPlus.Tests.Management;
 
+[Trait("Category", "Fast")]
 public sealed class ManagementOverviewServiceTests
 {
     [Fact]

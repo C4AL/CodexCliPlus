@@ -9,6 +9,7 @@ using CodexCliPlus.Infrastructure.Updates;
 
 namespace CodexCliPlus.Tests.Updates;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class UpdateInstallerServiceTests
 {
     [Fact]

@@ -3,6 +3,7 @@ using CodexCliPlus.Infrastructure.Processes;
 
 namespace CodexCliPlus.Tests.Processes;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class SystemManagedProcessTests
 {
     [Fact]
@@ -65,8 +66,8 @@ public sealed class SystemManagedProcessTests
         {
             if (File.Exists(path))
             {
-                var text = await File.ReadAllTextAsync(path);
-                if (int.TryParse(text.Trim(), out var pid))
+                var text = await TryReadSharedTextAsync(path);
+                if (int.TryParse(text?.Trim(), out var pid))
                 {
                     return pid;
                 }
@@ -76,6 +77,25 @@ public sealed class SystemManagedProcessTests
         }
 
         throw new TimeoutException("Child process PID file was not created.");
+    }
+
+    private static async Task<string?> TryReadSharedTextAsync(string path)
+    {
+        try
+        {
+            await using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete
+            );
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync();
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
 
     private static async Task<bool> ProcessExistsAsync(int processId)

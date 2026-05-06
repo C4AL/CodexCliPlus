@@ -4,6 +4,7 @@ using CodexCliPlus.Infrastructure.Security;
 
 namespace CodexCliPlus.Tests.Security;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class DpapiCredentialStoreTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

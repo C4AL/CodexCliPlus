@@ -3,6 +3,7 @@ using CodexCliPlus.Services;
 
 namespace CodexCliPlus.Tests.Security;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class SecureAccountPackageServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

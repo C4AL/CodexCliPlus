@@ -2,6 +2,7 @@ using CodexCliPlus.Infrastructure.Codex;
 
 namespace CodexCliPlus.Tests.Codex;
 
+[Trait("Category", "Fast")]
 public sealed class CodexLocatorTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

@@ -7,7 +7,7 @@ using CodexCliPlus.Infrastructure.Backend;
 
 namespace CodexCliPlus.Tests.Backend;
 
-[Trait("Category", "LiveBackend")]
+[Trait("Category", "LocalIntegration")]
 public sealed class BackendAssetServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(
@@ -35,9 +35,8 @@ public sealed class BackendAssetServiceTests : IDisposable
             new NullAppLogger(_rootDirectory)
         );
 
-        var preparedLayout = await service.RepairAssetsAsync();
-        Assert.Equal(managedPath, preparedLayout.ExecutablePath);
-        Assert.True(File.Exists(managedPath));
+        await File.WriteAllTextAsync(managedPath, "managed executable placeholder");
+        await InvokeWriteVersionCacheAsync(service, managedPath, BackendReleaseMetadata.Version);
 
         await File.WriteAllTextAsync(legacyPath, "legacy managed executable");
 

@@ -6,6 +6,7 @@ using CodexCliPlus.Infrastructure.Configuration;
 
 namespace CodexCliPlus.Tests.Configuration;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class JsonAppConfigurationServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

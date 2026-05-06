@@ -2,6 +2,7 @@ using CodexCliPlus.Core.About;
 
 namespace CodexCliPlus.Tests.About;
 
+[Trait("Category", "Fast")]
 public sealed class AboutCatalogTests
 {
     [Fact]

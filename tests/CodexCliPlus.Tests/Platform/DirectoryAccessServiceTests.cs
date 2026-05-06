@@ -4,6 +4,7 @@ using CodexCliPlus.Infrastructure.Platform;
 
 namespace CodexCliPlus.Tests.Platform;
 
+[Trait("Category", "LocalIntegration")]
 public sealed class DirectoryAccessServiceTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

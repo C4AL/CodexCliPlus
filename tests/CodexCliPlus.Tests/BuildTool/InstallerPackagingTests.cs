@@ -5,6 +5,7 @@ using CodexCliPlus.BuildTool;
 
 namespace CodexCliPlus.Tests.BuildTool;
 
+[Trait("Category", "Packaging")]
 public sealed class InstallerPackagingTests : IDisposable
 {
     private readonly string _rootDirectory = Path.Combine(

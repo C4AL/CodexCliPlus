@@ -586,9 +586,9 @@ public sealed class LocalDependencyHealthService
                 Name = "winget",
                 Status = LocalDependencyStatus.Warning,
                 Severity = LocalDependencySeverity.RepairTool,
-                Detail = "未找到 winget；安装类修复能力不可用。",
-                Recommendation =
-                    "如需一键安装 Node.js 或 PowerShell，请先安装 App Installer/winget。",
+                Detail = "未找到 winget；内置安装动作暂不可用。",
+                Recommendation = "修复 winget 后可使用内置安装动作。",
+                RepairActionId = LocalDependencyRepairActionIds.RepairWinget,
             };
         }
 
@@ -624,6 +624,7 @@ public sealed class LocalDependencyHealthService
             Path = wingetPath,
             Detail = BuildFailureDetail("winget 版本检测失败", attempt),
             Recommendation = "修复 winget 后可使用内置安装动作。",
+            RepairActionId = LocalDependencyRepairActionIds.RepairWinget,
         };
     }
 
@@ -959,6 +960,9 @@ public sealed class LocalDependencyHealthService
         var wingetReady = items.Any(item =>
             item.Id == "winget" && item.Status == LocalDependencyStatus.Ready
         );
+        var powershellReady = items.Any(item =>
+            item.Id == "powershell" && item.Status == LocalDependencyStatus.Ready
+        );
         var npmReady = toolState.NpmUsable;
         var wslPresent = !string.IsNullOrWhiteSpace(toolState.WslPath);
         var hasMissingSafePathDirectories = toolState.MissingSafePathDirectories.Length > 0;
@@ -984,6 +988,15 @@ public sealed class LocalDependencyHealthService
                 Detail = wingetReady
                     ? "将通过 winget 安装 Microsoft.PowerShell。"
                     : "需要 winget 可用。",
+            },
+            new LocalDependencyRepairCapability
+            {
+                ActionId = LocalDependencyRepairActionIds.RepairWinget,
+                Name = "修复 winget",
+                IsAvailable = powershellReady,
+                Detail = powershellReady
+                    ? "将通过 Microsoft.WinGet.Client 修复 winget。"
+                    : "需要 PowerShell 可用。",
             },
             new LocalDependencyRepairCapability
             {

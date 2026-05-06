@@ -18,6 +18,13 @@ public sealed class LocalDependencyRepairService
 {
     private const int ElevationCancelledErrorCode = 1223;
     private const int RecentOutputLineLimit = 20;
+    private const string RepairWingetScript =
+        "$ErrorActionPreference = 'Stop'\n"
+        + "$ProgressPreference = 'SilentlyContinue'\n"
+        + "Install-PackageProvider -Name NuGet -Force | Out-Null\n"
+        + "Install-Module -Name Microsoft.WinGet.Client -Repository PSGallery -Scope AllUsers -Force -AllowClobber | Out-Null\n"
+        + "Import-Module Microsoft.WinGet.Client -Force\n"
+        + "Repair-WinGetPackageManager -AllUsers -Latest -Force";
     private static readonly TimeSpan RepairCommandTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan RepairProcessPollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan RepairProcessTimeout = TimeSpan.FromMinutes(30);
@@ -223,6 +230,26 @@ public sealed class LocalDependencyRepairService
                                     "winget",
                                     "--accept-package-agreements",
                                     "--accept-source-agreements",
+                                ]
+                            ),
+                        ],
+                        statusPath,
+                        cancellationToken
+                    ),
+                    LocalDependencyRepairActionIds.RepairWinget => await RunCommandRepairAsync(
+                        actionId,
+                        "修复 winget",
+                        [
+                            new RepairCommand(
+                                "powershell.exe",
+                                [
+                                    "-NoLogo",
+                                    "-NoProfile",
+                                    "-NonInteractive",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-Command",
+                                    RepairWingetScript,
                                 ]
                             ),
                         ],

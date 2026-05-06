@@ -137,7 +137,8 @@
     "oauth": "OAuth 登录",
     "quota_management": "配额管理",
     "usage_stats": "使用统计",
-    "config_management": "配置面板",
+    "codex_config": ".codex配置",
+    "config_management": "API配置",
     "logs": "日志查看",
     "system_info": "CodexCliPlus 信息"
   },

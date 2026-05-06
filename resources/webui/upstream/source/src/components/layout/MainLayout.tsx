@@ -424,6 +424,7 @@ export function MainLayout() {
         label: t('nav.dashboard_overview'),
         icon: sidebarIcons.dashboardOverview,
       },
+      { path: '/codex-config', label: t('nav.codex_config'), icon: sidebarIcons.config },
       { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
       { path: '/accounts', label: t('nav.account_center'), icon: sidebarIcons.accountCenter },
       { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },

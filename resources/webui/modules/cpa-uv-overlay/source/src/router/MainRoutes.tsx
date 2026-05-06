@@ -18,6 +18,10 @@ const AccountCenterPage = lazyPage(
   "AccountCenterPage",
 );
 const UsagePage = lazyPage(() => import("@/pages/UsagePage"), "UsagePage");
+const CodexConfigPage = lazyPage(
+  () => import("@/pages/CodexConfigPage"),
+  "CodexConfigPage",
+);
 const ConfigPage = lazyPage(() => import("@/pages/ConfigPage"), "ConfigPage");
 const LogsPage = lazyPage(() => import("@/pages/LogsPage"), "LogsPage");
 const SystemPage = lazyPage(() => import("@/pages/SystemPage"), "SystemPage");
@@ -116,6 +120,7 @@ const mainRoutes = [
   { path: "/oauth", element: <Navigate to="/accounts#oauth-login" replace /> },
   { path: "/quota", element: <Navigate to="/accounts#quota-management" replace /> },
   { path: "/usage", element: route("usage", <UsagePage />) },
+  { path: "/codex-config", element: route("codex-config", <CodexConfigPage />) },
   { path: "/config", element: route("config", <ConfigPage />) },
   { path: "/logs", element: route("logs", <LogsPage />) },
   { path: "/system", element: route("system", <SystemPage />) },

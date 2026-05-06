@@ -179,6 +179,8 @@ public sealed class UiTextLocalizationTests
 
         Assert.Equal("操作台", nav.GetProperty("dashboard_overview").GetString());
         Assert.Equal("操作台", nav.GetProperty("console").GetString());
+        Assert.Equal(".codex配置", nav.GetProperty("codex_config").GetString());
+        Assert.Equal("API配置", nav.GetProperty("config_management").GetString());
         Assert.Equal("账号统计", dashboard.GetProperty("account_stats").GetString());
         Assert.Equal("暂无可用账号", dashboard.GetProperty("no_codex_accounts").GetString());
         Assert.DoesNotContain("运行概览", zhCn, StringComparison.Ordinal);
@@ -288,7 +290,9 @@ public sealed class UiTextLocalizationTests
         );
 
         Assert.Contains("AccountCenterPage", routeSource, StringComparison.Ordinal);
+        Assert.Contains("CodexConfigPage", routeSource, StringComparison.Ordinal);
         Assert.Contains("path: '/accounts'", routeSource, StringComparison.Ordinal);
+        Assert.Contains("path: '/codex-config'", routeSource, StringComparison.Ordinal);
         Assert.Contains(
             "Navigate to=\"/accounts#codex-config\"",
             routeSource,

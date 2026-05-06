@@ -419,6 +419,18 @@ public sealed class NavigationShellTests
         Assert.Contains("Text=\"操作台\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"运行概览\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"控制台\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavCodexConfigButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"/codex-config\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\".codex配置\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ShellNavConfigButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CommandParameter=\"/config\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"API配置\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ShellNavCodexConfigButton", hostSource, StringComparison.Ordinal);
+        AssertSourceOrder(
+            xaml,
+            "CommandParameter=\"/codex-config\"",
+            "CommandParameter=\"/config\""
+        );
         Assert.Contains("x:Name=\"ShellNavAccountButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CommandParameter=\"/accounts\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"账号中心\"", xaml, StringComparison.Ordinal);
@@ -2514,6 +2526,10 @@ public sealed class NavigationShellTests
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("t('nav.dashboard_overview')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("path: '/codex-config'", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("t('nav.codex_config')", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains("t('nav.config_management')", mainLayoutSource, StringComparison.Ordinal);
+        AssertSourceOrder(mainLayoutSource, "path: '/codex-config'", "path: '/config'");
         Assert.DoesNotContain(
             "t('nav.runtime_overview')",
             mainLayoutSource,
@@ -2528,6 +2544,11 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("path: '/oauth'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains(
             "const AccountCenterPage = lazyPage(",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "const CodexConfigPage = lazyPage(",
             mainRoutesSource,
             StringComparison.Ordinal
         );
@@ -2569,8 +2590,16 @@ public sealed class NavigationShellTests
             mainRoutesSource,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "{ path: '/codex-config', element: route('codex-config', <CodexConfigPage />) }",
+            mainRoutesSource,
+            StringComparison.Ordinal
+        );
+        AssertSourceOrder(mainRoutesSource, "path: '/codex-config'", "path: '/config'");
         Assert.Contains("path: \"/console\"", overlayMainRoutesSource, StringComparison.Ordinal);
         Assert.Contains("path: \"/accounts\"", overlayMainRoutesSource, StringComparison.Ordinal);
+        Assert.Contains("path: \"/codex-config\"", overlayMainRoutesSource, StringComparison.Ordinal);
+        AssertSourceOrder(overlayMainRoutesSource, "path: \"/codex-config\"", "path: \"/config\"");
         Assert.Contains(
             "element: <Navigate to=\"/accounts#codex-config\" replace />",
             overlayMainRoutesSource,

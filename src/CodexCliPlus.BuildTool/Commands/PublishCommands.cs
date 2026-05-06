@@ -15,6 +15,11 @@ public static class PublishCommands
 {
     public static async Task<int> PublishAsync(BuildContext context)
     {
+        return await BuildTiming.TimeAsync(context, "publish", () => PublishCoreAsync(context));
+    }
+
+    private static async Task<int> PublishCoreAsync(BuildContext context)
+    {
         var verifyCode = await AssetCommands.VerifyAssetsAsync(context);
         if (verifyCode != 0)
         {
@@ -25,6 +30,34 @@ public static class PublishCommands
         if (webUiBuildCode != 0)
         {
             return webUiBuildCode;
+        }
+
+        var inputHash = await ComputeInputHashAsync(context);
+        if (
+            context.Options.Incremental
+            && !context.Options.ForceRebuild.Includes(ForceRebuildStage.Publish)
+        )
+        {
+            var cache = await IncrementalBuildCache.LookupDirectoryAsync(
+                context,
+                "publish",
+                inputHash,
+                context.PublishRoot
+            );
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
+            {
+                SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+                return 0;
+            }
+        }
+        else if (!context.Options.Incremental)
+        {
+            context.Logger.Info("publish incremental cache disabled");
+        }
+        else
+        {
+            context.Logger.Info("publish force rebuild requested");
         }
 
         SafeFileSystem.CleanDirectory(context.PublishRoot, context.Options.OutputRoot);
@@ -86,8 +119,53 @@ public static class PublishCommands
         );
         CopyBackendLicenseDocument(context);
         await WritePublishManifestAsync(context);
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteDirectoryAsync(
+                context,
+                "publish",
+                inputHash,
+                context.PublishRoot
+            );
+        }
+
         context.Logger.Info($"publish output: {context.PublishRoot}");
         return 0;
+    }
+
+    private static async Task<string> ComputeInputHashAsync(BuildContext context)
+    {
+        var hasher = new IncrementalInputHasher();
+        hasher.AddText("stage", "publish");
+        hasher.AddText("version", context.Options.Version);
+        hasher.AddText("runtime", context.Options.Runtime);
+        hasher.AddText("configuration", context.Options.Configuration);
+        foreach (
+            var projectDirectory in new[]
+            {
+                "CodexCliPlus.App",
+                "CodexCliPlus.Core",
+                "CodexCliPlus.Infrastructure",
+                "CodexCliPlus.Updater",
+            }
+        )
+        {
+            await hasher.AddDirectoryAsync(
+                $"src/{projectDirectory}",
+                Path.Combine(context.Options.RepositoryRoot, "src", projectDirectory),
+                ["bin", "obj"]
+            );
+        }
+        await hasher.AddFileAsync(
+            "directory-build-props",
+            Path.Combine(context.Options.RepositoryRoot, "Directory.Build.props")
+        );
+        await hasher.AddFileAsync(
+            "global-json",
+            Path.Combine(context.Options.RepositoryRoot, "global.json")
+        );
+        await hasher.AddDirectoryAsync("assets", context.AssetsRoot);
+        return hasher.Finish();
     }
 
     private static async Task<int> PublishUpdaterAsync(BuildContext context)

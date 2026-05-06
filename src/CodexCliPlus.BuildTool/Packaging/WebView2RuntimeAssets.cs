@@ -90,7 +90,7 @@ public sealed class WebView2RuntimeAssets
             }
 
             var stagedPath = Path.Combine(stagedRoot, descriptor.FileName);
-            File.Copy(cachedPath, stagedPath, overwrite: true);
+            FileMaterializer.MaterializeFile(cachedPath, stagedPath, preferHardLink: true);
             assets.Add(
                 new WebView2RuntimeAsset(
                     descriptor.FileName,

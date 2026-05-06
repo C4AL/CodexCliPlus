@@ -33,6 +33,44 @@ public static class SafeFileSystem
         Directory.CreateDirectory(fullTarget);
     }
 
+    public static void CleanDirectoryExcept(
+        string targetDirectory,
+        string allowedRoot,
+        IReadOnlyCollection<string> preservedRootDirectoryNames
+    )
+    {
+        var fullTarget = NormalizeDirectoryPath(targetDirectory);
+        var fullAllowedRoot = NormalizeDirectoryPath(allowedRoot);
+        if (!IsSameOrDescendant(fullTarget, fullAllowedRoot))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to clean outside BuildTool output root: {fullTarget}"
+            );
+        }
+
+        var preservedRoots = new HashSet<string>(
+            preservedRootDirectoryNames,
+            StringComparer.OrdinalIgnoreCase
+        );
+        Directory.CreateDirectory(fullTarget);
+        ClearReadOnlyAttributes(fullTarget);
+
+        foreach (var file in Directory.EnumerateFiles(fullTarget))
+        {
+            File.Delete(file);
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(fullTarget))
+        {
+            if (preservedRoots.Contains(Path.GetFileName(directory)))
+            {
+                continue;
+            }
+
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     public static void DeleteDirectory(string targetDirectory, string allowedRoot)
     {
         var fullTarget = NormalizeDirectoryPath(targetDirectory);

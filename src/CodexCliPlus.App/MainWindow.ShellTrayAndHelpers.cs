@@ -69,6 +69,11 @@ public partial class MainWindow
 
     internal void RestoreFromExternalActivation()
     {
+        if (_isExitRequested)
+        {
+            return;
+        }
+
         RestoreMainWindowToForeground();
     }
 

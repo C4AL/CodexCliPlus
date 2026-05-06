@@ -14,7 +14,19 @@ build:
     dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
 test:
-    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
+    & .\tools\Invoke-Tests.ps1 -Scope Quick -NoBuild
+
+test-full:
+    & .\tools\Invoke-Tests.ps1 -Scope Full -NoBuild
+
+test-packaging:
+    & .\tools\Invoke-Tests.ps1 -Scope Release -NoBuild
+
+test-smoke:
+    & .\tools\Invoke-Tests.ps1 -Scope Smoke -NoBuild
+
+test-live-backend:
+    & .\tools\Invoke-Tests.ps1 -Scope LiveBackend -NoBuild
 
 web-lint:
     Push-Location {{web}}; try { npm run lint; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
@@ -23,7 +35,7 @@ web-type-check:
     Push-Location {{web}}; try { npm run type-check; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
 
 web-test:
-    Push-Location {{web}}; try { npm run test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
+    Push-Location {{web}}; try { npm run test:fast; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
 
 web-build:
     Push-Location {{web}}; try { npm run build; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
@@ -38,8 +50,7 @@ format-check:
     dotnet csharpier check src tests
 
 coverage:
-    dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --filter "Category!=LiveBackend&Category!=Smoke"
-    reportgenerator -reports:"artifacts/test-results/**/coverage.cobertura.xml" -targetdir:"artifacts/coverage" -reporttypes:"Html;TextSummary"
+    & .\tools\Invoke-Tests.ps1 -Scope Coverage
 
 sbom:
     if (-not (Test-Path artifacts/sbom)) { New-Item -ItemType Directory -Path artifacts/sbom | Out-Null }

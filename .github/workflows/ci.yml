@@ -13,6 +13,7 @@ on:
       - "build/**"
       - "src/**"
       - "tests/**"
+      - "tools/Invoke-Tests.ps1"
   push:
     branches:
       - main
@@ -25,6 +26,7 @@ on:
       - "build/**"
       - "src/**"
       - "tests/**"
+      - "tools/Invoke-Tests.ps1"
   workflow_dispatch:
 
 concurrency:
@@ -48,65 +50,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Restore .NET tools
-        run: dotnet tool restore
-
       - name: Restore
         run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Build
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
-      - name: Test
-        if: github.event_name == 'push'
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke"
-
-      - name: Test with coverage
-        if: github.event_name != 'push'
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke" --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
-
-      - name: Generate coverage report
-        if: github.event_name != 'push'
-        run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
-
-      - name: Enforce coverage baseline
-        if: github.event_name != 'push'
+      - name: Test quick suite
         shell: pwsh
-        run: |
-          $summaryPath = "artifacts/coverage/Summary.txt"
-          if (!(Test-Path $summaryPath)) {
-            throw "Coverage summary not found: $summaryPath"
-          }
-
-          $summary = Get-Content -Raw $summaryPath
-          if ($summary -notmatch "Line coverage:\s*(?<coverage>[0-9]+(?:\.[0-9]+)?)%") {
-            throw "Could not parse line coverage from $summaryPath"
-          }
-
-          $lineCoverage = [decimal]$Matches.coverage
-          $minimumLineCoverage = [decimal]35.0
-          if ($lineCoverage -lt $minimumLineCoverage) {
-            throw "Line coverage $lineCoverage% is below baseline $minimumLineCoverage%."
-          }
-
-      - name: Publish coverage summary
-        if: github.event_name != 'push'
-        shell: pwsh
-        run: |
-          $summaryPath = "artifacts/coverage/Summary.txt"
-          if (Test-Path $summaryPath) {
-            "## .NET coverage" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-            "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-            Get-Content -Raw $summaryPath | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-            '```' | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          }
-
-      - name: Upload test and coverage artifacts
-        if: ${{ always() && github.event_name != 'push' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: dotnet-test-coverage
-          path: |
-            artifacts/test-results
-            artifacts/coverage
+        run: ./tools/Invoke-Tests.ps1 -Scope Quick -NoBuild

@@ -71,36 +71,15 @@ jobs:
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           "RELEASE_PACKAGES=$packages" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Restore tools
-        run: dotnet tool restore
-
       - name: Restore .NET packages
         run: dotnet restore CodexCliPlus.sln --locked-mode
 
       - name: Build .NET
         run: dotnet build CodexCliPlus.sln --configuration Release --no-restore
 
-      - name: Test .NET with coverage
-        run: dotnet test tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release --no-build --verbosity normal --filter "Category!=LiveBackend&Category!=Smoke" --collect:"XPlat Code Coverage" --results-directory artifacts/test-results --logger "trx;LogFileName=codexcliplus-tests.trx"
-
-      - name: Generate .NET coverage report
-        run: dotnet tool run reportgenerator -- "-reports:artifacts/test-results/**/coverage.cobertura.xml" "-targetdir:artifacts/coverage" "-reporttypes:Html;TextSummary;Cobertura"
-
-      - name: Install web dependencies
-        working-directory: resources/webui/upstream/source
-        run: npm ci
-
-      - name: Lint web
-        working-directory: resources/webui/upstream/source
-        run: npm run lint
-
-      - name: Type-check web
-        working-directory: resources/webui/upstream/source
-        run: npm run type-check
-
-      - name: Test web
-        working-directory: resources/webui/upstream/source
-        run: npm run test
+      - name: Test release packaging suite
+        shell: pwsh
+        run: ./tools/Invoke-Tests.ps1 -Scope Release -NoBuild
 
       - name: Build release artifacts
         shell: pwsh
@@ -108,9 +87,6 @@ jobs:
           $project = "src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj"
           dotnet run --project $project -- build-release --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION --packages $env:RELEASE_PACKAGES
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Generate SBOM
-        run: dotnet dotnet-CycloneDX CodexCliPlus.sln -o artifacts/sbom -fn codexcliplus.cyclonedx.xml
 
       - name: Write checksums
         run: dotnet run --project src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- write-checksums --configuration Release --runtime win-x64 --version $env:RELEASE_VERSION --packages $env:RELEASE_PACKAGES

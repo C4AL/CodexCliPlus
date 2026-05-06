@@ -27,7 +27,6 @@ internal static class Program
         Hosting.CreateBuilder()
             .UseLogger(false)
             .UseSingleInstance("BlackblockInc.CodexCliPlus.Setup")
-            .UseTempPathFork()
             .UseElevated()
             .UseDpiAware()
             .UseOptions(option =>

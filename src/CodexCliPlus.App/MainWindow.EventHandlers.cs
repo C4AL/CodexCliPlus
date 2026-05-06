@@ -48,7 +48,6 @@ public partial class MainWindow
         {
             MarkStartupPhase("window-loaded");
             _isMainWindowActive = IsActive;
-            ShowPreparationStep(5, "正在加载本地配置。", StartupState.Preparing);
             var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
             MarkStartupPhase("settings-loaded");

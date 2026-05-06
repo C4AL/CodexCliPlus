@@ -132,20 +132,17 @@ public partial class MainWindow
             UpdateShellConnectionPresentation();
 
             ShowPreparationStep(95, "正在打开管理界面。", StartupState.LoadingManagement);
-            if (useManagementEntryTransition)
-            {
-                PrepareManagementWebViewForTransitionNavigation();
-            }
+            await PrepareManagementWebViewForStableNavigationAsync();
 
             await EnsureWebViewAsync(
                 bundle,
                 payload,
-                waitForNavigation: useManagementEntryTransition
+                waitForNavigation: true
             );
             await EnsureMinimumPreparationDisplayAsync();
+            await DispatchManagementWebViewResizeAsync();
             if (useManagementEntryTransition)
             {
-                await DispatchManagementWebViewResizeAsync();
                 await CompleteManagementEntryTransitionAsync();
             }
             else

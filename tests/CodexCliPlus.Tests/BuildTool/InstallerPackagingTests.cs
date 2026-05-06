@@ -237,14 +237,15 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.True(File.Exists(installerPath));
         Assert.Null(WindowsExecutableValidation.ValidateFile(installerPath));
 
-        var distRoot = Path.Combine(
+        var installerStageRoot = Path.Combine(
             outputRoot,
             "installer",
             "win-x64",
             "offline-installer",
-            "stage",
-            ".dist"
+            "stage"
         );
+        var distRoot = Path.Combine(installerStageRoot, ".dist");
+        var micaConfig = ReadJson<JsonElement>(Path.Combine(installerStageRoot, "micasetup.json"));
         var setupProgram = File.ReadAllText(Path.Combine(distRoot, "Program.cs"));
         var uninstProgram = File.ReadAllText(Path.Combine(distRoot, "Program.un.cs"));
         var setupMainViewModel = File.ReadAllText(
@@ -269,6 +270,9 @@ public sealed class InstallerPackagingTests : IDisposable
 
         Assert.Contains(".UseElevated()", setupProgram, StringComparison.Ordinal);
         Assert.Contains("BlackblockInc.CodexCliPlus.Setup", setupProgram, StringComparison.Ordinal);
+        Assert.DoesNotContain(".UseTempPathFork()", setupProgram, StringComparison.Ordinal);
+        Assert.Contains(".UseTempPathFork()", uninstProgram, StringComparison.Ordinal);
+        Assert.False(micaConfig.GetProperty("IsUseTempPathFork").GetBoolean());
         Assert.Contains("RequestExecutionLevel(\"admin\")", setupProgram, StringComparison.Ordinal);
         Assert.Contains("option.KeepMyData = false;", uninstProgram, StringComparison.Ordinal);
         Assert.Matches(
@@ -327,8 +331,11 @@ public sealed class InstallerPackagingTests : IDisposable
             2,
             CountOccurrences(finishViewModel, "CleanupOriginalInstallerAfterInstall();")
         );
-        Assert.Contains("ComputeCodexCliPlusSha256", finishViewModel, StringComparison.Ordinal);
-        Assert.Contains("TempPathForkHelper.ForkedCli", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("ScheduleDelayedInstallerDelete", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("Remove-Item -LiteralPath", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("-WindowStyle Hidden", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComputeCodexCliPlusSha256", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("TempPathForkHelper.ForkedCli", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("CleanupCodexCliPlusUserData", uninstallHelper, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Option.Current.KeepMyData = true;",
@@ -700,7 +707,7 @@ public sealed class InstallerPackagingTests : IDisposable
             Path.Combine(overlayRoot, "Program.un.cs.template"),
             """
             [assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
-            Hosting.CreateBuilder().UseElevated().UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall").UseOptions(option => { option.ExeName = "CodexCliPlus.exe"; option.KeepMyData = false; });
+            Hosting.CreateBuilder().UseElevated().UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall").UseTempPathFork().UseOptions(option => { option.ExeName = "CodexCliPlus.exe"; option.KeepMyData = false; });
             """
         );
         File.WriteAllText(
@@ -774,11 +781,14 @@ public sealed class InstallerPackagingTests : IDisposable
 
                 private void CleanupOriginalInstallerAfterInstall()
                 {
-                    _ = TempPathForkHelper.ForkedCli;
-                    _ = ComputeCodexCliPlusSha256("setup.exe");
+                    ScheduleDelayedInstallerDelete("setup.exe");
                 }
 
-                private static string ComputeCodexCliPlusSha256(string path) => path;
+                private static void ScheduleDelayedInstallerDelete(string path)
+                {
+                    _ = "Remove-Item -LiteralPath";
+                    _ = "-WindowStyle Hidden";
+                }
             }
             """
         );

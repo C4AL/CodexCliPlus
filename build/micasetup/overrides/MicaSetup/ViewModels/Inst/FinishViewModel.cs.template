@@ -3,7 +3,6 @@ using MicaSetup.Design.ComponentModel;
 using MicaSetup.Helper;
 using System;
 using System.IO;
-using System.Security.Cryptography;
 using System.Windows;
 
 namespace MicaSetup.ViewModels;
@@ -61,43 +60,28 @@ public partial class FinishViewModel : ObservableObject
 
         try
         {
-            if (!CommandLineHelper.Has(TempPathForkHelper.ForkedCli))
-            {
-                Logger.Information("[InstallerCleanup] skip because installer was not started from a temp fork.");
-                return;
-            }
-
-            string originalPath = CommandLineHelper.Values[TempPathForkHelper.ForkedCli];
-            if (string.IsNullOrWhiteSpace(originalPath) || !File.Exists(originalPath))
-            {
-                Logger.Information($"[InstallerCleanup] original installer missing: {originalPath}");
-                return;
-            }
-
-            string originalFullPath = Path.GetFullPath(originalPath);
             string currentFullPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppDomain.CurrentDomain.FriendlyName));
-            if (string.Equals(originalFullPath, currentFullPath, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(currentFullPath) || !File.Exists(currentFullPath))
             {
-                Logger.Warning("[InstallerCleanup] original installer path is the current fork path; skip delete.");
+                Logger.Information($"[InstallerCleanup] current installer missing: {currentFullPath}");
                 return;
             }
 
-            if (!string.Equals(Path.GetExtension(originalFullPath), ".exe", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Path.GetExtension(currentFullPath), ".exe", StringComparison.OrdinalIgnoreCase))
             {
-                Logger.Warning($"[InstallerCleanup] original installer is not an exe: {originalFullPath}");
+                Logger.Warning($"[InstallerCleanup] current installer is not an exe: {currentFullPath}");
                 return;
             }
 
-            string originalHash = ComputeCodexCliPlusSha256(originalFullPath);
-            string currentHash = ComputeCodexCliPlusSha256(currentFullPath);
-            if (!string.Equals(originalHash, currentHash, StringComparison.OrdinalIgnoreCase))
+            string installedExecutablePath = Path.GetFullPath(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName));
+            if (string.Equals(currentFullPath, installedExecutablePath, StringComparison.OrdinalIgnoreCase))
             {
-                Logger.Warning("[InstallerCleanup] original installer hash does not match the current fork; skip delete.");
+                Logger.Warning("[InstallerCleanup] current path is the installed application; skip delete.");
                 return;
             }
 
-            File.Delete(originalFullPath);
-            Logger.Information($"[InstallerCleanup] deleted original installer: {originalFullPath}");
+            ScheduleDelayedInstallerDelete(currentFullPath);
+            Logger.Information($"[InstallerCleanup] scheduled installer delete: {currentFullPath}");
         }
         catch (Exception e)
         {
@@ -105,12 +89,22 @@ public partial class FinishViewModel : ObservableObject
         }
     }
 
-    private static string ComputeCodexCliPlusSha256(string path)
+    private static void ScheduleDelayedInstallerDelete(string installerPath)
     {
-        using SHA256 sha256 = SHA256.Create();
-        using FileStream stream = File.OpenRead(path);
-        byte[] hash = sha256.ComputeHash(stream);
-        return BitConverter.ToString(hash).Replace("-", string.Empty);
+        string escapedPath = installerPath.Replace("'", "''");
+        string command = $"Start-Sleep -Seconds 3; Remove-Item -LiteralPath '{escapedPath}' -Force -ErrorAction SilentlyContinue";
+        FluentProcess.Create()
+            .FileName("powershell.exe")
+            .Arguments("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command " + QuoteProcessArgument(command))
+            .UseShellExecute(false)
+            .CreateNoWindow(true)
+            .Start()
+            .Forget();
+    }
+
+    private static string QuoteProcessArgument(string value)
+    {
+        return "\"" + value.Replace("\"", "\\\"") + "\"";
     }
 }
 

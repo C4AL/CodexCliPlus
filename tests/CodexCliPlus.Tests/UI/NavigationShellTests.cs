@@ -38,6 +38,11 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
         var hostSource = ReadMainWindowSources(repositoryRoot);
+        var windowLoadedSource = SliceBetween(
+            hostSource,
+            "private async void Window_Loaded",
+            "private async void Window_Closed"
+        );
         var shellBrandDockPopupXaml = SliceBetween(
             xaml,
             "x:Name=\"ShellBrandDockPopup\"",
@@ -76,12 +81,17 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "PrepareManagementWebViewForTransitionNavigation",
+            "PrepareManagementWebViewForStableNavigationAsync",
             hostSource,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "waitForNavigation: useManagementEntryTransition",
+            "waitForNavigation: true",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementWebView.Visibility = Visibility.Hidden;",
             hostSource,
             StringComparison.Ordinal
         );
@@ -100,6 +110,17 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "_settings = await _appConfigurationService.LoadAsync();",
+            windowLoadedSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "await ContinueAfterStartupGateAsync();",
+            windowLoadedSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("ShowPreparationStep(5", windowLoadedSource, StringComparison.Ordinal);
         Assert.Contains(
             "SystemParameters.ClientAreaAnimation",
             hostSource,
@@ -560,6 +581,19 @@ public sealed class NavigationShellTests
 
         Assert.Contains("AddSingleton<WebUiAssetLocator>()", source, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<MainWindow>()", source, StringComparison.Ordinal);
+        Assert.Contains("SingleInstanceMutexName", source, StringComparison.Ordinal);
+        Assert.Contains("SingleInstanceWakeEventName", source, StringComparison.Ordinal);
+        Assert.Contains("TryParseRepairMode(e.Args", source, StringComparison.Ordinal);
+        Assert.Contains("TryAcquireSingleInstance()", source, StringComparison.Ordinal);
+        AssertSourceOrder(
+            source,
+            "if (TryParseRepairMode(e.Args",
+            "if (!TryAcquireSingleInstance())"
+        );
+        Assert.Contains("EventWaitHandle", source, StringComparison.Ordinal);
+        Assert.Contains("new Mutex(", source, StringComparison.Ordinal);
+        Assert.Contains("ListenForSingleInstanceWakeRequests", source, StringComparison.Ordinal);
+        Assert.Contains("RestoreFromExternalActivation", source, StringComparison.Ordinal);
         Assert.DoesNotContain("IManagementNavigationService", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DashboardPageViewModel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("DashboardPage", source, StringComparison.Ordinal);

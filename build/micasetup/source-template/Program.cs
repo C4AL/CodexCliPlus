@@ -27,7 +27,6 @@ internal class Program
         Hosting.CreateBuilder()
             .UseLogger(false)
             .UseSingleInstance("MicaSetup")
-            .UseTempPathFork()
             .UseElevated()
             .UseDpiAware()
             .UseOptions(option =>

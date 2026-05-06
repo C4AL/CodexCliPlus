@@ -254,4 +254,64 @@ describe('DashboardPage local environment loading', () => {
       );
     });
   });
+
+  it('runs winget repair action from the local environment item', async () => {
+    const wingetSnapshot: LocalDependencySnapshot = {
+      ...snapshot,
+      items: [
+        {
+          id: 'winget',
+          name: 'winget',
+          status: 'warning',
+          severity: 'repairTool',
+          version: null,
+          path: null,
+          detail: '未找到 winget。',
+          recommendation: '修复 winget 后可使用内置安装动作。',
+          repairActionId: 'repair-winget',
+        },
+      ],
+      repairCapabilities: [
+        {
+          actionId: 'repair-winget',
+          name: '修复 winget',
+          isAvailable: true,
+          requiresElevation: true,
+          isOptional: false,
+          detail: '将通过 Microsoft.WinGet.Client 修复 winget。',
+        },
+      ],
+    };
+    bridgeMocks.requestLocalDependencySnapshot.mockResolvedValue(wingetSnapshot);
+    bridgeMocks.runLocalDependencyRepair.mockResolvedValue({
+      result: {
+        actionId: 'repair-winget',
+        succeeded: true,
+        exitCode: 0,
+        summary: 'winget 修复已完成。',
+        detail: '请重新检测。',
+        logPath: 'C:\\logs\\local-environment-repair.log',
+      },
+      snapshot: {
+        ...wingetSnapshot,
+        readinessScore: 100,
+        summary: '本地环境已刷新。',
+      },
+    });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(wingetSnapshot.summary);
+    fireEvent.click(screen.getByRole('button', { name: 'dashboard.local_environment_repair' }));
+
+    const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      await confirmation.onConfirm();
+    });
+
+    expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
+      'repair-winget',
+      expect.any(Function)
+    );
+  });
 });

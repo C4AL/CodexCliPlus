@@ -58,6 +58,29 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteRepairModeAsyncRunsWingetRepairBootstrap()
+    {
+        var processRunner = new RecordingProcessRunner();
+        var service = CreateService(processRunner);
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairWinget,
+            statusPath
+        );
+
+        Assert.True(result.Succeeded);
+        var command = Assert.Single(processRunner.Commands);
+        Assert.Equal("powershell.exe", command.FileName);
+        Assert.Contains("-NoLogo", command.Arguments, StringComparison.Ordinal);
+        Assert.Contains("-NoProfile", command.Arguments, StringComparison.Ordinal);
+        Assert.Contains("-NonInteractive", command.Arguments, StringComparison.Ordinal);
+        Assert.Contains("-ExecutionPolicy Bypass", command.Arguments, StringComparison.Ordinal);
+        Assert.Contains("Microsoft.WinGet.Client", command.Arguments, StringComparison.Ordinal);
+        Assert.Contains("Repair-WinGetPackageManager", command.Arguments, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecuteRepairModeAsyncWritesVisibleProgressBeforeCommandFinishes()
     {
         var processRunner = new BlockingProcessRunner();
@@ -115,6 +138,37 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.Equal("failed", progress.Phase);
         Assert.Equal(7, progress.ExitCode);
         Assert.Contains("winget 安装失败", progress.RecentOutput);
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncKeepsWingetRepairFailureDetails()
+    {
+        var processRunner = new RecordingProcessRunner(
+            new LocalEnvironmentProcessResult(9, "准备修复 winget", "Repair-WinGetPackageManager 失败")
+        );
+        var service = CreateService(processRunner);
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairWinget,
+            statusPath
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(9, result.ExitCode);
+        Assert.Contains("退出码 9", result.Detail, StringComparison.Ordinal);
+        Assert.Contains("Repair-WinGetPackageManager 失败", result.Detail, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(result.LogPath));
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.NotNull(progress);
+        Assert.True(progress!.IsCompleted);
+        Assert.Equal("failed", progress.Phase);
+        Assert.Equal(9, progress.ExitCode);
+        Assert.Contains("准备修复 winget", progress.RecentOutput);
+        Assert.Contains("Repair-WinGetPackageManager 失败", progress.RecentOutput);
     }
 
     [Fact]

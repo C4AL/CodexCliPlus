@@ -56,6 +56,61 @@ public sealed class LocalDependencyHealthServiceTests
     }
 
     [Fact]
+    public async Task CheckAsyncOffersWingetRepairWhenWingetIsMissing()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond("where.exe", "winget", 1, "", "not found");
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var winget = Assert.Single(snapshot.Items, item => item.Id == "winget");
+        Assert.Equal(LocalDependencyStatus.Warning, winget.Status);
+        Assert.Equal(LocalDependencyRepairActionIds.RepairWinget, winget.RepairActionId);
+        var capability = Assert.Single(
+            snapshot.RepairCapabilities,
+            item => item.ActionId == LocalDependencyRepairActionIds.RepairWinget
+        );
+        Assert.True(capability.IsAvailable);
+    }
+
+    [Fact]
+    public async Task CheckAsyncOffersWingetRepairWhenWingetVersionProbeFails()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond(
+            "C:\\Users\\Tester\\AppData\\Local\\Microsoft\\WindowsApps\\winget.exe",
+            "--version",
+            1,
+            "",
+            "winget failed"
+        );
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var winget = Assert.Single(snapshot.Items, item => item.Id == "winget");
+        Assert.Equal(LocalDependencyStatus.Warning, winget.Status);
+        Assert.Equal(LocalDependencyRepairActionIds.RepairWinget, winget.RepairActionId);
+        Assert.Contains("winget 版本检测失败", winget.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CheckAsyncDisablesWingetRepairCapabilityWhenPowerShellIsUnavailable()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+        fixture.ProcessRunner.Respond("where.exe", "pwsh", 1, "", "not found");
+        fixture.ProcessRunner.Respond("where.exe", "powershell", 1, "", "not found");
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var capability = Assert.Single(
+            snapshot.RepairCapabilities,
+            item => item.ActionId == LocalDependencyRepairActionIds.RepairWinget
+        );
+        Assert.False(capability.IsAvailable);
+        Assert.Contains("需要 PowerShell 可用", capability.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CheckAsyncRecordsTimeoutAsWarning()
     {
         var fixture = LocalEnvironmentFixture.CreateHealthy();

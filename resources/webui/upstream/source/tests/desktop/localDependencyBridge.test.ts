@@ -87,6 +87,53 @@ describe('local dependency desktop bridge', () => {
     await rejected;
   });
 
+  it('normalizes winget repair item and capability without schema changes', async () => {
+    const requestIds: string[] = [];
+    const bridge = await loadBridge({
+      requestSnapshot: (requestId) => {
+        requestIds.push(requestId);
+        return true;
+      },
+    });
+
+    const request = bridge.requestLocalDependencySnapshot();
+    bridge.emit({
+      type: 'localDependencySnapshot',
+      requestId: requestIds[0],
+      snapshot: {
+        ...sampleSnapshot,
+        items: [
+          {
+            id: 'winget',
+            name: 'winget',
+            status: 'warning',
+            severity: 'repairTool',
+            detail: '未找到 winget。',
+            recommendation: '修复 winget 后可使用内置安装动作。',
+            repairActionId: 'repair-winget',
+          },
+        ],
+        repairCapabilities: [
+          {
+            actionId: 'repair-winget',
+            name: '修复 winget',
+            isAvailable: true,
+            requiresElevation: true,
+            isOptional: false,
+            detail: '将通过 Microsoft.WinGet.Client 修复 winget。',
+          },
+        ],
+      },
+    });
+
+    await expect(request).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: 'winget', repairActionId: 'repair-winget' })],
+      repairCapabilities: [
+        expect.objectContaining({ actionId: 'repair-winget', isAvailable: true }),
+      ],
+    });
+  });
+
   it('delivers repair progress without resolving before final result', async () => {
     const repairRequestIds: string[] = [];
     const bridge = await loadBridge({

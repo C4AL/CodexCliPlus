@@ -40,12 +40,14 @@ export const useAuthStore = create<AuthStoreState>()(
           return restoreSessionPromise;
         }
 
-        restoreSessionPromise = (async () => {
+        let resetRestoreSessionPromise = false;
+        const nextRestoreSessionPromise = (async () => {
           const desktopMode = isDesktopMode();
           const desktopBootstrap = consumeDesktopBootstrap();
 
           if (desktopMode) {
             if (!desktopBootstrap) {
+              resetRestoreSessionPromise = true;
               set({
                 isAuthenticated: false,
                 apiBase: '',
@@ -106,8 +108,13 @@ export const useAuthStore = create<AuthStoreState>()(
           }
 
           return false;
-        })();
+        })().finally(() => {
+          if (resetRestoreSessionPromise && restoreSessionPromise === nextRestoreSessionPromise) {
+            restoreSessionPromise = null;
+          }
+        });
 
+        restoreSessionPromise = nextRestoreSessionPromise;
         return restoreSessionPromise;
       },
 

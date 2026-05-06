@@ -188,6 +188,7 @@ declare global {
     chrome?: {
       webview?: {
         addEventListener?: (type: 'message', listener: (event: MessageEvent) => void) => void;
+        postMessage?: (message: unknown) => void;
       };
     };
   }
@@ -712,23 +713,28 @@ export function getDesktopBootstrap(): DesktopBootstrapPayload | null {
 
   const bridge = getBridge();
   if (typeof bridge?.consumeBootstrap !== 'function') {
-    desktopBootstrapCache = null;
-    return desktopBootstrapCache;
+    return null;
   }
 
   try {
-    desktopBootstrapCache = normalizePayload(bridge.consumeBootstrap());
-    return desktopBootstrapCache;
+    const payload = normalizePayload(bridge.consumeBootstrap());
+    if (payload) {
+      desktopBootstrapCache = payload;
+    }
+    return payload;
   } catch (error) {
     console.warn('Failed to read desktop bootstrap payload.', error);
-    desktopBootstrapCache = null;
-    return desktopBootstrapCache;
+    return null;
   }
 }
 
 export function isDesktopMode(): boolean {
   const bridge = getBridge();
-  return typeof bridge?.isDesktopMode === 'function' ? bridge.isDesktopMode() === true : false;
+  if (typeof bridge?.isDesktopMode === 'function') {
+    return bridge.isDesktopMode() === true;
+  }
+
+  return typeof window !== 'undefined' && typeof window.chrome?.webview?.postMessage === 'function';
 }
 
 export function consumeDesktopBootstrap(): DesktopBootstrapPayload | null {

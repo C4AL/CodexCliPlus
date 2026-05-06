@@ -2338,6 +2338,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var loginRouteSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "LoginRoute.tsx"
+            ),
+            Encoding.UTF8
+        );
         var bridgeSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -2498,12 +2511,16 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
 
-        Assert.Contains("desktopMode", appSource, StringComparison.Ordinal);
+        Assert.Contains("{ path: '/login', element: <LoginRoute /> }", appSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("const desktopMode = isDesktopMode();", appSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("isDesktopMode()", appSource, StringComparison.Ordinal);
+        Assert.Contains("isDesktopMode()", loginRouteSource, StringComparison.Ordinal);
         Assert.Contains(
-            "element: <Navigate to=\"/\" replace />",
-            appSource,
+            "return <Navigate to=\"/\" replace />;",
+            loginRouteSource,
             StringComparison.Ordinal
         );
+        Assert.Contains("<LoginPage />", loginRouteSource, StringComparison.Ordinal);
         Assert.Contains("restoreSession", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
@@ -2511,6 +2528,7 @@ public sealed class NavigationShellTests
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin?:", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("postMessage?:", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged?:", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("subscribeDesktopShellCommand", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("sendShellStateChanged", mainLayoutSource, StringComparison.Ordinal);
@@ -2690,7 +2708,10 @@ public sealed class NavigationShellTests
         Assert.Contains("theme-transitioning", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (theme === 'light')", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("window.chrome?.webview?.postMessage", bridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("desktopBootstrapCache = null", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("resetRestoreSessionPromise = true", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
         Assert.Contains(
             "normalizeApiBase(desktopBootstrap.apiBase)",

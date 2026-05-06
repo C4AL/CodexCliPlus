@@ -24,6 +24,24 @@ async function loadDesktopAuthStore() {
   return { useAuthStore, useConfigStore };
 }
 
+async function loadDesktopAuthStoreBeforeBridgeInjection() {
+  vi.resetModules();
+  Reflect.deleteProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__');
+  Object.assign(window, {
+    chrome: {
+      webview: {
+        postMessage: vi.fn(),
+      },
+    },
+  });
+
+  const [{ useAuthStore }, { useConfigStore }] = await Promise.all([
+    import('@/stores/useAuthStore'),
+    import('@/stores/useConfigStore'),
+  ]);
+  return { useAuthStore, useConfigStore };
+}
+
 describe('useAuthStore desktop restore', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -31,6 +49,7 @@ describe('useAuthStore desktop restore', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__');
+    Reflect.deleteProperty(window, 'chrome');
     vi.resetModules();
     vi.restoreAllMocks();
   });
@@ -42,6 +61,33 @@ describe('useAuthStore desktop restore', () => {
 
     await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
 
+    expect(fetchConfig).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiBase: bootstrap.apiBase,
+      managementKey: bootstrap.managementKey,
+      connectionStatus: 'connected',
+    });
+  });
+
+  it('retries after the desktop bootstrap bridge is injected late', async () => {
+    const { useAuthStore, useConfigStore } = await loadDesktopAuthStoreBeforeBridgeInjection();
+    const fetchConfig = vi.fn().mockRejectedValue(new Error('不应阻塞桌面首屏'));
+    useConfigStore.setState({ fetchConfig });
+
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe(false);
+
+    const consumeBootstrap = vi.fn(() => bootstrap);
+    Object.assign(window, {
+      __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
+        isDesktopMode: () => true,
+        consumeBootstrap,
+      },
+    });
+
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
+
+    expect(consumeBootstrap).toHaveBeenCalledTimes(1);
     expect(fetchConfig).not.toHaveBeenCalled();
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,

@@ -666,6 +666,7 @@ public partial class MainWindow
         }
 
         _isExitRequested = true;
+        App.MarkSingleInstanceExitInProgress();
         _allowClose = true;
         _applicationExitTask = RunApplicationExitAsync();
         return _applicationExitTask;
@@ -674,7 +675,6 @@ public partial class MainWindow
     private async Task RunApplicationExitAsync()
     {
         CloseShellDockPopups();
-        TrayIcon.Unregister();
 
         try
         {

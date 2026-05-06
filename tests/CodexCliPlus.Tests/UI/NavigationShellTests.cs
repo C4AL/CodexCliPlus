@@ -662,6 +662,137 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
+    public void TrayExitMarksSingleInstanceExitAndDefersTrayUnregisterUntilClose()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var eventHandlersSource = ReadAppSource(repositoryRoot, "MainWindow.EventHandlers.cs");
+        var trayHelpersSource = ReadAppSource(repositoryRoot, "MainWindow.ShellTrayAndHelpers.cs");
+        var requestExitSource = SliceBetween(
+            eventHandlersSource,
+            "private Task RequestApplicationExitAsync()",
+            "private async Task RunApplicationExitAsync()"
+        );
+        var runExitSource = eventHandlersSource[
+            eventHandlersSource.IndexOf(
+                "private async Task RunApplicationExitAsync()",
+                StringComparison.Ordinal
+            )..
+        ];
+        var restoreActivationSource = SliceBetween(
+            trayHelpersSource,
+            "internal void RestoreFromExternalActivation()",
+            "private void RestoreMainWindowToForeground()"
+        );
+        var windowClosedSource = SliceBetween(
+            eventHandlersSource,
+            "private async void Window_Closed",
+            "public void Dispose()"
+        );
+
+        Assert.Contains(
+            "App.MarkSingleInstanceExitInProgress();",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
+        AssertSourceOrder(
+            requestExitSource,
+            "_isExitRequested = true;",
+            "App.MarkSingleInstanceExitInProgress();"
+        );
+        AssertSourceOrder(
+            requestExitSource,
+            "App.MarkSingleInstanceExitInProgress();",
+            "_applicationExitTask = RunApplicationExitAsync();"
+        );
+        Assert.Contains("if (_applicationExitTask is not null)", requestExitSource, StringComparison.Ordinal);
+        Assert.Contains("return _applicationExitTask;", requestExitSource, StringComparison.Ordinal);
+        AssertSourceOrder(
+            requestExitSource,
+            "_isExitRequested = true;",
+            "_applicationExitTask = RunApplicationExitAsync();"
+        );
+        Assert.Contains("if (_isExitRequested)", restoreActivationSource, StringComparison.Ordinal);
+        AssertSourceOrder(
+            restoreActivationSource,
+            "if (_isExitRequested)",
+            "RestoreMainWindowToForeground();"
+        );
+        Assert.DoesNotContain("TrayIcon.Unregister();", runExitSource, StringComparison.Ordinal);
+        Assert.Contains("TrayIcon.Unregister();", windowClosedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AppSingleInstanceStartupWaitsOnlyWhenExistingInstanceIsExiting()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var source = File.ReadAllText(
+            Path.Combine(repositoryRoot, "src", "CodexCliPlus.App", "App.xaml.cs"),
+            Encoding.UTF8
+        );
+        var acquisitionSource = NormalizeLineEndings(
+            SliceBetween(
+                source,
+                "private bool TryAcquireSingleInstance()",
+                "internal static void MarkSingleInstanceExitInProgress()"
+            )
+        );
+        var stopListenerSource = NormalizeLineEndings(
+            SliceBetween(
+                source,
+                "private void StopSingleInstanceWakeListener()",
+                "private static bool TryParseRepairMode("
+            )
+        );
+
+        Assert.Contains("SingleInstanceExitingEventName", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(15)",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("EventResetMode.ManualReset", source, StringComparison.Ordinal);
+        Assert.Contains("MarkSingleInstanceExitInProgress", source, StringComparison.Ordinal);
+        Assert.Contains("IsSingleInstanceExitInProgress()", acquisitionSource, StringComparison.Ordinal);
+        Assert.Contains("WaitForSingleInstanceExitTakeover()", acquisitionSource, StringComparison.Ordinal);
+        AssertSourceOrder(
+            acquisitionSource,
+            "else if (IsSingleInstanceExitInProgress())",
+            "if (!WaitForSingleInstanceExitTakeover())"
+        );
+        AssertSourceOrder(
+            acquisitionSource,
+            "if (!WaitForSingleInstanceExitTakeover())",
+            "_singleInstanceExitingEvent.Reset();"
+        );
+        Assert.Contains(
+            "else\n            {\n                _singleInstanceWakeEvent.Set();",
+            acquisitionSource,
+            StringComparison.Ordinal
+        );
+        AssertSourceOrder(
+            acquisitionSource,
+            "else if (IsSingleInstanceExitInProgress())",
+            "else\n            {\n                _singleInstanceWakeEvent.Set();"
+        );
+        Assert.Contains(
+            "WaitOne(SingleInstanceExitTakeoverTimeout)",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "WaitForSingleInstanceExitTakeover();\n                _singleInstanceWakeEvent.Set();",
+            acquisitionSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("var wakeTask = _singleInstanceWakeTask;", stopListenerSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "if (wakeTask is not null)\n            {\n                _singleInstanceWakeEvent?.Set();",
+            stopListenerSource,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public void AppRegistersMinimalShellInsteadOfRuntimeManagementPages()
     {
         var repositoryRoot = FindRepositoryRoot();
@@ -674,6 +805,7 @@ public sealed class NavigationShellTests
         Assert.Contains("AddSingleton<MainWindow>()", source, StringComparison.Ordinal);
         Assert.Contains("SingleInstanceMutexName", source, StringComparison.Ordinal);
         Assert.Contains("SingleInstanceWakeEventName", source, StringComparison.Ordinal);
+        Assert.Contains("SingleInstanceExitingEventName", source, StringComparison.Ordinal);
         Assert.Contains("TryParseRepairMode(e.Args", source, StringComparison.Ordinal);
         Assert.Contains("TryAcquireSingleInstance()", source, StringComparison.Ordinal);
         AssertSourceOrder(
@@ -2601,6 +2733,11 @@ public sealed class NavigationShellTests
         }
 
         return count;
+    }
+
+    private static string NormalizeLineEndings(string source)
+    {
+        return source.Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     private static void AssertSourceOrder(string source, string first, string second)

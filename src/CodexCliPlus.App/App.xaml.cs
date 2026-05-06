@@ -13,10 +13,13 @@ public partial class App : System.Windows.Application, IDisposable
 {
     private const string SingleInstanceMutexName = "BlackblockInc.CodexCliPlus.App";
     private const string SingleInstanceWakeEventName = "BlackblockInc.CodexCliPlus.App.Wake";
+    private const string SingleInstanceExitingEventName = "BlackblockInc.CodexCliPlus.App.Exiting";
+    private static readonly TimeSpan SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(15);
 
     private ServiceProvider? _serviceProvider;
     private Mutex? _singleInstanceMutex;
     private EventWaitHandle? _singleInstanceWakeEvent;
+    private EventWaitHandle? _singleInstanceExitingEvent;
     private CancellationTokenSource? _singleInstanceWakeCancellation;
     private Task? _singleInstanceWakeTask;
 
@@ -95,17 +98,39 @@ public partial class App : System.Windows.Application, IDisposable
                 EventResetMode.AutoReset,
                 SingleInstanceWakeEventName
             );
+            _singleInstanceExitingEvent = new EventWaitHandle(
+                false,
+                EventResetMode.ManualReset,
+                SingleInstanceExitingEventName
+            );
             _singleInstanceMutex = new Mutex(
-                initiallyOwned: true,
+                initiallyOwned: false,
                 SingleInstanceMutexName,
                 out var createdNew
             );
 
-            if (!createdNew)
+            if (createdNew)
+            {
+                _singleInstanceMutex.WaitOne();
+                _singleInstanceExitingEvent.Reset();
+            }
+            else if (IsSingleInstanceExitInProgress())
+            {
+                if (!WaitForSingleInstanceExitTakeover())
+                {
+                    StopSingleInstanceWakeListener();
+                    return false;
+                }
+
+                _singleInstanceExitingEvent.Reset();
+            }
+            else
             {
                 _singleInstanceWakeEvent.Set();
                 _singleInstanceWakeEvent.Dispose();
                 _singleInstanceWakeEvent = null;
+                _singleInstanceExitingEvent.Dispose();
+                _singleInstanceExitingEvent = null;
                 _singleInstanceMutex.Dispose();
                 _singleInstanceMutex = null;
                 return false;
@@ -123,6 +148,44 @@ public partial class App : System.Windows.Application, IDisposable
         catch
         {
             StopSingleInstanceWakeListener();
+            return true;
+        }
+    }
+
+    internal static void MarkSingleInstanceExitInProgress()
+    {
+        try
+        {
+            using var exitingEvent = new EventWaitHandle(
+                false,
+                EventResetMode.ManualReset,
+                SingleInstanceExitingEventName
+            );
+            exitingEvent.Set();
+        }
+        catch { }
+    }
+
+    private bool IsSingleInstanceExitInProgress()
+    {
+        try
+        {
+            return _singleInstanceExitingEvent?.WaitOne(0) == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool WaitForSingleInstanceExitTakeover()
+    {
+        try
+        {
+            return _singleInstanceMutex?.WaitOne(SingleInstanceExitTakeoverTimeout) == true;
+        }
+        catch (AbandonedMutexException)
+        {
             return true;
         }
     }
@@ -155,9 +218,13 @@ public partial class App : System.Windows.Application, IDisposable
     {
         try
         {
+            var wakeTask = _singleInstanceWakeTask;
             _singleInstanceWakeCancellation?.Cancel();
-            _singleInstanceWakeEvent?.Set();
-            _singleInstanceWakeTask?.Wait(TimeSpan.FromMilliseconds(500));
+            if (wakeTask is not null)
+            {
+                _singleInstanceWakeEvent?.Set();
+                wakeTask.Wait(TimeSpan.FromMilliseconds(500));
+            }
         }
         catch { }
 
@@ -167,6 +234,8 @@ public partial class App : System.Windows.Application, IDisposable
 
         _singleInstanceWakeEvent?.Dispose();
         _singleInstanceWakeEvent = null;
+        _singleInstanceExitingEvent?.Dispose();
+        _singleInstanceExitingEvent = null;
 
         if (_singleInstanceMutex is not null)
         {

@@ -234,10 +234,8 @@ public partial class StartupFlowView : WpfUserControl
 
     private void FocusFirstRunKey()
     {
-        Dispatcher.BeginInvoke(
-            () => FirstRunCopyKeyButton.Focus(),
-            DispatcherPriority.Background
-        );
+        Keyboard.ClearFocus();
+        FocusManager.SetFocusedElement(this, FirstRunSecurityKeyDisplay);
     }
 
     private void LoginButton_Click(object sender, RoutedEventArgs e)

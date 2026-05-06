@@ -249,11 +249,6 @@
         <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
       </Trigger>
-      <Trigger Property="IsKeyboardFocusWithin" Value="True">
-        <Setter Property="Opacity" Value="1" />
-        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-      </Trigger>
     </Style.Triggers>
   </Style>
   <Style x:Key="ShellBrandDockButtonStyle" TargetType="{x:Type Button}">

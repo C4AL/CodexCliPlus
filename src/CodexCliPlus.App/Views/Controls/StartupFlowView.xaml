@@ -555,13 +555,12 @@
             <TextBlock Style="{StaticResource StartupFlowLabelTextStyle}" Text="安全密钥" />
             <PasswordBox
               x:Name="ManagementKeyPasswordBox"
-              Height="40"
               Margin="0,8,0,0"
+              HorizontalAlignment="Stretch"
               Style="{StaticResource StartupFlowPasswordBoxStyle}"
               KeyDown="ManagementKeyPasswordBox_KeyDown"
               AutomationProperties.AutomationId="ManagementKeyPasswordBox"
               AutomationProperties.Name="安全密钥"
-              VerticalContentAlignment="Center"
             />
           </StackPanel>
 

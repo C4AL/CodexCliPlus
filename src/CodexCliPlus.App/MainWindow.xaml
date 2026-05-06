@@ -574,7 +574,7 @@
                   IsHitTestVisible="False"
                   Opacity="0.72"
                 />
-                <StackPanel x:Name="ShellNavigationItemsHost" VerticalAlignment="Center">
+                <StackPanel x:Name="ShellNavigationItemsHost" VerticalAlignment="Top">
                   <Button
                     x:Name="ShellNavDashboardButton"
                     Style="{StaticResource ShellNavigationButtonStyle}"

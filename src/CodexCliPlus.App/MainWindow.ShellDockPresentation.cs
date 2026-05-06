@@ -390,6 +390,8 @@ public partial class MainWindow
         return ShellNavigationDockPopup is not null
             && ShellNavigationDockHost is not null
             && ShellNavigationPanel is not null
+            && ShellNavigationItemsHost is not null
+            && ManagementContentHost is not null
             && ManagementWebView is not null;
     }
 
@@ -424,6 +426,11 @@ public partial class MainWindow
                 expanded: state == NavigationDockVisualState.Expanded,
                 durationMilliseconds: 0
             );
+            if (state != NavigationDockVisualState.Resting)
+            {
+                UpdateNavigationDockPanelHeightForCurrentState();
+            }
+
             return;
         }
 
@@ -444,7 +451,7 @@ public partial class MainWindow
         var panelHeight =
             state == NavigationDockVisualState.Resting
                 ? NavigationDockPanelRestingHeight
-                : NavigationDockPanelOpenHeight;
+                : ResolveNavigationDockPanelMeasuredOpenHeight();
         var panelOpacity = state == NavigationDockVisualState.Resting ? 0 : 1;
         var railOpacity = state == NavigationDockVisualState.Resting ? 1 : 0;
         var railTrackOpacity = state == NavigationDockVisualState.Resting ? 0.58 : 0;
@@ -517,6 +524,103 @@ public partial class MainWindow
                 }
             );
         }
+    }
+
+    private void UpdateNavigationDockPanelHeightForCurrentState()
+    {
+        if (
+            !IsNavigationDockInitialized()
+            || _navigationDockState == NavigationDockVisualState.Resting
+        )
+        {
+            return;
+        }
+
+        ShellNavigationPanel.BeginAnimation(FrameworkElement.HeightProperty, null);
+        ShellNavigationPanel.Height = ResolveNavigationDockPanelMeasuredOpenHeight();
+    }
+
+    private double ResolveNavigationDockPanelMeasuredOpenHeight()
+    {
+        var chromeHeight =
+            ShellNavigationPanel.Padding.Top
+            + ShellNavigationPanel.Padding.Bottom
+            + ShellNavigationPanel.BorderThickness.Top
+            + ShellNavigationPanel.BorderThickness.Bottom;
+        var desiredHeight = Math.Max(
+            NavigationDockPanelRestingHeight,
+            Math.Ceiling(ResolveVisibleNavigationItemsHeight() + chromeHeight)
+        );
+        var availableHeight = ResolveNavigationDockPanelAvailableHeight();
+        return IsFiniteLength(availableHeight)
+            ? Math.Min(desiredHeight, availableHeight)
+            : desiredHeight;
+    }
+
+    private double ResolveVisibleNavigationItemsHeight()
+    {
+        var measureWidth = Math.Max(
+            NavigationDockPanelIconsWidth,
+            NavigationDockPanelExpandedWidth
+                - ShellNavigationPanel.Padding.Left
+                - ShellNavigationPanel.Padding.Right
+                - ShellNavigationPanel.BorderThickness.Left
+                - ShellNavigationPanel.BorderThickness.Right
+        );
+        var contentHeight = 0d;
+        foreach (var button in ShellNavigationItemsHost.Children.OfType<WpfButton>())
+        {
+            if (button.Visibility != Visibility.Visible)
+            {
+                continue;
+            }
+
+            button.Measure(new System.Windows.Size(measureWidth, double.PositiveInfinity));
+            var buttonHeight = button.DesiredSize.Height;
+            if (buttonHeight <= 0)
+            {
+                buttonHeight = button.ActualHeight + button.Margin.Top + button.Margin.Bottom;
+            }
+
+            contentHeight += buttonHeight;
+        }
+
+        if (contentHeight > 0)
+        {
+            return contentHeight;
+        }
+
+        ShellNavigationItemsHost.Measure(
+            new System.Windows.Size(measureWidth, double.PositiveInfinity)
+        );
+        return ShellNavigationItemsHost.DesiredSize.Height;
+    }
+
+    private double ResolveNavigationDockPanelAvailableHeight()
+    {
+        var hostHeight = ManagementContentHost.ActualHeight;
+        if (!IsPositiveFiniteLength(hostHeight))
+        {
+            hostHeight = ShellNavigationDockHost.ActualHeight;
+        }
+
+        if (!IsPositiveFiniteLength(hostHeight))
+        {
+            return double.PositiveInfinity;
+        }
+
+        var margin = ShellNavigationPanel.Margin;
+        return Math.Max(0, Math.Floor(hostHeight - margin.Top - margin.Bottom));
+    }
+
+    private static bool IsPositiveFiniteLength(double value)
+    {
+        return value > 0 && !double.IsNaN(value) && !double.IsInfinity(value);
+    }
+
+    private static bool IsFiniteLength(double value)
+    {
+        return value >= 0 && !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
     private void ApplyNavigationDockLabelState(bool expanded, int durationMilliseconds)

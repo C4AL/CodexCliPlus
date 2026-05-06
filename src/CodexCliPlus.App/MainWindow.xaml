@@ -756,38 +756,48 @@
           VerticalAlignment="Center"
           Orientation="Vertical"
         >
-          <TextBlock
-            x:Name="ManagementEntryTransitionTitleText"
-            HorizontalAlignment="Center"
-            Text="欢迎回来"
-            FontSize="34"
-            FontWeight="SemiBold"
-            Foreground="{DynamicResource PrimaryTextBrush}"
-            TextAlignment="Center"
-            TextWrapping="NoWrap"
-          />
-          <TextBlock
-            x:Name="ManagementEntryTransitionSubtitleText"
-            Margin="0,14,0,0"
-            HorizontalAlignment="Center"
-            Text="正在打开管理界面"
-            FontSize="15"
-            Foreground="{DynamicResource SecondaryTextBrush}"
-            TextAlignment="Center"
-            TextWrapping="NoWrap"
-          />
-          <TextBlock
-            x:Name="ManagementEntryTransitionDetailText"
-            Margin="0,8,0,0"
-            HorizontalAlignment="Center"
-            FontSize="12"
-            Foreground="{DynamicResource SecondaryTextBrush}"
-            Opacity="0.74"
-            Text="正在接入本地服务"
-            TextAlignment="Center"
-            TextTrimming="CharacterEllipsis"
-            TextWrapping="NoWrap"
-          />
+          <StackPanel
+            x:Name="ManagementEntryTransitionWelcomePanel"
+            HorizontalAlignment="Stretch"
+            Opacity="0"
+            Orientation="Vertical"
+          >
+            <StackPanel.RenderTransform>
+              <TranslateTransform x:Name="ManagementEntryTransitionWelcomeTranslateTransform" Y="10" />
+            </StackPanel.RenderTransform>
+            <TextBlock
+              x:Name="ManagementEntryTransitionTitleText"
+              HorizontalAlignment="Center"
+              Text="欢迎回来"
+              FontSize="34"
+              FontWeight="SemiBold"
+              Foreground="{DynamicResource PrimaryTextBrush}"
+              TextAlignment="Center"
+              TextWrapping="NoWrap"
+            />
+            <TextBlock
+              x:Name="ManagementEntryTransitionSubtitleText"
+              Margin="0,14,0,0"
+              HorizontalAlignment="Center"
+              Text="正在打开管理界面"
+              FontSize="15"
+              Foreground="{DynamicResource SecondaryTextBrush}"
+              TextAlignment="Center"
+              TextWrapping="NoWrap"
+            />
+            <TextBlock
+              x:Name="ManagementEntryTransitionDetailText"
+              Margin="0,8,0,0"
+              HorizontalAlignment="Center"
+              FontSize="12"
+              Foreground="{DynamicResource SecondaryTextBrush}"
+              Opacity="0.74"
+              Text="正在接入本地服务"
+              TextAlignment="Center"
+              TextTrimming="CharacterEllipsis"
+              TextWrapping="NoWrap"
+            />
+          </StackPanel>
           <Border
             Width="112"
             Height="3"

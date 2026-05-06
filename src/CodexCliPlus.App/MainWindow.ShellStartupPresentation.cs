@@ -42,6 +42,18 @@ namespace CodexCliPlus;
 
 public partial class MainWindow
 {
+    private enum ManagementEntryTransitionPhase
+    {
+        Idle,
+        ExpandingWindow,
+        WelcomeFadeIn,
+        LoadingWebView,
+        WelcomeFadeOut,
+    }
+
+    private ManagementEntryTransitionPhase _managementEntryTransitionPhase =
+        ManagementEntryTransitionPhase.Idle;
+
     private void MarkStartupPhase(string phase)
     {
         var elapsed = _startupStopwatch.ElapsedMilliseconds;
@@ -191,14 +203,13 @@ public partial class MainWindow
 
     private bool ShouldUseManagementEntryTransition()
     {
-        return _isAuthenticationCompactWindowMode
-            && Math.Abs(Width - AuthenticationCompactWindowWidth) < 1
-            && Math.Abs(Height - AuthenticationCompactWindowHeight) < 1;
+        return _isAuthenticationCompactWindowMode;
     }
 
     private async Task BeginManagementEntryTransitionAsync()
     {
         _isManagementEntryTransitionActive = true;
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.ExpandingWindow);
         _preparationPanelShownAt = DateTimeOffset.UtcNow;
         CloseShellDockPopups();
         SetNavigationDockPopupOpen(false);
@@ -207,22 +218,23 @@ public partial class MainWindow
         StartupFlow.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
-        ManagementEntryTransitionOverlay.Opacity = 0;
+        ResetManagementEntryTransitionWelcomeVisuals();
         ManagementEntryTransitionPopup.IsOpen = false;
 
         var targetState = await RestoreMainWindowForManagementEntryTransitionAsync();
-        ShowManagementEntryTransitionPopup();
-
         if (targetState == WindowState.Maximized)
         {
             WindowState = WindowState.Maximized;
             RefreshManagementEntryTransitionPopupPlacement();
         }
+
+        await ShowManagementEntryTransitionPopupAsync();
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.LoadingWebView);
     }
 
     private async Task<WindowState> RestoreMainWindowForManagementEntryTransitionAsync()
     {
-        var target = ResolveAuthenticationExitLayout();
+        var target = ResolveCenteredManagementEntryTargetLayout(ResolveAuthenticationExitLayout());
         _isAuthenticationCompactWindowMode = false;
         _preAuthenticationWindowLayout = null;
 
@@ -243,10 +255,7 @@ public partial class MainWindow
 
         if (ShouldUseWindowTransitionAnimations())
         {
-            await Task.WhenAll(
-                AnimateWindowDoubleAsync(System.Windows.Window.LeftProperty, target.Left, 260),
-                AnimateWindowDoubleAsync(FrameworkElement.WidthProperty, target.Width, 260)
-            );
+            await AnimateWindowHorizontalExpansionFromCenterAsync(target, 260);
             await Task.WhenAll(
                 AnimateWindowDoubleAsync(System.Windows.Window.TopProperty, target.Top, 180),
                 AnimateWindowDoubleAsync(FrameworkElement.HeightProperty, target.Height, 180)
@@ -264,6 +273,21 @@ public partial class MainWindow
         RefreshShellDockPopupPlacements();
         await Dispatcher.Yield(DispatcherPriority.Render);
         return target.WindowState;
+    }
+
+    private WindowLayoutSnapshot ResolveCenteredManagementEntryTargetLayout(
+        WindowLayoutSnapshot target
+    )
+    {
+        var expansionCenterX = Left + Width / 2;
+        var centeredLeft = expansionCenterX - target.Width / 2;
+        return new WindowLayoutSnapshot(
+            centeredLeft,
+            target.Top,
+            target.Width,
+            target.Height,
+            target.WindowState
+        );
     }
 
     private WindowLayoutSnapshot ResolveAuthenticationExitLayout()
@@ -335,12 +359,31 @@ public partial class MainWindow
         return completion.Task;
     }
 
-    private void ShowManagementEntryTransitionPopup()
+    private async Task AnimateWindowHorizontalExpansionFromCenterAsync(
+        WindowLayoutSnapshot target,
+        int milliseconds
+    )
     {
+        var expansionCenterX = Left + Width / 2;
+        var centeredTargetLeft = expansionCenterX - target.Width / 2;
+        await Task.WhenAll(
+            AnimateWindowDoubleAsync(System.Windows.Window.LeftProperty, centeredTargetLeft, milliseconds),
+            AnimateWindowDoubleAsync(FrameworkElement.WidthProperty, target.Width, milliseconds)
+        );
+    }
+
+    private async Task ShowManagementEntryTransitionPopupAsync()
+    {
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.WelcomeFadeIn);
         UpdateManagementEntryTransitionStatus("正在打开管理界面");
-        ManagementEntryTransitionOverlay.Opacity = 1;
+        ResetManagementEntryTransitionWelcomeVisuals();
         ManagementEntryTransitionPopup.IsOpen = true;
         RefreshManagementEntryTransitionPopupPlacement();
+        await Dispatcher.Yield(DispatcherPriority.Render);
+        await Task.WhenAll(
+            FadeManagementEntryTransitionOverlayAsync(1, 180),
+            FadeManagementEntryTransitionWelcomeAsync(1, 0, 220)
+        );
     }
 
     private void UpdateManagementEntryTransitionStatus(string description)
@@ -353,6 +396,7 @@ public partial class MainWindow
 
     private async Task PrepareManagementWebViewForStableNavigationAsync()
     {
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.LoadingWebView);
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementContentHost.Visibility = Visibility.Visible;
@@ -367,6 +411,9 @@ public partial class MainWindow
 
     private async Task DispatchManagementWebViewResizeAsync()
     {
+        await Dispatcher.Yield(DispatcherPriority.Render);
+        ManagementContentHost.UpdateLayout();
+        ManagementWebView.UpdateLayout();
         await Dispatcher.Yield(DispatcherPriority.Render);
         ManagementContentHost.UpdateLayout();
         ManagementWebView.UpdateLayout();
@@ -392,6 +439,7 @@ public partial class MainWindow
 
     private async Task CompleteManagementEntryTransitionAsync()
     {
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.WelcomeFadeOut);
         _shellConnectionStatus = "connected";
         UpdateShellConnectionPresentation();
         _preparationPanelShownAt = null;
@@ -400,15 +448,28 @@ public partial class MainWindow
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Visible;
+        ManagementContentHost.UpdateLayout();
+        ManagementWebView.UpdateLayout();
         UpdateNavigationDockPopupVisibility();
+        await Dispatcher.Yield(DispatcherPriority.Render);
 
-        await FadeManagementEntryTransitionOverlayAsync(0, 220);
+        await Task.WhenAll(
+            FadeManagementEntryTransitionOverlayAsync(0, 220),
+            FadeManagementEntryTransitionWelcomeAsync(0, -6, 180)
+        );
         ManagementEntryTransitionPopup.IsOpen = false;
         _isManagementEntryTransitionActive = false;
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.Idle);
     }
 
     private Task FadeManagementEntryTransitionOverlayAsync(double opacity, int milliseconds)
     {
+        if (!ShouldUseWindowTransitionAnimations())
+        {
+            ManagementEntryTransitionOverlay.Opacity = opacity;
+            return Task.CompletedTask;
+        }
+
         if (!ManagementEntryTransitionPopup.IsOpen)
         {
             ManagementEntryTransitionOverlay.Opacity = opacity;
@@ -429,9 +490,94 @@ public partial class MainWindow
         return completion.Task;
     }
 
+    private async Task FadeManagementEntryTransitionWelcomeAsync(
+        double opacity,
+        double translateY,
+        int milliseconds
+    )
+    {
+        if (!ShouldUseWindowTransitionAnimations())
+        {
+            ManagementEntryTransitionWelcomePanel.Opacity = opacity;
+            ManagementEntryTransitionWelcomeTranslateTransform.Y = translateY;
+            return;
+        }
+
+        await Task.WhenAll(
+            AnimateTransitionVisualAsync(
+                ManagementEntryTransitionWelcomePanel,
+                UIElement.OpacityProperty,
+                opacity,
+                milliseconds
+            ),
+            AnimateTransitionVisualAsync(
+                ManagementEntryTransitionWelcomeTranslateTransform,
+                TranslateTransform.YProperty,
+                translateY,
+                milliseconds
+            )
+        );
+    }
+
+    private static Task<bool> AnimateTransitionVisualAsync(
+        DependencyObject visual,
+        DependencyProperty property,
+        double to,
+        int milliseconds
+    )
+    {
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        var animation = new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.Stop,
+        };
+        animation.Completed += (_, _) =>
+        {
+            visual.SetValue(property, to);
+            completion.TrySetResult(true);
+        };
+        if (visual is UIElement element)
+        {
+            element.BeginAnimation(property, animation);
+        }
+        else if (visual is Animatable animatable)
+        {
+            animatable.BeginAnimation(property, animation);
+        }
+        else
+        {
+            visual.SetValue(property, to);
+            completion.TrySetResult(true);
+        }
+
+        return completion.Task;
+    }
+
+    private void ResetManagementEntryTransitionWelcomeVisuals()
+    {
+        ManagementEntryTransitionOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+        ManagementEntryTransitionWelcomePanel.BeginAnimation(UIElement.OpacityProperty, null);
+        ManagementEntryTransitionWelcomeTranslateTransform.BeginAnimation(
+            TranslateTransform.YProperty,
+            null
+        );
+        ManagementEntryTransitionOverlay.Opacity = 0;
+        ManagementEntryTransitionWelcomePanel.Opacity = 0;
+        ManagementEntryTransitionWelcomeTranslateTransform.Y = 10;
+    }
+
+    private void SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase phase)
+    {
+        _managementEntryTransitionPhase = phase;
+    }
+
     private void CloseManagementEntryTransitionImmediately()
     {
         _isManagementEntryTransitionActive = false;
+        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.Idle);
 
         if (ManagementEntryTransitionOverlay is null || ManagementEntryTransitionPopup is null)
         {
@@ -439,7 +585,14 @@ public partial class MainWindow
         }
 
         ManagementEntryTransitionOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+        ManagementEntryTransitionWelcomePanel.BeginAnimation(UIElement.OpacityProperty, null);
+        ManagementEntryTransitionWelcomeTranslateTransform.BeginAnimation(
+            TranslateTransform.YProperty,
+            null
+        );
         ManagementEntryTransitionOverlay.Opacity = 0;
+        ManagementEntryTransitionWelcomePanel.Opacity = 0;
+        ManagementEntryTransitionWelcomeTranslateTransform.Y = 10;
         ManagementEntryTransitionPopup.IsOpen = false;
     }
 

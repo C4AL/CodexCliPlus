@@ -1316,7 +1316,7 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "<Setter Property=\"Padding\" Value=\"12,0,5,0\" />",
+            "<Setter Property=\"Padding\" Value=\"4,0,5,0\" />",
             startupFlowPasswordBoxStyle,
             StringComparison.Ordinal
         );

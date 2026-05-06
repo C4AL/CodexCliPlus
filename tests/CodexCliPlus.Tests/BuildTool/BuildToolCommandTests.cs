@@ -40,6 +40,9 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Contains("--online-payload-base-url", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--artifact-retention", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("--packages", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--incremental", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--compression", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("--force-rebuild", output.ToString(), StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -64,6 +67,12 @@ public sealed class BuildToolCommandTests : IDisposable
                 "2",
                 "--packages",
                 "offline,update",
+                "--incremental",
+                "false",
+                "--compression",
+                "smallest",
+                "--force-rebuild",
+                "webui,publish",
             ],
             out var options,
             out var error
@@ -77,6 +86,12 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Equal(
             ReleasePackageSelection.OfflineInstaller | ReleasePackageSelection.UpdatePackage,
             options.ReleasePackages
+        );
+        Assert.False(options.Incremental);
+        Assert.Equal(BuildCompressionMode.Smallest, options.Compression);
+        Assert.Equal(
+            ForceRebuildStage.WebUi | ForceRebuildStage.Publish,
+            options.ForceRebuild
         );
         Assert.Equal(Path.GetFullPath(outputRoot), options.OutputRoot);
     }
@@ -107,6 +122,55 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.False(parsed);
         Assert.Null(options);
         Assert.Contains("Unknown release package selection", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildOptionsRejectsInvalidCompressionValues()
+    {
+        var parsed = BuildOptions.TryParse(
+            ["package-offline-installer", "--compression", "fastest"],
+            out var options,
+            out var error
+        );
+
+        Assert.False(parsed);
+        Assert.Null(options);
+        Assert.Contains("--compression", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileMaterializerFallsBackToCopyWhenHardLinkFails()
+    {
+        var sourceRoot = Path.Combine(_rootDirectory, "materialize-source");
+        var targetRoot = Path.Combine(_rootDirectory, "materialize-target");
+        Directory.CreateDirectory(sourceRoot);
+        File.WriteAllText(Path.Combine(sourceRoot, "file.txt"), "content");
+
+        var result = FileMaterializer.MaterializeDirectory(
+            sourceRoot,
+            targetRoot,
+            hardLinkCreator: (_, _) => false
+        );
+
+        Assert.Equal(0, result.LinkedFiles);
+        Assert.Equal(1, result.CopiedFiles);
+        Assert.Equal("content", File.ReadAllText(Path.Combine(targetRoot, "file.txt")));
+    }
+
+    [Fact]
+    public async Task IncrementalInputHasherIsStableAndChangesWhenInputsChange()
+    {
+        var inputRoot = Path.Combine(_rootDirectory, "hash-input");
+        Directory.CreateDirectory(inputRoot);
+        File.WriteAllText(Path.Combine(inputRoot, "file.txt"), "one");
+
+        var first = await IncrementalInputHasher.HashDirectoryAsync(inputRoot);
+        var second = await IncrementalInputHasher.HashDirectoryAsync(inputRoot);
+        File.WriteAllText(Path.Combine(inputRoot, "file.txt"), "two");
+        var changed = await IncrementalInputHasher.HashDirectoryAsync(inputRoot);
+
+        Assert.Equal(first, second);
+        Assert.NotEqual(first, changed);
     }
 
     [Fact]
@@ -1045,10 +1109,48 @@ public sealed class BuildToolCommandTests : IDisposable
         Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
         Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
 
+        Assert.Equal(2, runner.Calls.Count);
+        Assert.Equal(1, runner.Calls.Count(call => call.Arguments.SequenceEqual(["ci"])));
+        Assert.Equal(1, runner.Calls.Count(call => call.Arguments.SequenceEqual(["run", "build"])));
+        Assert.Contains("webui cache hit", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
+    public async Task BuildVendoredForceRebuildKeepsPersistentNodeModules()
+    {
+        var repositoryRoot = CreateRepositoryWithVendoredWebUiOverlay();
+        var outputRoot = Path.Combine(_rootDirectory, "out-cache-force");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var logger = new BuildLogger(output, error);
+        var runner = new OverlayRecordingProcessRunner();
+        var context = new BuildContext(
+            new BuildOptions(
+                "build-webui",
+                repositoryRoot,
+                outputRoot,
+                "Release",
+                "win-x64",
+                "9.9.9",
+                ForceRebuild: ForceRebuildStage.WebUi
+            ),
+            logger,
+            runner,
+            new NoOpSigningService()
+        );
+
+        Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
+        Assert.Equal(0, await WebUiCommands.BuildVendoredAsync(context));
+
         Assert.Equal(3, runner.Calls.Count);
         Assert.Equal(1, runner.Calls.Count(call => call.Arguments.SequenceEqual(["ci"])));
         Assert.Equal(2, runner.Calls.Count(call => call.Arguments.SequenceEqual(["run", "build"])));
-        Assert.Contains("using cached vendored WebUI dependencies", output.ToString());
+        Assert.Contains(
+            "using persistent vendored WebUI dependencies",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.Equal(string.Empty, error.ToString());
     }
 

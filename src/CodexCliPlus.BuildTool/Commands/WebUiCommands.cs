@@ -18,16 +18,49 @@ public static class WebUiCommands
 
     public static async Task<int> BuildVendoredAsync(BuildContext context)
     {
+        return await BuildTiming.TimeAsync(context, "webui", () => BuildVendoredCoreAsync(context));
+    }
+
+    private static async Task<int> BuildVendoredCoreAsync(BuildContext context)
+    {
         EnsureVendoredLayout(context);
 
-        context.Logger.Info("preparing vendored WebUI temporary build worktree");
-        SafeFileSystem.CleanDirectory(context.WebUiBuildRoot, context.Options.OutputRoot);
+        var inputHash = await ComputeInputHashAsync(context);
+        if (
+            context.Options.Incremental
+            && !context.Options.ForceRebuild.Includes(ForceRebuildStage.WebUi)
+        )
+        {
+            var cache = await IncrementalBuildCache.LookupDirectoryAsync(
+                context,
+                "webui",
+                inputHash,
+                context.WebUiGeneratedRoot
+            );
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
+            {
+                return 0;
+            }
+        }
+        else if (!context.Options.Incremental)
+        {
+            context.Logger.Info("webui incremental cache disabled");
+        }
+        else
+        {
+            context.Logger.Info("webui force rebuild requested");
+        }
+
+        context.Logger.Info("preparing vendored WebUI persistent build worktree");
+        PrepareBuildSourceRoot(context);
         SafeFileSystem.CopyDirectory(
             context.WebUiSourceRoot,
             context.WebUiBuildSourceRoot,
             excludedRootDirectoryNames: ["node_modules", "dist"]
         );
         SafeFileSystem.CopyDirectory(context.WebUiOverlaySourceRoot, context.WebUiBuildSourceRoot);
+        SafeFileSystem.CleanDirectory(context.WebUiBuildDistRoot, context.Options.OutputRoot);
 
         var dependencyCacheKey = await ComputeSha256Async(context.WebUiSourcePackageLockPath);
         var cachedNodeModulesRoot = Path.Combine(
@@ -35,14 +68,38 @@ public static class WebUiCommands
             dependencyCacheKey,
             "node_modules"
         );
+        var localNodeModulesRoot = Path.Combine(context.WebUiBuildSourceRoot, "node_modules");
+        var localNodeModulesKeyPath = Path.Combine(
+            context.WebUiBuildSourceRoot,
+            ".codexcliplus-node-modules-key"
+        );
 
-        if (Directory.Exists(cachedNodeModulesRoot))
+        if (
+            Directory.Exists(localNodeModulesRoot)
+            && File.Exists(localNodeModulesKeyPath)
+            && string.Equals(
+                await File.ReadAllTextAsync(localNodeModulesKeyPath),
+                dependencyCacheKey,
+                StringComparison.Ordinal
+            )
+        )
+        {
+            context.Logger.Info("using persistent vendored WebUI dependencies");
+        }
+        else if (Directory.Exists(cachedNodeModulesRoot))
         {
             context.Logger.Info("using cached vendored WebUI dependencies");
-            SafeFileSystem.CopyDirectory(
+            if (Directory.Exists(localNodeModulesRoot))
+            {
+                Directory.Delete(localNodeModulesRoot, recursive: true);
+            }
+
+            FileMaterializer.MaterializeDirectory(
                 cachedNodeModulesRoot,
-                Path.Combine(context.WebUiBuildSourceRoot, "node_modules")
+                localNodeModulesRoot,
+                preferHardLinks: true
             );
+            await File.WriteAllTextAsync(localNodeModulesKeyPath, dependencyCacheKey);
         }
         else
         {
@@ -74,7 +131,12 @@ public static class WebUiCommands
                 dependencyCacheKey
             );
             SafeFileSystem.CleanDirectory(cacheEntryRoot, context.Options.OutputRoot);
-            SafeFileSystem.CopyDirectory(installedNodeModulesRoot, cachedNodeModulesRoot);
+            FileMaterializer.MaterializeDirectory(
+                installedNodeModulesRoot,
+                cachedNodeModulesRoot,
+                preferHardLinks: true
+            );
+            await File.WriteAllTextAsync(localNodeModulesKeyPath, dependencyCacheKey);
         }
 
         context.Logger.Info("building vendored WebUI");
@@ -113,7 +175,68 @@ public static class WebUiCommands
             overwrite: true
         );
         context.Logger.Info($"vendored WebUI dist generated: {context.WebUiGeneratedDistRoot}");
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteDirectoryAsync(
+                context,
+                "webui",
+                inputHash,
+                context.WebUiGeneratedRoot
+            );
+        }
+
         return 0;
+    }
+
+    private static async Task<string> ComputeInputHashAsync(BuildContext context)
+    {
+        var hasher = new IncrementalInputHasher();
+        hasher.AddText("stage", "webui");
+        await hasher.AddDirectoryAsync(
+            "upstream-source",
+            context.WebUiSourceRoot,
+            ["node_modules", "dist"]
+        );
+        await hasher.AddDirectoryAsync("overlay-source", context.WebUiOverlaySourceRoot);
+        await hasher.AddFileAsync("overlay-manifest", context.WebUiOverlayManifestPath);
+        await hasher.AddFileAsync("sync", context.WebUiSyncMetadataPath);
+        return hasher.Finish();
+    }
+
+    private static void PrepareBuildSourceRoot(BuildContext context)
+    {
+        Directory.CreateDirectory(context.WebUiBuildSourceRoot);
+        foreach (var file in Directory.EnumerateFiles(context.WebUiBuildSourceRoot))
+        {
+            if (
+                string.Equals(
+                    Path.GetFileName(file),
+                    ".codexcliplus-node-modules-key",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                continue;
+            }
+
+            File.Delete(file);
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(context.WebUiBuildSourceRoot))
+        {
+            if (
+                string.Equals(
+                    Path.GetFileName(directory),
+                    "node_modules",
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
+            {
+                continue;
+            }
+
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     private static async Task<string> ComputeSha256Async(string path)

@@ -50,6 +50,31 @@ public static class MicaSetupInstallerBuilder
         OnlineInstallerPayload? onlinePayload
     )
     {
+        return await BuildTiming.TimeAsync(
+            context,
+            "MicaSetup",
+            () => BuildCoreAsync(
+                context,
+                micaConfigPath,
+                payloadArchivePath,
+                payloadUncompressedBytes,
+                installerOutputPath,
+                packageKind,
+                onlinePayload
+            )
+        );
+    }
+
+    private static async Task<int> BuildCoreAsync(
+        BuildContext context,
+        string micaConfigPath,
+        string? payloadArchivePath,
+        long payloadUncompressedBytes,
+        string installerOutputPath,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
+    )
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(installerOutputPath)!);
         if (File.Exists(installerOutputPath))
         {
@@ -82,8 +107,6 @@ public static class MicaSetupInstallerBuilder
     {
         var stageRoot = Path.GetDirectoryName(micaConfigPath)!;
         var distRoot = Path.Combine(stageRoot, ".dist");
-        SafeFileSystem.CleanDirectory(distRoot, context.Options.OutputRoot);
-
         var sourceTemplateRoot = Path.Combine(
             context.Options.RepositoryRoot,
             "build",
@@ -96,6 +119,7 @@ public static class MicaSetupInstallerBuilder
             return 1;
         }
 
+        await PrepareDistSourceAsync(context, sourceTemplateRoot, distRoot);
         SafeFileSystem.CopyDirectory(sourceTemplateRoot, distRoot, ["bin", "obj"]);
 
         try
@@ -118,48 +142,84 @@ public static class MicaSetupInstallerBuilder
             return 1;
         }
 
-        var uninstExitCode = await context.ProcessRunner.RunAsync(
-            "dotnet",
-            [
-                "msbuild",
-                Path.Combine(distRoot, "MicaSetup.Uninst.csproj"),
-                "/t:Rebuild",
-                "/p:Configuration=Release",
-                "/p:DeployOnBuild=true",
-                "/p:PublishProfile=FolderProfile",
-                "/p:ImportDirectoryBuildProps=false",
-                "/p:RestoreUseStaticGraphEvaluation=false",
-                "/p:RestoreLockedMode=true",
-                "/restore",
-            ],
-            distRoot,
-            context.Logger
-        );
-        if (uninstExitCode != 0)
-        {
-            context.Logger.Error(
-                $"MicaSetup uninstaller build failed with exit code {uninstExitCode}."
-            );
-            return uninstExitCode;
-        }
-
-        var builtUninstaller = Path.Combine(distRoot, "bin", "Release", "MicaSetup.exe");
         var uninstallerResource = Path.Combine(distRoot, "Resources", "Setups", "Uninst.exe");
-        if (!File.Exists(builtUninstaller))
+        var uninstallerInputHash = await ComputeUninstallerInputHashAsync(
+            context,
+            packageKind,
+            onlinePayload
+        );
+        var uninstallerCacheHit = false;
+        if (
+            context.Options.Incremental
+            && !context.Options.ForceRebuild.Includes(ForceRebuildStage.Installer)
+        )
         {
-            context.Logger.Error($"MicaSetup uninstaller output missing: {builtUninstaller}");
-            return 1;
+            var cache = await IncrementalBuildCache.LookupFileAsync(
+                context,
+                "micasetup-uninstaller",
+                uninstallerInputHash,
+                uninstallerResource
+            );
+            context.Logger.Info(cache.Reason);
+            uninstallerCacheHit = cache.Hit;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(uninstallerResource)!);
-        File.Copy(builtUninstaller, uninstallerResource, overwrite: true);
+        if (!uninstallerCacheHit)
+        {
+            var uninstExitCode = await context.ProcessRunner.RunAsync(
+                "dotnet",
+                [
+                    "msbuild",
+                    Path.Combine(distRoot, "MicaSetup.Uninst.csproj"),
+                    "/t:Build",
+                    "/p:Configuration=Release",
+                    "/p:DeployOnBuild=true",
+                    "/p:PublishProfile=FolderProfile",
+                    "/p:ImportDirectoryBuildProps=false",
+                    "/p:RestoreUseStaticGraphEvaluation=false",
+                    "/p:RestoreLockedMode=true",
+                    "/restore",
+                ],
+                distRoot,
+                context.Logger
+            );
+            if (uninstExitCode != 0)
+            {
+                context.Logger.Error(
+                    $"MicaSetup uninstaller build failed with exit code {uninstExitCode}."
+                );
+                return uninstExitCode;
+            }
+
+            var builtUninstaller = Path.Combine(distRoot, "bin", "Release", "MicaSetup.exe");
+            if (!File.Exists(builtUninstaller))
+            {
+                context.Logger.Error($"MicaSetup uninstaller output missing: {builtUninstaller}");
+                return 1;
+            }
+
+            FileMaterializer.MaterializeFile(
+                builtUninstaller,
+                uninstallerResource,
+                preferHardLink: false
+            );
+            if (context.Options.Incremental)
+            {
+                await IncrementalBuildCache.WriteFileAsync(
+                    context,
+                    "micasetup-uninstaller",
+                    uninstallerInputHash,
+                    uninstallerResource
+                );
+            }
+        }
 
         var setupExitCode = await context.ProcessRunner.RunAsync(
             "dotnet",
             [
                 "msbuild",
                 Path.Combine(distRoot, "MicaSetup.csproj"),
-                "/t:Rebuild",
+                "/t:Build",
                 "/p:Configuration=Release",
                 "/p:DeployOnBuild=true",
                 "/p:PublishProfile=FolderProfile",
@@ -216,8 +276,7 @@ public static class MicaSetupInstallerBuilder
             }
 
             var setupResourcePath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
-            Directory.CreateDirectory(Path.GetDirectoryName(setupResourcePath)!);
-            File.Copy(payloadArchivePath, setupResourcePath, overwrite: true);
+            FileMaterializer.MaterializeFile(payloadArchivePath, setupResourcePath);
         }
         else if (onlinePayload is null)
         {
@@ -243,6 +302,84 @@ public static class MicaSetupInstallerBuilder
             packageKind,
             onlinePayload
         );
+    }
+
+    private static async Task PrepareDistSourceAsync(
+        BuildContext context,
+        string sourceTemplateRoot,
+        string distRoot
+    )
+    {
+        var templateHash = await IncrementalInputHasher.HashDirectoryAsync(
+            sourceTemplateRoot,
+            ["bin", "obj"]
+        );
+        var markerPath = Path.Combine(distRoot, ".codexcliplus-template-key");
+        var previousHash = File.Exists(markerPath)
+            ? await File.ReadAllTextAsync(markerPath)
+            : string.Empty;
+        if (string.Equals(previousHash, templateHash, StringComparison.Ordinal))
+        {
+            Directory.CreateDirectory(distRoot);
+            return;
+        }
+
+        Directory.CreateDirectory(distRoot);
+        foreach (var file in Directory.EnumerateFiles(distRoot))
+        {
+            File.Delete(file);
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(distRoot))
+        {
+            var name = Path.GetFileName(directory);
+            if (
+                string.Equals(name, "bin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "obj", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                continue;
+            }
+
+            Directory.Delete(directory, recursive: true);
+        }
+
+        await File.WriteAllTextAsync(markerPath, templateHash, Utf8NoBom);
+        context.Logger.Info("MicaSetup template input changed; refreshed .dist source files.");
+    }
+
+    private static async Task<string> ComputeUninstallerInputHashAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
+    )
+    {
+        var hasher = new IncrementalInputHasher();
+        hasher.AddText("stage", "micasetup-uninstaller");
+        hasher.AddText("version", context.Options.Version);
+        hasher.AddText(
+            "package-kind",
+            packageKind == InstallerPackageKind.Online ? "online" : "offline"
+        );
+        hasher.AddText("online-payload-url", onlinePayload?.Url ?? string.Empty);
+        await hasher.AddDirectoryAsync(
+            "source-template",
+            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "source-template"),
+            ["bin", "obj"]
+        );
+        await hasher.AddDirectoryAsync(
+            "overrides",
+            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "overrides")
+        );
+        await hasher.AddDirectoryAsync(
+            "icons",
+            Path.Combine(context.Options.RepositoryRoot, "resources", "icons")
+        );
+        await hasher.AddDirectoryAsync(
+            "licenses",
+            Path.Combine(context.Options.RepositoryRoot, "resources", "licenses")
+        );
+        return hasher.Finish();
     }
 
     private static void RenderRepoOwnedSourceTemplates(

@@ -366,6 +366,47 @@ public sealed class InstallerPackagingTests : IDisposable
     }
 
     [Fact]
+    public async Task PackageOfflineInstallerReusesIncrementalCacheAndInvalidatesOnPublishChange()
+    {
+        var repositoryRoot = CreateRepositoryRoot();
+        var outputRoot = Path.Combine(_rootDirectory, "out-incremental");
+        CreatePublishRoot(outputRoot);
+        CreateWebView2Cache(outputRoot);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = new InstallerProcessRunner();
+        var context = CreateBuildContext(repositoryRoot, outputRoot, output, error, runner);
+
+        Assert.Equal(
+            0,
+            await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Offline)
+        );
+        Assert.Equal(2, runner.DotnetMsbuildInvocations);
+
+        Assert.Equal(
+            0,
+            await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Offline)
+        );
+        Assert.Equal(2, runner.DotnetMsbuildInvocations);
+        Assert.Contains("offline-installer cache hit", output.ToString(), StringComparison.Ordinal);
+
+        File.AppendAllText(
+            Path.Combine(outputRoot, "publish", "win-x64", "appsettings.json"),
+            "\n{\"changed\":true}"
+        );
+        Assert.Equal(
+            0,
+            await PackageCommands.PackageInstallerAsync(context, InstallerPackageKind.Offline)
+        );
+
+        Assert.Equal(3, runner.DotnetMsbuildInvocations);
+        Assert.Contains("offline-installer input changed", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("micasetup-uninstaller cache hit", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task PackageOnlineInstallerUsesRemoteUpdatePackageWithoutBundledPayload()
     {
         var repositoryRoot = CreateRepositoryRoot();

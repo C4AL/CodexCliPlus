@@ -69,6 +69,20 @@ public static class PackageCommands
         InstallerPackageKind packageKind
     )
     {
+        var packageType =
+            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        return await BuildTiming.TimeAsync(
+            context,
+            packageType,
+            () => PackageInstallerCoreAsync(context, packageKind)
+        );
+    }
+
+    private static async Task<int> PackageInstallerCoreAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind
+    )
+    {
         var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
         var packageType =
             packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
@@ -81,15 +95,61 @@ public static class PackageCommands
             $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe"
         );
 
-        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
         OnlineInstallerPayload? onlinePayload = null;
+        if (isOnline)
+        {
+            onlinePayload = await CreateOnlineInstallerPayloadAsync(context);
+        }
+        else
+        {
+            SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+        }
+
+        var installerInputHash = await ComputeInstallerInputHashAsync(
+            context,
+            packageKind,
+            onlinePayload
+        );
+        if (
+            context.Options.Incremental
+            && !context.Options.ForceRebuild.Includes(ForceRebuildStage.Installer)
+        )
+        {
+            var cache = await IncrementalBuildCache.LookupFileAsync(
+                context,
+                packageType,
+                installerInputHash,
+                installerOutputPath
+            );
+            var cacheHit = cache.Hit && HasSigningMetadata(installerOutputPath);
+            context.Logger.Info(
+                cacheHit
+                    ? $"{packageType} cache hit"
+                    : cache.Hit
+                        ? $"{packageType} signature metadata missing"
+                        : cache.Reason
+            );
+            if (cacheHit)
+            {
+                return 0;
+            }
+        }
+        else if (!context.Options.Incremental)
+        {
+            context.Logger.Info($"{packageType} incremental cache disabled");
+        }
+        else
+        {
+            context.Logger.Info($"{packageType} force rebuild requested");
+        }
+
+        CleanInstallerStage(context, stageRoot);
         long payloadUncompressedBytes;
         WebView2RuntimeAssets webView2Assets;
         if (isOnline)
         {
-            onlinePayload = await CreateOnlineInstallerPayloadAsync(context);
-            await WriteJsonAsync(Path.Combine(stageRoot, "online-payload.json"), onlinePayload);
-            payloadUncompressedBytes = GetUpdatePackagePayloadSize(context, onlinePayload);
+            await WriteJsonAsync(Path.Combine(stageRoot, "online-payload.json"), onlinePayload!);
+            payloadUncompressedBytes = GetUpdatePackagePayloadSize(context, onlinePayload!);
             webView2Assets = await WebView2RuntimeAssets.StageAsync(
                 context,
                 stageRoot,
@@ -98,12 +158,23 @@ public static class PackageCommands
         }
         else
         {
-            SafeFileSystem.RequirePublishRoot(context.PublishRoot);
-            SafeFileSystem.CopyDirectory(context.PublishRoot, appPackageRoot!);
+            var materialized = FileMaterializer.MaterializeDirectory(
+                context.PublishRoot,
+                appPackageRoot!,
+                preferHardLinks: true
+            );
+            context.Logger.Info(
+                $"offline staging materialized: {materialized.LinkedFiles} hardlink(s), {materialized.CopiedFiles} copy fallback(s)"
+            );
             webView2Assets = await WebView2RuntimeAssets.StageAsync(
                 context,
                 appPackageRoot!,
                 packageKind
+            );
+            installerInputHash = await ComputeInstallerInputHashAsync(
+                context,
+                packageKind,
+                onlinePayload
             );
             payloadUncompressedBytes = GetDirectorySize(appPackageRoot!);
         }
@@ -140,7 +211,8 @@ public static class PackageCommands
             var archiveExitCode = await CreateMicaPayloadArchiveAsync(
                 context,
                 appPackageRoot!,
-                payloadArchivePath!
+                payloadArchivePath!,
+                installerInputHash
             );
             if (archiveExitCode != 0)
             {
@@ -175,6 +247,16 @@ public static class PackageCommands
         }
 
         await context.SigningService.SignAsync(installerOutputPath, context);
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteFileAsync(
+                context,
+                packageType,
+                installerInputHash,
+                installerOutputPath
+            );
+        }
+
         Directory.CreateDirectory(Path.Combine(stageRoot, "output"));
         File.Copy(
             installerOutputPath,
@@ -192,6 +274,11 @@ public static class PackageCommands
     }
 
     public static Task<int> VerifyPackagesAsync(BuildContext context)
+    {
+        return BuildTiming.TimeAsync(context, "verify", () => VerifyPackagesCoreAsync(context));
+    }
+
+    private static Task<int> VerifyPackagesCoreAsync(BuildContext context)
     {
         var verifier = new PackageVerifier(
             context,
@@ -219,7 +306,7 @@ public static class PackageCommands
         var stageRoot = Path.Combine(context.InstallerRoot, "update-package", "stage");
         var payloadRoot = Path.Combine(stageRoot, "payload");
         SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
-        SafeFileSystem.CopyDirectory(context.PublishRoot, payloadRoot);
+        FileMaterializer.MaterializeDirectory(context.PublishRoot, payloadRoot);
 
         var files = Directory
             .EnumerateFiles(payloadRoot, "*", SearchOption.AllDirectories)
@@ -275,7 +362,7 @@ public static class PackageCommands
         ZipFile.CreateFromDirectory(
             stageRoot,
             packagePath,
-            CompressionLevel.SmallestSize,
+            context.Options.Compression.ToCompressionLevel(),
             includeBaseDirectory: false
         );
         await context.SigningService.SignAsync(packagePath, context);
@@ -335,6 +422,30 @@ public static class PackageCommands
             return;
         }
 
+        if (context.Options.Incremental && Directory.Exists(Path.Combine(stageRoot, ".dist")))
+        {
+            try
+            {
+                SafeFileSystem.CleanDirectoryExcept(stageRoot, context.Options.OutputRoot, [".dist"]);
+                context.Logger.Info($"removed package staging; kept MicaSetup cache: {stageRoot}");
+                return;
+            }
+            catch (IOException exception)
+            {
+                context.Logger.Warning(
+                    $"Could not trim package staging because it is in use: {exception.Message}"
+                );
+                return;
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                context.Logger.Warning(
+                    $"Could not trim package staging because access was denied: {exception.Message}"
+                );
+                return;
+            }
+        }
+
         try
         {
             SafeFileSystem.DeleteDirectory(stageRoot, context.Options.OutputRoot);
@@ -384,7 +495,7 @@ public static class PackageCommands
         ZipFile.CreateFromDirectory(
             stageRoot,
             packagePath,
-            CompressionLevel.SmallestSize,
+            context.Options.Compression.ToCompressionLevel(),
             includeBaseDirectory: false
         );
         await context.SigningService.SignAsync(packagePath, context);
@@ -426,10 +537,107 @@ public static class PackageCommands
         }
     }
 
+    private static void CleanInstallerStage(BuildContext context, string stageRoot)
+    {
+        if (context.Options.Incremental)
+        {
+            SafeFileSystem.CleanDirectoryExcept(stageRoot, context.Options.OutputRoot, [".dist"]);
+            return;
+        }
+
+        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
+    }
+
+    private static async Task<string> ComputeInstallerInputHashAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
+    )
+    {
+        var hasher = new IncrementalInputHasher();
+        hasher.AddText("stage", packageKind == InstallerPackageKind.Online ? "online" : "offline");
+        hasher.AddText("version", context.Options.Version);
+        hasher.AddText("runtime", context.Options.Runtime);
+        hasher.AddText("configuration", context.Options.Configuration);
+        hasher.AddText("compression", context.Options.Compression.ToArgumentValue());
+        hasher.AddText(
+            "signing-required",
+            SigningOptions.FromEnvironment().SigningRequired ? "true" : "false"
+        );
+        await hasher.AddDirectoryAsync("publish", context.PublishRoot);
+        await hasher.AddDirectoryAsync(
+            "micasetup-source",
+            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "source-template"),
+            ["bin", "obj"]
+        );
+        await hasher.AddDirectoryAsync(
+            "micasetup-overrides",
+            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "overrides")
+        );
+        await hasher.AddDirectoryAsync(
+            "icons",
+            Path.Combine(context.Options.RepositoryRoot, "resources", "icons")
+        );
+        await hasher.AddDirectoryAsync(
+            "licenses",
+            Path.Combine(context.Options.RepositoryRoot, "resources", "licenses")
+        );
+        await hasher.AddFileAsync(
+            "root-license",
+            Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt")
+        );
+
+        if (packageKind == InstallerPackageKind.Offline)
+        {
+            await hasher.AddDirectoryAsync(
+                "webview2-cache",
+                Path.Combine(context.CacheRoot, "webview2")
+            );
+        }
+        else if (onlinePayload is not null)
+        {
+            hasher.AddText("online-payload-file", onlinePayload.FileName);
+            hasher.AddText("online-payload-url", onlinePayload.Url);
+            hasher.AddText(
+                "online-payload-size",
+                onlinePayload.Size.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
+            hasher.AddText("online-payload-sha256", onlinePayload.Sha256);
+        }
+
+        return hasher.Finish();
+    }
+
+    private static bool HasSigningMetadata(string installerOutputPath)
+    {
+        return File.Exists(ArtifactSignatureMetadata.GetSignaturePath(installerOutputPath))
+            || File.Exists(ArtifactSignatureMetadata.GetUnsignedPath(installerOutputPath));
+    }
+
     private static Task<int> CreateMicaPayloadArchiveAsync(
         BuildContext context,
         string appPackageRoot,
-        string archivePath
+        string archivePath,
+        string installerInputHash
+    )
+    {
+        return BuildTiming.TimeAsync(
+            context,
+            "payload archive",
+            () => CreateMicaPayloadArchiveCoreAsync(
+                context,
+                appPackageRoot,
+                archivePath,
+                installerInputHash
+            )
+        );
+    }
+
+    private static async Task<int> CreateMicaPayloadArchiveCoreAsync(
+        BuildContext context,
+        string appPackageRoot,
+        string archivePath,
+        string installerInputHash
     )
     {
         Directory.CreateDirectory(Path.GetDirectoryName(archivePath)!);
@@ -438,14 +646,63 @@ public static class PackageCommands
             File.Delete(archivePath);
         }
 
+        var appPackageHash = await IncrementalInputHasher.HashDirectoryAsync(appPackageRoot);
+        var archiveInputHasher = new IncrementalInputHasher();
+        archiveInputHasher.AddText("stage", "payload-archive");
+        archiveInputHasher.AddText("installer-input", installerInputHash);
+        archiveInputHasher.AddText("app-package", appPackageHash);
+        archiveInputHasher.AddText("compression", context.Options.Compression.ToArgumentValue());
+        var archiveInputHash = archiveInputHasher.Finish();
+        var cachedArchivePath = Path.Combine(
+            context.IncrementalCacheRoot,
+            "payload",
+            $"offline-{context.Options.Version}-{context.Options.Runtime}-{context.Options.Compression.ToArgumentValue()}.7z"
+        );
+        if (context.Options.Incremental)
+        {
+            var cache = await IncrementalBuildCache.LookupFileAsync(
+                context,
+                "payload-archive",
+                archiveInputHash,
+                cachedArchivePath
+            );
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
+            {
+                FileMaterializer.MaterializeFile(
+                    cachedArchivePath,
+                    archivePath,
+                    preferHardLink: true
+                );
+                return File.Exists(archivePath) ? 0 : 1;
+            }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(cachedArchivePath)!);
+        if (File.Exists(cachedArchivePath))
+        {
+            File.Delete(cachedArchivePath);
+        }
+
         ZipFile.CreateFromDirectory(
             appPackageRoot,
-            archivePath,
-            CompressionLevel.SmallestSize,
+            cachedArchivePath,
+            context.Options.Compression.ToCompressionLevel(),
             includeBaseDirectory: false
         );
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteFileAsync(
+                context,
+                "payload-archive",
+                archiveInputHash,
+                cachedArchivePath
+            );
+        }
+
+        FileMaterializer.MaterializeFile(cachedArchivePath, archivePath, preferHardLink: true);
         context.Logger.Info("MicaSetup payload archive created from repo package contents.");
-        return Task.FromResult(File.Exists(archivePath) ? 0 : 1);
+        return File.Exists(archivePath) ? 0 : 1;
     }
 
     private static long GetDirectorySize(string directory)

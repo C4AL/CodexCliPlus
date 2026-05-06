@@ -82,6 +82,9 @@ public static class BuildToolApp
             logger.Info(
                 $"Configuration: {options.Configuration}; Runtime: {options.Runtime}; Version: {options.Version}"
             );
+            logger.Info(
+                $"Incremental: {options.Incremental}; Compression: {options.Compression.ToArgumentValue()}; Force rebuild: {options.ForceRebuild}"
+            );
 
             var exitCode = options.Command.ToLowerInvariant() switch
             {
@@ -147,6 +150,9 @@ public static class BuildToolApp
         );
         logger.Info("  --artifact-retention <count>     Default: 1; 0 disables pruning");
         logger.Info("  --packages <all|online|offline|update[,..]>  Default: all");
+        logger.Info("  --incremental <true|false>       Default: true");
+        logger.Info("  --compression <optimal|smallest> Default: optimal");
+        logger.Info("  --force-rebuild <webui|publish|installer|all>  Default: none");
     }
 }
 
@@ -160,7 +166,10 @@ public sealed record BuildOptions(
     bool KeepPackageStaging = false,
     int ArtifactRetention = 1,
     string OnlinePayloadBaseUrl = "",
-    ReleasePackageSelection ReleasePackages = ReleasePackageSelection.All
+    ReleasePackageSelection ReleasePackages = ReleasePackageSelection.All,
+    bool Incremental = true,
+    BuildCompressionMode Compression = BuildCompressionMode.Optimal,
+    ForceRebuildStage ForceRebuild = ForceRebuildStage.None
 )
 {
     public static bool TryParse(string[] args, out BuildOptions? options, out string? error)
@@ -184,6 +193,9 @@ public sealed record BuildOptions(
         var artifactRetention = 1;
         string? onlinePayloadBaseUrl = null;
         var releasePackages = ReleasePackageSelection.All;
+        var incremental = true;
+        var compression = BuildCompressionMode.Optimal;
+        var forceRebuild = ForceRebuildStage.None;
 
         for (var index = 1; index < args.Length; index++)
         {
@@ -252,6 +264,36 @@ public sealed record BuildOptions(
                     }
 
                     break;
+                case "--incremental":
+                    if (!bool.TryParse(value, out incremental))
+                    {
+                        error = $"Invalid boolean value for option {arg}: {value}";
+                        return false;
+                    }
+
+                    break;
+                case "--compression":
+                    if (!BuildCompressionModeExtensions.TryParse(value, out compression))
+                    {
+                        error = $"Invalid compression value for option {arg}: {value}";
+                        return false;
+                    }
+
+                    break;
+                case "--force-rebuild":
+                    if (
+                        !ForceRebuildStageExtensions.TryParse(
+                            value,
+                            out forceRebuild,
+                            out var forceRebuildError
+                        )
+                    )
+                    {
+                        error = forceRebuildError;
+                        return false;
+                    }
+
+                    break;
                 default:
                     error = $"Unknown option: {arg}";
                     return false;
@@ -275,7 +317,10 @@ public sealed record BuildOptions(
             string.IsNullOrWhiteSpace(onlinePayloadBaseUrl)
                 ? $"https://github.com/C4AL/CodexCliPlus/releases/download/v{version}"
                 : onlinePayloadBaseUrl.Trim().TrimEnd('/', '\\'),
-            releasePackages
+            releasePackages,
+            incremental,
+            compression,
+            forceRebuild
         );
         return true;
     }
@@ -315,6 +360,8 @@ public sealed class BuildContext(
     public string AssetsRoot => Path.Combine(Options.OutputRoot, "assets");
 
     public string CacheRoot => Path.Combine(Options.OutputRoot, "cache");
+
+    public string IncrementalCacheRoot => Path.Combine(CacheRoot, "incremental");
 
     public string AssetManifestPath => Path.Combine(AssetsRoot, "asset-manifest.json");
 

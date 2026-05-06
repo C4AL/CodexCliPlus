@@ -70,41 +70,26 @@ public partial class MainWindow
     private void ShowPreparationStep(double progress, string description, StartupState state)
     {
         _startupState = state;
-        if (_isManagementEntryTransitionActive)
-        {
-            if (_preparationPanelShownAt is null)
-            {
-                _preparationPanelShownAt = DateTimeOffset.UtcNow;
-            }
-
-            UpdateManagementEntryTransitionStatus(description);
-            UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-            StartupFlow.Visibility = Visibility.Collapsed;
-            BlockerPanel.Visibility = Visibility.Collapsed;
-            ManagementContentHost.Visibility = Visibility.Visible;
-            SetNavigationDockPopupOpen(false);
-            return;
-        }
-
-        ExitAuthenticationCompactWindowMode();
-        if (!StartupFlow.IsLoadingVisible || _preparationPanelShownAt is null)
+        if (_preparationPanelShownAt is null)
         {
             _preparationPanelShownAt = DateTimeOffset.UtcNow;
         }
 
-        var title =
-            state == StartupState.LoadingManagement ? "正在进入管理界面" : "正在准备桌面管理界面";
-        StartupFlow.ShowLoading(
-            progress,
-            title,
-            description,
-            BuildPreparationStatus(progress, state)
-        );
+        if (_isManagementEntryTransitionActive)
+        {
+            UpdateManagementEntryTransitionStatus(description);
+        }
 
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        StartupFlow.Visibility = Visibility.Visible;
+        StartupFlow.Visibility =
+            _isAuthenticationCompactWindowMode && !_isManagementEntryTransitionActive
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         BlockerPanel.Visibility = Visibility.Collapsed;
-        ManagementContentHost.Visibility = Visibility.Visible;
+        ManagementContentHost.Visibility =
+            _isAuthenticationCompactWindowMode && !_isManagementEntryTransitionActive
+                ? Visibility.Collapsed
+                : Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
     }
@@ -201,15 +186,20 @@ public partial class MainWindow
         UpdateNavigationDockPopupVisibility();
     }
 
-    private bool ShouldUseManagementEntryTransition()
+    private static bool ShouldUseManagementEntryTransition()
     {
-        return _isAuthenticationCompactWindowMode;
+        return true;
     }
 
     private async Task BeginManagementEntryTransitionAsync()
     {
+        var shouldExpandFromAuthentication = _isAuthenticationCompactWindowMode;
         _isManagementEntryTransitionActive = true;
-        SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.ExpandingWindow);
+        SetManagementEntryTransitionPhase(
+            shouldExpandFromAuthentication
+                ? ManagementEntryTransitionPhase.ExpandingWindow
+                : ManagementEntryTransitionPhase.WelcomeFadeIn
+        );
         _preparationPanelShownAt = DateTimeOffset.UtcNow;
         CloseShellDockPopups();
         SetNavigationDockPopupOpen(false);
@@ -221,11 +211,20 @@ public partial class MainWindow
         ResetManagementEntryTransitionWelcomeVisuals();
         ManagementEntryTransitionPopup.IsOpen = false;
 
-        var targetState = await RestoreMainWindowForManagementEntryTransitionAsync();
-        if (targetState == WindowState.Maximized)
+        if (shouldExpandFromAuthentication)
         {
-            WindowState = WindowState.Maximized;
-            RefreshManagementEntryTransitionPopupPlacement();
+            var targetState = await RestoreMainWindowForManagementEntryTransitionAsync();
+            if (targetState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Maximized;
+                RefreshManagementEntryTransitionPopupPlacement();
+            }
+        }
+        else
+        {
+            ApplyMainWindowModeChrome();
+            ManagementContentHost.Visibility = Visibility.Visible;
+            await Dispatcher.Yield(DispatcherPriority.Render);
         }
 
         await ShowManagementEntryTransitionPopupAsync();

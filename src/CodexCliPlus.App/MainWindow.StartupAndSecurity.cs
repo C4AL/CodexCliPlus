@@ -390,26 +390,6 @@ public partial class MainWindow
         }
     }
 
-    private static string BuildPreparationStatus(double progress, StartupState state)
-    {
-        if (state == StartupState.LoadingManagement || progress >= 90)
-        {
-            return "正在接入管理界面";
-        }
-
-        if (progress >= 65)
-        {
-            return "正在启动本地后端";
-        }
-
-        if (progress >= 35)
-        {
-            return "正在校验运行资源";
-        }
-
-        return "正在启动桌面宿主";
-    }
-
     private async Task ResetWebUiLocalAuthStateAsync()
     {
         if (!_webViewConfigured || ManagementWebView.CoreWebView2 is null)

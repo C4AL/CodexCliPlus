@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -11,7 +10,6 @@ namespace CodexCliPlus.Views.Controls;
 
 internal enum StartupFlowScreen
 {
-    Loading,
     FirstRunKey,
     Login,
 }
@@ -35,8 +33,6 @@ public partial class StartupFlowView : WpfUserControl
         InitializeComponent();
         SetScreen(StartupFlowScreen.Login, animate: false);
     }
-
-    public bool IsLoadingVisible => CurrentScreen == StartupFlowScreen.Loading && IsVisible;
 
     public bool IsLoginVisible => CurrentScreen == StartupFlowScreen.Login && IsVisible;
 
@@ -71,33 +67,6 @@ public partial class StartupFlowView : WpfUserControl
         FirstRunRememberPasswordCheckBox.IsChecked == true;
 
     public bool FirstRunAutoLogin => FirstRunAutoLoginCheckBox.IsChecked == true;
-
-    public void ShowLoading(double progress, string title, string description, string status)
-    {
-        SetScreen(StartupFlowScreen.Loading);
-        LoadingTitleText.Text = title;
-        LoadingDescriptionText.Text = description;
-        LoadingStatusText.Text = status;
-
-        var normalizedProgress = Math.Clamp(progress, 0, 100);
-        PreparationProgressBar.BeginAnimation(
-            RangeBase.ValueProperty,
-            new DoubleAnimation(normalizedProgress, new Duration(TimeSpan.FromMilliseconds(320)))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
-            }
-        );
-        PreparationProgressFillScale.BeginAnimation(
-            System.Windows.Media.ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(
-                normalizedProgress / 100,
-                new Duration(TimeSpan.FromMilliseconds(420))
-            )
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-            }
-        );
-    }
 
     public void ShowFirstRunKey(string key, bool rememberPassword, bool autoLogin)
     {
@@ -175,12 +144,7 @@ public partial class StartupFlowView : WpfUserControl
     private void SetScreen(StartupFlowScreen screen, bool animate = true)
     {
         CurrentScreen = screen;
-        StartupStepHost.Visibility =
-            screen == StartupFlowScreen.Loading ? Visibility.Visible : Visibility.Collapsed;
-        CompactAuthenticationHost.Visibility =
-            screen == StartupFlowScreen.Loading ? Visibility.Collapsed : Visibility.Visible;
-        LoadingPanel.Visibility =
-            screen == StartupFlowScreen.Loading ? Visibility.Visible : Visibility.Collapsed;
+        CompactAuthenticationHost.Visibility = Visibility.Visible;
         FirstRunKeyPanel.Visibility =
             screen == StartupFlowScreen.FirstRunKey ? Visibility.Visible : Visibility.Collapsed;
         LoginPanel.Visibility =
@@ -199,23 +163,14 @@ public partial class StartupFlowView : WpfUserControl
 
     private void AnimateStepIn()
     {
-        var stepHost =
-            CurrentScreen == StartupFlowScreen.Loading
-                ? (UIElement)StartupStepHost
-                : CompactAuthenticationHost;
-        var translateTransform =
-            CurrentScreen == StartupFlowScreen.Loading
-                ? StartupStepTranslateTransform
-                : CompactAuthenticationTranslateTransform;
-
-        stepHost.BeginAnimation(
+        CompactAuthenticationHost.BeginAnimation(
             UIElement.OpacityProperty,
             new DoubleAnimation(0.88, 1, new Duration(TimeSpan.FromMilliseconds(140)))
             {
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             }
         );
-        translateTransform.BeginAnimation(
+        CompactAuthenticationTranslateTransform.BeginAnimation(
             System.Windows.Media.TranslateTransform.YProperty,
             new DoubleAnimation(8, 0, new Duration(TimeSpan.FromMilliseconds(160)))
             {

@@ -149,7 +149,12 @@ export interface CodexRouteSwitchResponse {
 }
 
 export type DesktopShellCommand =
-  | { type: 'setTheme'; theme: DesktopTheme; resolvedTheme?: DesktopResolvedTheme }
+  | {
+      type: 'setTheme';
+      theme: DesktopTheme;
+      resolvedTheme?: DesktopResolvedTheme;
+      transitionMs?: number;
+    }
   | { type: 'toggleSidebarCollapsed'; collapsed?: boolean }
   | { type: 'navigate'; path: string }
   | { type: 'clearUsageStats' }
@@ -267,6 +272,14 @@ function normalizeResolvedTheme(theme: unknown): DesktopResolvedTheme {
   return theme === 'dark' ? 'dark' : 'light';
 }
 
+function normalizeTransitionMilliseconds(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.min(1_000, Math.round(value)));
+}
+
 function normalizeNotificationType(type: unknown): NotificationType {
   return type === 'success' || type === 'warning' || type === 'error' ? type : 'info';
 }
@@ -282,6 +295,7 @@ function normalizeCommand(command: unknown): DesktopShellCommand | null {
       type: 'setTheme',
       theme: normalizeDesktopTheme(record.theme),
       resolvedTheme: normalizeResolvedTheme(record.resolvedTheme),
+      transitionMs: normalizeTransitionMilliseconds(record.transitionMs),
     };
   }
 

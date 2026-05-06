@@ -15,6 +15,15 @@ body {
   transition: background-color $transition-normal, color $transition-normal;
 }
 
+:root.theme-transitioning,
+:root.theme-transitioning *,
+:root.theme-transitioning *::before,
+:root.theme-transitioning *::after {
+  transition-duration: var(--theme-transition-duration, 180ms) !important;
+  transition-property: color, background, background-color, border-color, box-shadow, fill, stroke !important;
+  transition-timing-function: ease !important;
+}
+
 html.modal-open,
 body.modal-open {
   overflow: hidden;

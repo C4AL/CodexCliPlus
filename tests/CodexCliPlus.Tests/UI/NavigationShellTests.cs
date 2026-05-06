@@ -941,6 +941,8 @@ public sealed class NavigationShellTests
         Assert.Contains("showShellNotification", webBridgeSource, StringComparison.Ordinal);
         Assert.DoesNotContain("refreshAll", hostSource, StringComparison.Ordinal);
         Assert.Contains("setTheme", hostSource, StringComparison.Ordinal);
+        Assert.Contains("transitionMs", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ApplicationThemeManager.Apply", hostSource, StringComparison.Ordinal);
         Assert.Contains("navigate", hostSource, StringComparison.Ordinal);
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("navigationHoverZone", hostSource, StringComparison.Ordinal);
@@ -992,6 +994,52 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
+    public void DesktopHostPostsThemeCommandBeforePersistingThemeSelection()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var hostSource = ReadMainWindowSources(repositoryRoot);
+        var setThemeSource = SliceBetween(
+            hostSource,
+            "private async Task SetShellThemeAsync",
+            "private async Task PersistLatestShellThemeSelectionAsync"
+        );
+        var persistSource = SliceBetween(
+            hostSource,
+            "private async Task PersistLatestShellThemeSelectionAsync",
+            "private void PostShellThemeCommand"
+        );
+
+        Assert.Contains("ResolveShellTheme(themeMode)", setThemeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ApplyShellTheme(target.Dark, ShellThemeTransitionMilliseconds);",
+            setThemeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PostShellThemeCommand(",
+            setThemeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PersistLatestShellThemeSelectionAsync(themePersistenceVersion)",
+            setThemeSource,
+            StringComparison.Ordinal
+        );
+        AssertSourceOrder(
+            setThemeSource,
+            "PostShellThemeCommand(",
+            "PersistLatestShellThemeSelectionAsync(themePersistenceVersion)"
+        );
+        Assert.Contains("transitionMs = transitionMilliseconds", hostSource, StringComparison.Ordinal);
+        Assert.Contains("_appConfigurationService.SaveAsync(_settings)", persistSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "themePersistenceVersion != Volatile.Read(ref _shellThemePersistenceVersion)",
+            persistSource,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public void DesktopBridgePayloadUsesWebUiCamelCaseContract()
     {
         var script = DesktopBridgeScriptFactory.CreateInitializationScript(
@@ -1012,6 +1060,9 @@ public sealed class NavigationShellTests
         Assert.Contains("\"theme\":\"white\"", script, StringComparison.Ordinal);
         Assert.Contains("\"resolvedTheme\":\"light\"", script, StringComparison.Ordinal);
         Assert.Contains("\"sidebarCollapsed\":true", script, StringComparison.Ordinal);
+        Assert.Contains("document.documentElement", script, StringComparison.Ordinal);
+        Assert.Contains("data-theme", script, StringComparison.Ordinal);
+        Assert.Contains("payload.resolvedTheme", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
@@ -2405,6 +2456,11 @@ public sealed class NavigationShellTests
         Assert.Contains("!desktopMode &&", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("desktop-shell", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("toggleSidebarCollapsed", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "applyDesktopTheme(command.theme, command.resolvedTheme, command.transitionMs)",
+            mainLayoutSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("command.type === 'navigate'", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("pathname: location.pathname", mainLayoutSource, StringComparison.Ordinal);
         Assert.Contains("path: '/dashboard/overview'", mainLayoutSource, StringComparison.Ordinal);
@@ -2551,6 +2607,9 @@ public sealed class NavigationShellTests
             themeStoreSource,
             StringComparison.Ordinal
         );
+        Assert.Contains("applyDesktopTheme", themeStoreSource, StringComparison.Ordinal);
+        Assert.Contains("desktopBootstrap.resolvedTheme", themeStoreSource, StringComparison.Ordinal);
+        Assert.Contains("theme-transitioning", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (theme === 'light')", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);

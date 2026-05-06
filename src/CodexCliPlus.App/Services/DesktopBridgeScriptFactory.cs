@@ -20,6 +20,17 @@ public static class DesktopBridgeScriptFactory
               const payload = Object.freeze({{payloadJson}});
               let bootstrap = payload;
 
+              const applyInitialTheme = () => {
+                const theme = typeof payload.theme === 'string' ? payload.theme : 'auto';
+                const resolvedTheme = payload.resolvedTheme === 'dark' ? 'dark' : 'light';
+                const dataTheme = theme === 'dark' || (theme === 'auto' && resolvedTheme === 'dark')
+                  ? 'dark'
+                  : 'white';
+                document.documentElement.setAttribute('data-theme', dataTheme);
+              };
+
+              applyInitialTheme();
+
               const hasHostBridge = () =>
                 Boolean(window.chrome?.webview && typeof window.chrome.webview.postMessage === 'function');
 

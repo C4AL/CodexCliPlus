@@ -222,6 +222,7 @@ export function MainLayout() {
   const theme = useThemeStore((state) => state.theme);
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const setTheme = useThemeStore((state) => state.setTheme);
+  const applyDesktopTheme = useThemeStore((state) => state.applyDesktopTheme);
   const clearUsageStats = useUsageStatsStore((state) => state.clearUsageStats);
   const loadUsageStats = useUsageStatsStore((state) => state.loadUsageStats);
 
@@ -553,7 +554,7 @@ export function MainLayout() {
 
     return subscribeDesktopShellCommand((command) => {
       if (command.type === 'setTheme') {
-        setTheme(command.theme);
+        applyDesktopTheme(command.theme, command.resolvedTheme, command.transitionMs);
         return;
       }
 
@@ -590,6 +591,7 @@ export function MainLayout() {
       }
     });
   }, [
+    applyDesktopTheme,
     clearUsageStats,
     desktopMode,
     loadUsageStats,

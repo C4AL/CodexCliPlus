@@ -16,9 +16,17 @@ interface ThemeState {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
+  applyDesktopTheme: (
+    theme: Theme,
+    resolvedTheme?: ResolvedTheme,
+    transitionMs?: number
+  ) => void;
   cycleTheme: () => void;
   initializeTheme: () => () => void;
 }
+
+const DEFAULT_THEME_TRANSITION_MS = 180;
+let themeTransitionTimer: ReturnType<typeof window.setTimeout> | null = null;
 
 const getSystemTheme = (): ResolvedTheme => {
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -35,6 +43,10 @@ const normalizeResolvedTheme = (theme: AppliedTheme): ResolvedTheme => {
   return theme === 'dark' ? 'dark' : 'light';
 };
 
+const normalizeDesktopResolvedTheme = (theme: unknown): ResolvedTheme | undefined => {
+  return theme === 'dark' || theme === 'light' ? theme : undefined;
+};
+
 const normalizeThemeValue = (theme: unknown): Theme => {
   if (theme === 'dark' || theme === 'white' || theme === 'auto') {
     return theme;
@@ -45,9 +57,12 @@ const normalizeThemeValue = (theme: unknown): Theme => {
   return 'auto';
 };
 
-const resolveTheme = (theme: Theme): AppliedTheme => {
+const resolveTheme = (theme: Theme, desktopResolvedTheme?: ResolvedTheme): AppliedTheme => {
   const normalized = normalizeThemeValue(theme);
   if (normalized === 'auto') {
+    if (desktopResolvedTheme) {
+      return desktopResolvedTheme === 'dark' ? 'dark' : 'white';
+    }
     return resolveAutoTheme();
   }
   if (normalized === 'white') {
@@ -56,7 +71,42 @@ const resolveTheme = (theme: Theme): AppliedTheme => {
   return normalized;
 };
 
-const applyTheme = (resolved: AppliedTheme) => {
+const normalizeTransitionMilliseconds = (transitionMs?: number): number => {
+  if (typeof transitionMs !== 'number' || !Number.isFinite(transitionMs)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1_000, Math.round(transitionMs)));
+};
+
+const beginThemeTransition = (transitionMs?: number) => {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const duration = normalizeTransitionMilliseconds(transitionMs);
+  if (duration <= 0) {
+    return;
+  }
+
+  const root = document.documentElement;
+  root.style.setProperty('--theme-transition-duration', `${duration}ms`);
+  root.classList.add('theme-transitioning');
+
+  if (themeTransitionTimer) {
+    window.clearTimeout(themeTransitionTimer);
+  }
+
+  themeTransitionTimer = window.setTimeout(() => {
+    root.classList.remove('theme-transitioning');
+    root.style.removeProperty('--theme-transition-duration');
+    themeTransitionTimer = null;
+  }, duration);
+};
+
+const applyTheme = (resolved: AppliedTheme, transitionMs?: number) => {
+  beginThemeTransition(transitionMs);
+
   const root = document.documentElement;
   if (resolved === 'dark') {
     if (root.getAttribute('data-theme') !== 'dark') {
@@ -77,6 +127,19 @@ const applyTheme = (resolved: AppliedTheme) => {
   }
 };
 
+const resolveThemeSelection = (
+  theme: Theme,
+  desktopResolvedTheme?: ResolvedTheme
+): { theme: Theme; appliedTheme: AppliedTheme; resolvedTheme: ResolvedTheme } => {
+  const normalizedTheme = normalizeThemeValue(theme);
+  const appliedTheme = resolveTheme(normalizedTheme, desktopResolvedTheme);
+  return {
+    theme: normalizedTheme,
+    appliedTheme,
+    resolvedTheme: normalizeResolvedTheme(appliedTheme),
+  };
+};
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
@@ -84,21 +147,39 @@ export const useThemeStore = create<ThemeState>()(
       resolvedTheme: 'light',
 
       setTheme: (theme) => {
-        const normalizedTheme = normalizeThemeValue(theme);
-        const resolved = resolveTheme(normalizedTheme);
-        const normalizedResolved = normalizeResolvedTheme(resolved);
-        applyTheme(resolved);
+        const selection = resolveThemeSelection(theme);
+        applyTheme(selection.appliedTheme);
         const current = get();
         if (
-          current.theme === normalizedTheme &&
-          current.resolvedTheme === normalizedResolved
+          current.theme === selection.theme &&
+          current.resolvedTheme === selection.resolvedTheme
         ) {
           return;
         }
 
         set({
-          theme: normalizedTheme,
-          resolvedTheme: normalizedResolved,
+          theme: selection.theme,
+          resolvedTheme: selection.resolvedTheme,
+        });
+      },
+
+      applyDesktopTheme: (theme, resolvedTheme, transitionMs = DEFAULT_THEME_TRANSITION_MS) => {
+        const selection = resolveThemeSelection(
+          theme,
+          normalizeDesktopResolvedTheme(resolvedTheme)
+        );
+        applyTheme(selection.appliedTheme, transitionMs);
+        const current = get();
+        if (
+          current.theme === selection.theme &&
+          current.resolvedTheme === selection.resolvedTheme
+        ) {
+          return;
+        }
+
+        set({
+          theme: selection.theme,
+          resolvedTheme: selection.resolvedTheme,
         });
       },
 
@@ -111,14 +192,22 @@ export const useThemeStore = create<ThemeState>()(
       },
 
       initializeTheme: () => {
-        const { theme, setTheme } = get();
-        const desktopTheme = getDesktopBootstrap()?.theme;
+        const { theme, setTheme, applyDesktopTheme } = get();
+        const desktopBootstrap = getDesktopBootstrap();
 
         // 应用已保存的主题
-        setTheme(desktopTheme || theme);
+        if (desktopBootstrap) {
+          applyDesktopTheme(
+            desktopBootstrap.theme || theme,
+            desktopBootstrap.resolvedTheme,
+            0
+          );
+        } else {
+          setTheme(theme);
+        }
 
         // 监听系统主题变化（仅在 auto 模式下生效）
-        if (!window.matchMedia) {
+        if (desktopBootstrap || !window.matchMedia) {
           return () => {};
         }
 

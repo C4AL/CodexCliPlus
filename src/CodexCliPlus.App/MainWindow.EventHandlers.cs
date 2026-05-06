@@ -148,15 +148,13 @@ public partial class MainWindow
 
         Dispatcher.Invoke(() =>
         {
-            ApplyShellTheme(_settings.ThemeMode);
-            UpdateShellThemePresentation();
-            PostWebUiCommand(
-                new
-                {
-                    type = "setTheme",
-                    theme = ToWebTheme(_settings.ThemeMode),
-                    resolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
-                }
+            var target = ResolveShellTheme(_settings.ThemeMode);
+            ApplyShellTheme(target.Dark, ShellThemeTransitionMilliseconds);
+            UpdateShellThemePresentation(target.WebTheme, target.ResolvedTheme);
+            PostShellThemeCommand(
+                target.WebTheme,
+                target.ResolvedTheme,
+                ShellThemeTransitionMilliseconds
             );
         });
     }

@@ -72,12 +72,82 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionWelcomePanel\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionWelcomeTranslateTransform\"",
+            managementEntryTransitionPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
             "BeginManagementEntryTransitionAsync",
             hostSource,
             StringComparison.Ordinal
         );
         Assert.Contains(
             "RestoreMainWindowForManagementEntryTransitionAsync",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "return _isAuthenticationCompactWindowMode;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Math.Abs(Width - AuthenticationCompactWindowWidth)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementEntryTransitionPhase.ExpandingWindow",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementEntryTransitionPhase.WelcomeFadeIn",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementEntryTransitionPhase.LoadingWebView",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementEntryTransitionPhase.WelcomeFadeOut",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ResetManagementEntryTransitionWelcomeVisuals();",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FadeManagementEntryTransitionOverlayAsync(1, 180)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FadeManagementEntryTransitionOverlayAsync(0, 220)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ManagementEntryTransitionOverlay.Opacity = 1;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "var expansionCenterX = Left + Width / 2;",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "var centeredTargetLeft = expansionCenterX - target.Width / 2;",
             hostSource,
             StringComparison.Ordinal
         );

@@ -64,10 +64,9 @@ public sealed class WebView2RuntimeAssets
         Directory.CreateDirectory(stagedRoot);
 
         var assets = new List<WebView2RuntimeAsset>();
-        var descriptors =
-            packageKind == InstallerPackageKind.Online
-                ? Descriptors.Where(descriptor => descriptor.FileName == BootstrapperFileName)
-                : Descriptors;
+        var descriptors = Descriptors.Where(descriptor =>
+            descriptor.FileName == StandaloneX64FileName
+        );
         foreach (var descriptor in descriptors)
         {
             var cachedPath = Path.Combine(cachedRoot, descriptor.FileName);

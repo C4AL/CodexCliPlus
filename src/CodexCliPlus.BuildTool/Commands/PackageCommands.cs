@@ -589,9 +589,13 @@ public static class PackageCommands
 
         if (packageKind == InstallerPackageKind.Offline)
         {
-            await hasher.AddDirectoryAsync(
-                "webview2-cache",
-                Path.Combine(context.CacheRoot, "webview2")
+            await hasher.AddFileAsync(
+                "webview2-standalone-x64",
+                Path.Combine(
+                    context.CacheRoot,
+                    "webview2",
+                    WebView2RuntimeAssets.StandaloneX64FileName
+                )
             );
         }
         else if (onlinePayload is not null)

@@ -37,20 +37,6 @@ public static class InstallerMetadata
                 "packaging"
             );
         Directory.CreateDirectory(packagingRoot);
-        var bootstrapper = webView2Assets.Bootstrapper;
-        var onlineBootstrapper = new Dictionary<string, object?>
-        {
-            ["fileName"] = bootstrapper.FileName,
-            ["sourceUrl"] = bootstrapper.SourceUrl,
-            ["silentArguments"] = bootstrapper.SilentArguments,
-        };
-        if (bootstrapper.Bundled)
-        {
-            onlineBootstrapper["packagedPath"] = bootstrapper.PackagedPath;
-            onlineBootstrapper["size"] = bootstrapper.Size;
-            onlineBootstrapper["sha256"] = bootstrapper.Sha256;
-        }
-
         var webView2 = new Dictionary<string, object?>
         {
             ["required"] = true,
@@ -59,14 +45,32 @@ public static class InstallerMetadata
             ["bundledFirst"] = !isOnline,
             ["installStrategy"] = isOnline
                 ? "download-bootstrapper-only"
-                : "online-bootstrapper-then-bundled-standalone",
-            ["onlineBootstrapper"] = onlineBootstrapper,
+                : "bundled-standalone-only",
             ["downloadPage"] = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/",
             ["failureBehavior"] = "缺少 WebView2 且自动安装失败时阻止启动，并显示中文原因。",
             ["note"] = isOnline
                 ? "Online SKU does not bundle WebView2 installers; machines missing WebView2 download Microsoft's bootstrapper during setup."
-                : "Offline SKU bundles the WebView2 standalone runtime for no-network fallback and does not promise a seconds-level install.",
+                : "Offline SKU bundles the WebView2 standalone runtime and uses it directly without downloading Microsoft's bootstrapper.",
         };
+        if (isOnline)
+        {
+            var bootstrapper = webView2Assets.Bootstrapper;
+            var onlineBootstrapper = new Dictionary<string, object?>
+            {
+                ["fileName"] = bootstrapper.FileName,
+                ["sourceUrl"] = bootstrapper.SourceUrl,
+                ["silentArguments"] = bootstrapper.SilentArguments,
+            };
+            if (bootstrapper.Bundled)
+            {
+                onlineBootstrapper["packagedPath"] = bootstrapper.PackagedPath;
+                onlineBootstrapper["size"] = bootstrapper.Size;
+                onlineBootstrapper["sha256"] = bootstrapper.Sha256;
+            }
+
+            webView2["onlineBootstrapper"] = onlineBootstrapper;
+        }
+
         if (!isOnline && webView2Assets.OptionalStandaloneX64 is { } standaloneX64)
         {
             webView2["bundledStandaloneX64"] = new

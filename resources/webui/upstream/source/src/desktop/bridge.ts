@@ -3,7 +3,7 @@ import type { NotificationType } from '@/types';
 export interface DesktopBootstrapPayload {
   desktopMode: boolean;
   apiBase: string;
-  managementKey: string;
+  desktopSessionId: string;
   theme?: DesktopTheme;
   resolvedTheme?: DesktopResolvedTheme;
   sidebarCollapsed?: boolean;
@@ -245,16 +245,16 @@ function normalizePayload(
   }
 
   const apiBase = typeof payload.apiBase === 'string' ? payload.apiBase.trim() : '';
-  const managementKey =
-    typeof payload.managementKey === 'string' ? payload.managementKey.trim() : '';
-  if (!apiBase || !managementKey) {
+  const desktopSessionId =
+    typeof payload.desktopSessionId === 'string' ? payload.desktopSessionId.trim() : '';
+  if (!apiBase || !desktopSessionId) {
     return null;
   }
 
   return {
     desktopMode: true,
     apiBase,
-    managementKey,
+    desktopSessionId,
     theme: normalizeDesktopTheme(payload.theme),
     resolvedTheme: normalizeResolvedTheme(payload.resolvedTheme),
     sidebarCollapsed: payload.sidebarCollapsed === true,

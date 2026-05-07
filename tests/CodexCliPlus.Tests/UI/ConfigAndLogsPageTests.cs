@@ -57,6 +57,7 @@ public sealed class ConfigAndLogsPageTests
             StringComparison.Ordinal
         );
         Assert.Contains("rememberPassword: false", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("desktopSessionId: state.desktopSessionId", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", authStoreSource, StringComparison.Ordinal);
         Assert.Contains(
             "state.rememberPassword ? { managementKey: state.managementKey } : {}",

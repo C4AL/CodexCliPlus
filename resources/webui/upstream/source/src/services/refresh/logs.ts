@@ -1,5 +1,6 @@
 import { logsApi, type ErrorLogsResponse, type LogsQuery, type LogsResponse } from '@/services/api/logs';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { createAuthScopeKey } from '@/utils/authScope';
 
 export type LogRefreshMode = 'full' | 'incremental';
 
@@ -35,8 +36,7 @@ const logScopes = new Map<string, LogScopeState>();
 const logSubscribers = new Set<LogStreamSubscriber>();
 
 const getLogScopeKey = () => {
-  const { apiBase = '', managementKey = '' } = useAuthStore.getState();
-  return `${apiBase}::${managementKey}`;
+  return createAuthScopeKey(useAuthStore.getState());
 };
 
 const getLogScopeState = (scopeKey: string): LogScopeState => {

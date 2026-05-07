@@ -121,7 +121,7 @@ public partial class MainWindow
             {
                 DesktopMode = true,
                 ApiBase = connection.BaseUrl,
-                ManagementKey = connection.ManagementKey,
+                DesktopSessionId = _desktopSessionId,
                 Theme = ToWebTheme(_settings.ThemeMode),
                 ResolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
                 SidebarCollapsed = _sidebarCollapsed,
@@ -423,7 +423,7 @@ public partial class MainWindow
                         : null;
                     ShowLogin(
                         string.IsNullOrWhiteSpace(message)
-                            ? "登录状态已失效，请重新输入安全密钥。"
+                            ? "登录状态已失效，请在桌面端重新完成登录。"
                             : message
                     );
                     break;

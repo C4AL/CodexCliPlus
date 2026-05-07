@@ -32,6 +32,7 @@ import {
   type LogStreamEvent,
 } from '@/services/refresh';
 import { copyToClipboard } from '@/utils/clipboard';
+import { createAuthScopeKey } from '@/utils/authScope';
 import { downloadBlob } from '@/utils/download';
 import { MANAGEMENT_API_PREFIX } from '@/utils/constants';
 import { formatUnixTimestamp } from '@/utils/format';
@@ -70,9 +71,7 @@ export function LogsPage() {
   const { t } = useTranslation();
   const { showNotification, showConfirmation } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const apiBase = useAuthStore((state) => state.apiBase);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const traceScopeKey = `${apiBase}::${managementKey}`;
+  const traceScopeKey = useAuthStore(createAuthScopeKey);
   const config = useConfigStore((state) => state.config);
   const updateConfigValue = useConfigStore((state) => state.updateConfigValue);
   const clearCache = useConfigStore((state) => state.clearCache);

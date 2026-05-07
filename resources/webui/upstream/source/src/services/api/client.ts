@@ -86,9 +86,8 @@ class ApiClient {
     return null;
   }
 
-  private shouldUseDesktopManagementProxy(method: string): boolean {
-    const normalized = method.trim().toUpperCase();
-    return isDesktopMode() && !['GET', 'HEAD', 'OPTIONS'].includes(normalized);
+  private shouldUseDesktopManagementProxy(): boolean {
+    return isDesktopMode();
   }
 
   private buildRequestPath(url: string, config?: AxiosRequestConfig): string {
@@ -124,6 +123,56 @@ class ApiClient {
     }
   }
 
+  private createDesktopAxiosResponse(
+    response: Awaited<ReturnType<typeof sendDesktopManagementRequest>>,
+    config: AxiosRequestConfig
+  ): AxiosResponse {
+    const responseType = config.responseType;
+    const accept = this.readConfiguredHeader(config, 'Accept') ?? 'application/octet-stream';
+    let data: unknown;
+
+    if (responseType === 'blob') {
+      data = new Blob([response.body], { type: accept });
+    } else if (responseType === 'arraybuffer') {
+      data = new TextEncoder().encode(response.body).buffer;
+    } else if (responseType === 'text') {
+      data = response.body;
+    } else {
+      data = this.parseDesktopResponseBody(response.body);
+    }
+
+    return {
+      data,
+      status: response.status,
+      statusText: response.status >= 200 && response.status < 300 ? 'OK' : 'Error',
+      headers: {},
+      config,
+    } as AxiosResponse;
+  }
+
+  private normalizeDesktopProxyError(error: unknown): ApiError {
+    const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null;
+    const status = typeof record?.status === 'number' ? record.status : undefined;
+    const data = record?.data;
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : '桌面管理代理请求失败';
+    const apiError = new Error(message) as ApiError;
+    apiError.name = 'ApiError';
+    apiError.status = status;
+    apiError.data = data;
+    apiError.details = data;
+
+    if (status === 401) {
+      window.dispatchEvent(new Event('unauthorized'));
+    }
+
+    return apiError;
+  }
+
   private publishDesktopResponseMetadata(metadata: unknown): void {
     if (!metadata || typeof metadata !== 'object') return;
     const record = metadata as Record<string, unknown>;
@@ -148,20 +197,24 @@ class ApiClient {
       this.readConfiguredHeader(config, 'Content-Type') ??
       (typeof data === 'string' ? 'text/plain' : 'application/json');
     const accept = this.readConfiguredHeader(config, 'Accept') ?? 'application/json';
-    const response = await sendDesktopManagementRequest({
-      method,
-      path: this.buildRequestPath(url, config),
-      body:
-        data === undefined || data === null
-          ? undefined
-          : typeof data === 'string'
-            ? data
-            : JSON.stringify(data),
-      contentType,
-      accept,
-    });
-    this.publishDesktopResponseMetadata(response.metadata);
-    return this.parseDesktopResponseBody<T>(response.body);
+    try {
+      const response = await sendDesktopManagementRequest({
+        method,
+        path: this.buildRequestPath(url, config),
+        body:
+          data === undefined || data === null
+            ? undefined
+            : typeof data === 'string'
+              ? data
+              : JSON.stringify(data),
+        contentType,
+        accept,
+      });
+      this.publishDesktopResponseMetadata(response.metadata);
+      return this.parseDesktopResponseBody<T>(response.body);
+    } catch (error) {
+      throw this.normalizeDesktopProxyError(error);
+    }
   }
 
   private async fileToDesktopManagementFile(file: File): Promise<DesktopManagementFile> {
@@ -270,6 +323,9 @@ class ApiClient {
    * GET 请求
    */
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    if (this.shouldUseDesktopManagementProxy()) {
+      return this.sendViaDesktopManagementProxy<T>('GET', url, undefined, config);
+    }
     const response = await this.instance.get<T>(url, config);
     return response.data;
   }
@@ -278,7 +334,7 @@ class ApiClient {
    * POST 请求
    */
   async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    if (this.shouldUseDesktopManagementProxy('POST')) {
+    if (this.shouldUseDesktopManagementProxy()) {
       return this.sendViaDesktopManagementProxy<T>('POST', url, data, config);
     }
     const response = await this.instance.post<T>(url, data, config);
@@ -289,7 +345,7 @@ class ApiClient {
    * PUT 请求
    */
   async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    if (this.shouldUseDesktopManagementProxy('PUT')) {
+    if (this.shouldUseDesktopManagementProxy()) {
       return this.sendViaDesktopManagementProxy<T>('PUT', url, data, config);
     }
     const response = await this.instance.put<T>(url, data, config);
@@ -300,7 +356,7 @@ class ApiClient {
    * PATCH 请求
    */
   async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    if (this.shouldUseDesktopManagementProxy('PATCH')) {
+    if (this.shouldUseDesktopManagementProxy()) {
       return this.sendViaDesktopManagementProxy<T>('PATCH', url, data, config);
     }
     const response = await this.instance.patch<T>(url, data, config);
@@ -311,7 +367,7 @@ class ApiClient {
    * DELETE 请求
    */
   async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    if (this.shouldUseDesktopManagementProxy('DELETE')) {
+    if (this.shouldUseDesktopManagementProxy()) {
       return this.sendViaDesktopManagementProxy<T>('DELETE', url, config?.data, config);
     }
     const response = await this.instance.delete<T>(url, config);
@@ -322,6 +378,19 @@ class ApiClient {
    * 获取原始响应（用于下载等场景）
    */
   async getRaw(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (this.shouldUseDesktopManagementProxy()) {
+      try {
+        const response = await sendDesktopManagementRequest({
+          method: 'GET',
+          path: this.buildRequestPath(url, config),
+          accept: this.readConfiguredHeader(config, 'Accept') ?? 'application/octet-stream',
+        });
+        this.publishDesktopResponseMetadata(response.metadata);
+        return this.createDesktopAxiosResponse(response, { ...config, method: 'GET', url });
+      } catch (error) {
+        throw this.normalizeDesktopProxyError(error);
+      }
+    }
     return this.instance.get(url, config);
   }
 
@@ -333,7 +402,7 @@ class ApiClient {
     formData: FormData,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    if (this.shouldUseDesktopManagementProxy('POST')) {
+    if (this.shouldUseDesktopManagementProxy()) {
       const files: DesktopManagementFile[] = [];
       const fields: Record<string, string> = {};
       for (const [key, value] of formData.entries()) {
@@ -343,15 +412,19 @@ class ApiClient {
           fields[key] = String(value);
         }
       }
-      const response = await sendDesktopManagementRequest({
-        method: 'POST',
-        path: this.buildRequestPath(url, config),
-        files,
-        fields,
-        accept: this.readConfiguredHeader(config, 'Accept') ?? 'application/json',
-      });
-      this.publishDesktopResponseMetadata(response.metadata);
-      return this.parseDesktopResponseBody<T>(response.body);
+      try {
+        const response = await sendDesktopManagementRequest({
+          method: 'POST',
+          path: this.buildRequestPath(url, config),
+          files,
+          fields,
+          accept: this.readConfiguredHeader(config, 'Accept') ?? 'application/json',
+        });
+        this.publishDesktopResponseMetadata(response.metadata);
+        return this.parseDesktopResponseBody<T>(response.body);
+      } catch (error) {
+        throw this.normalizeDesktopProxyError(error);
+      }
     }
     const response = await this.instance.post<T>(url, formData, {
       ...config,
@@ -368,15 +441,27 @@ class ApiClient {
    */
   async requestRaw(config: AxiosRequestConfig): Promise<AxiosResponse> {
     const method = String(config.method ?? 'GET').toUpperCase();
-    if (config.url && this.shouldUseDesktopManagementProxy(method)) {
-      const data = await this.sendViaDesktopManagementProxy(method, config.url, config.data, config);
-      return {
-        data,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-        config,
-      } as AxiosResponse;
+    if (config.url && this.shouldUseDesktopManagementProxy()) {
+      try {
+        const response = await sendDesktopManagementRequest({
+          method,
+          path: this.buildRequestPath(config.url, config),
+          body:
+            config.data === undefined || config.data === null
+              ? undefined
+              : typeof config.data === 'string'
+                ? config.data
+                : JSON.stringify(config.data),
+          contentType:
+            this.readConfiguredHeader(config, 'Content-Type') ??
+            (typeof config.data === 'string' ? 'text/plain' : 'application/json'),
+          accept: this.readConfiguredHeader(config, 'Accept') ?? 'application/octet-stream',
+        });
+        this.publishDesktopResponseMetadata(response.metadata);
+        return this.createDesktopAxiosResponse(response, config);
+      } catch (error) {
+        throw this.normalizeDesktopProxyError(error);
+      }
     }
     return this.instance.request(config);
   }

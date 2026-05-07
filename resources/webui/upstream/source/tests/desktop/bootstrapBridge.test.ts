@@ -4,7 +4,7 @@ import type { DesktopBootstrapPayload } from '@/desktop/bridge';
 const bootstrap: DesktopBootstrapPayload = {
   desktopMode: true,
   apiBase: 'http://127.0.0.1:15345',
-  managementKey: 'desktop-secret',
+  desktopSessionId: 'desktop-session-1',
   theme: 'auto',
   resolvedTheme: 'light',
 };

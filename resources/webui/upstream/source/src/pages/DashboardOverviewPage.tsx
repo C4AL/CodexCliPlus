@@ -26,6 +26,7 @@ import type {
   ProviderKeyConfig,
 } from '@/types';
 import type { CredentialInfo } from '@/types/sourceInfo';
+import { createAuthScopeKey } from '@/utils/authScope';
 import { buildSourceInfoMap, resolveSourceDisplay } from '@/utils/sourceResolver';
 import { parseTimestampMs } from '@/utils/timestamp';
 import {
@@ -455,7 +456,7 @@ function useOverviewLiveUsageRefresh({
   onQuotaRefresh: (files: AuthFileItem[]) => Promise<void>;
 }) {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const usageScopeKey = useAuthStore((state) => `${state.apiBase}::${state.managementKey}`);
+  const usageScopeKey = useAuthStore(createAuthScopeKey);
   const [highlightState, setHighlightState] = useState(() => ({
     scopeKey: usageScopeKey,
     expiresAtById: new Map<string, number>(),
@@ -737,7 +738,7 @@ function OverviewRequestEventsCard({
   onQuotaRefresh,
 }: OverviewRequestEventsCardProps) {
   const { t, i18n } = useTranslation();
-  const authScopeKey = useAuthStore((state) => `${state.apiBase}::${state.managementKey}`);
+  const authScopeKey = useAuthStore(createAuthScopeKey);
   const requestEventsInstanceId = useId();
   const rowIdentityCacheKey = `${authScopeKey}::${requestEventsInstanceId}`;
   const committedRowIdentitySnapshot =
@@ -1028,7 +1029,7 @@ function OverviewRequestEventsCard({
 export function DashboardOverviewPage() {
   const { t, i18n } = useTranslation();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
-  const quotaScopeKey = useAuthStore((state) => `${state.apiBase}::${state.managementKey}`);
+  const quotaScopeKey = useAuthStore(createAuthScopeKey);
   const appConfig = useConfigStore((state) => state.config);
   const codexQuotaByFile = useQuotaStore((state) => state.codexQuota);
   const setCodexQuota = useQuotaStore((state) => state.setCodexQuota);

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const bootstrap = {
   desktopMode: true,
   apiBase: 'http://127.0.0.1:15345',
-  managementKey: 'desktop-secret',
+  desktopSessionId: 'desktop-session-1',
   theme: 'auto',
   resolvedTheme: 'light',
 };
@@ -55,6 +55,8 @@ describe('useAuthStore desktop restore', () => {
   });
 
   it('trusts the desktop bootstrap without blocking on config fetch', async () => {
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('managementKey', '"legacy-secret"');
     const { useAuthStore, useConfigStore } = await loadDesktopAuthStore();
     const fetchConfig = vi.fn().mockRejectedValue(new Error('不应阻塞桌面首屏'));
     useConfigStore.setState({ fetchConfig });
@@ -65,9 +67,12 @@ describe('useAuthStore desktop restore', () => {
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,
       apiBase: bootstrap.apiBase,
-      managementKey: bootstrap.managementKey,
+      managementKey: '',
+      desktopSessionId: bootstrap.desktopSessionId,
       connectionStatus: 'connected',
     });
+    expect(localStorage.getItem('isLoggedIn')).toBeNull();
+    expect(localStorage.getItem('managementKey')).toBeNull();
   });
 
   it('retries after the desktop bootstrap bridge is injected late', async () => {
@@ -92,7 +97,8 @@ describe('useAuthStore desktop restore', () => {
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,
       apiBase: bootstrap.apiBase,
-      managementKey: bootstrap.managementKey,
+      managementKey: '',
+      desktopSessionId: bootstrap.desktopSessionId,
       connectionStatus: 'connected',
     });
   });

@@ -35,7 +35,7 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
       try {
         const restored = await restoreSession();
         let authorized = restored;
-        if (!restored && managementKey && apiBase) {
+        if (!restored && !desktopMode && managementKey && apiBase) {
           authorized = await checkAuth();
         }
 
@@ -58,7 +58,7 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
     };
   }, [apiBase, checkAuth, desktopMode, isAuthenticated, managementKey, restoreSession, retryAttempt]);
 
-  const desktopAuthMessage = connectionError || '无法使用当前登录状态连接本地后端。';
+  const desktopAuthMessage = connectionError || '无法通过桌面代理恢复当前管理会话。';
 
   if (checking) {
     return (
@@ -73,10 +73,10 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
       <div className="main-content">
         <div className="card" style={{ margin: 'auto', maxWidth: 520, width: '100%' }}>
           <div className="card-header">
-            <div className="title">桌面登录已失效</div>
+            <div className="title">桌面会话需要恢复</div>
           </div>
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
-            无法使用当前管理密钥进入桌面管理界面。
+            无法使用当前桌面会话进入管理界面。
           </p>
           <p
             style={{

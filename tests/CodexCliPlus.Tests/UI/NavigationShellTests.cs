@@ -1105,7 +1105,7 @@ public sealed class NavigationShellTests
             {
                 DesktopMode = true,
                 ApiBase = "http://127.0.0.1:15345",
-                ManagementKey = "secret-key",
+                DesktopSessionId = "desktop-session-1",
                 Theme = "white",
                 ResolvedTheme = "light",
                 SidebarCollapsed = true,
@@ -1114,7 +1114,9 @@ public sealed class NavigationShellTests
 
         Assert.Contains("\"desktopMode\":true", script, StringComparison.Ordinal);
         Assert.Contains("\"apiBase\":\"http://127.0.0.1:15345\"", script, StringComparison.Ordinal);
-        Assert.Contains("\"managementKey\":\"secret-key\"", script, StringComparison.Ordinal);
+        Assert.Contains("\"desktopSessionId\":\"desktop-session-1\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"managementKey\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-key", script, StringComparison.Ordinal);
         Assert.Contains("\"theme\":\"white\"", script, StringComparison.Ordinal);
         Assert.Contains("\"resolvedTheme\":\"light\"", script, StringComparison.Ordinal);
         Assert.Contains("\"sidebarCollapsed\":true", script, StringComparison.Ordinal);
@@ -1124,6 +1126,7 @@ public sealed class NavigationShellTests
         Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"DesktopSessionId\"", script, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2652,7 +2655,7 @@ public sealed class NavigationShellTests
         Assert.Contains("<LoginPage />", loginRouteSource, StringComparison.Ordinal);
         Assert.Contains("restoreSession", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", protectedRouteSource, StringComparison.Ordinal);
-        Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
+        Assert.Contains("桌面会话需要恢复", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("返回登录", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", protectedRouteSource, StringComparison.Ordinal);
@@ -2903,7 +2906,7 @@ public sealed class NavigationShellTests
         Assert.Contains("requestCodexRouteState", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("switchCodexRoute", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("pathname", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("桌面登录已失效", protectedRouteSource, StringComparison.Ordinal);
+        Assert.Contains("桌面会话需要恢复", protectedRouteSource, StringComparison.Ordinal);
     }
 
     [Fact]

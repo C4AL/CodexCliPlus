@@ -8,7 +8,7 @@ import { IconEye, IconEyeOff } from '@/components/ui/icons';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
 import { LOGO_JPEG_URL } from '@/assets/logo';
-import { getDesktopBootstrap, isDesktopMode } from '@/desktop/bridge';
+import { getDesktopBootstrap, isDesktopMode, requestNativeLogin } from '@/desktop/bridge';
 import type { ApiError } from '@/types';
 import styles from './LoginPage.module.scss';
 
@@ -117,7 +117,7 @@ export function LoginPage() {
           const fallbackKey = latestAuthState.managementKey || storedKey || '';
 
           setApiBase(desktopBootstrap?.apiBase || latestAuthState.apiBase || storedBase || detectedBase);
-          setManagementKey(desktopBootstrap?.managementKey || fallbackKey);
+          setManagementKey(desktopMode ? '' : fallbackKey);
           setRememberPassword(
             desktopMode
               ? false
@@ -136,28 +136,41 @@ export function LoginPage() {
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    const desktopBootstrap = desktopMode ? getDesktopBootstrap() : null;
-    const keyToUse = desktopMode
-      ? desktopBootstrap?.managementKey || managementKey
-      : managementKey.trim();
+    if (desktopMode) {
+      setLoading(true);
+      setError('');
+      try {
+        const restored = await restoreSession();
+        if (restored) {
+          showNotification(t('common.connected_status'), 'success');
+          navigate('/', { replace: true });
+          return;
+        }
 
-    if (!keyToUse.trim()) {
+        const message = t('login.desktop_restore_failed');
+        setError(message);
+        requestNativeLogin(message);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const keyToUse = managementKey.trim();
+
+    if (!keyToUse) {
       setError(t('login.error_required'));
       return;
     }
 
-    const baseToUse = desktopMode
-      ? normalizeApiBase(desktopBootstrap?.apiBase || apiBase || detectedBase)
-      : apiBase
-        ? normalizeApiBase(apiBase)
-        : detectedBase;
+    const baseToUse = apiBase ? normalizeApiBase(apiBase) : detectedBase;
     setLoading(true);
     setError('');
     try {
       await login({
         apiBase: baseToUse,
-        managementKey: keyToUse.trim(),
-        rememberPassword: desktopMode ? false : rememberPassword
+        managementKey: keyToUse,
+        rememberPassword
       });
       showNotification(t('common.connected_status'), 'success');
       navigate('/', { replace: true });
@@ -176,6 +189,7 @@ export function LoginPage() {
     managementKey,
     navigate,
     rememberPassword,
+    restoreSession,
     showNotification,
     t
   ]);
@@ -267,9 +281,13 @@ export function LoginPage() {
 
               <div className={styles.statusGrid}>
                 <div>
-                  <span>{t('login.status_key')}</span>
+                  <span>{desktopMode ? t('login.status_desktop_proxy') : t('login.status_key')}</span>
                   <strong>
-                    {managementKey.trim() ? t('login.status_key_ready') : t('login.status_key_empty')}
+                    {desktopMode
+                      ? t('login.status_desktop_proxy_ready')
+                      : managementKey.trim()
+                        ? t('login.status_key_ready')
+                        : t('login.status_key_empty')}
                   </strong>
                 </div>
                 <div>
@@ -302,34 +320,36 @@ export function LoginPage() {
                 </>
               )}
 
-              <Input
-                autoFocus
-                label={t('login.management_key_label')}
-                placeholder={t('login.management_key_placeholder')}
-                type={showKey ? 'text' : 'password'}
-                value={managementKey}
-                onChange={(e) => setManagementKey(e.target.value)}
-                onKeyDown={handleSubmitKeyDown}
-                rightElement={
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setShowKey((prev) => !prev)}
-                    aria-label={
-                      showKey
-                        ? t('login.hide_key', { defaultValue: '隐藏密钥' })
-                        : t('login.show_key', { defaultValue: '显示密钥' })
-                    }
-                    title={
-                      showKey
-                        ? t('login.hide_key', { defaultValue: '隐藏密钥' })
-                        : t('login.show_key', { defaultValue: '显示密钥' })
-                    }
-                  >
-                    {showKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                  </button>
-                }
-              />
+              {!desktopMode && (
+                <Input
+                  autoFocus
+                  label={t('login.management_key_label')}
+                  placeholder={t('login.management_key_placeholder')}
+                  type={showKey ? 'text' : 'password'}
+                  value={managementKey}
+                  onChange={(e) => setManagementKey(e.target.value)}
+                  onKeyDown={handleSubmitKeyDown}
+                  rightElement={
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setShowKey((prev) => !prev)}
+                      aria-label={
+                        showKey
+                          ? t('login.hide_key', { defaultValue: '隐藏密钥' })
+                          : t('login.show_key', { defaultValue: '显示密钥' })
+                      }
+                      title={
+                        showKey
+                          ? t('login.hide_key', { defaultValue: '隐藏密钥' })
+                          : t('login.show_key', { defaultValue: '显示密钥' })
+                      }
+                    >
+                      {showKey ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                    </button>
+                  }
+                />
+              )}
 
               <div className={styles.toggleAdvanced}>
                 <SelectionCheckbox
@@ -355,9 +375,11 @@ export function LoginPage() {
               </Button>
 
               <div className={styles.recoveryActions}>
-                <button type="button" onClick={handleClearDraft}>
-                  {t('login.clear_key')}
-                </button>
+                {!desktopMode && (
+                  <button type="button" onClick={handleClearDraft}>
+                    {t('login.clear_key')}
+                  </button>
+                )}
                 {!desktopMode && (
                   <button type="button" onClick={handleUseDetectedBase}>
                     {t('login.use_detected_address')}

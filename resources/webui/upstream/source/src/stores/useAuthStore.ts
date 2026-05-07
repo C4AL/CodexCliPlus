@@ -29,6 +29,7 @@ export const useAuthStore = create<AuthStoreState>()(
       isAuthenticated: false,
       apiBase: '',
       managementKey: '',
+      desktopSessionId: '',
       rememberPassword: false,
       serverVersion: null,
       serverBuildDate: null,
@@ -52,6 +53,7 @@ export const useAuthStore = create<AuthStoreState>()(
                 isAuthenticated: false,
                 apiBase: '',
                 managementKey: '',
+                desktopSessionId: '',
                 rememberPassword: false,
                 connectionStatus: 'disconnected'
               });
@@ -59,17 +61,20 @@ export const useAuthStore = create<AuthStoreState>()(
             }
 
             const resolvedBase = normalizeApiBase(desktopBootstrap.apiBase);
-            const resolvedKey = desktopBootstrap.managementKey;
+            const desktopSessionId = desktopBootstrap.desktopSessionId;
 
             set({
               apiBase: resolvedBase,
-              managementKey: resolvedKey,
+              managementKey: '',
+              desktopSessionId,
               rememberPassword: false,
               isAuthenticated: true,
               connectionStatus: 'connected',
               connectionError: null
             });
-            apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
+            localStorage.removeItem('isLoggedIn');
+            obfuscatedStorage.removeItem('managementKey');
+            apiClient.setConfig({ apiBase: resolvedBase, managementKey: '' });
             return true;
           }
 
@@ -89,6 +94,7 @@ export const useAuthStore = create<AuthStoreState>()(
           set({
             apiBase: resolvedBase,
             managementKey: resolvedKey,
+            desktopSessionId: '',
             rememberPassword: resolvedRememberPassword
           });
           apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
@@ -119,9 +125,10 @@ export const useAuthStore = create<AuthStoreState>()(
       },
 
       login: async (credentials) => {
+        const desktopMode = isDesktopMode();
         const apiBase = normalizeApiBase(credentials.apiBase);
-        const managementKey = credentials.managementKey.trim();
-        const rememberPassword = isDesktopMode()
+        const managementKey = desktopMode ? '' : credentials.managementKey.trim();
+        const rememberPassword = desktopMode
           ? false
           : credentials.rememberPassword ?? get().rememberPassword ?? false;
 
@@ -140,12 +147,13 @@ export const useAuthStore = create<AuthStoreState>()(
             isAuthenticated: true,
             apiBase,
             managementKey,
+            desktopSessionId: desktopMode ? get().desktopSessionId : '',
             rememberPassword,
             connectionStatus: 'connected',
             connectionError: null
           });
 
-          if (!isDesktopMode() && rememberPassword) {
+          if (!desktopMode && rememberPassword) {
             localStorage.setItem('isLoggedIn', 'true');
           } else {
             localStorage.removeItem('isLoggedIn');
@@ -174,6 +182,7 @@ export const useAuthStore = create<AuthStoreState>()(
           isAuthenticated: false,
           apiBase: '',
           managementKey: '',
+          desktopSessionId: '',
           serverVersion: null,
           serverBuildDate: null,
           connectionStatus: 'disconnected',
@@ -184,13 +193,14 @@ export const useAuthStore = create<AuthStoreState>()(
 
       checkAuth: async () => {
         const { managementKey, apiBase } = get();
+        const desktopMode = isDesktopMode();
 
-        if (!managementKey || !apiBase) {
+        if (!apiBase || (!desktopMode && !managementKey)) {
           return false;
         }
 
         try {
-          apiClient.setConfig({ apiBase, managementKey });
+          apiClient.setConfig({ apiBase, managementKey: desktopMode ? '' : managementKey });
           await useConfigStore.getState().fetchConfig();
 
           set({
@@ -244,6 +254,7 @@ export const useAuthStore = create<AuthStoreState>()(
         isDesktopMode()
           ? {
               rememberPassword: false,
+              desktopSessionId: state.desktopSessionId,
               serverVersion: state.serverVersion,
               serverBuildDate: state.serverBuildDate
             }

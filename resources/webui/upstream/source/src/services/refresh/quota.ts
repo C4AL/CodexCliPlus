@@ -3,6 +3,7 @@ import type { QuotaConfig, QuotaStore } from '@/components/quota/quotaConfigs';
 import type { AuthFileItem } from '@/types';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useQuotaStore } from '@/stores/useQuotaStore';
+import { createAuthScopeKey } from '@/utils/authScope';
 import { getStatusFromError, resolveCodexChatgptAccountId } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/usage';
 
@@ -57,8 +58,7 @@ let standardActiveCount = 0;
 const delay = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 const getQuotaScopeKey = () => {
-  const { apiBase = '', managementKey = '' } = useAuthStore.getState();
-  return `${apiBase}::${managementKey}`;
+  return createAuthScopeKey(useAuthStore.getState());
 };
 
 const getQuotaState = (key: string): QuotaResourceState => {

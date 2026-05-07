@@ -140,6 +140,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private AppSettings _settings = new();
     private StartupState _startupState = StartupState.Preparing;
     private string? _bootstrapScriptId;
+    private readonly string _desktopSessionId = Guid.NewGuid().ToString("N");
     private string _firstRunManagementKey = string.Empty;
     private string _shellConnectionStatus = "disconnected";
     private string _shellApiBase = string.Empty;

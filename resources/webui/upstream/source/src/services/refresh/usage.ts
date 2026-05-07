@@ -1,5 +1,6 @@
 import { usageApi } from '@/services/api/usage';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { createAuthScopeKey } from '@/utils/authScope';
 
 const USAGE_SHORT_THROTTLE_MS = 1_500;
 
@@ -27,8 +28,7 @@ const usageScopes = new Map<string, UsageScopeState>();
 const delay = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export const getRefreshScopeKey = () => {
-  const { apiBase = '', managementKey = '' } = useAuthStore.getState();
-  return `${apiBase}::${managementKey}`;
+  return createAuthScopeKey(useAuthStore.getState());
 };
 
 const getUsageScopeState = (scopeKey: string): UsageScopeState => {

@@ -88,7 +88,7 @@ describe('useThemeStore desktop theme sync', () => {
         consumeBootstrap: vi.fn(() => ({
           desktopMode: true,
           apiBase: 'http://127.0.0.1:15345',
-          managementKey: 'desktop-secret',
+          desktopSessionId: 'desktop-session-1',
           theme: 'auto',
           resolvedTheme: 'dark',
         })),

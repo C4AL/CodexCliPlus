@@ -8,6 +8,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   apiBase: string;
   managementKey: string;
+  desktopSessionId: string;
   rememberPassword: boolean;
   serverVersion: string | null;
   serverBuildDate: string | null;
@@ -24,7 +25,7 @@ export interface ConnectionInfo {
 export interface DesktopBootstrapPayload {
   desktopMode: boolean;
   apiBase: string;
-  managementKey: string;
+  desktopSessionId: string;
   theme?: 'auto' | 'white' | 'dark';
   resolvedTheme?: 'light' | 'dark';
   sidebarCollapsed?: boolean;

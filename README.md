@@ -33,33 +33,33 @@
 
 ## 项目定位
 
-**CodexCliPlus** 是面向 **Windows 10/11 x64** 的 Codex CLI 本地管理增强平台，服务于中文、Windows、本地优先、低配置成本、只使用 Codex 的用户。桌面端负责 WPF/WebView2 宿主、托盘、后端生命周期、更新与安全存储；管理界面来自仓库内置的 WebUI；后端运行时基于 CLIProxyAPI，并以 `ccp-core.exe` 作为 CodexCliPlus 托管资产名。
+**CodexCliPlus** 是面向 **Windows 10/11 x64** 的 Codex CLI 本地管理增强平台。它把原本需要手动处理的 CLIProxyAPI 后端、Codex 路由、认证文件、本地环境、日志、用量和更新流程收进一个桌面应用，并固定使用 `ccp-core.exe` 作为托管后端资产名。
 
 ## 目标人群
 
-- **中文用户**：界面、文档和默认工作流优先面向中文使用场景。
-- **Windows 用户**：聚焦 Windows 10/11 x64 本地桌面体验，不追求跨平台泛化。
-- **本地用户**：优先把账号、配置、日志、插件与运行状态留在本机管理。
-- **懒人配置用户**：减少手动编辑环境变量、认证文件和 `.codex` 配置的步骤。
-- **仅 Codex 用户**：围绕 Codex CLI 做管理增强，不扩展成通用多模型客户端。
+- 中文 Windows Codex CLI 用户
+- 想本机管理账号、配置、日志和用量的人
+- 不想手动折腾环境和认证文件的人
+- 需要官方 Codex 与 CPA 路由切换的人
+- 只关注 Codex CLI、不需要通用聊天客户端的人
 
 ## 当前特性
 
-- **Windows 桌面宿主**：WPF + WebView2 主窗口、系统托盘、桌面通知。
-- **托管后端运行时**：魔改 CPA 后端作为 CodexCliPlus 管理的 `ccp-core.exe` 资产。
-- **内置本地 WebUI**：从仓库内置 WebUI 构建并随应用发布，通过应用窗口界面实时刷新数据，不依赖浏览器界面和手动刷新。
-- **Codex 专向管理面**：管理入口聚焦 Codex CLI，检测并修复 Node.js、npm、PowerShell、PATH、WSL、Codex CLI 等本地依赖。
-- **OpenAI 兼容上游透传**：移植并搭载 `openai-compatibility` 能力，可接入 NewAPI、OneAPI、OpenRouter 等 OpenAI 兼容上游；支持 provider `base-url`、多 API Key、自定义 Header、模型别名/模型池、每 Key 代理，以及非流式、流式和 `/responses/compact` 透传。
-- **本机凭据保护**：首次启动生成本地安全密钥；管理密钥和敏感值通过 Windows DPAPI 保存；API Key、OAuth Token、Authorization、Cookie 等写入时迁移为 `ccp-secret://` 引用，含凭据配置只允许导出为 `.sac v2` 加密包，使用 Argon2id 和 AES-256-GCM；禁止明文导出含凭据内容。
-- **本地用量持久化**：在 CPA 用量接口基础上增加 SQLite 持久化、事件去重、水位过滤、导入导出和清理能力，保留跨会话用量记录。
-- **更新与发布链路**：支持从 CodexCliPlus GitHub Releases 检查、下载、校验并调用更新器安装；发布链路生成离线安装器、更新包、校验和、签名或未签名侧车元数据。
+- **Windows 桌面宿主**：提供主窗口、托盘、桌面通知和启动阻断页。
+- **托管魔改 CPA 后端**：后端由 CodexCliPlus 管理，固定资产名为 `ccp-core.exe`。
+- **内置 WebUI 与桌面桥接**：管理界面随应用发布，管理密钥不落浏览器存储。
+- **Codex 路由检测与切换**：识别并切换官方 Codex、CodexCliPlus CPA 和第三方 CPA 路由。
+- **本地环境检测与修复**：覆盖 Node.js、npm、PowerShell、PATH、Codex CLI、WSL 等依赖。
+- **Codex 配置集中管理**：管理 Codex API、OAuth、认证文件、模型别名、模型禁用和额度信息。
+- **OpenAI 兼容上游**：支持多 Key、自定义 Header、模型池、代理和流式透传。
+- **本机凭据保护**：使用 DPAPI、`ccp-secret://` 引用和 `.sac v2` 加密导入导出。
+- **运行记录持久化**：提供 SQLite 用量持久化、日志、请求日志、更新器和安装包链路。
 
 ## 开发路线
 
-- **集成 Codex 工作流**：围绕 Codex CLI 做安装检测、更新、启动、日志、账号、用量和常用任务入口整合。
-- **可视化编辑 `.codex`**：提供图形化配置编辑、一键配置和配置校验，减少手写 TOML/JSON/YAML 的错误成本。
-- **官方模式 / CPA 模式自由切换**：支持在官方 Codex 路由和 CPA（CLIProxyAPI）路由之间按需切换，并尽量保留一致的本地管理体验。
-- **邮件转发到手机**：将 Codex 阶段性结论、任务完成结果和关键失败状态通过邮件系统转发给用户，方便在手机上接收进度。
+- **完善 `.codex` 配置页**：补齐可视化编辑、项目配置查看和更完整校验。
+- **增强 Codex 任务入口**：整合启动、常用命令、日志和任务结果。
+- **手机通知**：把完成结果、阶段性结论和关键失败状态转发到手机端。
 
 ## 快速开始
 

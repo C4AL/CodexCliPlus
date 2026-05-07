@@ -558,7 +558,7 @@ public sealed class NavigationShellTests
         Assert.Contains("RequestApplicationExitAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("RunApplicationExitAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains(
-            "await _backendProcessManager.StopAsync();",
+            "BackendProcessStopOptions.FastExit",
             hostSource,
             StringComparison.Ordinal
         );
@@ -777,9 +777,10 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
-    public void TrayExitMarksSingleInstanceExitAndDefersTrayUnregisterUntilClose()
+    public void TrayExitMarksSingleInstanceExitAndUsesFastExitCleanup()
     {
         var repositoryRoot = FindRepositoryRoot();
+        var hostSource = ReadMainWindowSources(repositoryRoot);
         var eventHandlersSource = ReadAppSource(repositoryRoot, "MainWindow.EventHandlers.cs");
         var trayHelpersSource = ReadAppSource(repositoryRoot, "MainWindow.ShellTrayAndHelpers.cs");
         var requestExitSource = SliceBetween(
@@ -834,13 +835,50 @@ public sealed class NavigationShellTests
             "_isExitRequested = true;",
             "_applicationExitTask = RunApplicationExitAsync();"
         );
+        Assert.Contains(
+            "CancelUsageStatsSyncDebounce();",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "CancelPostStartupPersistenceImport();",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "CloseSettingsOverlayImmediately();",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("TrayIcon.Unregister();", requestExitSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ExitPersistenceSyncTimeout = TimeSpan.FromMilliseconds(500)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ExitPersistenceSyncTimeout = TimeSpan.FromSeconds(5)",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("if (_isExitRequested)", restoreActivationSource, StringComparison.Ordinal);
         AssertSourceOrder(
             restoreActivationSource,
             "if (_isExitRequested)",
             "RestoreMainWindowToForeground();"
         );
-        Assert.DoesNotContain("TrayIcon.Unregister();", runExitSource, StringComparison.Ordinal);
+        Assert.Contains("ExitPersistenceSyncTimeout", runExitSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("TimeSpan.FromSeconds(5)", runExitSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "FastExitBackendStopTimeout",
+            runExitSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendProcessStopOptions.FastExit",
+            runExitSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("TrayIcon.Unregister();", windowClosedSource, StringComparison.Ordinal);
     }
 
@@ -869,7 +907,12 @@ public sealed class NavigationShellTests
 
         Assert.Contains("SingleInstanceExitingEventName", source, StringComparison.Ordinal);
         Assert.Contains(
-            "SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(15)",
+            "SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(3)",
+            source,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "BackendProcessStopOptions.FastExit",
             source,
             StringComparison.Ordinal
         );

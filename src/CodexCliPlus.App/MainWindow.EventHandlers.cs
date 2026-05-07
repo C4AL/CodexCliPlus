@@ -666,6 +666,12 @@ public partial class MainWindow
         _isExitRequested = true;
         App.MarkSingleInstanceExitInProgress();
         _allowClose = true;
+        CancelUsageStatsSyncDebounce();
+        CancelPostStartupPersistenceImport();
+        CloseShellDockPopups();
+        CloseSettingsOverlayImmediately();
+        CloseShellNotificationPopups();
+        TrayIcon.Unregister();
         _applicationExitTask = RunApplicationExitAsync();
         return _applicationExitTask;
     }
@@ -686,7 +692,11 @@ public partial class MainWindow
 
         try
         {
-            await _backendProcessManager.StopAsync();
+            using var stopTimeout = new CancellationTokenSource(FastExitBackendStopTimeout);
+            await _backendProcessManager.StopAsync(
+                BackendProcessStopOptions.FastExit,
+                stopTimeout.Token
+            );
         }
         catch (Exception exception)
         {

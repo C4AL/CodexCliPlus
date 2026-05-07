@@ -103,7 +103,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private static readonly TimeSpan MinimumPreparationDisplayDuration = TimeSpan.FromMilliseconds(
         300
     );
-    private static readonly TimeSpan ExitPersistenceSyncTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ExitPersistenceSyncTimeout = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan FastExitBackendStopTimeout = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan UsageSnapshotSyncCooldown = TimeSpan.FromMinutes(2);
     private static readonly Uri AppEntryUri = new($"http://{AppHostName}/index.html");
     private static readonly JsonSerializerOptions WebMessageJsonOptions = new()

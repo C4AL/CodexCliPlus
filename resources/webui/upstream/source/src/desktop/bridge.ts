@@ -78,8 +78,6 @@ export interface LocalDependencyRepairResponse {
 export interface DesktopShellState {
   connectionStatus: DesktopConnectionStatus;
   apiBase: string;
-  theme: DesktopTheme;
-  resolvedTheme: DesktopResolvedTheme;
   sidebarCollapsed: boolean;
   pathname: string;
 }
@@ -492,7 +490,11 @@ function normalizeCodexRouteState(value: unknown): CodexRouteState | null {
   };
 }
 
-function settleLocalDependencyRequest(requestId: unknown, value: unknown, error?: unknown): boolean {
+function settleLocalDependencyRequest(
+  requestId: unknown,
+  value: unknown,
+  error?: unknown
+): boolean {
   if (typeof requestId !== 'string') return false;
   const pending = pendingLocalDependencyRequests.get(requestId);
   if (!pending) return true;
@@ -509,9 +511,7 @@ function settleLocalDependencyRequest(requestId: unknown, value: unknown, error?
 function normalizeDataChangedEvent(message: unknown): DesktopDataChangedEvent | null {
   if (!isRecord(message) || message.type !== 'dataChanged') return null;
   const scopes = Array.isArray(message.scopes)
-    ? message.scopes
-        .map((scope) => (typeof scope === 'string' ? scope.trim() : ''))
-        .filter(Boolean)
+    ? message.scopes.map((scope) => (typeof scope === 'string' ? scope.trim() : '')).filter(Boolean)
     : [];
   const sequence =
     typeof message.sequence === 'number' && Number.isFinite(message.sequence)
@@ -624,9 +624,7 @@ function handleCodexRouteMessage(message: unknown): boolean {
         typeof message.configBackupPath === 'string' ? message.configBackupPath : null,
       authBackupPath: typeof message.authBackupPath === 'string' ? message.authBackupPath : null,
       officialAuthBackupPath:
-        typeof message.officialAuthBackupPath === 'string'
-          ? message.officialAuthBackupPath
-          : null,
+        typeof message.officialAuthBackupPath === 'string' ? message.officialAuthBackupPath : null,
     });
     return true;
   }
@@ -790,8 +788,6 @@ export function sendShellStateChanged(state: DesktopShellState): boolean {
     bridge.shellStateChanged({
       connectionStatus: state.connectionStatus,
       apiBase: state.apiBase,
-      theme: normalizeDesktopTheme(state.theme),
-      resolvedTheme: normalizeResolvedTheme(state.resolvedTheme),
       sidebarCollapsed: state.sidebarCollapsed === true,
       pathname: typeof state.pathname === 'string' ? state.pathname : '/',
     });
@@ -802,10 +798,7 @@ export function sendShellStateChanged(state: DesktopShellState): boolean {
   }
 }
 
-export function showShellNotification(
-  message: string,
-  type: NotificationType = 'info'
-): boolean {
+export function showShellNotification(message: string, type: NotificationType = 'info'): boolean {
   const normalizedMessage = typeof message === 'string' ? message.trim() : '';
   if (!normalizedMessage) {
     return false;
@@ -817,7 +810,9 @@ export function showShellNotification(
   }
 
   try {
-    return bridge.showShellNotification(normalizedMessage, normalizeNotificationType(type)) !== false;
+    return (
+      bridge.showShellNotification(normalizedMessage, normalizeNotificationType(type)) !== false
+    );
   } catch (error) {
     console.warn('Failed to show desktop shell notification.', error);
     return false;

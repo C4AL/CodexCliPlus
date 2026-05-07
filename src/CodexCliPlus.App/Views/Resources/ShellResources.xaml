@@ -10,15 +10,15 @@
     Opacity="1"
     ShadowDepth="2"
   />
-  <SolidColorBrush x:Key="ShellDockGlassBrush" Color="#EFFFFFFF" />
+  <SolidColorBrush x:Key="ShellDockGlassBrush" Color="#EAFFFFFF" />
   <SolidColorBrush x:Key="ShellDockGlassBorderBrush" Color="#BFFFFFFF" />
-  <SolidColorBrush x:Key="ShellDockGlassHighlightBrush" Color="#E6FFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockPanelBrush" Color="#F2F8FAFC" />
-  <SolidColorBrush x:Key="NavigationDockBorderBrush" Color="#A6CBD5E1" />
+  <SolidColorBrush x:Key="ShellDockGlassHighlightBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="NavigationDockPanelBrush" Color="#F2FFFFFF" />
+  <SolidColorBrush x:Key="NavigationDockBorderBrush" Color="#A6D9D9D9" />
   <SolidColorBrush x:Key="NavigationDockInnerHighlightBrush" Color="#FFFFFFFF" />
-  <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D9707884" />
-  <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#35CBD5E1" />
-  <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#E6E9EEF5" />
+  <SolidColorBrush x:Key="NavigationDockRailBrush" Color="#D98B8680" />
+  <SolidColorBrush x:Key="NavigationDockRailTrackBrush" Color="#35D9D9D9" />
+  <SolidColorBrush x:Key="NavigationDockButtonHoverBrush" Color="#E6F6F6F6" />
   <LinearGradientBrush x:Key="ShellGlassSweepBrush" StartPoint="0,0" EndPoint="1,1">
     <GradientStop Color="#FFFFFFFF" Offset="0" />
     <GradientStop Color="#33FFFFFF" Offset="0.46" />

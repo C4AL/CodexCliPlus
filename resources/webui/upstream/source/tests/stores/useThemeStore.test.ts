@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-function setMatchMediaDark(matches: boolean) {
+function setMatchMedia(options: { dark?: boolean; reducedMotion?: boolean } = {}) {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches,
+      matches: query.includes('prefers-reduced-motion')
+        ? options.reducedMotion === true
+        : options.dark === true,
       media: query,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
@@ -26,6 +28,7 @@ function resetRootThemeState() {
   document.documentElement.removeAttribute('data-theme');
   document.documentElement.classList.remove('theme-transitioning');
   document.documentElement.style.removeProperty('--theme-transition-duration');
+  document.documentElement.style.removeProperty('color-scheme');
 }
 
 describe('useThemeStore desktop theme sync', () => {
@@ -33,7 +36,7 @@ describe('useThemeStore desktop theme sync', () => {
     vi.useFakeTimers();
     localStorage.clear();
     resetRootThemeState();
-    setMatchMediaDark(false);
+    setMatchMedia();
   });
 
   afterEach(() => {
@@ -51,6 +54,7 @@ describe('useThemeStore desktop theme sync', () => {
     useThemeStore.getState().applyDesktopTheme('auto', 'dark', 180);
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.documentElement.classList.contains('theme-transitioning')).toBe(true);
     expect(document.documentElement.style.getPropertyValue('--theme-transition-duration')).toBe(
       '180ms'
@@ -63,18 +67,17 @@ describe('useThemeStore desktop theme sync', () => {
     await vi.advanceTimersByTimeAsync(180);
 
     expect(document.documentElement.classList.contains('theme-transitioning')).toBe(false);
-    expect(document.documentElement.style.getPropertyValue('--theme-transition-duration')).toBe(
-      ''
-    );
+    expect(document.documentElement.style.getPropertyValue('--theme-transition-duration')).toBe('');
   });
 
   it('lets the desktop resolved theme override WebView matchMedia while in auto mode', async () => {
-    setMatchMediaDark(true);
+    setMatchMedia({ dark: true });
     const useThemeStore = await loadThemeStore();
 
     useThemeStore.getState().applyDesktopTheme('auto', 'light', 180);
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('white');
+    expect(document.documentElement.style.colorScheme).toBe('light');
     expect(useThemeStore.getState()).toMatchObject({
       theme: 'auto',
       resolvedTheme: 'light',
@@ -99,6 +102,7 @@ describe('useThemeStore desktop theme sync', () => {
     const cleanup = useThemeStore.getState().initializeTheme();
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.documentElement.classList.contains('theme-transitioning')).toBe(false);
     expect(useThemeStore.getState()).toMatchObject({
       theme: 'auto',
@@ -106,5 +110,29 @@ describe('useThemeStore desktop theme sync', () => {
     });
 
     cleanup();
+  });
+
+  it('does not restart transition for duplicate desktop theme commands', async () => {
+    const useThemeStore = await loadThemeStore();
+
+    useThemeStore.getState().applyDesktopTheme('dark', 'dark', 180);
+    await vi.advanceTimersByTimeAsync(180);
+
+    useThemeStore.getState().applyDesktopTheme('dark', 'dark', 180);
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.classList.contains('theme-transitioning')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--theme-transition-duration')).toBe('');
+  });
+
+  it('disables transition when the desktop WebView prefers reduced motion', async () => {
+    setMatchMedia({ reducedMotion: true });
+    const useThemeStore = await loadThemeStore();
+
+    useThemeStore.getState().applyDesktopTheme('dark', 'dark', 180);
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.classList.contains('theme-transitioning')).toBe(false);
+    expect(document.documentElement.style.getPropertyValue('--theme-transition-duration')).toBe('');
   });
 });

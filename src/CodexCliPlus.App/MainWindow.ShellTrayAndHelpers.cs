@@ -149,21 +149,6 @@ public partial class MainWindow
         };
     }
 
-    private static string NormalizeWebTheme(string? value)
-    {
-        return value?.Trim().ToLowerInvariant() switch
-        {
-            "dark" => "dark",
-            "white" or "light" => "white",
-            _ => "auto",
-        };
-    }
-
-    private static string NormalizeResolvedTheme(string? value)
-    {
-        return value?.Trim().ToLowerInvariant() == "dark" ? "dark" : "light";
-    }
-
     private static string ToWebTheme(AppThemeMode themeMode)
     {
         return themeMode switch
@@ -298,6 +283,11 @@ public partial class MainWindow
         if (resources[key] is not SolidColorBrush brush || brush.IsFrozen)
         {
             resources[key] = new SolidColorBrush(color);
+            return;
+        }
+
+        if (brush.Color == color)
+        {
             return;
         }
 

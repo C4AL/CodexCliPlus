@@ -272,7 +272,7 @@ public partial class MainWindow
 
     private void UpdateSettingsOverlayBaseline()
     {
-        UpdateShellThemePresentation();
+        UpdateShellThemePresentation(CreateShellThemeSnapshot(_settings.ThemeMode, 0));
         SetSettingsUpdateStatus($"当前版本 {CurrentApplicationVersion}");
     }
 

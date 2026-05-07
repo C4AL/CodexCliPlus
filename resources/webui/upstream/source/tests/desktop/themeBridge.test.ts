@@ -54,4 +54,31 @@ describe('desktop theme bridge', () => {
 
     unsubscribe();
   });
+
+  it('sends shell state without feeding theme back to the desktop host', async () => {
+    const shellStateChanged = vi.fn();
+    Object.assign(window, {
+      __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
+        shellStateChanged,
+      },
+    });
+    vi.resetModules();
+    const { sendShellStateChanged } = await import('@/desktop/bridge');
+
+    expect(
+      sendShellStateChanged({
+        connectionStatus: 'connected',
+        apiBase: 'http://127.0.0.1:15345',
+        sidebarCollapsed: true,
+        pathname: '/usage',
+      })
+    ).toBe(true);
+
+    expect(shellStateChanged).toHaveBeenCalledWith({
+      connectionStatus: 'connected',
+      apiBase: 'http://127.0.0.1:15345',
+      sidebarCollapsed: true,
+      pathname: '/usage',
+    });
+  });
 });

@@ -55,8 +55,6 @@ public static class DesktopBridgeScriptFactory
                     type: 'shellStateChanged',
                     connectionStatus: typeof normalized.connectionStatus === 'string' ? normalized.connectionStatus : 'disconnected',
                     apiBase: typeof normalized.apiBase === 'string' ? normalized.apiBase : '',
-                    theme: typeof normalized.theme === 'string' ? normalized.theme : 'auto',
-                    resolvedTheme: typeof normalized.resolvedTheme === 'string' ? normalized.resolvedTheme : 'light',
                     sidebarCollapsed: normalized.sidebarCollapsed === true,
                     pathname: typeof normalized.pathname === 'string' ? normalized.pathname : '/'
                   });
@@ -137,6 +135,7 @@ public static class DesktopBridgeScriptFactory
                   ? 'dark'
                   : 'white';
                 root.setAttribute('data-theme', dataTheme);
+                root.style.colorScheme = dataTheme === 'dark' ? 'dark' : 'light';
                 return true;
               };
 

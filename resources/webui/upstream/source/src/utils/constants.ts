@@ -34,7 +34,6 @@ export const MAX_AUTH_FILE_SIZE = 10 * 1024 * 1024;
 
 // 本地存储键名
 export const STORAGE_KEY_AUTH = 'codexcliplus-auth';
-export const STORAGE_KEY_THEME = 'codexcliplus-theme';
 export const STORAGE_KEY_LANGUAGE = 'codexcliplus-language';
 export const STORAGE_KEY_SIDEBAR = 'codexcliplus-sidebar-collapsed';
 export const STORAGE_KEY_AUTH_FILES_PAGE_SIZE = 'codexcliplus-auth-files-page-size';
@@ -47,11 +46,9 @@ export const SUPPORTED_LANGUAGES = LANGUAGE_ORDER;
 export const NOTIFICATION_DURATION_MS = 3000;
 
 // OAuth 卡片 ID 列表
-export const OAUTH_CARD_IDS = [
-  'codex-oauth-card'
-];
+export const OAUTH_CARD_IDS = ['codex-oauth-card'];
 export const OAUTH_PROVIDERS = {
-  CODEX: 'codex'
+  CODEX: 'codex',
 } as const;
 
 // API 端点
@@ -63,5 +60,5 @@ export const API_ENDPOINTS = {
   AUTH_FILES: '/auth-files',
   OAUTH: '/oauth',
   USAGE: '/usage',
-  LOGS: '/logs'
+  LOGS: '/logs',
 } as const;

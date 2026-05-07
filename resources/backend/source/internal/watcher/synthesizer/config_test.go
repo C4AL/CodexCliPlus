@@ -43,6 +43,7 @@ func TestConfigSynthesizer_Synthesize_NilConfig(t *testing.T) {
 }
 
 func TestConfigSynthesizer_GeminiKeys(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Gemini config synthesis")
 	tests := []struct {
 		name       string
 		geminiKeys []config.GeminiKey
@@ -155,6 +156,7 @@ func TestConfigSynthesizer_GeminiKeys(t *testing.T) {
 }
 
 func TestConfigSynthesizer_ClaudeKeys(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Claude config synthesis")
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
@@ -200,6 +202,7 @@ func TestConfigSynthesizer_ClaudeKeys(t *testing.T) {
 }
 
 func TestConfigSynthesizer_ClaudeKeys_SkipsEmptyAndHeaders(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Claude config synthesis")
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
@@ -370,6 +373,7 @@ func TestConfigSynthesizer_OpenAICompat(t *testing.T) {
 }
 
 func TestConfigSynthesizer_VertexCompat(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Vertex config synthesis")
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
@@ -405,6 +409,7 @@ func TestConfigSynthesizer_VertexCompat(t *testing.T) {
 }
 
 func TestConfigSynthesizer_VertexCompat_SkipsEmptyAndHeaders(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Vertex config synthesis")
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
@@ -512,6 +517,7 @@ func TestConfigSynthesizer_OpenAICompat_FallbackWithModels(t *testing.T) {
 }
 
 func TestConfigSynthesizer_VertexCompat_WithModels(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Vertex config synthesis")
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
@@ -544,7 +550,7 @@ func TestConfigSynthesizer_VertexCompat_WithModels(t *testing.T) {
 
 func TestConfigSynthesizer_IDStability(t *testing.T) {
 	cfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
+		CodexKey: []config.CodexKey{
 			{APIKey: "stable-key", Prefix: "test"},
 		},
 	}
@@ -575,20 +581,11 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			GeminiKey: []config.GeminiKey{
-				{APIKey: "gemini-key"},
-			},
-			ClaudeKey: []config.ClaudeKey{
-				{APIKey: "claude-key"},
-			},
 			CodexKey: []config.CodexKey{
 				{APIKey: "codex-key"},
 			},
 			OpenAICompatibility: []config.OpenAICompatibility{
 				{Name: "compat", BaseURL: "https://compat.api"},
-			},
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{APIKey: "vertex-key", BaseURL: "https://vertex.api"},
 			},
 		},
 		Now:         time.Now(),
@@ -599,8 +596,8 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(auths) != 5 {
-		t.Fatalf("expected 5 auths, got %d", len(auths))
+	if len(auths) != 2 {
+		t.Fatalf("expected 2 auths, got %d", len(auths))
 	}
 
 	providers := make(map[string]bool)
@@ -608,7 +605,7 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 		providers[a.Provider] = true
 	}
 
-	expected := []string{"gemini", "claude", "codex", "compat", "vertex"}
+	expected := []string{"codex", "compat"}
 	for _, p := range expected {
 		if !providers[p] {
 			t.Errorf("expected provider %s not found", p)

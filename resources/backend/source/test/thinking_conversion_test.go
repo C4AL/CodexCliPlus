@@ -42,6 +42,7 @@ type thinkingTestCase struct {
 // Data flow: Input JSON → TranslateRequest → ApplyThinking → Validate Output
 // No helper functions are used; all test data is inline.
 func TestThinkingE2EMatrix_Suffix(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build only registers Codex/OpenAI translator paths")
 	reg := registry.GetGlobalRegistry()
 	uid := fmt.Sprintf("thinking-e2e-suffix-%d", time.Now().UnixNano())
 
@@ -1148,6 +1149,7 @@ func TestThinkingE2EMatrix_Suffix(t *testing.T) {
 // TestThinkingE2EMatrix_Body tests the thinking configuration transformation using request body parameters.
 // Data flow: Input JSON with thinking params → TranslateRequest → ApplyThinking → Validate Output
 func TestThinkingE2EMatrix_Body(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build only registers Codex/OpenAI translator paths")
 	reg := registry.GetGlobalRegistry()
 	uid := fmt.Sprintf("thinking-e2e-body-%d", time.Now().UnixNano())
 
@@ -2241,6 +2243,7 @@ func TestThinkingE2EMatrix_Body(t *testing.T) {
 // TestThinkingE2EClaudeAdaptive_Body covers Group 3 cases in docs/thinking-e2e-test-cases.md.
 // It focuses on Claude 4.6 adaptive thinking and effort/level cross-protocol semantics (body-only).
 func TestThinkingE2EClaudeAdaptive_Body(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build keeps Claude/Gemini adaptive conversion disabled")
 	reg := registry.GetGlobalRegistry()
 	uid := fmt.Sprintf("thinking-e2e-claude-adaptive-%d", time.Now().UnixNano())
 

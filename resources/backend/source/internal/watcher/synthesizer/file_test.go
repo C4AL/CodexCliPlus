@@ -69,7 +69,7 @@ func TestFileSynthesizer_Synthesize_ValidAuthFile(t *testing.T) {
 
 	// Create a valid auth file
 	authData := map[string]any{
-		"type":      "claude",
+		"type":      "codex",
 		"email":     "test@example.com",
 		"proxy_url": "http://proxy.local",
 		"prefix":    "test-prefix",
@@ -102,8 +102,8 @@ func TestFileSynthesizer_Synthesize_ValidAuthFile(t *testing.T) {
 		t.Fatalf("expected 1 auth, got %d", len(auths))
 	}
 
-	if auths[0].Provider != "claude" {
-		t.Errorf("expected provider claude, got %s", auths[0].Provider)
+	if auths[0].Provider != "codex" {
+		t.Errorf("expected provider codex, got %s", auths[0].Provider)
 	}
 	if auths[0].Label != "test@example.com" {
 		t.Errorf("expected label test@example.com, got %s", auths[0].Label)
@@ -132,6 +132,7 @@ func TestFileSynthesizer_Synthesize_ValidAuthFile(t *testing.T) {
 }
 
 func TestFileSynthesizer_Synthesize_GeminiProviderMapping(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Gemini auth-file synthesis")
 	tempDir := t.TempDir()
 
 	// Gemini type should be mapped to gemini-cli
@@ -176,7 +177,7 @@ func TestFileSynthesizer_Synthesize_SkipsInvalidFiles(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(tempDir, "no-type.json"), []byte(`{"email": "test@example.com"}`), 0644)
 
 	// Create one valid file
-	validData, _ := json.Marshal(map[string]any{"type": "claude", "email": "valid@example.com"})
+	validData, _ := json.Marshal(map[string]any{"type": "codex", "email": "valid@example.com"})
 	_ = os.WriteFile(filepath.Join(tempDir, "valid.json"), validData, 0644)
 
 	synth := NewFileSynthesizer()
@@ -210,7 +211,7 @@ func TestFileSynthesizer_Synthesize_SkipsDirectories(t *testing.T) {
 	}
 
 	// Create a valid file in root
-	validData, _ := json.Marshal(map[string]any{"type": "claude"})
+	validData, _ := json.Marshal(map[string]any{"type": "codex"})
 	_ = os.WriteFile(filepath.Join(tempDir, "valid.json"), validData, 0644)
 
 	synth := NewFileSynthesizer()
@@ -233,7 +234,7 @@ func TestFileSynthesizer_Synthesize_SkipsDirectories(t *testing.T) {
 func TestFileSynthesizer_Synthesize_RelativeID(t *testing.T) {
 	tempDir := t.TempDir()
 
-	authData := map[string]any{"type": "claude"}
+	authData := map[string]any{"type": "codex"}
 	data, _ := json.Marshal(authData)
 	err := os.WriteFile(filepath.Join(tempDir, "my-auth.json"), data, 0644)
 	if err != nil {
@@ -279,7 +280,7 @@ func TestFileSynthesizer_Synthesize_PrefixValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			authData := map[string]any{
-				"type":   "claude",
+				"type":   "codex",
 				"prefix": tt.prefix,
 			}
 			data, _ := json.Marshal(authData)
@@ -337,7 +338,7 @@ func TestFileSynthesizer_Synthesize_PriorityParsing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			authData := map[string]any{
-				"type":     "claude",
+				"type":     "codex",
 				"priority": tt.priority,
 			}
 			data, _ := json.Marshal(authData)
@@ -382,7 +383,7 @@ func TestFileSynthesizer_Synthesize_PriorityParsing(t *testing.T) {
 func TestFileSynthesizer_Synthesize_OAuthExcludedModelsMerged(t *testing.T) {
 	tempDir := t.TempDir()
 	authData := map[string]any{
-		"type":            "claude",
+		"type":            "codex",
 		"excluded_models": []string{"custom-model", "MODEL-B"},
 	}
 	data, _ := json.Marshal(authData)
@@ -395,7 +396,7 @@ func TestFileSynthesizer_Synthesize_OAuthExcludedModelsMerged(t *testing.T) {
 	ctx := &SynthesisContext{
 		Config: &config.Config{
 			OAuthExcludedModels: map[string][]string{
-				"claude": {"shared", "model-b"},
+				"codex": {"shared", "model-b"},
 			},
 		},
 		AuthDir:     tempDir,
@@ -651,6 +652,7 @@ func TestSplitGeminiProjectIDs(t *testing.T) {
 }
 
 func TestFileSynthesizer_Synthesize_MultiProjectGemini(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Gemini auth-file synthesis")
 	tempDir := t.TempDir()
 
 	// Create a gemini auth file with multiple projects
@@ -864,7 +866,7 @@ func TestFileSynthesizer_Synthesize_NoteParsing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			authData := map[string]any{
-				"type": "claude",
+				"type": "codex",
 				"note": tt.note,
 			}
 			data, _ := json.Marshal(authData)
@@ -907,6 +909,7 @@ func TestFileSynthesizer_Synthesize_NoteParsing(t *testing.T) {
 }
 
 func TestFileSynthesizer_Synthesize_MultiProjectGeminiWithNote(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Gemini auth-file synthesis")
 	tempDir := t.TempDir()
 
 	authData := map[string]any{

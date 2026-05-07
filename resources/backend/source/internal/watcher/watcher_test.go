@@ -114,6 +114,7 @@ func TestMatchProvider(t *testing.T) {
 }
 
 func TestSnapshotCoreAuths_ConfigAndAuthFiles(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build prunes Gemini config and auth synthesis")
 	authDir := t.TempDir()
 	metadata := map[string]any{
 		"type":       "gemini",
@@ -1323,21 +1324,21 @@ func TestReloadConfigFiltersAffectedOAuthProviders(t *testing.T) {
 	}
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
-	// Ensure SnapshotCoreAuths yields a provider that is NOT affected, so we can assert it survives.
-	if err := os.WriteFile(filepath.Join(authDir, "provider-b.json"), []byte(`{"type":"provider-b","email":"b@example.com"}`), 0o644); err != nil {
+	// Ensure SnapshotCoreAuths yields an allowed provider that is NOT affected, so we can assert it survives.
+	if err := os.WriteFile(filepath.Join(authDir, "codex.json"), []byte(`{"type":"codex","email":"b@example.com"}`), 0o644); err != nil {
 		t.Fatalf("failed to write auth file: %v", err)
 	}
 
 	oldCfg := &config.Config{
 		AuthDir: authDir,
 		OAuthExcludedModels: map[string][]string{
-			"provider-a": {"m1"},
+			"openai": {"m1"},
 		},
 	}
 	newCfg := &config.Config{
 		AuthDir: authDir,
 		OAuthExcludedModels: map[string][]string{
-			"provider-a": {"m2"},
+			"openai": {"m2"},
 		},
 	}
 	data, err := yaml.Marshal(newCfg)
@@ -1353,7 +1354,7 @@ func TestReloadConfigFiltersAffectedOAuthProviders(t *testing.T) {
 		authDir:        authDir,
 		lastAuthHashes: make(map[string]string),
 		currentAuths: map[string]*coreauth.Auth{
-			"a": {ID: "a", Provider: "provider-a"},
+			"a": {ID: "a", Provider: "openai"},
 		},
 	}
 	w.SetConfig(oldCfg)
@@ -1365,13 +1366,13 @@ func TestReloadConfigFiltersAffectedOAuthProviders(t *testing.T) {
 	w.clientsMutex.RLock()
 	defer w.clientsMutex.RUnlock()
 	for _, auth := range w.currentAuths {
-		if auth != nil && auth.Provider == "provider-a" {
+		if auth != nil && auth.Provider == "openai" {
 			t.Fatal("expected affected provider auth to be filtered")
 		}
 	}
 	foundB := false
 	for _, auth := range w.currentAuths {
-		if auth != nil && auth.Provider == "provider-b" {
+		if auth != nil && auth.Provider == "codex" {
 			foundB = true
 			break
 		}

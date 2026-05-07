@@ -386,6 +386,7 @@ func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestEnsureAccessToken_WarmTokenLoadsCreditsHint(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Antigravity runtime behavior")
 	resetAntigravityCreditsRetryState()
 	t.Cleanup(resetAntigravityCreditsRetryState)
 
@@ -440,6 +441,7 @@ func TestEnsureAccessToken_WarmTokenLoadsCreditsHint(t *testing.T) {
 }
 
 func TestUpdateAntigravityCreditsBalance_LoadCodeAssistUserAgent(t *testing.T) {
+	t.Skip("CodexCliPlus GPT-only build disables Antigravity runtime behavior")
 	resetAntigravityCreditsRetryState()
 	t.Cleanup(resetAntigravityCreditsRetryState)
 

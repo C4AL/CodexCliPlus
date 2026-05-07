@@ -211,15 +211,8 @@ func TestPutAmpUpstreamAPIKeys_PersistsAndReturns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load config from disk: %v", err)
 	}
-	if len(loaded.AmpCode.UpstreamAPIKeys) != 1 {
-		t.Fatalf("expected 1 upstream-api-keys entry, got %d", len(loaded.AmpCode.UpstreamAPIKeys))
-	}
-	entry := loaded.AmpCode.UpstreamAPIKeys[0]
-	if entry.UpstreamAPIKey != "u1" {
-		t.Fatalf("expected upstream-api-key u1, got %q", entry.UpstreamAPIKey)
-	}
-	if len(entry.APIKeys) != 2 || entry.APIKeys[0] != "k1" || entry.APIKeys[1] != "k2" {
-		t.Fatalf("expected api-keys [k1 k2], got %#v", entry.APIKeys)
+	if len(loaded.AmpCode.UpstreamAPIKeys) != 0 {
+		t.Fatalf("expected GPT-only pruning to drop upstream-api-keys, got %d", len(loaded.AmpCode.UpstreamAPIKeys))
 	}
 
 	// Verify it is returned by GET /ampcode
@@ -234,7 +227,7 @@ func TestPutAmpUpstreamAPIKeys_PersistsAndReturns(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 	if got := resp["ampcode"].UpstreamAPIKeys; len(got) != 1 || got[0].UpstreamAPIKey != "u1" {
-		t.Fatalf("expected upstream-api-keys to be present after update, got %#v", got)
+		t.Fatalf("expected in-memory upstream-api-keys to be returned after update, got %#v", got)
 	}
 }
 

@@ -847,7 +847,6 @@ func (s *GitTokenStore) commitAndPushLocked(message string, relPaths ...string) 
 	} else if errRewrite := s.rewriteHeadAsSingleCommit(repo, headRef.Name(), commitHash, message, signature); errRewrite != nil {
 		return errRewrite
 	}
-	s.maybeRunGC(repo)
 	pushOpts := &git.PushOptions{ClientOptions: s.gitAuth(), Force: true}
 	if s.branch != "" {
 		pushOpts.RefSpecs = []config.RefSpec{config.RefSpec("refs/heads/" + s.branch + ":refs/heads/" + s.branch)}

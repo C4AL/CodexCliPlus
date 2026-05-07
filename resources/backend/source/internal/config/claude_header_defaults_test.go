@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestLoadConfigOptional_ClaudeHeaderDefaults(t *testing.T) {
+func TestLoadConfigOptional_CodexCliPlusPrunesClaudeHeaderDefaults(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.yaml")
 	configYAML := []byte(`
@@ -28,28 +28,25 @@ claude-header-defaults:
 		t.Fatalf("LoadConfigOptional() error = %v", err)
 	}
 
-	if got := cfg.ClaudeHeaderDefaults.UserAgent; got != "claude-cli/2.1.70 (external, cli)" {
-		t.Fatalf("UserAgent = %q, want %q", got, "claude-cli/2.1.70 (external, cli)")
+	if got := cfg.ClaudeHeaderDefaults.UserAgent; got != "" {
+		t.Fatalf("UserAgent = %q, want empty after GPT-only pruning", got)
 	}
-	if got := cfg.ClaudeHeaderDefaults.PackageVersion; got != "0.80.0" {
-		t.Fatalf("PackageVersion = %q, want %q", got, "0.80.0")
+	if got := cfg.ClaudeHeaderDefaults.PackageVersion; got != "" {
+		t.Fatalf("PackageVersion = %q, want empty after GPT-only pruning", got)
 	}
-	if got := cfg.ClaudeHeaderDefaults.RuntimeVersion; got != "v24.5.0" {
-		t.Fatalf("RuntimeVersion = %q, want %q", got, "v24.5.0")
+	if got := cfg.ClaudeHeaderDefaults.RuntimeVersion; got != "" {
+		t.Fatalf("RuntimeVersion = %q, want empty after GPT-only pruning", got)
 	}
-	if got := cfg.ClaudeHeaderDefaults.OS; got != "MacOS" {
-		t.Fatalf("OS = %q, want %q", got, "MacOS")
+	if got := cfg.ClaudeHeaderDefaults.OS; got != "" {
+		t.Fatalf("OS = %q, want empty after GPT-only pruning", got)
 	}
-	if got := cfg.ClaudeHeaderDefaults.Arch; got != "arm64" {
-		t.Fatalf("Arch = %q, want %q", got, "arm64")
+	if got := cfg.ClaudeHeaderDefaults.Arch; got != "" {
+		t.Fatalf("Arch = %q, want empty after GPT-only pruning", got)
 	}
-	if got := cfg.ClaudeHeaderDefaults.Timeout; got != "900" {
-		t.Fatalf("Timeout = %q, want %q", got, "900")
+	if got := cfg.ClaudeHeaderDefaults.Timeout; got != "" {
+		t.Fatalf("Timeout = %q, want empty after GPT-only pruning", got)
 	}
-	if cfg.ClaudeHeaderDefaults.StabilizeDeviceProfile == nil {
-		t.Fatal("StabilizeDeviceProfile = nil, want non-nil")
-	}
-	if got := *cfg.ClaudeHeaderDefaults.StabilizeDeviceProfile; got {
-		t.Fatalf("StabilizeDeviceProfile = %v, want false", got)
+	if cfg.ClaudeHeaderDefaults.StabilizeDeviceProfile != nil {
+		t.Fatal("StabilizeDeviceProfile = non-nil, want nil after GPT-only pruning")
 	}
 }

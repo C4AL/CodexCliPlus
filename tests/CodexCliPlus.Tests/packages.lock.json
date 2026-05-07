@@ -486,6 +486,12 @@
           "Tomlyn": "[2.3.2, )",
           "YamlDotNet": "[17.1.0, )"
         }
+      },
+      "codexcliplus.offlinebuilder": {
+        "type": "Project",
+        "dependencies": {
+          "CodexCliPlus.Core": "[1.0.0, )"
+        }
       }
     },
     "net10.0-windows7.0/win-x64": {

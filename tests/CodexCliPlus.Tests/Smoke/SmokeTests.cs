@@ -207,9 +207,7 @@ public sealed class SmokeTests
             );
             Assert.Equal(
                 60,
-                configJson
-                    .RootElement.GetProperty("redis-usage-queue-retention-seconds")
-                    .GetInt32()
+                configJson.RootElement.GetProperty("redis-usage-queue-retention-seconds").GetInt32()
             );
 
             using var apiKeyUsageResponse = await httpClient.GetAsync(
@@ -223,7 +221,9 @@ public sealed class SmokeTests
 
             using var usageResponse = await httpClient.GetAsync($"{managementBaseUrl}/usage");
             Assert.Equal(HttpStatusCode.OK, usageResponse.StatusCode);
-            using var usageJson = JsonDocument.Parse(await usageResponse.Content.ReadAsStringAsync());
+            using var usageJson = JsonDocument.Parse(
+                await usageResponse.Content.ReadAsStringAsync()
+            );
             Assert.Equal(JsonValueKind.Object, usageJson.RootElement.ValueKind);
 
             if (process.HasExited)
@@ -419,6 +419,9 @@ public sealed class SmokeTests
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
+            [
+                $"app-package/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+            ] = SmokeEnvironmentScope.CreatePeStubBytes(),
             ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                 "<html></html>"
             ),
@@ -460,6 +463,9 @@ public sealed class SmokeTests
             {
                 ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["payload/CodexCliPlus.exe"] = SmokeEnvironmentScope.CreatePeStubBytes(),
+                [
+                    $"payload/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+                ] = SmokeEnvironmentScope.CreatePeStubBytes(),
             }
         );
         await Task.CompletedTask;

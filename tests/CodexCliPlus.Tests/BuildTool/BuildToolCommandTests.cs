@@ -90,10 +90,7 @@ public sealed class BuildToolCommandTests : IDisposable
         );
         Assert.False(options.Incremental);
         Assert.Equal(BuildCompressionMode.Smallest, options.Compression);
-        Assert.Equal(
-            ForceRebuildStage.WebUi | ForceRebuildStage.Publish,
-            options.ForceRebuild
-        );
+        Assert.Equal(ForceRebuildStage.WebUi | ForceRebuildStage.Publish, options.ForceRebuild);
         Assert.Equal(Path.GetFullPath(outputRoot), options.OutputRoot);
     }
 
@@ -1231,6 +1228,16 @@ public sealed class BuildToolCommandTests : IDisposable
         var publishRoot = Path.Combine(_rootDirectory, "publish");
         Directory.CreateDirectory(publishRoot);
         File.WriteAllText(Path.Combine(publishRoot, "CodexCliPlus.exe"), "codexcliplus");
+        Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "backend", "windows-x64"));
+        CreateStubExecutable(
+            Path.Combine(
+                publishRoot,
+                "assets",
+                "backend",
+                "windows-x64",
+                BackendExecutableNames.ManagedExecutableFileName
+            )
+        );
 
         var exception = Assert.Throws<FileNotFoundException>(() =>
             SafeFileSystem.RequirePublishRoot(publishRoot)
@@ -1344,6 +1351,9 @@ public sealed class BuildToolCommandTests : IDisposable
             {
                 ["update-manifest.json"] = Encoding.UTF8.GetBytes("{}"),
                 ["payload/CodexCliPlus.exe"] = CreateStubExecutableBytes(),
+                [
+                    $"payload/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+                ] = CreateStubExecutableBytes(),
             }
         );
     }
@@ -1357,6 +1367,9 @@ public sealed class BuildToolCommandTests : IDisposable
         var entries = new Dictionary<string, byte[]>
         {
             ["app-package/CodexCliPlus.exe"] = Encoding.UTF8.GetBytes("codexcliplus"),
+            [
+                $"app-package/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+            ] = CreateStubExecutableBytes(),
             ["app-package/assets/webui/upstream/dist/index.html"] = Encoding.UTF8.GetBytes(
                 "<html></html>"
             ),

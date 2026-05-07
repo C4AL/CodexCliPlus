@@ -25,5 +25,6 @@
     <ProjectReference Include="..\\..\\src\\CodexCliPlus.BuildTool\\CodexCliPlus.BuildTool.csproj" />
     <ProjectReference Include="..\\..\\src\\CodexCliPlus.Core\\CodexCliPlus.Core.csproj" />
     <ProjectReference Include="..\\..\\src\\CodexCliPlus.Infrastructure\\CodexCliPlus.Infrastructure.csproj" />
+    <ProjectReference Include="..\\..\\src\\CodexCliPlus.OfflineBuilder\\CodexCliPlus.OfflineBuilder.csproj" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using CodexCliPlus.BuildTool;
+using CodexCliPlus.Core.Constants;
 
 namespace CodexCliPlus.Tests.BuildTool;
 
@@ -98,6 +99,30 @@ public sealed class InstallerPackagingTests : IDisposable
         Assert.True(
             File.Exists(
                 Path.Combine(stageRoot, "app-package", "assets", "webui", "upstream", "sync.json")
+            )
+        );
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    "assets",
+                    "backend",
+                    "windows-x64",
+                    BackendExecutableNames.ManagedExecutableFileName
+                )
+            )
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    stageRoot,
+                    "app-package",
+                    "assets",
+                    "backend",
+                    "windows-x64",
+                    BackendExecutableNames.UpstreamExecutableFileName
+                )
             )
         );
         Assert.False(
@@ -332,11 +357,23 @@ public sealed class InstallerPackagingTests : IDisposable
             2,
             CountOccurrences(finishViewModel, "CleanupOriginalInstallerAfterInstall();")
         );
-        Assert.Contains("ScheduleDelayedInstallerDelete", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains(
+            "ScheduleDelayedInstallerDelete",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Remove-Item -LiteralPath", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("-WindowStyle Hidden", finishViewModel, StringComparison.Ordinal);
-        Assert.DoesNotContain("ComputeCodexCliPlusSha256", finishViewModel, StringComparison.Ordinal);
-        Assert.DoesNotContain("TempPathForkHelper.ForkedCli", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ComputeCodexCliPlusSha256",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "TempPathForkHelper.ForkedCli",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
         Assert.Contains("CleanupCodexCliPlusUserData", uninstallHelper, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "Option.Current.KeepMyData = true;",
@@ -409,8 +446,16 @@ public sealed class InstallerPackagingTests : IDisposable
         );
 
         Assert.Equal(3, runner.DotnetMsbuildInvocations);
-        Assert.Contains("offline-installer input changed", output.ToString(), StringComparison.Ordinal);
-        Assert.Contains("micasetup-uninstaller cache hit", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "offline-installer input changed",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "micasetup-uninstaller cache hit",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -523,6 +568,54 @@ public sealed class InstallerPackagingTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildReleaseWithOfflineSelectionDoesNotCreateOnlineOrUpdatePackages()
+    {
+        var repositoryRoot = CreateReleaseRepositoryRoot();
+        var outputRoot = Path.Combine(_rootDirectory, "out-release-offline");
+        CreateWebView2Cache(outputRoot);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = new ReleaseProcessRunner();
+        var context = new BuildContext(
+            new BuildOptions(
+                "build-release",
+                repositoryRoot,
+                outputRoot,
+                "Release",
+                "win-x64",
+                "9.9.9",
+                ReleasePackages: ReleasePackageSelection.OfflineInstaller
+            ),
+            new BuildLogger(output, error),
+            runner
+        );
+
+        var exitCode = await PackageCommands.BuildReleaseAsync(context);
+
+        Assert.Equal(0, exitCode);
+        Assert.True(
+            File.Exists(
+                Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Offline.9.9.9.exe")
+            )
+        );
+        Assert.False(
+            File.Exists(Path.Combine(outputRoot, "packages", "CodexCliPlus.Setup.Online.9.9.9.exe"))
+        );
+        Assert.False(
+            File.Exists(
+                Path.Combine(outputRoot, "packages", "CodexCliPlus.Update.9.9.9.win-x64.zip")
+            )
+        );
+        Assert.Contains(
+            "selected release package(s): offline",
+            output.ToString(),
+            StringComparison.Ordinal
+        );
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    [Fact]
     public async Task PackageUpdateRemovesStagingByDefault()
     {
         var repositoryRoot = CreateRepositoryRoot();
@@ -544,15 +637,27 @@ public sealed class InstallerPackagingTests : IDisposable
 
         Assert.Equal(0, exitCode);
         Assert.True(File.Exists(updatePackagePath));
+        using (var archive = ZipFile.OpenRead(updatePackagePath))
+        {
+            Assert.NotNull(
+                archive.GetEntry(
+                    $"payload/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
+                )
+            );
+            Assert.Null(
+                archive.GetEntry(
+                    $"payload/assets/backend/windows-x64/{BackendExecutableNames.UpstreamExecutableFileName}"
+                )
+            );
+        }
+
         Assert.False(
             Directory.Exists(
                 Path.Combine(outputRoot, "installer", "win-x64", "update-package", "stage")
             )
         );
         Assert.Contains("removed package staging", output.ToString(), StringComparison.Ordinal);
-        AssertLegacySidecarsDoNotExist(
-            updatePackagePath
-        );
+        AssertLegacySidecarsDoNotExist(updatePackagePath);
         Assert.Equal(string.Empty, error.ToString());
     }
 
@@ -625,6 +730,74 @@ public sealed class InstallerPackagingTests : IDisposable
         return repositoryRoot;
     }
 
+    private string CreateReleaseRepositoryRoot()
+    {
+        var repositoryRoot = CreateRepositoryRoot();
+        File.WriteAllText(Path.Combine(repositoryRoot, "Directory.Build.props"), "<Project />");
+        File.WriteAllText(Path.Combine(repositoryRoot, "global.json"), "{}");
+
+        CreateBackendSource(repositoryRoot);
+        CreateVendoredWebUiSource(repositoryRoot);
+
+        foreach (
+            var projectDirectory in new[]
+            {
+                "CodexCliPlus.App",
+                "CodexCliPlus.Core",
+                "CodexCliPlus.Infrastructure",
+                "CodexCliPlus.Updater",
+            }
+        )
+        {
+            var directory = Path.Combine(repositoryRoot, "src", projectDirectory);
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, projectDirectory + ".csproj"), "<Project />");
+        }
+
+        return repositoryRoot;
+    }
+
+    private static void CreateBackendSource(string repositoryRoot)
+    {
+        var sourceRoot = Path.Combine(repositoryRoot, "resources", "backend", "source");
+        Directory.CreateDirectory(Path.Combine(sourceRoot, "cmd", "server"));
+        File.WriteAllText(Path.Combine(sourceRoot, "LICENSE"), "license");
+        File.WriteAllText(Path.Combine(sourceRoot, "README.md"), "readme");
+        File.WriteAllText(Path.Combine(sourceRoot, "README_CN.md"), "readme cn");
+        File.WriteAllText(Path.Combine(sourceRoot, "config.example.yaml"), "config");
+        File.WriteAllText(Path.Combine(sourceRoot, "go.mod"), "module test");
+        File.WriteAllText(Path.Combine(sourceRoot, "go.sum"), string.Empty);
+        File.WriteAllText(Path.Combine(sourceRoot, "cmd", "server", "main.go"), "package main");
+    }
+
+    private static void CreateVendoredWebUiSource(string repositoryRoot)
+    {
+        var upstreamRoot = Path.Combine(repositoryRoot, "resources", "webui", "upstream");
+        var sourceRoot = Path.Combine(upstreamRoot, "source");
+        Directory.CreateDirectory(Path.Combine(sourceRoot, "src"));
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "package.json"),
+            "{\"name\":\"test-webui\",\"private\":true}"
+        );
+        File.WriteAllText(
+            Path.Combine(sourceRoot, "package-lock.json"),
+            "{\"name\":\"test-webui\",\"lockfileVersion\":3}"
+        );
+        File.WriteAllText(Path.Combine(sourceRoot, "src", "message.txt"), "upstream");
+        File.WriteAllText(Path.Combine(upstreamRoot, "sync.json"), "{}");
+
+        var overlayRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "modules",
+            "cpa-uv-overlay"
+        );
+        Directory.CreateDirectory(Path.Combine(overlayRoot, "source"));
+        File.WriteAllText(Path.Combine(overlayRoot, "module.json"), "{\"id\":\"overlay\"}");
+        File.WriteAllText(Path.Combine(overlayRoot, "source", "overlay.txt"), "overlay");
+    }
+
     private static void CreateWebView2Cache(string outputRoot)
     {
         var webView2Root = Path.Combine(outputRoot, "cache", "webview2");
@@ -645,6 +818,17 @@ public sealed class InstallerPackagingTests : IDisposable
         Directory.CreateDirectory(publishRoot);
         File.WriteAllBytes(Path.Combine(publishRoot, "CodexCliPlus.exe"), CreateExecutableBytes());
         File.WriteAllText(Path.Combine(publishRoot, "appsettings.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "backend", "windows-x64"));
+        File.WriteAllBytes(
+            Path.Combine(
+                publishRoot,
+                "assets",
+                "backend",
+                "windows-x64",
+                BackendExecutableNames.ManagedExecutableFileName
+            ),
+            CreateExecutableBytes()
+        );
         Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "webui", "upstream", "dist"));
         Directory.CreateDirectory(
             Path.Combine(publishRoot, "assets", "webui", "upstream", "dist", "assets")
@@ -944,6 +1128,81 @@ public sealed class InstallerPackagingTests : IDisposable
             }
 
             logger.Info($"{fileName} {string.Join(" ", arguments)}");
+            return Task.FromResult(0);
+        }
+    }
+
+    private sealed class ReleaseProcessRunner : IProcessRunner
+    {
+        public Task<int> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            BuildLogger logger,
+            IReadOnlyDictionary<string, string?>? environment = null,
+            CancellationToken cancellationToken = default
+        )
+        {
+            logger.Info($"{fileName} {string.Join(" ", arguments)}");
+
+            if (fileName == "go" && arguments.Count > 0 && arguments[0] == "build")
+            {
+                var outputIndex = arguments.ToList().IndexOf("-o") + 1;
+                Assert.True(outputIndex > 0);
+                Directory.CreateDirectory(Path.GetDirectoryName(arguments[outputIndex])!);
+                File.WriteAllBytes(arguments[outputIndex], CreateExecutableBytes());
+                return Task.FromResult(0);
+            }
+
+            if (arguments.SequenceEqual(["ci"], StringComparer.Ordinal))
+            {
+                Directory.CreateDirectory(Path.Combine(workingDirectory, "node_modules"));
+                return Task.FromResult(0);
+            }
+
+            if (arguments.SequenceEqual(["run", "build"], StringComparer.Ordinal))
+            {
+                var distRoot = Path.Combine(
+                    Directory.GetParent(workingDirectory)!.FullName,
+                    "dist"
+                );
+                Directory.CreateDirectory(Path.Combine(distRoot, "assets"));
+                File.WriteAllText(Path.Combine(distRoot, "index.html"), "<html></html>");
+                File.WriteAllText(Path.Combine(distRoot, "assets", "app.js"), "console.log('ok');");
+                return Task.FromResult(0);
+            }
+
+            if (
+                string.Equals(fileName, "dotnet", StringComparison.OrdinalIgnoreCase)
+                && arguments.Count > 0
+                && string.Equals(arguments[0], "publish", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                var outputIndex = arguments.ToList().IndexOf("--output") + 1;
+                Assert.True(outputIndex > 0);
+                Directory.CreateDirectory(arguments[outputIndex]);
+                var executableName = arguments[1]
+                    .Contains("CodexCliPlus.Updater", StringComparison.OrdinalIgnoreCase)
+                    ? "CodexCliPlus.Updater.exe"
+                    : "CodexCliPlus.exe";
+                File.WriteAllBytes(
+                    Path.Combine(arguments[outputIndex], executableName),
+                    CreateExecutableBytes()
+                );
+                return Task.FromResult(0);
+            }
+
+            if (
+                string.Equals(fileName, "dotnet", StringComparison.OrdinalIgnoreCase)
+                && arguments.Count > 0
+                && string.Equals(arguments[0], "msbuild", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                var builtPath = Path.Combine(workingDirectory, "bin", "Release", "MicaSetup.exe");
+                Directory.CreateDirectory(Path.GetDirectoryName(builtPath)!);
+                File.WriteAllBytes(builtPath, CreateExecutableBytes());
+            }
+
             return Task.FromResult(0);
         }
     }

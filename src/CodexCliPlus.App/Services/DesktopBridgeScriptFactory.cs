@@ -19,17 +19,6 @@ public static class DesktopBridgeScriptFactory
             (() => {
               const payload = Object.freeze({{payloadJson}});
 
-              const applyInitialTheme = () => {
-                const theme = typeof payload.theme === 'string' ? payload.theme : 'auto';
-                const resolvedTheme = payload.resolvedTheme === 'dark' ? 'dark' : 'light';
-                const dataTheme = theme === 'dark' || (theme === 'auto' && resolvedTheme === 'dark')
-                  ? 'dark'
-                  : 'white';
-                document.documentElement.setAttribute('data-theme', dataTheme);
-              };
-
-              applyInitialTheme();
-
               const hasHostBridge = () =>
                 Boolean(window.chrome?.webview && typeof window.chrome.webview.postMessage === 'function');
 
@@ -135,6 +124,27 @@ public static class DesktopBridgeScriptFactory
                 configurable: true,
                 value: bridge
               });
+
+              const applyInitialTheme = () => {
+                const root = document.documentElement;
+                if (!root) {
+                  return false;
+                }
+
+                const theme = typeof payload.theme === 'string' ? payload.theme : 'auto';
+                const resolvedTheme = payload.resolvedTheme === 'dark' ? 'dark' : 'light';
+                const dataTheme = theme === 'dark' || (theme === 'auto' && resolvedTheme === 'dark')
+                  ? 'dark'
+                  : 'white';
+                root.setAttribute('data-theme', dataTheme);
+                return true;
+              };
+
+              if (!applyInitialTheme()) {
+                window.addEventListener('DOMContentLoaded', () => {
+                  applyInitialTheme();
+                }, { once: true });
+              }
 
               let navigationHoverZoneActive = false;
               let navigationHoverZoneTimer = null;

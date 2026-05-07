@@ -1209,9 +1209,16 @@ public sealed class NavigationShellTests
         Assert.Contains("\"theme\":\"white\"", script, StringComparison.Ordinal);
         Assert.Contains("\"resolvedTheme\":\"light\"", script, StringComparison.Ordinal);
         Assert.Contains("\"sidebarCollapsed\":true", script, StringComparison.Ordinal);
-        Assert.Contains("document.documentElement", script, StringComparison.Ordinal);
+        Assert.Contains("const root = document.documentElement;", script, StringComparison.Ordinal);
+        Assert.Contains("if (!root)", script, StringComparison.Ordinal);
+        Assert.Contains("DOMContentLoaded", script, StringComparison.Ordinal);
         Assert.Contains("data-theme", script, StringComparison.Ordinal);
         Assert.Contains("payload.resolvedTheme", script, StringComparison.Ordinal);
+        AssertSourceOrder(
+            script,
+            "Object.defineProperty(window, '__CODEXCLIPLUS_DESKTOP_BRIDGE__'",
+            "if (!applyInitialTheme())"
+        );
         Assert.DoesNotContain("\"DesktopMode\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ApiBase\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ManagementKey\"", script, StringComparison.Ordinal);
@@ -1998,7 +2005,11 @@ public sealed class NavigationShellTests
             source,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("StartupFlow.FirstRunRememberPassword", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "StartupFlow.FirstRunRememberPassword",
+            source,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("StartupFlow.FirstRunAutoLogin", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "FirstRunActionStatusText",

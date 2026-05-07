@@ -18,7 +18,6 @@ public static class DesktopBridgeScriptFactory
         return $$"""
             (() => {
               const payload = Object.freeze({{payloadJson}});
-              let bootstrap = payload;
 
               const applyInitialTheme = () => {
                 const theme = typeof payload.theme === 'string' ? payload.theme : 'auto';
@@ -43,17 +42,12 @@ public static class DesktopBridgeScriptFactory
                 return true;
               };
 
+              const readBootstrap = () => ({ ...payload });
+
               const bridge = {
                 isDesktopMode: () => hasHostBridge(),
-                consumeBootstrap: () => {
-                  if (!bootstrap) {
-                    return null;
-                  }
-
-                  const current = { ...bootstrap };
-                  bootstrap = null;
-                  return current;
-                },
+                getBootstrap: readBootstrap,
+                consumeBootstrap: readBootstrap,
                 openExternal: (url) => {
                   if (typeof url === 'string' && url.trim()) {
                     postHostMessage({ type: 'openExternal', url });

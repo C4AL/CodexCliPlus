@@ -41,21 +41,43 @@ describe('desktop bootstrap bridge', () => {
 
     expect(bridge.getDesktopBootstrap()).toBeNull();
 
-    const consumeBootstrap = vi.fn(() => bootstrap);
+    const getBootstrap = vi.fn(() => bootstrap);
     Object.assign(window, {
       __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
         isDesktopMode: () => true,
-        consumeBootstrap,
+        getBootstrap,
       },
     });
 
     expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
-    expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
-    expect(consumeBootstrap).toHaveBeenCalledTimes(1);
+    expect(bridge.consumeDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(getBootstrap).toHaveBeenCalledTimes(1);
   });
 
-  it('retries when the custom bridge reports that bootstrap is temporarily unavailable', async () => {
-    const consumeBootstrap = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce(bootstrap);
+  it('prefers getBootstrap over the compatible consumeBootstrap alias', async () => {
+    const getBootstrap = vi.fn(() => bootstrap);
+    const consumeBootstrap = vi.fn(() => ({
+      ...bootstrap,
+      apiBase: 'http://127.0.0.1:19999',
+    }));
+    Object.assign(window, {
+      __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
+        isDesktopMode: () => true,
+        getBootstrap,
+        consumeBootstrap,
+      },
+    });
+
+    const bridge = await loadBridge();
+
+    expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(getBootstrap).toHaveBeenCalledTimes(1);
+    expect(consumeBootstrap).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy consumeBootstrap fallback reusable after the first successful read', async () => {
+    const consumeBootstrap = vi.fn(() => bootstrap);
     Object.assign(window, {
       __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
         isDesktopMode: () => true,
@@ -65,9 +87,25 @@ describe('desktop bootstrap bridge', () => {
 
     const bridge = await loadBridge();
 
+    expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(bridge.consumeDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(consumeBootstrap).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries when the custom bridge reports that bootstrap is temporarily unavailable', async () => {
+    const getBootstrap = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce(bootstrap);
+    Object.assign(window, {
+      __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
+        isDesktopMode: () => true,
+        getBootstrap,
+      },
+    });
+
+    const bridge = await loadBridge();
+
     expect(bridge.getDesktopBootstrap()).toBeNull();
     expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
-    expect(bridge.getDesktopBootstrap()).toMatchObject(bootstrap);
-    expect(consumeBootstrap).toHaveBeenCalledTimes(2);
+    expect(bridge.consumeDesktopBootstrap()).toMatchObject(bootstrap);
+    expect(getBootstrap).toHaveBeenCalledTimes(2);
   });
 });

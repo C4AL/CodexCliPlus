@@ -162,6 +162,7 @@ export type DesktopShellCommand =
 
 interface DesktopBridge {
   isDesktopMode?: () => boolean;
+  getBootstrap?: () => DesktopBootstrapPayload | null;
   consumeBootstrap?: () => DesktopBootstrapPayload | null;
   openExternal?: (url: string) => void;
   requestNativeLogin?: (message?: string) => void;
@@ -712,12 +713,20 @@ export function getDesktopBootstrap(): DesktopBootstrapPayload | null {
   }
 
   const bridge = getBridge();
-  if (typeof bridge?.consumeBootstrap !== 'function') {
+  if (!bridge) {
+    return null;
+  }
+
+  if (typeof bridge.getBootstrap !== 'function' && typeof bridge.consumeBootstrap !== 'function') {
     return null;
   }
 
   try {
-    const payload = normalizePayload(bridge.consumeBootstrap());
+    const rawPayload =
+      typeof bridge.getBootstrap === 'function'
+        ? bridge.getBootstrap()
+        : bridge.consumeBootstrap?.();
+    const payload = normalizePayload(rawPayload);
     if (payload) {
       desktopBootstrapCache = payload;
     }

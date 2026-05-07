@@ -10,18 +10,25 @@ const bootstrap = {
 
 async function loadDesktopAuthStore() {
   vi.resetModules();
+  const getBootstrap = vi.fn(() => bootstrap);
+  const consumeBootstrap = vi.fn(() => ({
+    ...bootstrap,
+    apiBase: 'http://127.0.0.1:19999',
+  }));
   Object.assign(window, {
     __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
       isDesktopMode: () => true,
-      consumeBootstrap: vi.fn(() => bootstrap),
+      getBootstrap,
+      consumeBootstrap,
     },
   });
 
-  const [{ useAuthStore }, { useConfigStore }] = await Promise.all([
+  const [{ useAuthStore }, { useConfigStore }, { obfuscatedStorage }] = await Promise.all([
     import('@/stores/useAuthStore'),
     import('@/stores/useConfigStore'),
+    import('@/services/storage/secureStorage'),
   ]);
-  return { useAuthStore, useConfigStore };
+  return { useAuthStore, useConfigStore, obfuscatedStorage, getBootstrap, consumeBootstrap };
 }
 
 async function loadDesktopAuthStoreBeforeBridgeInjection() {
@@ -69,13 +76,19 @@ describe('useAuthStore desktop restore', () => {
 
   it('trusts the desktop bootstrap without blocking on config fetch', async () => {
     localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('apiBase', '"http://127.0.0.1:19999"');
+    localStorage.setItem('apiUrl', '"http://127.0.0.1:19999"');
     localStorage.setItem('managementKey', '"legacy-secret"');
-    const { useAuthStore, useConfigStore } = await loadDesktopAuthStore();
+    const { useAuthStore, useConfigStore, obfuscatedStorage, getBootstrap, consumeBootstrap } =
+      await loadDesktopAuthStore();
+    localStorage.setItem('codexcliplus-auth', '"legacy-session"');
     const fetchConfig = vi.fn().mockRejectedValue(new Error('不应阻塞桌面首屏'));
     useConfigStore.setState({ fetchConfig });
 
     await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
 
+    expect(getBootstrap).toHaveBeenCalledTimes(1);
+    expect(consumeBootstrap).not.toHaveBeenCalled();
     expect(fetchConfig).not.toHaveBeenCalled();
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,
@@ -85,7 +98,34 @@ describe('useAuthStore desktop restore', () => {
       connectionStatus: 'connected',
     });
     expect(localStorage.getItem('isLoggedIn')).toBeNull();
+    expect(localStorage.getItem('apiBase')).toBeNull();
+    expect(localStorage.getItem('apiUrl')).toBeNull();
     expect(localStorage.getItem('managementKey')).toBeNull();
+    const persisted = obfuscatedStorage.getItem<{ state?: Record<string, unknown> }>(
+      'codexcliplus-auth'
+    );
+    expect(persisted?.state).not.toHaveProperty('apiBase');
+    expect(persisted?.state).not.toHaveProperty('managementKey');
+  });
+
+  it('restores after another desktop module has already read bootstrap', async () => {
+    const { useAuthStore, useConfigStore, getBootstrap } = await loadDesktopAuthStore();
+    const { getDesktopBootstrap } = await import('@/desktop/bridge');
+    const fetchConfig = vi.fn().mockRejectedValue(new Error('不应阻塞桌面首屏'));
+    useConfigStore.setState({ fetchConfig });
+
+    expect(getDesktopBootstrap()).toMatchObject(bootstrap);
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
+
+    expect(getBootstrap).toHaveBeenCalledTimes(1);
+    expect(fetchConfig).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiBase: bootstrap.apiBase,
+      managementKey: '',
+      desktopSessionId: bootstrap.desktopSessionId,
+      connectionStatus: 'connected',
+    });
   });
 
   it('retries after the desktop bootstrap bridge is injected late', async () => {
@@ -95,17 +135,48 @@ describe('useAuthStore desktop restore', () => {
 
     await expect(useAuthStore.getState().restoreSession()).resolves.toBe(false);
 
-    const consumeBootstrap = vi.fn(() => bootstrap);
+    const getBootstrap = vi.fn(() => bootstrap);
     Object.assign(window, {
       __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
         isDesktopMode: () => true,
-        consumeBootstrap,
+        getBootstrap,
       },
     });
 
     await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
 
-    expect(consumeBootstrap).toHaveBeenCalledTimes(1);
+    expect(getBootstrap).toHaveBeenCalledTimes(1);
+    expect(fetchConfig).not.toHaveBeenCalled();
+    expect(useAuthStore.getState()).toMatchObject({
+      isAuthenticated: true,
+      apiBase: bootstrap.apiBase,
+      managementKey: '',
+      desktopSessionId: bootstrap.desktopSessionId,
+      connectionStatus: 'connected',
+    });
+  });
+
+  it('can retry restore when bootstrap becomes available after a failed desktop attempt', async () => {
+    vi.resetModules();
+    const getBootstrap = vi.fn().mockReturnValueOnce(null).mockReturnValueOnce(bootstrap);
+    Object.assign(window, {
+      __CODEXCLIPLUS_DESKTOP_BRIDGE__: {
+        isDesktopMode: () => true,
+        getBootstrap,
+      },
+    });
+
+    const [{ useAuthStore }, { useConfigStore }] = await Promise.all([
+      import('@/stores/useAuthStore'),
+      import('@/stores/useConfigStore'),
+    ]);
+    const fetchConfig = vi.fn().mockRejectedValue(new Error('不应阻塞桌面首屏'));
+    useConfigStore.setState({ fetchConfig });
+
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe(false);
+    await expect(useAuthStore.getState().restoreSession()).resolves.toBe(true);
+
+    expect(getBootstrap).toHaveBeenCalledTimes(2);
     expect(fetchConfig).not.toHaveBeenCalled();
     expect(useAuthStore.getState()).toMatchObject({
       isAuthenticated: true,

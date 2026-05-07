@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -216,9 +217,10 @@ public partial class MainWindow
 
     private async Task NavigateManagementWebViewAsync(bool waitForNavigation)
     {
+        var entryUri = CreateManagementEntryUri();
         if (!waitForNavigation)
         {
-            ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+            ManagementWebView.CoreWebView2.Navigate(entryUri.ToString());
             MarkStartupPhase("webview-navigation-started");
             return;
         }
@@ -227,7 +229,7 @@ public partial class MainWindow
             TaskCreationOptions.RunContinuationsAsynchronously
         );
         _webViewNavigationCompletion = completion;
-        ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString());
+        ManagementWebView.CoreWebView2.Navigate(entryUri.ToString());
         MarkStartupPhase("webview-navigation-started");
 
         try
@@ -241,6 +243,16 @@ public partial class MainWindow
                 _webViewNavigationCompletion = null;
             }
         }
+    }
+
+    private Uri CreateManagementEntryUri()
+    {
+        var nonce = Interlocked.Increment(ref _managementNavigationNonce);
+        var builder = new UriBuilder(AppEntryUri)
+        {
+            Query = $"ccp_nav={nonce.ToString(CultureInfo.InvariantCulture)}",
+        };
+        return builder.Uri;
     }
 
     private async Task<CoreWebView2Environment?> CreateWebViewEnvironmentAsync()

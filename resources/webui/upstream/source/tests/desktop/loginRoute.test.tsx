@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -101,5 +101,25 @@ describe('desktop login route', () => {
     expect(screen.queryByText('受保护管理页')).not.toBeInTheDocument();
     expect(authStoreMocks.state.restoreSession).not.toHaveBeenCalled();
     expect(authStoreMocks.state.checkAuth).not.toHaveBeenCalled();
+  });
+
+  it('retries desktop session restore and renders the management page after a later success', async () => {
+    authStoreMocks.state.restoreSession
+      .mockResolvedValueOnce(false)
+      .mockImplementationOnce(async () => {
+        authStoreMocks.state.isAuthenticated = true;
+        return true;
+      });
+
+    renderProtectedRoute();
+
+    expect(await screen.findByText('桌面会话需要恢复')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('重试'));
+
+    await waitFor(() => {
+      expect(screen.getByText('受保护管理页')).toBeInTheDocument();
+    });
+    expect(authStoreMocks.state.restoreSession).toHaveBeenCalledTimes(2);
   });
 });

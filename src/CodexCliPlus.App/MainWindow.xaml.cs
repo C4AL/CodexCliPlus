@@ -171,6 +171,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isMainWindowActive;
     private bool _isExitRequested;
     private long _shellThemePersistenceVersion;
+    private long _managementNavigationNonce;
     private Task? _applicationExitTask;
     private TaskCompletionSource<bool>? _webViewNavigationCompletion;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;

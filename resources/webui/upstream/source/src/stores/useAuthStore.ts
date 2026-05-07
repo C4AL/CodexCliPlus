@@ -71,6 +71,7 @@ export const useAuthStore = create<AuthStoreState>()(
             const resolvedBase = normalizeApiBase(desktopBootstrap.apiBase);
             const desktopSessionId = desktopBootstrap.desktopSessionId;
 
+            clearBrowserManagementSession();
             set({
               apiBase: resolvedBase,
               managementKey: '',
@@ -80,8 +81,6 @@ export const useAuthStore = create<AuthStoreState>()(
               connectionStatus: 'connected',
               connectionError: null
             });
-            localStorage.removeItem('isLoggedIn');
-            obfuscatedStorage.removeItem('managementKey');
             apiClient.setConfig({ apiBase: resolvedBase, managementKey: '' });
             return true;
           }

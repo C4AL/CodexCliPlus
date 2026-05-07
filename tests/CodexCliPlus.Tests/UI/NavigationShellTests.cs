@@ -1037,6 +1037,23 @@ public sealed class NavigationShellTests
         );
 
         Assert.Contains("http://{AppHostName}/index.html", hostSource, StringComparison.Ordinal);
+        Assert.Contains("CreateManagementEntryUri", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ccp_nav=", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Increment(ref _managementNavigationNonce)",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementWebView.CoreWebView2.Navigate(entryUri.ToString())",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "ManagementWebView.CoreWebView2.Navigate(AppEntryUri.ToString())",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "https://{AppHostName}/index.html",
             hostSource,
@@ -1050,6 +1067,10 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("WebMessageReceived", hostSource, StringComparison.Ordinal);
         Assert.Contains("openExternal", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("getBootstrap", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("consumeBootstrap: readBootstrap", bridgeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("bootstrap = null", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("getBootstrap", webBridgeSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", hostSource, StringComparison.Ordinal);
         Assert.Contains("requestNativeLogin", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("shellStateChanged", bridgeSource, StringComparison.Ordinal);

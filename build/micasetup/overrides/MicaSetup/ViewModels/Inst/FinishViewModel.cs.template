@@ -9,6 +9,8 @@ namespace MicaSetup.ViewModels;
 
 public partial class FinishViewModel : ObservableObject
 {
+    private const int InstallerDeleteRetryCount = 15;
+
     public string Message => Option.Current.MessageOfPage3;
 
     public bool CleanupInstallerAfterInstall { get; set; } = true;
@@ -91,20 +93,36 @@ public partial class FinishViewModel : ObservableObject
 
     private static void ScheduleDelayedInstallerDelete(string installerPath)
     {
-        string escapedPath = installerPath.Replace("'", "''");
-        string command = $"Start-Sleep -Seconds 3; Remove-Item -LiteralPath '{escapedPath}' -Force -ErrorAction SilentlyContinue";
+        string command = BuildInstallerDeleteCommand(installerPath);
         FluentProcess.Create()
-            .FileName("powershell.exe")
-            .Arguments("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command " + QuoteProcessArgument(command))
+            .FileName(GetCommandProcessorPath())
+            .Arguments("/d /s /c " + QuoteCmdCommand(command))
             .UseShellExecute(false)
             .CreateNoWindow(true)
             .Start()
             .Forget();
     }
 
-    private static string QuoteProcessArgument(string value)
+    private static string BuildInstallerDeleteCommand(string installerPath)
     {
-        return "\"" + value.Replace("\"", "\\\"") + "\"";
+        string quotedInstallerPath = QuoteCmdPath(installerPath);
+        return $"for /l %i in (1,1,{InstallerDeleteRetryCount}) do @(del /f /q {quotedInstallerPath} 2>nul & if not exist {quotedInstallerPath} exit /b 0 & if %i geq {InstallerDeleteRetryCount} exit /b 0 & timeout /t 1 /nobreak >nul) & exit /b 0";
+    }
+
+    private static string GetCommandProcessorPath()
+    {
+        string cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        return File.Exists(cmdPath) ? cmdPath : "cmd.exe";
+    }
+
+    private static string QuoteCmdPath(string value)
+    {
+        return "\"" + value.Replace("\"", "\"\"") + "\"";
+    }
+
+    private static string QuoteCmdCommand(string value)
+    {
+        return "\"" + value + "\"";
     }
 }
 

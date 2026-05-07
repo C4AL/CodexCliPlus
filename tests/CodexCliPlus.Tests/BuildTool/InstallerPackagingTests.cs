@@ -362,8 +362,18 @@ public sealed class InstallerPackagingTests : IDisposable
             finishViewModel,
             StringComparison.Ordinal
         );
-        Assert.Contains("Remove-Item -LiteralPath", finishViewModel, StringComparison.Ordinal);
-        Assert.Contains("-WindowStyle Hidden", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("GetCommandProcessorPath()", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("\"cmd.exe\"", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("/d /s /c", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("del /f /q", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("for /l %i in (1,1,", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("timeout /t 1 /nobreak", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("QuoteCmdPath", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("QuoteCmdCommand", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains(".CreateNoWindow(true)", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("powershell.exe", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("Start-Sleep", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain("Remove-Item", finishViewModel, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "ComputeCodexCliPlusSha256",
             finishViewModel,
@@ -954,6 +964,8 @@ public sealed class InstallerPackagingTests : IDisposable
             """
             public sealed class FinishViewModel
             {
+                private const int InstallerDeleteRetryCount = 15;
+
                 public void Close()
                 {
                     CleanupOriginalInstallerAfterInstall();
@@ -971,8 +983,31 @@ public sealed class InstallerPackagingTests : IDisposable
 
                 private static void ScheduleDelayedInstallerDelete(string path)
                 {
-                    _ = "Remove-Item -LiteralPath";
-                    _ = "-WindowStyle Hidden";
+                    string command = BuildInstallerDeleteCommand(path);
+                    _ = GetCommandProcessorPath();
+                    _ = "/d /s /c " + QuoteCmdCommand(command);
+                    _ = ".CreateNoWindow(true)";
+                }
+
+                private static string BuildInstallerDeleteCommand(string path)
+                {
+                    string quotedPath = QuoteCmdPath(path);
+                    return $"for /l %i in (1,1,{InstallerDeleteRetryCount}) do @(del /f /q {quotedPath} 2>nul & if not exist {quotedPath} exit /b 0 & if %i geq {InstallerDeleteRetryCount} exit /b 0 & timeout /t 1 /nobreak >nul) & exit /b 0";
+                }
+
+                private static string GetCommandProcessorPath()
+                {
+                    return "cmd.exe";
+                }
+
+                private static string QuoteCmdPath(string path)
+                {
+                    return "\"" + path + "\"";
+                }
+
+                private static string QuoteCmdCommand(string command)
+                {
+                    return "\"" + command + "\"";
                 }
             }
             """

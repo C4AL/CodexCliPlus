@@ -93,6 +93,23 @@ describe('apiClient desktop management proxy', () => {
     await expect((response.data as Blob).text()).resolves.toBe('{"token":"saved"}');
   });
 
+  it('preserves comma-separated Accept headers for desktop config YAML reads', async () => {
+    const { managementRequest } = installDesktopManagementProxy(() => ({
+      body: 'port: 15345',
+    }));
+    const { apiClient } = await loadApiClient();
+    const { configFileApi } = await import('@/services/api/configFile');
+
+    apiClient.setConfig({ apiBase: 'http://127.0.0.1:15345', managementKey: '' });
+
+    await expect(configFileApi.fetchConfigYaml()).resolves.toBe('port: 15345');
+    expect(managementRequest.mock.calls[0]?.[0]).toMatchObject({
+      method: 'GET',
+      path: '/config.yaml',
+      accept: 'application/yaml, text/yaml, text/plain',
+    });
+  });
+
   it('preserves text responses and request bodies through requestRaw', async () => {
     const { managementRequest } = installDesktopManagementProxy((request) => ({
       body: `saved:${request.body}`,

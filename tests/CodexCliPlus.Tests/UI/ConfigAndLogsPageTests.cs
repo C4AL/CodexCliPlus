@@ -1,4 +1,5 @@
 using System.Text;
+using CodexCliPlus;
 
 namespace CodexCliPlus.Tests.UI;
 
@@ -104,6 +105,22 @@ public sealed class ConfigAndLogsPageTests
         Assert.DoesNotContain("--config-action-bar-height", configPage, StringComparison.Ordinal);
         Assert.DoesNotContain("floatingActionContainer", configStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("--config-action-bar-height", configStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DesktopManagementProxyPreservesCommaSeparatedAcceptHeaders()
+    {
+        var method = typeof(MainWindow).GetMethod(
+            "NormalizeAcceptHeader",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static
+        );
+
+        Assert.NotNull(method);
+        Assert.Equal(
+            "application/yaml, text/yaml, text/plain",
+            method.Invoke(null, ["  application/yaml, text/yaml, text/plain  "])
+        );
+        Assert.Equal("application/json", method.Invoke(null, [null]));
     }
 
     [Fact]

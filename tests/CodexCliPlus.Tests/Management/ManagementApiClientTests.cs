@@ -44,6 +44,46 @@ public sealed class ManagementApiClientTests
         Assert.Equal("2026-04-23T00:00:00Z", response.Metadata.BuildDate);
     }
 
+    [Theory]
+    [InlineData(
+        "application/yaml, text/yaml, text/plain",
+        "application/yaml|text/yaml|text/plain"
+    )]
+    [InlineData(
+        "application/json, text/plain, */*",
+        "application/json|text/plain|*/*"
+    )]
+    public async Task SendManagementAsyncParsesStandardAcceptHeaderLists(
+        string accept,
+        string expectedMediaTypes
+    )
+    {
+        using var factory = new FixedHttpClientFactory(request =>
+        {
+            Assert.Equal(
+                expectedMediaTypes.Split('|'),
+                request.Headers.Accept.Select(value => value.MediaType ?? string.Empty).ToArray()
+            );
+
+            return Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("ok", Encoding.UTF8, "text/plain"),
+                }
+            );
+        });
+
+        var client = new ManagementApiClient(new StaticConnectionProvider(), factory);
+
+        var response = await client.SendManagementAsync(
+            HttpMethod.Get,
+            "config.yaml",
+            accept: accept
+        );
+
+        Assert.Equal("ok", response.Value);
+    }
+
     [Fact]
     public async Task SendManagementAsyncRetriesTransientStatusOnce()
     {

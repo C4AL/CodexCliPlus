@@ -245,6 +245,12 @@ public static class SafeFileSystem
         var requiredFiles = new[]
         {
             AppConstants.ExecutableName,
+            Path.Combine(
+                "assets",
+                "backend",
+                "windows-x64",
+                BackendExecutableNames.ManagedExecutableFileName
+            ),
             Path.Combine("assets", "webui", "upstream", "dist", "index.html"),
             Path.Combine("assets", "webui", "upstream", "sync.json"),
         };

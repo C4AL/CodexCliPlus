@@ -2,6 +2,7 @@
 **/obj/
 .vs/
 artifacts/
+/构建离线安装包.exe
 
 resources/backend/windows-x64/*
 !resources/backend/windows-x64/.gitkeep

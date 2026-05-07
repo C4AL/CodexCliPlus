@@ -54,6 +54,11 @@ public sealed class PackageVerifier
         );
         VerifyZip(updatePackagePath, "update-manifest.json", failures);
         VerifyZipExecutable(updatePackagePath, $"payload/{AppConstants.ExecutableName}", failures);
+        VerifyZipExecutable(
+            updatePackagePath,
+            $"payload/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}",
+            failures
+        );
     }
 
     private static void VerifyZip(string path, string requiredEntry, List<string> failures)

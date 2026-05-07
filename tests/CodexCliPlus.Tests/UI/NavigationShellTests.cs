@@ -1950,6 +1950,135 @@ public sealed class NavigationShellTests
     }
 
     [Fact]
+    public void InitialWindowPresentationWaitsForStableStartupSurface()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var mainWindowSource = ReadAppSource(repositoryRoot, "MainWindow.xaml.cs");
+        var startupPresentationSource = ReadAppSource(
+            repositoryRoot,
+            "MainWindow.ShellStartupPresentation.cs"
+        );
+        var showPreparationStepSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowPreparationStep(",
+            "private void ShowUpgradeNotice()"
+        );
+        var showUpgradeNoticeSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowUpgradeNotice()",
+            "private void ShowFirstRunKeyReveal()"
+        );
+        var showFirstRunKeyRevealSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowFirstRunKeyReveal()",
+            "private void ShowLogin("
+        );
+        var showLoginSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowLogin(",
+            "private void ShowLoginError("
+        );
+        var showBlockerSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowBlocker(",
+            "private void ShowWebView()"
+        );
+        var showWebViewSource = SliceBetween(
+            startupPresentationSource,
+            "private void ShowWebView()",
+            "private void RevealInitialPresentation()"
+        );
+        var revealSource = SliceBetween(
+            startupPresentationSource,
+            "private void RevealInitialPresentation()",
+            "private static bool ShouldUseManagementEntryTransition()"
+        );
+        var beginManagementEntryTransitionSource = SliceBetween(
+            startupPresentationSource,
+            "private async Task BeginManagementEntryTransitionAsync()",
+            "private async Task<WindowState> RestoreMainWindowForManagementEntryTransitionAsync()"
+        );
+
+        Assert.Contains(
+            "private bool _initialPresentationRevealed;",
+            mainWindowSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Opacity = 0;", mainWindowSource, StringComparison.Ordinal);
+        Assert.Contains("ShowInTaskbar = false;", mainWindowSource, StringComparison.Ordinal);
+        Assert.Contains("if (_initialPresentationRevealed)", revealSource, StringComparison.Ordinal);
+        Assert.Contains("_initialPresentationRevealed = true;", revealSource, StringComparison.Ordinal);
+        AssertSourceOrder(revealSource, "_initialPresentationRevealed = true;", "Opacity = 1;");
+        AssertSourceOrder(revealSource, "Opacity = 1;", "ShowInTaskbar = true;");
+        Assert.DoesNotContain(
+            "RevealInitialPresentation",
+            showPreparationStepSource,
+            StringComparison.Ordinal
+        );
+
+        AssertSourceOrder(
+            showLoginSource,
+            "EnterAuthenticationCompactWindowMode();",
+            "StartupFlow.ShowLogin(errorMessage, _settings.RememberPassword, _settings.AutoLogin);"
+        );
+        AssertSourceOrder(
+            showLoginSource,
+            "StartupFlow.Visibility = Visibility.Visible;",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            showFirstRunKeyRevealSource,
+            "EnterAuthenticationCompactWindowMode();",
+            "StartupFlow.ShowFirstRunKey("
+        );
+        AssertSourceOrder(
+            showFirstRunKeyRevealSource,
+            "StartupFlow.Visibility = Visibility.Visible;",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            showUpgradeNoticeSource,
+            "ExitAuthenticationCompactWindowMode();",
+            "UpgradeNoticePanel.Visibility = Visibility.Visible;"
+        );
+        AssertSourceOrder(
+            showUpgradeNoticeSource,
+            "UpgradeNoticePanel.Visibility = Visibility.Visible;",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            showBlockerSource,
+            "ExitAuthenticationCompactWindowMode();",
+            "BlockerPanel.Visibility = Visibility.Visible;"
+        );
+        AssertSourceOrder(
+            showBlockerSource,
+            "BlockerPanel.Visibility = Visibility.Visible;",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            showWebViewSource,
+            "ExitAuthenticationCompactWindowMode();",
+            "ManagementWebView.Visibility = Visibility.Visible;"
+        );
+        AssertSourceOrder(
+            showWebViewSource,
+            "ManagementWebView.Visibility = Visibility.Visible;",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            beginManagementEntryTransitionSource,
+            "await ShowManagementEntryTransitionPopupAsync();",
+            "RevealInitialPresentation();"
+        );
+        AssertSourceOrder(
+            beginManagementEntryTransitionSource,
+            "RevealInitialPresentation();",
+            "SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.LoadingWebView);"
+        );
+    }
+
+    [Fact]
     public void ShellNotificationsProvideAutoAndManualPlacementContracts()
     {
         var repositoryRoot = FindRepositoryRoot();

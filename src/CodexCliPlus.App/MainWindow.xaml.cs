@@ -164,6 +164,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _settingsOverlayOpen;
     private bool _isShellBrandDockClosing;
     private bool _isAuthenticationCompactWindowMode;
+    private bool _initialPresentationRevealed;
     private bool _isManagementEntryTransitionActive;
     private bool _sidebarCollapsed;
     private bool _isMainWindowActive;
@@ -239,6 +240,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         DataContext = _viewModel;
         InitializeComponent();
         BindStartupFlowEvents();
+        Opacity = 0;
+        ShowInTaskbar = false;
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested +=

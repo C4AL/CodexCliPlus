@@ -728,7 +728,7 @@ public partial class MainWindow
             .WindowCornerPreference
             .Round;
         MainWindowChromeBehavior.UseNativeCaptionButtons = false;
-        MainWindowGlowBehavior.GlowDepth = 8;
+        MainWindowGlowBehavior.GlowDepth = 0;
 
         ShellTitleBarRow.Height = new GridLength(ShellTitleBarHeight);
         ShellTitleBar.Visibility = Visibility.Visible;

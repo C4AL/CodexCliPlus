@@ -45,10 +45,10 @@
     />
     <controlzEx:GlowWindowBehavior
       x:Name="MainWindowGlowBehavior"
-      GlowColor="#330F766E"
-      NonActiveGlowColor="#180F172A"
-      GlowDepth="8"
-      PreferDWMBorderColor="True"
+      GlowColor="Transparent"
+      NonActiveGlowColor="Transparent"
+      GlowDepth="0"
+      PreferDWMBorderColor="False"
       UseRadialGradientForCorners="True"
     />
   </i:Interaction.Behaviors>

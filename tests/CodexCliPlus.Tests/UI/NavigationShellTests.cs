@@ -679,8 +679,29 @@ public sealed class NavigationShellTests
         Assert.Contains("controlzEx:GlowWindowBehavior", mainXaml, StringComparison.Ordinal);
         Assert.Contains("UseNativeCaptionButtons=\"False\"", mainXaml, StringComparison.Ordinal);
         Assert.Contains("<controlzEx:WindowChromeWindow", updaterXaml, StringComparison.Ordinal);
-        Assert.Contains("GlowColor=\"#330F766E\"", updaterXaml, StringComparison.Ordinal);
         Assert.Contains("UseNativeCaptionButtons=\"True\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("GlowColor=\"Transparent\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("NonActiveGlowColor=\"Transparent\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("GlowDepth=\"0\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("PreferDWMBorderColor=\"False\"", mainXaml, StringComparison.Ordinal);
+        Assert.Contains("GlowColor=\"Transparent\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("NonActiveGlowColor=\"Transparent\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("GlowDepth=\"0\"", updaterXaml, StringComparison.Ordinal);
+        Assert.Contains("PreferDWMBorderColor=\"False\"", updaterXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlowColor=\"#330F766E\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlowColor=\"#330F766E\"", updaterXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlowDepth=\"8\"", mainXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("GlowDepth=\"8\"", updaterXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "PreferDWMBorderColor=\"True\"",
+            mainXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "PreferDWMBorderColor=\"True\"",
+            updaterXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "Style=\"{StaticResource ShellRaisedPanelShadowHostStyle}\"",
             mainXaml,
@@ -2163,6 +2184,11 @@ public sealed class NavigationShellTests
             "private void ExitAuthenticationCompactWindowMode()",
             "private void ApplyMainWindowModeChrome()"
         );
+        var mainWindowModeChromeSource = SliceBetween(
+            startupPresentationSource,
+            "private void ApplyMainWindowModeChrome()",
+            "private WindowLayoutSnapshot CaptureCurrentWindowLayout()"
+        );
 
         Assert.Contains(
             "private bool _initialPresentationRevealed;",
@@ -2243,6 +2269,21 @@ public sealed class NavigationShellTests
         Assert.Contains(
             "ManagementContentHost.Visibility = Visibility.Collapsed;",
             authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "MainWindowGlowBehavior.GlowDepth = 0;",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "MainWindowGlowBehavior.GlowDepth = 0;",
+            mainWindowModeChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "MainWindowGlowBehavior.GlowDepth = 8;",
+            startupPresentationSource,
             StringComparison.Ordinal
         );
         Assert.Contains(

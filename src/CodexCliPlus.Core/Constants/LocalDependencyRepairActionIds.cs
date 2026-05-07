@@ -9,6 +9,8 @@ public static class LocalDependencyRepairActionIds
     public const string UpdateWsl = "update-wsl";
     public const string InstallCodexCli = "install-codex-cli";
     public const string RepairUserPath = "repair-user-path";
+    public const string RepairRequiredEnvInstallLatestCodex =
+        "repair-required-env-install-latest-codex";
 
     public static bool IsKnown(string actionId)
     {
@@ -19,6 +21,7 @@ public static class LocalDependencyRepairActionIds
                 or InstallWsl
                 or UpdateWsl
                 or InstallCodexCli
-                or RepairUserPath;
+                or RepairUserPath
+                or RepairRequiredEnvInstallLatestCodex;
     }
 }

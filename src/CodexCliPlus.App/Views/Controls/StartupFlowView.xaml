@@ -121,7 +121,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
           </Grid.RowDefinitions>
 
           <Grid Grid.Row="0" Height="78">
@@ -241,54 +240,7 @@
             </Border>
           </StackPanel>
 
-          <Grid Grid.Row="3" Margin="0,14,0,0">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-              <CheckBox
-                x:Name="FirstRunRememberPasswordCheckBox"
-                VerticalAlignment="Center"
-                IsChecked="False"
-                Checked="PersistenceOptionCheckBox_Changed"
-                Unchecked="PersistenceOptionCheckBox_Changed"
-                AutomationProperties.AutomationId="FirstRunRememberPasswordCheckBox"
-                AutomationProperties.Name="记住密码"
-              />
-              <TextBlock
-                Margin="4,0,0,0"
-                VerticalAlignment="Center"
-                Cursor="Hand"
-                Style="{StaticResource StartupOptionTextStyle}"
-                MouseLeftButtonDown="PersistenceOptionLabel_MouseLeftButtonDown"
-                Tag="{Binding ElementName=FirstRunRememberPasswordCheckBox}"
-                Text="记住密码"
-              />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-              <CheckBox
-                x:Name="FirstRunAutoLoginCheckBox"
-                VerticalAlignment="Center"
-                IsChecked="False"
-                Checked="PersistenceOptionCheckBox_Changed"
-                Unchecked="PersistenceOptionCheckBox_Changed"
-                AutomationProperties.AutomationId="FirstRunAutoLoginCheckBox"
-                AutomationProperties.Name="自动登录"
-              />
-              <TextBlock
-                Margin="4,0,0,0"
-                VerticalAlignment="Center"
-                Cursor="Hand"
-                Style="{StaticResource StartupOptionTextStyle}"
-                MouseLeftButtonDown="PersistenceOptionLabel_MouseLeftButtonDown"
-                Tag="{Binding ElementName=FirstRunAutoLoginCheckBox}"
-                Text="自动登录"
-              />
-            </StackPanel>
-          </Grid>
-
-          <StackPanel Grid.Row="4" Margin="0,14,0,0" VerticalAlignment="Bottom">
+          <StackPanel Grid.Row="3" Margin="0,14,0,0" VerticalAlignment="Bottom">
             <Button
               x:Name="FirstRunEnterManagementButton"
               Style="{StaticResource StartupPrimaryButtonStyle}"

@@ -63,17 +63,9 @@ public partial class StartupFlowView : WpfUserControl
         }
     }
 
-    public bool FirstRunRememberPassword =>
-        FirstRunRememberPasswordCheckBox.IsChecked == true;
-
-    public bool FirstRunAutoLogin => FirstRunAutoLoginCheckBox.IsChecked == true;
-
-    public void ShowFirstRunKey(string key, bool rememberPassword, bool autoLogin)
+    public void ShowFirstRunKey(string key)
     {
         FirstRunSecurityKeyText.Text = key;
-        FirstRunRememberPasswordCheckBox.IsChecked = rememberPassword || autoLogin;
-        FirstRunAutoLoginCheckBox.IsChecked = autoLogin;
-        UpdatePersistenceDependencies();
         FirstRunEnterManagementButton.IsEnabled = true;
         SetFirstRunConfirmVisible(visible: false, buttonText: "确认", canConfirm: false);
         SetScreen(StartupFlowScreen.FirstRunKey);
@@ -271,11 +263,7 @@ public partial class StartupFlowView : WpfUserControl
 
     private void PersistenceOptionCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        if (sender == FirstRunAutoLoginCheckBox && FirstRunAutoLoginCheckBox.IsChecked == true)
-        {
-            FirstRunRememberPasswordCheckBox.IsChecked = true;
-        }
-        else if (sender == AutoLoginCheckBox && AutoLoginCheckBox.IsChecked == true)
+        if (sender == AutoLoginCheckBox && AutoLoginCheckBox.IsChecked == true)
         {
             RememberPasswordCheckBox.IsChecked = true;
         }
@@ -286,16 +274,13 @@ public partial class StartupFlowView : WpfUserControl
     private void UpdatePersistenceDependencies()
     {
         if (
-            FirstRunRememberPasswordCheckBox is null
-            || FirstRunAutoLoginCheckBox is null
-            || RememberPasswordCheckBox is null
+            RememberPasswordCheckBox is null
             || AutoLoginCheckBox is null
         )
         {
             return;
         }
 
-        SyncPersistencePair(FirstRunRememberPasswordCheckBox, FirstRunAutoLoginCheckBox);
         SyncPersistencePair(RememberPasswordCheckBox, AutoLoginCheckBox);
     }
 

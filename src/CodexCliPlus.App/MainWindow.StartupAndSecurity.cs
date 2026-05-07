@@ -170,14 +170,13 @@ public partial class MainWindow
         try
         {
             _firstRunConfirmCountdown?.Cancel();
-            _settings.ManagementKey = _firstRunManagementKey;
-            _settings.RememberPassword = StartupFlow.FirstRunRememberPassword;
-            _settings.AutoLogin = StartupFlow.FirstRunAutoLogin;
+            _settings.ManagementKey = string.Empty;
+            _settings.RememberPassword = false;
+            _settings.AutoLogin = false;
             _settings.SecurityKeyOnboardingCompleted = true;
             _settings.LastSeenApplicationVersion = CurrentApplicationVersion;
             await _appConfigurationService.SaveAsync(_settings);
 
-            StartupFlow.SetLoginPersistenceOptions(_settings.RememberPassword, _settings.AutoLogin);
             StartupFlow.SetFirstRunConfirmVisible(
                 visible: false,
                 buttonText: "确认",
@@ -186,18 +185,6 @@ public partial class MainWindow
 
             _firstRunManagementKey = string.Empty;
             StartupFlow.ClearFirstRunKey();
-            if (_settings.RememberPassword && _settings.AutoLogin)
-            {
-                await InitializeHostAsync(restartBackend: false);
-                return;
-            }
-
-            if (!_settings.RememberPassword)
-            {
-                _settings.ManagementKey = string.Empty;
-                await _appConfigurationService.SaveAsync(_settings);
-            }
-
             ShowLogin("初始化已完成，请输入安全密钥登录。");
         }
         catch (Exception exception)

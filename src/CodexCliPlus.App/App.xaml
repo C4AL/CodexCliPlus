@@ -19,14 +19,14 @@
       >
       <FontFamily x:Key="FgiIconFontFamily">/Resources/Fonts/Fgi-Regular.ttf#FgiRegular</FontFamily>
 
-      <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#F4F6FA" />
+      <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#FFFFFF" />
       <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="SurfaceAltBrush" Color="#EEF2F7" />
-      <SolidColorBrush x:Key="AccentBrush" Color="#0F766E" />
-      <SolidColorBrush x:Key="AccentSoftBrush" Color="#D9F1EE" />
-      <SolidColorBrush x:Key="PrimaryTextBrush" Color="#17202B" />
-      <SolidColorBrush x:Key="SecondaryTextBrush" Color="#526070" />
-      <SolidColorBrush x:Key="BorderBrush" Color="#D7DCE5" />
+      <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F6F6F6" />
+      <SolidColorBrush x:Key="AccentBrush" Color="#8B8680" />
+      <SolidColorBrush x:Key="AccentSoftBrush" Color="#EFEDEA" />
+      <SolidColorBrush x:Key="PrimaryTextBrush" Color="#2D2A26" />
+      <SolidColorBrush x:Key="SecondaryTextBrush" Color="#6D6760" />
+      <SolidColorBrush x:Key="BorderBrush" Color="#E5E5E5" />
 
       <Thickness x:Key="ShellPageMargin">28,22,28,18</Thickness>
 

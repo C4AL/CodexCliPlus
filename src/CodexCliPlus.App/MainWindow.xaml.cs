@@ -146,8 +146,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private string _shellConnectionStatus = "disconnected";
     private string _shellApiBase = string.Empty;
     private string _shellBackendVersion = BackendReleaseMetadata.Version;
-    private string _shellTheme = "auto";
-    private string _shellResolvedTheme = "light";
     private string _activeWebUiPath = "/";
     private readonly Stopwatch _startupStopwatch = Stopwatch.StartNew();
     private long _lastStartupMarkMilliseconds;

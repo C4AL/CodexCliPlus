@@ -151,19 +151,85 @@ public partial class MainWindow
         };
     }
 
+    private readonly record struct ShellThemePalette(
+        string ApplicationBackground,
+        string Surface,
+        string SurfaceAlt,
+        string Accent,
+        string AccentSoft,
+        string PrimaryText,
+        string SecondaryText,
+        string Border,
+        string ShellDockGlass,
+        string ShellDockGlassBorder,
+        string ShellDockGlassHighlight,
+        string NavigationDockPanel,
+        string NavigationDockBorder,
+        string NavigationDockInnerHighlight,
+        string NavigationDockRail,
+        string NavigationDockRailTrack,
+        string NavigationDockButtonHover
+    );
+
+    private readonly record struct ShellThemeSnapshot(
+        AppThemeMode ThemeMode,
+        string WebTheme,
+        string ResolvedTheme,
+        bool Dark,
+        int TransitionMilliseconds,
+        ShellThemePalette Palette
+    );
+
+    private static readonly ShellThemePalette LightShellThemePalette = new(
+        ApplicationBackground: "#FFFFFF",
+        Surface: "#FFFFFF",
+        SurfaceAlt: "#F6F6F6",
+        Accent: "#8B8680",
+        AccentSoft: "#EFEDEA",
+        PrimaryText: "#2D2A26",
+        SecondaryText: "#6D6760",
+        Border: "#E5E5E5",
+        ShellDockGlass: "#EAFFFFFF",
+        ShellDockGlassBorder: "#BFFFFFFF",
+        ShellDockGlassHighlight: "#FFFFFFFF",
+        NavigationDockPanel: "#F2FFFFFF",
+        NavigationDockBorder: "#A6D9D9D9",
+        NavigationDockInnerHighlight: "#FFFFFFFF",
+        NavigationDockRail: "#D98B8680",
+        NavigationDockRailTrack: "#35D9D9D9",
+        NavigationDockButtonHover: "#E6F6F6F6"
+    );
+
+    private static readonly ShellThemePalette DarkShellThemePalette = new(
+        ApplicationBackground: "#151412",
+        Surface: "#1D1B18",
+        SurfaceAlt: "#262320",
+        Accent: "#8B8680",
+        AccentSoft: "#2E2A26",
+        PrimaryText: "#F6F4F1",
+        SecondaryText: "#C9C3BB",
+        Border: "#3A3530",
+        ShellDockGlass: "#D01D1B18",
+        ShellDockGlassBorder: "#664A443D",
+        ShellDockGlassHighlight: "#33FFFFFF",
+        NavigationDockPanel: "#E61D1B18",
+        NavigationDockBorder: "#704A443D",
+        NavigationDockInnerHighlight: "#2EFFFFFF",
+        NavigationDockRail: "#D99C958D",
+        NavigationDockRailTrack: "#453A3530",
+        NavigationDockButtonHover: "#402E2A26"
+    );
+
     private async Task SetShellThemeAsync(AppThemeMode themeMode)
     {
         var themePersistenceVersion = Interlocked.Increment(ref _shellThemePersistenceVersion);
-        var target = ResolveShellTheme(themeMode);
-
-        _settings.ThemeMode = themeMode;
-        ApplyShellTheme(target.Dark, ShellThemeTransitionMilliseconds);
-        UpdateShellThemePresentation(target.WebTheme, target.ResolvedTheme);
-        PostShellThemeCommand(
-            target.WebTheme,
-            target.ResolvedTheme,
+        var snapshot = CreateShellThemeSnapshot(
+            themeMode,
             ShellThemeTransitionMilliseconds
         );
+
+        _settings.ThemeMode = snapshot.ThemeMode;
+        ApplyShellThemeSnapshot(snapshot, postWebCommand: true);
         await PersistLatestShellThemeSelectionAsync(themePersistenceVersion);
     }
 
@@ -185,39 +251,58 @@ public partial class MainWindow
         }
     }
 
-    private void PostShellThemeCommand(
-        string webTheme,
-        string resolvedTheme,
-        int transitionMilliseconds
-    )
+    private void PostShellThemeCommand(ShellThemeSnapshot snapshot)
     {
         PostWebUiCommand(
             new
             {
                 type = "setTheme",
-                theme = webTheme,
-                resolvedTheme,
-                transitionMs = transitionMilliseconds,
+                theme = snapshot.WebTheme,
+                resolvedTheme = snapshot.ResolvedTheme,
+                transitionMs = snapshot.TransitionMilliseconds,
             }
         );
     }
 
-    private void ApplyShellTheme(AppThemeMode themeMode, int transitionMilliseconds = 0)
+    private void ApplyCurrentShellTheme(int transitionMilliseconds, bool postWebCommand)
     {
-        var target = ResolveShellTheme(themeMode);
-        ApplyShellTheme(target.Dark, transitionMilliseconds);
+        var snapshot = CreateShellThemeSnapshot(_settings.ThemeMode, transitionMilliseconds);
+        ApplyShellThemeSnapshot(snapshot, postWebCommand);
     }
 
-    private static (string WebTheme, string ResolvedTheme, bool Dark) ResolveShellTheme(
-        AppThemeMode themeMode
+    private static ShellThemeSnapshot CreateShellThemeSnapshot(
+        AppThemeMode themeMode,
+        int transitionMilliseconds
     )
     {
         var webTheme = ToWebTheme(themeMode);
         var resolvedTheme = ToWebResolvedTheme(themeMode);
-        return (webTheme, resolvedTheme, resolvedTheme == "dark");
+        var dark = resolvedTheme == "dark";
+        return new ShellThemeSnapshot(
+            themeMode,
+            webTheme,
+            resolvedTheme,
+            dark,
+            transitionMilliseconds,
+            dark ? DarkShellThemePalette : LightShellThemePalette
+        );
     }
 
-    private void ApplyShellTheme(bool dark, int transitionMilliseconds)
+    private void ApplyShellThemeSnapshot(ShellThemeSnapshot snapshot, bool postWebCommand)
+    {
+        ApplyShellTheme(snapshot.Dark, snapshot.Palette, snapshot.TransitionMilliseconds);
+        UpdateShellThemePresentation(snapshot);
+        if (postWebCommand)
+        {
+            PostShellThemeCommand(snapshot);
+        }
+    }
+
+    private void ApplyShellTheme(
+        bool dark,
+        ShellThemePalette palette,
+        int transitionMilliseconds
+    )
     {
         ApplicationThemeManager.Apply(
             dark ? ApplicationTheme.Dark : ApplicationTheme.Light,
@@ -225,61 +310,64 @@ public partial class MainWindow
             false
         );
 
-        if (dark)
-        {
-            SetBrushResource("ApplicationBackgroundBrush", "#111317", transitionMilliseconds);
-            SetBrushResource("SurfaceBrush", "#181B20", transitionMilliseconds);
-            SetBrushResource("SurfaceAltBrush", "#23272F", transitionMilliseconds);
-            SetBrushResource("AccentBrush", "#2DD4BF", transitionMilliseconds);
-            SetBrushResource("AccentSoftBrush", "#123A36", transitionMilliseconds);
-            SetBrushResource("PrimaryTextBrush", "#EEF2F7", transitionMilliseconds);
-            SetBrushResource("SecondaryTextBrush", "#AAB4C0", transitionMilliseconds);
-            SetBrushResource("BorderBrush", "#343A46", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassBrush", "#D01E242D", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassBorderBrush", "#55FFFFFF", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassHighlightBrush", "#75FFFFFF", transitionMilliseconds);
-            SetBrushResource("NavigationDockPanelBrush", "#E61B2028", transitionMilliseconds);
-            SetBrushResource("NavigationDockBorderBrush", "#60707A86", transitionMilliseconds);
-            SetBrushResource(
-                "NavigationDockInnerHighlightBrush",
-                "#3DFFFFFF",
-                transitionMilliseconds
-            );
-            SetBrushResource("NavigationDockRailBrush", "#E68A96A3", transitionMilliseconds);
-            SetBrushResource("NavigationDockRailTrackBrush", "#3039434F", transitionMilliseconds);
-            SetBrushResource("NavigationDockButtonHoverBrush", "#34343C46", transitionMilliseconds);
-        }
-        else
-        {
-            SetBrushResource("ApplicationBackgroundBrush", "#F4F6FA", transitionMilliseconds);
-            SetBrushResource("SurfaceBrush", "#FFFFFF", transitionMilliseconds);
-            SetBrushResource("SurfaceAltBrush", "#EEF2F7", transitionMilliseconds);
-            SetBrushResource("AccentBrush", "#0F766E", transitionMilliseconds);
-            SetBrushResource("AccentSoftBrush", "#D9F1EE", transitionMilliseconds);
-            SetBrushResource("PrimaryTextBrush", "#17202B", transitionMilliseconds);
-            SetBrushResource("SecondaryTextBrush", "#526070", transitionMilliseconds);
-            SetBrushResource("BorderBrush", "#D7DCE5", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassBrush", "#EAF8FAFC", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassBorderBrush", "#BFFFFFFF", transitionMilliseconds);
-            SetBrushResource("ShellDockGlassHighlightBrush", "#FFFFFFFF", transitionMilliseconds);
-            SetBrushResource("NavigationDockPanelBrush", "#F2F8FAFC", transitionMilliseconds);
-            SetBrushResource("NavigationDockBorderBrush", "#A6CBD5E1", transitionMilliseconds);
-            SetBrushResource(
-                "NavigationDockInnerHighlightBrush",
-                "#FFFFFFFF",
-                transitionMilliseconds
-            );
-            SetBrushResource("NavigationDockRailBrush", "#D9707884", transitionMilliseconds);
-            SetBrushResource("NavigationDockRailTrackBrush", "#35CBD5E1", transitionMilliseconds);
-            SetBrushResource("NavigationDockButtonHoverBrush", "#E6E9EEF5", transitionMilliseconds);
-        }
+        SetBrushResource(
+            "ApplicationBackgroundBrush",
+            palette.ApplicationBackground,
+            transitionMilliseconds
+        );
+        SetBrushResource("SurfaceBrush", palette.Surface, transitionMilliseconds);
+        SetBrushResource("SurfaceAltBrush", palette.SurfaceAlt, transitionMilliseconds);
+        SetBrushResource("AccentBrush", palette.Accent, transitionMilliseconds);
+        SetBrushResource("AccentSoftBrush", palette.AccentSoft, transitionMilliseconds);
+        SetBrushResource("PrimaryTextBrush", palette.PrimaryText, transitionMilliseconds);
+        SetBrushResource("SecondaryTextBrush", palette.SecondaryText, transitionMilliseconds);
+        SetBrushResource("BorderBrush", palette.Border, transitionMilliseconds);
+        SetBrushResource("ShellDockGlassBrush", palette.ShellDockGlass, transitionMilliseconds);
+        SetBrushResource(
+            "ShellDockGlassBorderBrush",
+            palette.ShellDockGlassBorder,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "ShellDockGlassHighlightBrush",
+            palette.ShellDockGlassHighlight,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockPanelBrush",
+            palette.NavigationDockPanel,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockBorderBrush",
+            palette.NavigationDockBorder,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockInnerHighlightBrush",
+            palette.NavigationDockInnerHighlight,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockRailBrush",
+            palette.NavigationDockRail,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockRailTrackBrush",
+            palette.NavigationDockRailTrack,
+            transitionMilliseconds
+        );
+        SetBrushResource(
+            "NavigationDockButtonHoverBrush",
+            palette.NavigationDockButtonHover,
+            transitionMilliseconds
+        );
     }
 
-    private void UpdateShellThemePresentation(string? webTheme = null, string? resolvedTheme = null)
+    private void UpdateShellThemePresentation(ShellThemeSnapshot snapshot)
     {
-        _shellTheme = webTheme ?? ToWebTheme(_settings.ThemeMode);
-        _shellResolvedTheme = resolvedTheme ?? ToWebResolvedTheme(_settings.ThemeMode);
-        var label = _settings.ThemeMode switch
+        var label = snapshot.ThemeMode switch
         {
             AppThemeMode.White => "纯白",
             AppThemeMode.Dark => "暗色",
@@ -288,7 +376,7 @@ public partial class MainWindow
 
         ShellThemeButton.ToolTip = $"主题：{label}";
         _suppressFollowSystemChange = true;
-        SettingsFollowSystemCheckBox.IsChecked = _settings.ThemeMode == AppThemeMode.System;
+        SettingsFollowSystemCheckBox.IsChecked = snapshot.ThemeMode == AppThemeMode.System;
         _suppressFollowSystemChange = false;
     }
 

@@ -51,8 +51,7 @@ public partial class MainWindow
             var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
             _settings = await _appConfigurationService.LoadAsync();
             MarkStartupPhase("settings-loaded");
-            ApplyShellTheme(_settings.ThemeMode);
-            UpdateShellThemePresentation();
+            ApplyCurrentShellTheme(transitionMilliseconds: 0, postWebCommand: false);
             UpdateShellConnectionPresentation();
             InitializeTrayIcon();
 
@@ -148,13 +147,9 @@ public partial class MainWindow
 
         Dispatcher.Invoke(() =>
         {
-            var target = ResolveShellTheme(_settings.ThemeMode);
-            ApplyShellTheme(target.Dark, ShellThemeTransitionMilliseconds);
-            UpdateShellThemePresentation(target.WebTheme, target.ResolvedTheme);
-            PostShellThemeCommand(
-                target.WebTheme,
-                target.ResolvedTheme,
-                ShellThemeTransitionMilliseconds
+            ApplyCurrentShellTheme(
+                ShellThemeTransitionMilliseconds,
+                postWebCommand: true
             );
         });
     }

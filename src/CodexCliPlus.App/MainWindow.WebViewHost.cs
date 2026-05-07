@@ -118,13 +118,17 @@ public partial class MainWindow
             MarkStartupPhase("backend-ready");
 
             ShowPreparationStep(86, "本地后端健康检查已通过。", StartupState.Preparing);
+            var themeSnapshot = CreateShellThemeSnapshot(
+                _settings.ThemeMode,
+                transitionMilliseconds: 0
+            );
             var payload = new DesktopBootstrapPayload
             {
                 DesktopMode = true,
                 ApiBase = connection.BaseUrl,
                 DesktopSessionId = _desktopSessionId,
-                Theme = ToWebTheme(_settings.ThemeMode),
-                ResolvedTheme = ToWebResolvedTheme(_settings.ThemeMode),
+                Theme = themeSnapshot.WebTheme,
+                ResolvedTheme = themeSnapshot.ResolvedTheme,
                 SidebarCollapsed = _sidebarCollapsed,
             };
 
@@ -1231,16 +1235,6 @@ public partial class MainWindow
         if (root.TryGetProperty("apiBase", out var apiBaseElement))
         {
             _shellApiBase = apiBaseElement.GetString()?.Trim() ?? string.Empty;
-        }
-
-        if (root.TryGetProperty("theme", out var themeElement))
-        {
-            _shellTheme = NormalizeWebTheme(themeElement.GetString());
-        }
-
-        if (root.TryGetProperty("resolvedTheme", out var resolvedThemeElement))
-        {
-            _shellResolvedTheme = NormalizeResolvedTheme(resolvedThemeElement.GetString());
         }
 
         if (

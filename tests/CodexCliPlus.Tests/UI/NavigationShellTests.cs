@@ -1542,19 +1542,15 @@ public sealed class NavigationShellTests
             firstRunConfirmPopupXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("Placement=\"Top\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "Placement=\"Bottom\"",
-            firstRunConfirmPopupXaml,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("Placement=\"Bottom\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Placement=\"Top\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
         Assert.Contains(
-            "VerticalOffset=\"-8\"",
+            "VerticalOffset=\"8\"",
             firstRunConfirmPopupXaml,
             StringComparison.Ordinal
         );
         Assert.DoesNotContain(
-            "VerticalOffset=\"10\"",
+            "VerticalOffset=\"-8\"",
             firstRunConfirmPopupXaml,
             StringComparison.Ordinal
         );

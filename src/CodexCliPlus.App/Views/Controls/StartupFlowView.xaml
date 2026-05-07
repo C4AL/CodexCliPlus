@@ -410,9 +410,9 @@
     <Popup
       x:Name="FirstRunConfirmPopup"
       PlacementTarget="{Binding ElementName=FirstRunEnterManagementButton}"
-      Placement="Top"
+      Placement="Bottom"
       HorizontalOffset="0"
-      VerticalOffset="-8"
+      VerticalOffset="8"
       AllowsTransparency="True"
       StaysOpen="True"
       PopupAnimation="None"

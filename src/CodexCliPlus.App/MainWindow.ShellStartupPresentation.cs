@@ -137,11 +137,7 @@ public partial class MainWindow
         EnterAuthenticationCompactWindowMode();
         _preparationPanelShownAt = null;
         UpgradeNoticePanel.Visibility = Visibility.Collapsed;
-        StartupFlow.ShowFirstRunKey(
-            _firstRunManagementKey,
-            rememberPassword: false,
-            autoLogin: false
-        );
+        StartupFlow.ShowFirstRunKey(_firstRunManagementKey);
         StartupFlow.Visibility = Visibility.Visible;
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;

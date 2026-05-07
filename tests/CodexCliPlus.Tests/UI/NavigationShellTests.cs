@@ -283,12 +283,12 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"FirstRunRememberPasswordCheckBox\"",
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "x:Name=\"FirstRunAutoLoginCheckBox\"",
             startupFlowXaml,
             StringComparison.Ordinal
@@ -1397,7 +1397,7 @@ public sealed class NavigationShellTests
         );
         var firstRunActionPanelXaml = SliceBetween(
             startupFlowXaml,
-            "<StackPanel Grid.Row=\"4\" Margin=\"0,14,0,0\" VerticalAlignment=\"Bottom\">",
+            "<StackPanel Grid.Row=\"3\" Margin=\"0,14,0,0\" VerticalAlignment=\"Bottom\">",
             "          </StackPanel>"
         );
         var firstRunSecurityKeyRegionXaml = SliceBetween(
@@ -1747,7 +1747,7 @@ public sealed class NavigationShellTests
                 StringComparison.Ordinal
             )
                 < startupFlowXaml.IndexOf(
-                    "x:Name=\"FirstRunRememberPasswordCheckBox\"",
+                    "x:Name=\"FirstRunEnterManagementButton\"",
                     StringComparison.Ordinal
                 )
         );
@@ -1998,6 +1998,8 @@ public sealed class NavigationShellTests
             source,
             StringComparison.Ordinal
         );
+        Assert.DoesNotContain("StartupFlow.FirstRunRememberPassword", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartupFlow.FirstRunAutoLogin", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "FirstRunActionStatusText",
             startupFlowXaml,

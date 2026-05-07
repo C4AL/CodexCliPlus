@@ -226,11 +226,13 @@ describe('DashboardPage local environment loading', () => {
 
     expect(storeState.notifications.showConfirmation).toHaveBeenCalledTimes(1);
     const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    let confirmResult: unknown;
     await act(async () => {
-      void confirmation.onConfirm();
+      confirmResult = confirmation.onConfirm();
       await Promise.resolve();
     });
 
+    expect(confirmResult).toBeUndefined();
     expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
       'install-node-npm',
       expect.any(Function)
@@ -292,11 +294,13 @@ describe('DashboardPage local environment loading', () => {
     );
 
     const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    let confirmResult: unknown;
     await act(async () => {
-      void confirmation.onConfirm();
+      confirmResult = confirmation.onConfirm();
       await Promise.resolve();
     });
 
+    expect(confirmResult).toBeUndefined();
     expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
       'install-node-npm',
       expect.any(Function)
@@ -323,6 +327,53 @@ describe('DashboardPage local environment loading', () => {
     expect(
       within(npmRow).queryByText('dashboard.local_environment_repair_progress_starting')
     ).not.toBeInTheDocument();
+  });
+
+  it('shows an error notification and clears repair loading when repair rejects', async () => {
+    let rejectRepair: ((reason?: unknown) => void) | null = null;
+    bridgeMocks.runLocalDependencyRepair.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectRepair = reject;
+        })
+    );
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+    const nodeRow = getDependencyRow('Node.js');
+    fireEvent.click(screen.getByRole('button', { name: 'dashboard.local_environment_repair' }));
+
+    const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    let confirmResult: unknown;
+    await act(async () => {
+      confirmResult = confirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    expect(confirmResult).toBeUndefined();
+    expect(
+      within(nodeRow).getByRole('button', {
+        name: 'dashboard.local_environment_repairing_button',
+      })
+    ).toBeDisabled();
+    expect(
+      within(nodeRow).getByText('dashboard.local_environment_repair_progress_starting')
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      rejectRepair?.(new Error('用户取消了管理员授权。'));
+    });
+
+    await waitFor(() => {
+      expect(storeState.notifications.showNotification).toHaveBeenCalledWith(
+        '用户取消了管理员授权。',
+        'error'
+      );
+      expect(
+        within(nodeRow).getByRole('button', { name: 'dashboard.local_environment_repair' })
+      ).not.toBeDisabled();
+    });
   });
 
   it('runs winget repair action from the local environment item', async () => {
@@ -375,10 +426,13 @@ describe('DashboardPage local environment loading', () => {
     fireEvent.click(screen.getByRole('button', { name: 'dashboard.local_environment_repair' }));
 
     const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    let confirmResult: unknown;
     await act(async () => {
-      await confirmation.onConfirm();
+      confirmResult = confirmation.onConfirm();
+      await Promise.resolve();
     });
 
+    expect(confirmResult).toBeUndefined();
     expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
       'repair-winget',
       expect.any(Function)

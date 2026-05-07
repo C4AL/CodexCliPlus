@@ -330,6 +330,53 @@ export function DashboardPage() {
     return labels[phase] ?? t('dashboard.local_environment_repair_phase_unknown');
   };
 
+  const startLocalDependencyRepair = async (itemId: string, actionId: string) => {
+    setRepairingTarget({ itemId, actionId });
+    setLocalRepairProgressItemId(itemId);
+    setLocalRepairProgress({
+      actionId,
+      phase: 'starting',
+      message: t('dashboard.local_environment_repair_progress_starting'),
+      commandLine: null,
+      recentOutput: [],
+      logPath: null,
+      updatedAt: new Date().toISOString(),
+      exitCode: null,
+    });
+    try {
+      const response = await runLocalDependencyRepair(actionId, (progress) => {
+        setLocalRepairProgressItemId(itemId);
+        setLocalRepairProgress(progress);
+      });
+      setLocalRepairProgress((current) => ({
+        actionId,
+        phase: response.result.succeeded ? 'completed' : 'failed',
+        message: response.result.summary,
+        commandLine: current?.actionId === actionId ? current.commandLine : null,
+        recentOutput: current?.actionId === actionId ? current.recentOutput : [],
+        logPath: response.result.logPath ?? (current?.actionId === actionId ? current.logPath : null),
+        updatedAt: new Date().toISOString(),
+        exitCode: response.result.exitCode ?? null,
+      }));
+      if (response.snapshot) {
+        setLocalEnvironmentSnapshot(response.snapshot);
+      } else {
+        await fetchLocalEnvironment();
+      }
+      showNotification(
+        response.result.summary,
+        response.result.succeeded ? 'success' : 'error'
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('common.unknown_error');
+      showNotification(message, 'error');
+    } finally {
+      setRepairingTarget((current) =>
+        current?.itemId === itemId && current.actionId === actionId ? null : current
+      );
+    }
+  };
+
   const handleRepairLocalDependency = (item: LocalDependencyItem) => {
     if (!item.repairActionId) return;
 
@@ -351,50 +398,9 @@ export function DashboardPage() {
       message: t('dashboard.local_environment_repair_confirm_message', { name: item.name }),
       confirmText: t('common.confirm'),
       variant: 'danger',
-      onConfirm: async () => {
+      onConfirm: () => {
         const actionId = item.repairActionId!;
-        setRepairingTarget({ itemId: item.id, actionId });
-        setLocalRepairProgressItemId(item.id);
-        setLocalRepairProgress({
-          actionId,
-          phase: 'starting',
-          message: t('dashboard.local_environment_repair_progress_starting'),
-          commandLine: null,
-          recentOutput: [],
-          logPath: null,
-          updatedAt: new Date().toISOString(),
-          exitCode: null,
-        });
-        try {
-          const response = await runLocalDependencyRepair(actionId, (progress) => {
-            setLocalRepairProgressItemId(item.id);
-            setLocalRepairProgress(progress);
-          });
-          setLocalRepairProgress((current) => ({
-            actionId,
-            phase: response.result.succeeded ? 'completed' : 'failed',
-            message: response.result.summary,
-            commandLine: current?.actionId === actionId ? current.commandLine : null,
-            recentOutput: current?.actionId === actionId ? current.recentOutput : [],
-            logPath: response.result.logPath ?? (current?.actionId === actionId ? current.logPath : null),
-            updatedAt: new Date().toISOString(),
-            exitCode: response.result.exitCode ?? null,
-          }));
-          if (response.snapshot) {
-            setLocalEnvironmentSnapshot(response.snapshot);
-          } else {
-            await fetchLocalEnvironment();
-          }
-          showNotification(
-            response.result.summary,
-            response.result.succeeded ? 'success' : 'error'
-          );
-        } catch (error) {
-          const message = error instanceof Error ? error.message : t('common.unknown_error');
-          showNotification(message, 'error');
-        } finally {
-          setRepairingTarget(null);
-        }
+        void startLocalDependencyRepair(item.id, actionId);
       },
     });
   };

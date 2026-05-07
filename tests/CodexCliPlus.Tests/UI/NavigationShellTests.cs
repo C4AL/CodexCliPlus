@@ -121,11 +121,7 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "return true;",
-            hostSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("return true;", hostSource, StringComparison.Ordinal);
         Assert.Contains(
             "var shouldExpandFromAuthentication = _isAuthenticationCompactWindowMode;",
             hostSource,
@@ -196,11 +192,7 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "waitForNavigation: true",
-            hostSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("waitForNavigation: true", hostSource, StringComparison.Ordinal);
         Assert.Contains(
             "ManagementWebView.Visibility = Visibility.Hidden;",
             hostSource,
@@ -231,7 +223,11 @@ public sealed class NavigationShellTests
             windowLoadedSource,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("ShowPreparationStep(5", windowLoadedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ShowPreparationStep(5",
+            windowLoadedSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "SystemParameters.ClientAreaAnimation",
             hostSource,
@@ -256,7 +252,11 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"UpgradeNoticePanel\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"FirstRunKeyPanel\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("x:Name=\"LoadingPanel\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("x:Name=\"StartupStepHost\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "x:Name=\"StartupStepHost\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "x:Name=\"PreparationProgressBar\"",
             startupFlowXaml,
@@ -351,13 +351,21 @@ public sealed class NavigationShellTests
         Assert.Contains("NavigationDockRestingWidth", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockEdgeIntentWidth = 18", hostSource, StringComparison.Ordinal);
         Assert.Contains("NavigationDockPanelOpenOffset", hostSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("NavigationDockPanelOpenHeight", hostSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "NavigationDockPanelOpenHeight",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "ResolveNavigationDockPanelMeasuredOpenHeight",
             hostSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("ResolveVisibleNavigationItemsHeight", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ResolveVisibleNavigationItemsHeight",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "ShellNavigationItemsHost.Children.OfType<WpfButton>()",
             hostSource,
@@ -549,8 +557,16 @@ public sealed class NavigationShellTests
         Assert.Contains("TrayExitMenuItem_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("RequestApplicationExitAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("RunApplicationExitAsync", hostSource, StringComparison.Ordinal);
-        Assert.Contains("await _backendProcessManager.StopAsync();", hostSource, StringComparison.Ordinal);
-        Assert.Contains("System.Windows.Application.Current.Shutdown();", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "await _backendProcessManager.StopAsync();",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "System.Windows.Application.Current.Shutdown();",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "_wasShellBrandDockOpenBeforeButtonClick",
             hostSource,
@@ -649,8 +665,16 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
 
-        Assert.Contains("PackageReference Include=\"ControlzEx\"", appProject, StringComparison.Ordinal);
-        Assert.Contains("PackageReference Include=\"ControlzEx\"", updaterProject, StringComparison.Ordinal);
+        Assert.Contains(
+            "PackageReference Include=\"ControlzEx\"",
+            appProject,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "PackageReference Include=\"ControlzEx\"",
+            updaterProject,
+            StringComparison.Ordinal
+        );
         Assert.Contains("controlzEx:WindowChromeBehavior", mainXaml, StringComparison.Ordinal);
         Assert.Contains("controlzEx:GlowWindowBehavior", mainXaml, StringComparison.Ordinal);
         Assert.Contains("UseNativeCaptionButtons=\"False\"", mainXaml, StringComparison.Ordinal);
@@ -693,7 +717,11 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("x:Name=\"SettingsOverlayPopup\"", mainXaml, StringComparison.Ordinal);
-        Assert.Contains("SettingsOverlayPopup.IsOpen", shellSettingsSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "SettingsOverlayPopup.IsOpen",
+            shellSettingsSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "RefreshDockPopupPlacement(SettingsOverlayPopup)",
             shellSettingsSource,
@@ -709,9 +737,17 @@ public sealed class NavigationShellTests
             shellSettingsSource,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("AllowsTransparency = true", shellSettingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "AllowsTransparency = true",
+            shellSettingsSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("new Window", shellSettingsSource, StringComparison.Ordinal);
-        Assert.Contains("var contentCard = new Border", shellNotificationsSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "var contentCard = new Border",
+            shellNotificationsSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "clipTarget.Clip = new RectangleGeometry",
             shellNotificationsSource,
@@ -762,8 +798,16 @@ public sealed class NavigationShellTests
             "App.MarkSingleInstanceExitInProgress();",
             "_applicationExitTask = RunApplicationExitAsync();"
         );
-        Assert.Contains("if (_applicationExitTask is not null)", requestExitSource, StringComparison.Ordinal);
-        Assert.Contains("return _applicationExitTask;", requestExitSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "if (_applicationExitTask is not null)",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "return _applicationExitTask;",
+            requestExitSource,
+            StringComparison.Ordinal
+        );
         AssertSourceOrder(
             requestExitSource,
             "_isExitRequested = true;",
@@ -810,8 +854,16 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("EventResetMode.ManualReset", source, StringComparison.Ordinal);
         Assert.Contains("MarkSingleInstanceExitInProgress", source, StringComparison.Ordinal);
-        Assert.Contains("IsSingleInstanceExitInProgress()", acquisitionSource, StringComparison.Ordinal);
-        Assert.Contains("WaitForSingleInstanceExitTakeover()", acquisitionSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "IsSingleInstanceExitInProgress()",
+            acquisitionSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "WaitForSingleInstanceExitTakeover()",
+            acquisitionSource,
+            StringComparison.Ordinal
+        );
         AssertSourceOrder(
             acquisitionSource,
             "else if (IsSingleInstanceExitInProgress())",
@@ -842,7 +894,11 @@ public sealed class NavigationShellTests
             acquisitionSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("var wakeTask = _singleInstanceWakeTask;", stopListenerSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "var wakeTask = _singleInstanceWakeTask;",
+            stopListenerSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "if (wakeTask is not null)\n            {\n                _singleInstanceWakeEvent?.Set();",
             stopListenerSource,
@@ -939,7 +995,11 @@ public sealed class NavigationShellTests
             "RefreshDockPopupPlacement(ShellNavigationDockPopup);",
             navigationRefreshSource
         );
-        Assert.Contains("ShellBrandDockPopup is null", brandRefreshSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShellBrandDockPopup is null",
+            brandRefreshSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "popup.HorizontalOffset = horizontalOffset + 0.01",
             startupPresentationSource
@@ -1073,11 +1133,7 @@ public sealed class NavigationShellTests
             setThemeSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "PostShellThemeCommand(",
-            setThemeSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("PostShellThemeCommand(", setThemeSource, StringComparison.Ordinal);
         Assert.Contains(
             "PersistLatestShellThemeSelectionAsync(themePersistenceVersion)",
             setThemeSource,
@@ -1088,8 +1144,16 @@ public sealed class NavigationShellTests
             "PostShellThemeCommand(",
             "PersistLatestShellThemeSelectionAsync(themePersistenceVersion)"
         );
-        Assert.Contains("transitionMs = transitionMilliseconds", hostSource, StringComparison.Ordinal);
-        Assert.Contains("_appConfigurationService.SaveAsync(_settings)", persistSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "transitionMs = transitionMilliseconds",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "_appConfigurationService.SaveAsync(_settings)",
+            persistSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "themePersistenceVersion != Volatile.Read(ref _shellThemePersistenceVersion)",
             persistSource,
@@ -1114,7 +1178,11 @@ public sealed class NavigationShellTests
 
         Assert.Contains("\"desktopMode\":true", script, StringComparison.Ordinal);
         Assert.Contains("\"apiBase\":\"http://127.0.0.1:15345\"", script, StringComparison.Ordinal);
-        Assert.Contains("\"desktopSessionId\":\"desktop-session-1\"", script, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"desktopSessionId\":\"desktop-session-1\"",
+            script,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("\"managementKey\"", script, StringComparison.Ordinal);
         Assert.DoesNotContain("secret-key", script, StringComparison.Ordinal);
         Assert.Contains("\"theme\":\"white\"", script, StringComparison.Ordinal);
@@ -1199,22 +1267,42 @@ public sealed class NavigationShellTests
 
         Assert.False(File.Exists(notificationContainerPath));
         Assert.DoesNotContain("NotificationContainer", appSource, StringComparison.Ordinal);
-        Assert.Contains("showShellNotification(message, type);", storeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "showShellNotification(message, type);",
+            storeSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "notifications: [...state.notifications",
             storeSource,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain(".notification-container", componentsSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("@keyframes notification-enter", componentsSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("@keyframes notification-exit", componentsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            ".notification-container",
+            componentsSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "@keyframes notification-enter",
+            componentsSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "@keyframes notification-exit",
+            componentsSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(".notification {", componentsSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "className=\"notification",
             mainLayoutSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("className=\"theme-menu-popover\"", mainLayoutSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "className=\"theme-menu-popover\"",
+            mainLayoutSource,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -1301,11 +1389,7 @@ public sealed class NavigationShellTests
             "x:Name=\"FirstRunSecurityKeyText\"",
             "                />"
         );
-        var loginPanelXaml = SliceBetween(
-            startupFlowXaml,
-            "x:Name=\"LoginPanel\"",
-            "    <Popup"
-        );
+        var loginPanelXaml = SliceBetween(startupFlowXaml, "x:Name=\"LoginPanel\"", "    <Popup");
         var loginPasswordBoxXaml = SliceBetween(
             startupFlowXaml,
             "x:Name=\"ManagementKeyPasswordBox\"",
@@ -1354,29 +1438,21 @@ public sealed class NavigationShellTests
         Assert.Contains("x:Name=\"MainWindowChromeBehavior\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"MainWindowGlowBehavior\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AuthenticationCompactWindowWidth = 320", source, StringComparison.Ordinal);
-        Assert.Contains("AuthenticationCompactWindowHeight = 460", source, StringComparison.Ordinal);
-        Assert.Contains("EnterAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
-        Assert.Contains("ExitAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
         Assert.Contains(
-            "ShowFirstRunKeyReveal",
+            "AuthenticationCompactWindowHeight = 460",
             source,
             StringComparison.Ordinal
         );
+        Assert.Contains("EnterAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
+        Assert.Contains("ExitAuthenticationCompactWindowMode", source, StringComparison.Ordinal);
+        Assert.Contains("ShowFirstRunKeyReveal", source, StringComparison.Ordinal);
         Assert.Contains(
             "EnterAuthenticationCompactWindowMode();",
             source,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "ExitAuthenticationCompactWindowMode();",
-            source,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "rememberPassword: false",
-            source,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("ExitAuthenticationCompactWindowMode();", source, StringComparison.Ordinal);
+        Assert.Contains("rememberPassword: false", source, StringComparison.Ordinal);
         Assert.Contains(
             "StartupFlow.ShowLogin(errorMessage, _settings.RememberPassword, _settings.AutoLogin);",
             source,
@@ -1439,13 +1515,21 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("Placement=\"Top\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Placement=\"Bottom\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Placement=\"Bottom\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "VerticalOffset=\"-8\"",
             firstRunConfirmPopupXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("VerticalOffset=\"10\"", firstRunConfirmPopupXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "VerticalOffset=\"10\"",
+            firstRunConfirmPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "AllowsTransparency=\"True\"",
             firstRunConfirmPopupXaml,
@@ -1520,16 +1604,8 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain(
-            "Text=\"本机凭据保护\"",
-            startupFlowXaml,
-            StringComparison.Ordinal
-        );
-        Assert.Contains(
-            "Text=\"已阅读并同意本机\"",
-            startupFlowXaml,
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("Text=\"本机凭据保护\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"已阅读并同意本机\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "BasedOn=\"{StaticResource StartupProtocolTextStyle}\"",
             startupProtocolLinkTextStyle,
@@ -1578,11 +1654,7 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "Header=\"忘记安全密钥/重置\"",
-            startupFlowXaml,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("Header=\"忘记安全密钥/重置\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("安全密钥登录", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Key=\"ShellInlineIconButtonStyle\"",
@@ -1690,9 +1762,21 @@ public sealed class NavigationShellTests
             firstRunSecurityKeyTextXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("FirstRunSecurityKeyTextBox", startupFlowXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Padding=\"4,0,72,0\"", firstRunSecurityKeyRegionXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("HorizontalScrollBarVisibility", firstRunSecurityKeyRegionXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "FirstRunSecurityKeyTextBox",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "Padding=\"4,0,72,0\"",
+            firstRunSecurityKeyRegionXaml,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "HorizontalScrollBarVisibility",
+            firstRunSecurityKeyRegionXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "VerticalAlignment=\"{TemplateBinding VerticalContentAlignment}\"",
             startupFlowTextBoxStyle,
@@ -1703,7 +1787,11 @@ public sealed class NavigationShellTests
             startupFlowPasswordBoxStyle,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("VerticalAlignment=\"Stretch\"", startupFlowPasswordBoxStyle, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "VerticalAlignment=\"Stretch\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "HorizontalAlignment=\"{TemplateBinding HorizontalContentAlignment}\"",
             startupFlowPasswordBoxStyle,
@@ -1714,11 +1802,19 @@ public sealed class NavigationShellTests
             startupFlowPasswordBoxStyle,
             StringComparison.Ordinal
         );
-        Assert.Contains("<Grid Grid.Row=\"0\" Height=\"78\">", loginPanelXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Grid Grid.Row=\"0\" Height=\"78\">",
+            loginPanelXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Width=\"64\"", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("Height=\"64\"", loginPanelXaml, StringComparison.Ordinal);
         Assert.Contains("Margin=\"0,12,0,0\"", loginPanelXaml, StringComparison.Ordinal);
-        Assert.Contains("<StackPanel Grid.Row=\"2\" Margin=\"0,20,0,0\">", loginPanelXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "<StackPanel Grid.Row=\"2\" Margin=\"0,20,0,0\">",
+            loginPanelXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "Style=\"{StaticResource StartupFlowPasswordBoxStyle}\"",
             loginPasswordBoxXaml,
@@ -1760,10 +1856,22 @@ public sealed class NavigationShellTests
             startupFlowPasswordBoxStyle,
             StringComparison.Ordinal
         );
-        Assert.Contains("CornerRadius=\"6\"", startupFlowPasswordBoxStyle, StringComparison.Ordinal);
+        Assert.Contains(
+            "CornerRadius=\"6\"",
+            startupFlowPasswordBoxStyle,
+            StringComparison.Ordinal
+        );
         Assert.Contains("MinHeight=\"34\"", loginErrorTextXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("              Height=\"34\"", loginErrorTextXaml, StringComparison.Ordinal);
-        Assert.Contains("<Setter Property=\"TextWrapping\" Value=\"Wrap\" />", startupFlowErrorTextStyle, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "              Height=\"34\"",
+            loginErrorTextXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "<Setter Property=\"TextWrapping\" Value=\"Wrap\" />",
+            startupFlowErrorTextStyle,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("TextTrimming", startupFlowErrorTextStyle, StringComparison.Ordinal);
         Assert.DoesNotContain("ClipToBounds", startupFlowErrorTextStyle, StringComparison.Ordinal);
         Assert.Contains(
@@ -1798,21 +1906,13 @@ public sealed class NavigationShellTests
             shellPasswordInputStyle,
             StringComparison.Ordinal
         );
-        Assert.Contains(
-            "FirstRunSecurityKeyText.Text = key;",
-            source,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("FirstRunSecurityKeyText.Text = key;", source, StringComparison.Ordinal);
         Assert.Contains(
             "FirstRunSecurityKeyText.Text = string.Empty;",
             source,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain(
-            "FirstRunCopyKeyButton.Focus()",
-            source,
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("FirstRunCopyKeyButton.Focus()", source, StringComparison.Ordinal);
         Assert.Contains("Keyboard.ClearFocus();", source, StringComparison.Ordinal);
         Assert.Contains(
             "FocusManager.SetFocusedElement(this, FirstRunSecurityKeyDisplay);",
@@ -1831,11 +1931,7 @@ public sealed class NavigationShellTests
         Assert.Contains("Text=\"初始化\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"安全密钥登录\"", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"登录\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "首次初始化安全密钥",
-            startupFlowXaml,
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("首次初始化安全密钥", startupFlowXaml, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "请立即保存下面的安全密钥",
             startupFlowXaml,
@@ -1846,11 +1942,7 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain(
-            "确认前请确保密钥已复制",
-            startupFlowXaml,
-            StringComparison.Ordinal
-        );
+        Assert.DoesNotContain("确认前请确保密钥已复制", startupFlowXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"FirstRunConfirmCloseButton\"",
             startupFlowXaml,
@@ -1862,7 +1954,11 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("Width=\"420\"", startupFlowXaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Background=\"#99000000\"", startupFlowXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Background=\"#99000000\"",
+            startupFlowXaml,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "x:Name=\"FirstRunConfirmCancelButton\"",
             startupFlowXaml,
@@ -1916,11 +2012,31 @@ public sealed class NavigationShellTests
             startupFlowXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandRing\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandOuterHalo\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandInnerHalo\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandOrbit\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"ManagementEntryTransitionBrandLightSweep\"", xaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandRing\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandOuterHalo\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandInnerHalo\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandOrbit\"",
+            xaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "x:Name=\"ManagementEntryTransitionBrandLightSweep\"",
+            xaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Storyboard RepeatBehavior=\"Forever\"", xaml, StringComparison.Ordinal);
         Assert.Contains("ScaleTransform ScaleX=\"0.92\"", xaml, StringComparison.Ordinal);
         Assert.Contains("RotateTransform Angle=\"0\"", xaml, StringComparison.Ordinal);
@@ -1956,10 +2072,16 @@ public sealed class NavigationShellTests
     public void InitialWindowPresentationWaitsForStableStartupSurface()
     {
         var repositoryRoot = FindRepositoryRoot();
+        var appSource = ReadAppSource(repositoryRoot, "App.xaml.cs");
         var mainWindowSource = ReadAppSource(repositoryRoot, "MainWindow.xaml.cs");
         var startupPresentationSource = ReadAppSource(
             repositoryRoot,
             "MainWindow.ShellStartupPresentation.cs"
+        );
+        var prepareHiddenStartupSource = SliceBetween(
+            startupPresentationSource,
+            "private void PrepareHiddenAuthenticationStartupWindow()",
+            "private void ShowPreparationStep("
         );
         var showPreparationStepSource = SliceBetween(
             startupPresentationSource,
@@ -2001,16 +2123,123 @@ public sealed class NavigationShellTests
             "private async Task BeginManagementEntryTransitionAsync()",
             "private async Task<WindowState> RestoreMainWindowForManagementEntryTransitionAsync()"
         );
+        var authenticationChromeSource = SliceBetween(
+            startupPresentationSource,
+            "private void ApplyAuthenticationCompactWindowChrome()",
+            "private void ExitAuthenticationCompactWindowMode()"
+        );
+        var exitAuthenticationSource = SliceBetween(
+            startupPresentationSource,
+            "private void ExitAuthenticationCompactWindowMode()",
+            "private void ApplyMainWindowModeChrome()"
+        );
 
         Assert.Contains(
             "private bool _initialPresentationRevealed;",
             mainWindowSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("Opacity = 0;", mainWindowSource, StringComparison.Ordinal);
-        Assert.Contains("ShowInTaskbar = false;", mainWindowSource, StringComparison.Ordinal);
-        Assert.Contains("if (_initialPresentationRevealed)", revealSource, StringComparison.Ordinal);
-        Assert.Contains("_initialPresentationRevealed = true;", revealSource, StringComparison.Ordinal);
+        AssertSourceOrder(
+            appSource,
+            "MainWindow = _serviceProvider.GetRequiredService<MainWindow>();",
+            "MainWindow.Show();"
+        );
+        AssertSourceOrder(
+            mainWindowSource,
+            "InitializeComponent();",
+            "PrepareHiddenAuthenticationStartupWindow();"
+        );
+        AssertSourceOrder(
+            mainWindowSource,
+            "PrepareHiddenAuthenticationStartupWindow();",
+            "BindStartupFlowEvents();"
+        );
+        Assert.Contains(
+            "_isAuthenticationCompactWindowMode = true;",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "_preAuthenticationWindowLayout = null;",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Opacity = 0;", prepareHiddenStartupSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ShowInTaskbar = false;",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "StartupFlow.Visibility = Visibility.Collapsed;",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ApplyAuthenticationCompactWindowChrome();",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "CenterAuthenticationCompactWindow();",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "RevealInitialPresentation",
+            prepareHiddenStartupSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ResizeMode.NoResize",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Width = AuthenticationCompactWindowWidth;",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Height = AuthenticationCompactWindowHeight;",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ShellTitleBar.Visibility = Visibility.Collapsed;",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ManagementContentHost.Visibility = Visibility.Collapsed;",
+            authenticationChromeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "var windowLayout = ResolveAuthenticationExitLayout();",
+            exitAuthenticationSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Left = windowLayout.Left;",
+            exitAuthenticationSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Top = windowLayout.Top;",
+            exitAuthenticationSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "if (_initialPresentationRevealed)",
+            revealSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "_initialPresentationRevealed = true;",
+            revealSource,
+            StringComparison.Ordinal
+        );
         AssertSourceOrder(revealSource, "_initialPresentationRevealed = true;", "Opacity = 1;");
         AssertSourceOrder(revealSource, "Opacity = 1;", "ShowInTaskbar = true;");
         Assert.DoesNotContain(
@@ -2130,8 +2359,16 @@ public sealed class NavigationShellTests
             autoNotificationPopupXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("Placement=\"Relative\"", autoNotificationPopupXaml, StringComparison.Ordinal);
-        Assert.Contains("AllowsTransparency=\"True\"", autoNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Placement=\"Relative\"",
+            autoNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "AllowsTransparency=\"True\"",
+            autoNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains("StaysOpen=\"True\"", autoNotificationPopupXaml, StringComparison.Ordinal);
         Assert.Contains(
             "x:Name=\"AutoNotificationStack\"",
@@ -2145,9 +2382,21 @@ public sealed class NavigationShellTests
             manualNotificationPopupXaml,
             StringComparison.Ordinal
         );
-        Assert.Contains("Placement=\"Relative\"", manualNotificationPopupXaml, StringComparison.Ordinal);
-        Assert.Contains("AllowsTransparency=\"True\"", manualNotificationPopupXaml, StringComparison.Ordinal);
-        Assert.Contains("StaysOpen=\"True\"", manualNotificationPopupXaml, StringComparison.Ordinal);
+        Assert.Contains(
+            "Placement=\"Relative\"",
+            manualNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "AllowsTransparency=\"True\"",
+            manualNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "StaysOpen=\"True\"",
+            manualNotificationPopupXaml,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "x:Name=\"ManualNotificationStack\"",
             manualNotificationPopupXaml,
@@ -2166,28 +2415,52 @@ public sealed class NavigationShellTests
         Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
         Assert.Contains("AutoNotificationDefaultWidth = 380", hostSource, StringComparison.Ordinal);
-        Assert.Contains("ManualNotificationDefaultWidth = 360", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ManualNotificationDefaultWidth = 360",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("AutoNotificationBottomOffset = 28", hostSource, StringComparison.Ordinal);
         Assert.Contains("ManualNotificationRightOffset = 24", hostSource, StringComparison.Ordinal);
-        Assert.Contains("ManualNotificationBottomOffset = 24", hostSource, StringComparison.Ordinal);
-        Assert.Contains("ResolveShellNotificationPlacementHost", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ManualNotificationBottomOffset = 24",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "ResolveShellNotificationPlacementHost",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("return ManagementContentHost;", hostSource, StringComparison.Ordinal);
         Assert.Contains("return StartupFlow;", hostSource, StringComparison.Ordinal);
-        Assert.Contains("popup.PlacementTarget = placementHost;", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "popup.PlacementTarget = placementHost;",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "ApplyShellNotificationStackWidth(owner, hostWidth, bottomCenter);",
             hostSource,
             StringComparison.Ordinal
         );
         Assert.Contains("Math.Min(defaultWidth, hostWidth)", hostSource, StringComparison.Ordinal);
-        Assert.Contains("UpdateShellNotificationPopupPlacement", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "UpdateShellNotificationPopupPlacement",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("(hostWidth - ownerWidth) / 2", hostSource, StringComparison.Ordinal);
         Assert.Contains(
             "hostWidth - ownerWidth - ManualNotificationRightOffset",
             hostSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("RefreshShellNotificationPopupPlacements", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "RefreshShellNotificationPopupPlacements",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("RefreshDockPopupPlacement(popup)", hostSource, StringComparison.Ordinal);
         Assert.Contains("FadeOutAndRemoveAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("MaxVisibleShellNotifications = 3", hostSource, StringComparison.Ordinal);
@@ -2224,7 +2497,11 @@ public sealed class NavigationShellTests
             "if (string.IsNullOrWhiteSpace(managementKey))",
             "StartupFlow.SetLoginBusy(true);"
         );
-        Assert.Contains("StartupFlow.SetLoginError(null);", emptyPasswordBranch, StringComparison.Ordinal);
+        Assert.Contains(
+            "StartupFlow.SetLoginError(null);",
+            emptyPasswordBranch,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "_notificationService.ShowAuto(\"请输入安全密钥。\", ShellNotificationLevel.Warning);",
             emptyPasswordBranch,
@@ -2237,14 +2514,22 @@ public sealed class NavigationShellTests
             "if (!_backendConfigWriter.VerifyManagementKey(managementKey))",
             "_settings.ManagementKey = managementKey;"
         );
-        Assert.Contains("StartupFlow.SetLoginError(null);", wrongPasswordBranch, StringComparison.Ordinal);
+        Assert.Contains(
+            "StartupFlow.SetLoginError(null);",
+            wrongPasswordBranch,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "_notificationService.ShowAuto(\"安全密钥不正确。\", ShellNotificationLevel.Error);",
             wrongPasswordBranch,
             StringComparison.Ordinal
         );
         Assert.DoesNotContain("ShowLoginError(", wrongPasswordBranch, StringComparison.Ordinal);
-        Assert.DoesNotContain("StartupFlow.ClearLoginPassword();", wrongPasswordBranch, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "StartupFlow.ClearLoginPassword();",
+            wrongPasswordBranch,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -2276,11 +2561,27 @@ public sealed class NavigationShellTests
         );
 
         Assert.Contains("case \"shellNotification\":", hostSource, StringComparison.Ordinal);
-        Assert.Contains("ReadString(root, \"notificationType\")", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "ReadString(root, \"notificationType\")",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("ReadShellNotificationLevel", hostSource, StringComparison.Ordinal);
-        Assert.Contains("\"success\" => ShellNotificationLevel.Success", hostSource, StringComparison.Ordinal);
-        Assert.Contains("\"warning\" => ShellNotificationLevel.Warning", hostSource, StringComparison.Ordinal);
-        Assert.Contains("\"error\" => ShellNotificationLevel.Error", hostSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"success\" => ShellNotificationLevel.Success",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\"warning\" => ShellNotificationLevel.Warning",
+            hostSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "\"error\" => ShellNotificationLevel.Error",
+            hostSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("_ => ShellNotificationLevel.Info", hostSource, StringComparison.Ordinal);
         Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -2656,8 +2957,16 @@ public sealed class NavigationShellTests
             Encoding.UTF8
         );
 
-        Assert.Contains("{ path: '/login', element: <LoginRoute /> }", appSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("const desktopMode = isDesktopMode();", appSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "{ path: '/login', element: <LoginRoute /> }",
+            appSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "const desktopMode = isDesktopMode();",
+            appSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("isDesktopMode()", appSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", loginRouteSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -2674,7 +2983,11 @@ public sealed class NavigationShellTests
         );
         Assert.Contains("restoreSession", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", protectedRouteSource, StringComparison.Ordinal);
-        Assert.Contains("return <BrowserManagementBlocked />;", protectedRouteSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "return <BrowserManagementBlocked />;",
+            protectedRouteSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("桌面会话需要恢复", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("返回登录", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
@@ -2768,7 +3081,11 @@ public sealed class NavigationShellTests
         AssertSourceOrder(mainRoutesSource, "path: '/codex-config'", "path: '/config'");
         Assert.Contains("path: \"/console\"", overlayMainRoutesSource, StringComparison.Ordinal);
         Assert.Contains("path: \"/accounts\"", overlayMainRoutesSource, StringComparison.Ordinal);
-        Assert.Contains("path: \"/codex-config\"", overlayMainRoutesSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "path: \"/codex-config\"",
+            overlayMainRoutesSource,
+            StringComparison.Ordinal
+        );
         AssertSourceOrder(overlayMainRoutesSource, "path: \"/codex-config\"", "path: \"/config\"");
         Assert.Contains(
             "element: <Navigate to=\"/accounts#codex-config\" replace />",
@@ -2811,30 +3128,90 @@ public sealed class NavigationShellTests
             dashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("requestCodexRouteState", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "requestCodexRouteState",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("switchCodexRoute", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("当前：{codexRouteModeLabel}", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("selectedCodexRouteTargetId", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "当前：{codexRouteModeLabel}",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "selectedCodexRouteTargetId",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("Codex 路由目标", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("选择路由", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("检测失败", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("应用", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("usage_stats.total_5h_remaining_quota", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "usage_stats.total_5h_remaining_quota",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FIVE_HOUR_WINDOW_ID = 'five-hour'",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("label: '加载中'", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("已汇总 ${formatLocaleNumber(validCount, i18n.language)}", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("requestCodexRouteState", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("switchCodexRoute", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("当前：{codexRouteModeLabel}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("selectedCodexRouteTargetId", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("Codex 路由目标", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "已汇总 ${formatLocaleNumber(validCount, i18n.language)}",
+            dashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "requestCodexRouteState",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "switchCodexRoute",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "当前：{codexRouteModeLabel}",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "selectedCodexRouteTargetId",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "Codex 路由目标",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("选择路由", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("检测失败", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains("应用", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("usage_stats.total_5h_remaining_quota", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("FIVE_HOUR_WINDOW_ID = 'five-hour'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("label: '加载中'", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("已汇总 ${formatLocaleNumber(validCount, i18n.language)}", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "usage_stats.total_5h_remaining_quota",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "FIVE_HOUR_WINDOW_ID = 'five-hour'",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "label: '加载中'",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "已汇总 ${formatLocaleNumber(validCount, i18n.language)}",
+            overlayDashboardOverviewPageSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "export function ConsolePage()",
             dashboardOverviewPageSource,
@@ -2856,14 +3233,30 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("applyDesktopTheme", themeStoreSource, StringComparison.Ordinal);
-        Assert.Contains("desktopBootstrap.resolvedTheme", themeStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "desktopBootstrap.resolvedTheme",
+            themeStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("theme-transitioning", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (theme === 'light')", themeStoreSource, StringComparison.Ordinal);
         Assert.Contains("__CODEXCLIPLUS_DESKTOP_BRIDGE__", bridgeSource, StringComparison.Ordinal);
-        Assert.Contains("window.chrome?.webview?.postMessage", bridgeSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("desktopBootstrapCache = null", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "window.chrome?.webview?.postMessage",
+            bridgeSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "desktopBootstrapCache = null",
+            bridgeSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains("resetRestoreSessionPromise = true", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "resetRestoreSessionPromise = true",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("clearBrowserManagementSession", authStoreSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -2876,7 +3269,11 @@ public sealed class NavigationShellTests
             authStoreSource,
             StringComparison.Ordinal
         );
-        Assert.DoesNotContain("detectApiBaseFromLocation", authStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "detectApiBaseFromLocation",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(
             "obfuscatedStorage.migratePlaintextKeys",
             authStoreSource,
@@ -3077,10 +3474,7 @@ public sealed class NavigationShellTests
         var firstIndex = source.IndexOf(first, StringComparison.Ordinal);
         Assert.True(firstIndex >= 0, $"Expected to find '{first}'.");
         var secondIndex = source.IndexOf(second, firstIndex, StringComparison.Ordinal);
-        Assert.True(
-            secondIndex > firstIndex,
-            $"Expected to find '{second}' after '{first}'."
-        );
+        Assert.True(secondIndex > firstIndex, $"Expected to find '{second}' after '{first}'.");
     }
 
     private static string ReadMainWindowSources(string repositoryRoot)

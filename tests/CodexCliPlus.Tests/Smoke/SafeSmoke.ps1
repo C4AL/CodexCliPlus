@@ -74,6 +74,151 @@ function Add-Finding {
         }) | Out-Null
 }
 
+if (-not ("SafeSmokeUser32" -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class SafeSmokeUser32
+{
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc enumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+}
+'@
+}
+
+function Get-VisibleTopLevelWindowsForProcess {
+    param([int]$ProcessId)
+
+    $windows = New-Object System.Collections.Generic.List[object]
+    $callback = [SafeSmokeUser32+EnumWindowsProc]{
+        param(
+            [IntPtr]$Handle,
+            [IntPtr]$Parameter
+        )
+
+        $windowProcessId = [uint32]0
+        [void][SafeSmokeUser32]::GetWindowThreadProcessId($Handle, [ref]$windowProcessId)
+        if ($windowProcessId -ne [uint32]$ProcessId) {
+            return $true
+        }
+
+        if (-not [SafeSmokeUser32]::IsWindowVisible($Handle)) {
+            return $true
+        }
+
+        $rect = New-Object SafeSmokeUser32+RECT
+        if (-not [SafeSmokeUser32]::GetWindowRect($Handle, [ref]$rect)) {
+            return $true
+        }
+
+        $width = $rect.Right - $rect.Left
+        $height = $rect.Bottom - $rect.Top
+        if ($width -le 30 -or $height -le 30) {
+            return $true
+        }
+
+        $titleBuilder = New-Object System.Text.StringBuilder 256
+        [void][SafeSmokeUser32]::GetWindowText($Handle, $titleBuilder, $titleBuilder.Capacity)
+
+        $windows.Add([pscustomobject]@{
+                Handle = ("0x{0:X}" -f $Handle.ToInt64())
+                Title  = $titleBuilder.ToString()
+                Left   = $rect.Left
+                Top    = $rect.Top
+                Width  = $width
+                Height = $height
+            }) | Out-Null
+
+        return $true
+    }
+
+    [void][SafeSmokeUser32]::EnumWindows($callback, [IntPtr]::Zero)
+    return @($windows | Sort-Object -Property Width, Height)
+}
+
+function Wait-FirstVisibleWindowSnapshot {
+    param(
+        [int]$ProcessId,
+        [int]$TimeoutSeconds
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $windows = @(Get-VisibleTopLevelWindowsForProcess -ProcessId $ProcessId)
+        if ($windows.Count -gt 0) {
+            return [pscustomobject]@{
+                ElapsedMilliseconds = $stopwatch.ElapsedMilliseconds
+                Windows             = $windows
+            }
+        }
+
+        Start-Sleep -Milliseconds 80
+    }
+
+    throw ("CodexCliPlus.exe did not create a top-level visible window within {0}s." -f $TimeoutSeconds)
+}
+
+function Assert-AuthenticationStartupWindowSnapshot {
+    param([object]$Snapshot)
+
+    $windows = @($Snapshot.Windows)
+    $compactWindow = $windows |
+    Where-Object {
+        $_.Width -ge 280 -and
+        $_.Width -le 440 -and
+        $_.Height -ge 400 -and
+        $_.Height -le 580
+    } |
+    Select-Object -First 1
+
+    if ($null -eq $compactWindow) {
+        $details = $windows |
+        ForEach-Object { "{0}x{1} title='{2}' handle={3}" -f $_.Width, $_.Height, $_.Title, $_.Handle }
+        throw ("First visible window was not close to the authentication compact size 320x460. Windows: {0}" -f ($details -join "; "))
+    }
+
+    $largeWindows = @(
+        $windows |
+        Where-Object {
+            $_.Width -ge 900 -or
+            $_.Height -ge 700
+        }
+    )
+    if ($largeWindows.Count -gt 0) {
+        $details = $largeWindows |
+        ForEach-Object { "{0}x{1} title='{2}' handle={3}" -f $_.Width, $_.Height, $_.Title, $_.Handle }
+        throw ("First visible window snapshot included an oversized desktop host window: {0}" -f ($details -join "; "))
+    }
+
+    Write-Output ("[pass] First visible window stayed compact after {0}ms: {1}x{2}." -f $Snapshot.ElapsedMilliseconds, $compactWindow.Width, $compactWindow.Height)
+}
+
 function Get-ActiveTreeFiles {
     param(
         [string]$Root,
@@ -606,7 +751,13 @@ function Invoke-LaunchSmoke {
         }
 
         Write-Output ("Started CodexCliPlus.exe (PID {0})." -f $rootProcess.Id)
-        Start-Sleep -Seconds $WaitSeconds
+        $launchStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $firstWindowSnapshot = Wait-FirstVisibleWindowSnapshot -ProcessId $rootProcess.Id -TimeoutSeconds $WaitSeconds
+        Assert-AuthenticationStartupWindowSnapshot -Snapshot $firstWindowSnapshot
+        $remainingWaitSeconds = [Math]::Max(0, $WaitSeconds - [int][Math]::Floor($launchStopwatch.Elapsed.TotalSeconds))
+        if ($remainingWaitSeconds -gt 0) {
+            Start-Sleep -Seconds $remainingWaitSeconds
+        }
 
         if ($rootProcess.HasExited) {
             throw ("CodexCliPlus.exe exited early with code {0}." -f $rootProcess.ExitCode)

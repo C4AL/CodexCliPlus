@@ -240,9 +240,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
 
         DataContext = _viewModel;
         InitializeComponent();
+        PrepareHiddenAuthenticationStartupWindow();
         BindStartupFlowEvents();
-        Opacity = 0;
-        ShowInTaskbar = false;
 
         _backendProcessManager.StatusChanged += BackendProcessManager_StatusChanged;
         _notificationService.NotificationRequested +=

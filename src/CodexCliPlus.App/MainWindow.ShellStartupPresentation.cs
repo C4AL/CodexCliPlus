@@ -67,6 +67,21 @@ public partial class MainWindow
         );
     }
 
+    private void PrepareHiddenAuthenticationStartupWindow()
+    {
+        _isAuthenticationCompactWindowMode = true;
+        _preAuthenticationWindowLayout = null;
+        Opacity = 0;
+        ShowInTaskbar = false;
+
+        UpgradeNoticePanel.Visibility = Visibility.Collapsed;
+        StartupFlow.Visibility = Visibility.Collapsed;
+        BlockerPanel.Visibility = Visibility.Collapsed;
+        ManagementWebView.Visibility = Visibility.Collapsed;
+        ApplyAuthenticationCompactWindowChrome();
+        CenterAuthenticationCompactWindow();
+    }
+
     private void ShowPreparationStep(double progress, string description, StartupState state)
     {
         _startupState = state;
@@ -362,7 +377,10 @@ public partial class MainWindow
         var completion = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
-        var animation = new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
+        var animation = new DoubleAnimation(
+            to,
+            new Duration(TimeSpan.FromMilliseconds(milliseconds))
+        )
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             FillBehavior = FillBehavior.Stop,
@@ -384,7 +402,11 @@ public partial class MainWindow
         var expansionCenterX = Left + Width / 2;
         var centeredTargetLeft = expansionCenterX - target.Width / 2;
         await Task.WhenAll(
-            AnimateWindowDoubleAsync(System.Windows.Window.LeftProperty, centeredTargetLeft, milliseconds),
+            AnimateWindowDoubleAsync(
+                System.Windows.Window.LeftProperty,
+                centeredTargetLeft,
+                milliseconds
+            ),
             AnimateWindowDoubleAsync(FrameworkElement.WidthProperty, target.Width, milliseconds)
         );
     }
@@ -546,7 +568,10 @@ public partial class MainWindow
         var completion = new TaskCompletionSource<bool>(
             TaskCreationOptions.RunContinuationsAsynchronously
         );
-        var animation = new DoubleAnimation(to, new Duration(TimeSpan.FromMilliseconds(milliseconds)))
+        var animation = new DoubleAnimation(
+            to,
+            new Duration(TimeSpan.FromMilliseconds(milliseconds))
+        )
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
             FillBehavior = FillBehavior.Stop,
@@ -623,7 +648,12 @@ public partial class MainWindow
         _isAuthenticationCompactWindowMode = true;
         CloseShellDockPopups();
         SetNavigationDockPopupOpen(false);
+        ApplyAuthenticationCompactWindowChrome();
+        CenterAuthenticationCompactWindow();
+    }
 
+    private void ApplyAuthenticationCompactWindowChrome()
+    {
         if (WindowState != WindowState.Normal)
         {
             WindowState = WindowState.Normal;
@@ -640,15 +670,16 @@ public partial class MainWindow
         WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.None;
 
         MainWindowChromeBehavior.ResizeBorderThickness = new Thickness(0);
-        MainWindowChromeBehavior.CornerPreference =
-            ControlzEx.Behaviors.WindowCornerPreference.DoNotRound;
+        MainWindowChromeBehavior.CornerPreference = ControlzEx
+            .Behaviors
+            .WindowCornerPreference
+            .DoNotRound;
         MainWindowChromeBehavior.UseNativeCaptionButtons = false;
         MainWindowGlowBehavior.GlowDepth = 0;
 
         ShellTitleBar.Visibility = Visibility.Collapsed;
         ShellTitleBarRow.Height = new GridLength(0);
         ManagementContentHost.Visibility = Visibility.Collapsed;
-        CenterAuthenticationCompactWindow();
     }
 
     private void ExitAuthenticationCompactWindowMode()
@@ -661,7 +692,7 @@ public partial class MainWindow
         }
 
         _isAuthenticationCompactWindowMode = false;
-        var windowLayout = _preAuthenticationWindowLayout;
+        var windowLayout = ResolveAuthenticationExitLayout();
         _preAuthenticationWindowLayout = null;
 
         if (WindowState != WindowState.Normal)
@@ -669,29 +700,17 @@ public partial class MainWindow
             WindowState = WindowState.Normal;
         }
 
-        if (windowLayout is { } layout)
+        Width = windowLayout.Width;
+        Height = windowLayout.Height;
+        if (IsFiniteWindowValue(windowLayout.Left) && IsFiniteWindowValue(windowLayout.Top))
         {
-            Width = NormalizeWindowLength(layout.Width, MainWindowMinWidth, MainWindowDefaultWidth);
-            Height = NormalizeWindowLength(
-                layout.Height,
-                MainWindowMinHeight,
-                MainWindowDefaultHeight
-            );
-            if (IsFiniteWindowValue(layout.Left) && IsFiniteWindowValue(layout.Top))
-            {
-                Left = layout.Left;
-                Top = layout.Top;
-            }
-
-            if (layout.WindowState == WindowState.Maximized)
-            {
-                WindowState = WindowState.Maximized;
-            }
+            Left = windowLayout.Left;
+            Top = windowLayout.Top;
         }
-        else
+
+        if (windowLayout.WindowState == WindowState.Maximized)
         {
-            Width = MainWindowDefaultWidth;
-            Height = MainWindowDefaultHeight;
+            WindowState = WindowState.Maximized;
         }
 
         RefreshShellDockPopupPlacements();
@@ -708,7 +727,10 @@ public partial class MainWindow
         WindowBackdropType = Wpf.Ui.Controls.WindowBackdropType.Auto;
 
         MainWindowChromeBehavior.ResizeBorderThickness = new Thickness(8);
-        MainWindowChromeBehavior.CornerPreference = ControlzEx.Behaviors.WindowCornerPreference.Round;
+        MainWindowChromeBehavior.CornerPreference = ControlzEx
+            .Behaviors
+            .WindowCornerPreference
+            .Round;
         MainWindowChromeBehavior.UseNativeCaptionButtons = false;
         MainWindowGlowBehavior.GlowDepth = 8;
 
@@ -720,7 +742,8 @@ public partial class MainWindow
     private WindowLayoutSnapshot CaptureCurrentWindowLayout()
     {
         var state = WindowState;
-        var bounds = state == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+        var bounds =
+            state == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         return new WindowLayoutSnapshot(
             bounds.Left,
             bounds.Top,
@@ -734,9 +757,7 @@ public partial class MainWindow
     {
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Left + Math.Max(0, (workArea.Width - AuthenticationCompactWindowWidth) / 2);
-        Top =
-            workArea.Top
-            + Math.Max(0, (workArea.Height - AuthenticationCompactWindowHeight) / 2);
+        Top = workArea.Top + Math.Max(0, (workArea.Height - AuthenticationCompactWindowHeight) / 2);
     }
 
     private static double NormalizeWindowLength(double value, double minimum, double fallback)

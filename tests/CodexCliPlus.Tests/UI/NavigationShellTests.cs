@@ -1169,6 +1169,20 @@ public sealed class NavigationShellTests
         Assert.Contains("targetId", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("codexRouteResponse", hostSource, StringComparison.Ordinal);
         Assert.Contains("codexRouteResponse", webBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexUserFiles", hostSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexUserFiles", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("readCodexUserFile", hostSource, StringComparison.Ordinal);
+        Assert.Contains("readCodexUserFile", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("validateCodexUserFile", hostSource, StringComparison.Ordinal);
+        Assert.Contains("validateCodexUserFile", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("backupCodexUserFile", hostSource, StringComparison.Ordinal);
+        Assert.Contains("backupCodexUserFile", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("saveCodexUserFile", hostSource, StringComparison.Ordinal);
+        Assert.Contains("saveCodexUserFile", bridgeSource, StringComparison.Ordinal);
+        Assert.Contains("codexUserFileResponse", hostSource, StringComparison.Ordinal);
+        Assert.Contains("codexUserFileResponse", webBridgeSource, StringComparison.Ordinal);
+        Assert.Contains("expectedLastWriteTimeUtc", hostSource, StringComparison.Ordinal);
+        Assert.Contains("expectedLastWriteTimeUtc", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("hasHostBridge", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("return false", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("桌面桥接通道未就绪", webBridgeSource, StringComparison.Ordinal);
@@ -3051,6 +3065,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var codexConfigPageSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "pages",
+                "CodexConfigPage.tsx"
+            ),
+            Encoding.UTF8
+        );
         var overlayDashboardOverviewPageSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -3307,24 +3334,41 @@ public sealed class NavigationShellTests
         );
         Assert.Contains(
             "requestCodexRouteState",
-            dashboardOverviewPageSource,
+            codexConfigPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("switchCodexRoute", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("requestCodexUserFiles", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("readCodexUserFile", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("validateCodexUserFile", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("backupCodexUserFile", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("saveCodexUserFile", codexConfigPageSource, StringComparison.Ordinal);
         Assert.Contains(
-            "当前：{codexRouteModeLabel}",
-            dashboardOverviewPageSource,
+            "当前：{routeLabel}",
+            codexConfigPageSource,
             StringComparison.Ordinal
         );
         Assert.Contains(
-            "selectedCodexRouteTargetId",
+            "selectedRouteTargetId",
+            codexConfigPageSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("Codex 路由目标", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("选择路由", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("检测失败", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("应用", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("config.toml", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("auth.json", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.Contains("需要桌面端桥接", codexConfigPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "requestCodexRouteState",
             dashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("Codex 路由目标", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("选择路由", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("检测失败", dashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("应用", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("switchCodexRoute", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("selectedCodexRouteTargetId", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Codex 路由目标", dashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("选择路由", dashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains(
             "usage_stats.total_5h_remaining_quota",
             dashboardOverviewPageSource,
@@ -3341,34 +3385,32 @@ public sealed class NavigationShellTests
             dashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "requestCodexRouteState",
             overlayDashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "switchCodexRoute",
             overlayDashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "当前：{codexRouteModeLabel}",
             overlayDashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "selectedCodexRouteTargetId",
             overlayDashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains(
+        Assert.DoesNotContain(
             "Codex 路由目标",
             overlayDashboardOverviewPageSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("选择路由", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("检测失败", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
-        Assert.Contains("应用", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("选择路由", overlayDashboardOverviewPageSource, StringComparison.Ordinal);
         Assert.Contains(
             "usage_stats.total_5h_remaining_quota",
             overlayDashboardOverviewPageSource,

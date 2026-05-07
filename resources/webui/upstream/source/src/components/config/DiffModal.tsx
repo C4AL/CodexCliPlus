@@ -12,6 +12,7 @@ type DiffModalProps = {
   open: boolean;
   original: string;
   modified: string;
+  fileName?: string;
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
@@ -39,6 +40,7 @@ export function DiffModal({
   open,
   original,
   modified,
+  fileName = 'config.yaml',
   onConfirm,
   onCancel,
   loading = false
@@ -73,7 +75,7 @@ export function DiffModal({
           <div className={styles.diffContainer}>
             <div className={styles.fileHeader}>
               <IconFileText className={styles.fileIcon} size={16} />
-              <span className={styles.fileName}>config.yaml</span>
+              <span className={styles.fileName}>{fileName}</span>
               <span className={styles.fileStats}>
                 <span className={styles.statAdditions}>+{diff.additions}</span>
                 <span className={styles.statDeletions}>-{diff.deletions}</span>

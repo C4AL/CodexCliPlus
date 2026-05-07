@@ -108,6 +108,77 @@ public sealed class ConfigAndLogsPageTests
     }
 
     [Fact]
+    public void CodexConfigPageOwnsRouteSwitchingAndUserCodexFileEditing()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var sourceRoot = Path.Combine(
+            repositoryRoot,
+            "resources",
+            "webui",
+            "upstream",
+            "source",
+            "src"
+        );
+        var codexConfigPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "CodexConfigPage.tsx"),
+            Encoding.UTF8
+        );
+        var dashboardOverviewPage = File.ReadAllText(
+            Path.Combine(sourceRoot, "pages", "DashboardOverviewPage.tsx"),
+            Encoding.UTF8
+        );
+        var overlayDashboardOverviewPage = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "modules",
+                "cpa-uv-overlay",
+                "source",
+                "src",
+                "pages",
+                "DashboardOverviewPage.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var sourceEditor = File.ReadAllText(
+            Path.Combine(sourceRoot, "components", "config", "ConfigSourceEditor.tsx"),
+            Encoding.UTF8
+        );
+        var diffModal = File.ReadAllText(
+            Path.Combine(sourceRoot, "components", "config", "DiffModal.tsx"),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("requestCodexRouteState", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("switchCodexRoute", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("requestCodexUserFiles", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("validateCodexUserFile", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("backupCodexUserFile", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("saveCodexUserFile", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("config.toml", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("auth.json", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("需要桌面端桥接", codexConfigPage, StringComparison.Ordinal);
+        Assert.Contains("模板只能在源码编辑中插入", codexConfigPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("requestCodexRouteState", dashboardOverviewPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("switchCodexRoute", dashboardOverviewPage, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "requestCodexRouteState",
+            overlayDashboardOverviewPage,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("switchCodexRoute", overlayDashboardOverviewPage, StringComparison.Ordinal);
+        Assert.Contains("@codemirror/lang-json", sourceEditor, StringComparison.Ordinal);
+        Assert.Contains("@codemirror/legacy-modes/mode/toml", sourceEditor, StringComparison.Ordinal);
+        Assert.Contains("fileName = 'config.yaml'", diffModal, StringComparison.Ordinal);
+        Assert.Contains(
+            "<span className={styles.fileName}>{fileName}</span>",
+            diffModal,
+            StringComparison.Ordinal
+        );
+    }
+
+    [Fact]
     public void DesktopManagementProxyPreservesCommaSeparatedAcceptHeaders()
     {
         var method = typeof(MainWindow).GetMethod(

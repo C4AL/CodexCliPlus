@@ -1,0 +1,425 @@
+@use '../styles/mixins' as *;
+@use '../styles/variables' as *;
+
+.container {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-lg;
+  overflow-y: auto;
+  padding-bottom: $spacing-md;
+}
+
+.pageHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, auto);
+  gap: 20px;
+  align-items: end;
+  padding: clamp(20px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+.pageHeaderCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pageEyebrow {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1;
+}
+
+.description {
+  margin: 0;
+  max-width: 54rem;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.routePanel {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(220px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  justify-content: end;
+  min-width: 0;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+}
+
+.routeStatus {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routeSelect {
+  min-width: 220px;
+
+  @include mobile {
+    min-width: 0;
+  }
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 640px;
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+}
+
+.fileRail,
+.mainPanel {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-primary) 82%, transparent);
+}
+
+.fileRail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  align-self: start;
+}
+
+.fileButton {
+  @include button-reset;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  text-align: left;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.fileButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
+  color: var(--text-primary);
+}
+
+.fileButtonActive {
+  border-color: color-mix(in srgb, var(--primary-color) 28%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 9%, var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.fileBadge {
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fileMeta {
+  grid-column: 1 / -1;
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.mainPanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+
+  @include mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.toolbarLeft,
+.toolbarRight,
+.modeTabs,
+.sourceActions,
+.searchActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.modeTabs {
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.tabButton {
+  @include button-reset;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tabButtonActive {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 10px 24px -20px rgba(0, 0, 0, 0.35);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.statusError {
+  border-color: color-mix(in srgb, var(--danger-color, #dc2626) 30%, var(--border-color));
+  color: var(--danger-color, #dc2626);
+}
+
+.statusDirty {
+  border-color: color-mix(in srgb, var(--warning-color, #f59e0b) 34%, var(--border-color));
+  color: var(--warning-color, #b45309);
+}
+
+.statusValid {
+  border-color: color-mix(in srgb, var(--success-color, #16a34a) 26%, var(--border-color));
+  color: var(--success-color, #16a34a);
+}
+
+.panelBody {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.sourceWorkspace {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  flex: 1 1 auto;
+}
+
+.sourceToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  @include mobile {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.searchInputWrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.searchInputWrapper :global(.form-group) {
+  margin-bottom: 0;
+}
+
+.searchInput {
+  padding-right: 132px !important;
+}
+
+.searchRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.searchCount {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.searchButton {
+  @include button-reset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.templatePanel,
+.visualPanel {
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-secondary) 56%, transparent);
+  padding: 12px;
+}
+
+.templateGrid,
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.templateGrid :global(.form-group),
+.fieldGrid :global(.form-group) {
+  margin-bottom: 0;
+}
+
+.editorWrapper {
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+  border-radius: 12px;
+}
+
+.visualScroll {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sectionHint {
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.tableRows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-primary) 70%, transparent);
+
+  @include mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tableRow :global(.form-group) {
+  margin-bottom: 0;
+}
+
+.emptyState,
+.unavailable {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.pathLine {
+  color: var(--text-tertiary, #94a3b8);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+}

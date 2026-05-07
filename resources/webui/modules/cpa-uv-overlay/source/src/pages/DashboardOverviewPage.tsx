@@ -2,16 +2,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { CODEX_CONFIG } from '@/components/quota';
 import { useUsageData } from '@/components/usage';
-import {
-  isDesktopMode,
-  requestCodexRouteState,
-  switchCodexRoute,
-  type CodexRouteState,
-} from '@/desktop/bridge';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Select, type SelectOption } from '@/components/ui/Select';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { authFilesApi, logsApi } from '@/services/api';
 import { parseLogLine } from '@/pages/hooks/logParsing';
@@ -49,26 +41,6 @@ const TRACEABLE_EXACT_PATHS = new Set(['/v1/chat/completions', '/v1/messages', '
 const TRACEABLE_PREFIX_PATHS = ['/v1beta/models'];
 const EMPTY_HIGHLIGHT_IDS = new Set<string>();
 const FIVE_HOUR_WINDOW_ID = 'five-hour';
-
-const getCodexRouteModeLabel = (mode: CodexRouteState['currentMode']) => {
-  if (mode === 'cpa') return 'CPA 模式';
-  if (mode === 'official') return '官方模式';
-  return '未知模式';
-};
-
-const resolveSelectedCodexRouteTargetId = (
-  state: CodexRouteState | null,
-  selectedTargetId: string
-) => {
-  if (!state) return '';
-  if (state.targets.some((target) => target.id === selectedTargetId)) return selectedTargetId;
-  return (
-    state.currentTargetId ||
-    state.targets.find((target) => target.isCurrent)?.id ||
-    state.targets[0]?.id ||
-    ''
-  );
-};
 
 type CodexUsageStats = {
   requests: number;
@@ -1033,88 +1005,9 @@ export function DashboardOverviewPage() {
   const [filesLoading, setFilesLoading] = useState(true);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [codexQuotaByFile, setCodexQuotaByFile] = useState<Record<string, OverviewQuotaEntry>>({});
-  const [codexRouteState, setCodexRouteState] = useState<CodexRouteState | null>(null);
-  const [selectedCodexRouteTargetId, setSelectedCodexRouteTargetId] = useState('');
-  const [codexRouteLoading, setCodexRouteLoading] = useState(false);
-  const [codexRouteSwitching, setCodexRouteSwitching] = useState(false);
-  const [codexRouteError, setCodexRouteError] = useState('');
 
   const quotaSyncSignatureRef = useRef('');
   const quotaRequestKeyRef = useRef('');
-  const desktopBridgeAvailable = isDesktopMode();
-
-  const loadCodexRouteState = useCallback(async () => {
-    if (!desktopBridgeAvailable) {
-      setCodexRouteState(null);
-      setCodexRouteError('需要桌面端桥接');
-      return;
-    }
-
-    setCodexRouteLoading(true);
-    try {
-      const state = await requestCodexRouteState();
-      setCodexRouteState(state);
-      setSelectedCodexRouteTargetId(
-        state.currentTargetId || state.targets.find((target) => target.isCurrent)?.id || ''
-      );
-      setCodexRouteError('');
-    } catch (routeError) {
-      setCodexRouteState(null);
-      setCodexRouteError(routeError instanceof Error ? routeError.message : '读取 Codex 路由失败');
-    } finally {
-      setCodexRouteLoading(false);
-    }
-  }, [desktopBridgeAvailable]);
-
-  useEffect(() => {
-    const routeStateTimer = window.setTimeout(() => {
-      void loadCodexRouteState();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(routeStateTimer);
-    };
-  }, [loadCodexRouteState]);
-
-  const handleCodexRouteSwitch = useCallback(async () => {
-    const resolvedTargetId = resolveSelectedCodexRouteTargetId(
-      codexRouteState,
-      selectedCodexRouteTargetId
-    );
-    const selectedTarget = codexRouteState?.targets.find(
-      (target) => target.id === resolvedTargetId
-    );
-    if (
-      !desktopBridgeAvailable ||
-      !selectedTarget ||
-      selectedTarget.isCurrent ||
-      !selectedTarget.canSwitch
-    ) {
-      return;
-    }
-
-    setCodexRouteSwitching(true);
-    setCodexRouteError('');
-    try {
-      const result = await switchCodexRoute(selectedTarget.id);
-      setCodexRouteState(result.state);
-      setSelectedCodexRouteTargetId(
-        result.state.currentTargetId ||
-          result.state.targets.find((target) => target.isCurrent)?.id ||
-          selectedTarget.id
-      );
-    } catch (routeError) {
-      setCodexRouteError(routeError instanceof Error ? routeError.message : '切换 Codex 路由失败');
-      void loadCodexRouteState();
-    } finally {
-      setCodexRouteSwitching(false);
-    }
-  }, [
-    codexRouteState,
-    desktopBridgeAvailable,
-    loadCodexRouteState,
-    selectedCodexRouteTargetId,
-  ]);
 
   const loadOverviewFiles = useCallback(async (): Promise<AuthFileItem[]> => {
     if (connectionStatus !== 'connected') {
@@ -1490,44 +1383,6 @@ export function DashboardOverviewPage() {
     [codexFiles, codexQuotaByFile, filesLoading, i18n.language, quotaLoading, t, usageByAuthIndex]
   );
 
-  const codexRouteOptions = useMemo<SelectOption[]>(
-    () =>
-      (codexRouteState?.targets ?? []).map((target) => ({
-        value: target.id,
-        label: target.label,
-      })),
-    [codexRouteState]
-  );
-  const resolvedSelectedCodexRouteTargetId = resolveSelectedCodexRouteTargetId(
-    codexRouteState,
-    selectedCodexRouteTargetId
-  );
-  const selectedCodexRouteTarget = useMemo(
-    () =>
-      codexRouteState?.targets.find((target) => target.id === resolvedSelectedCodexRouteTargetId) ??
-      null,
-    [codexRouteState, resolvedSelectedCodexRouteTargetId]
-  );
-  const codexRouteModeLabel = codexRouteState
-    ? codexRouteState.currentLabel || getCodexRouteModeLabel(codexRouteState.currentMode)
-    : codexRouteError
-      ? '检测失败'
-      : desktopBridgeAvailable
-        ? '检测中'
-        : '不可用';
-  const codexRouteDisabled =
-    !desktopBridgeAvailable ||
-    codexRouteLoading ||
-    codexRouteSwitching ||
-    !selectedCodexRouteTarget ||
-    selectedCodexRouteTarget.isCurrent ||
-    !selectedCodexRouteTarget.canSwitch;
-  const codexRouteTitle =
-    codexRouteError ||
-    selectedCodexRouteTarget?.statusMessage ||
-    codexRouteState?.statusMessage ||
-    'Codex 路由状态';
-
   const lastUpdatedLabel = lastRefreshedAt
     ? formatOverviewUpdatedTime(lastRefreshedAt, i18n.language)
     : hasUsageSnapshot
@@ -1551,34 +1406,6 @@ export function DashboardOverviewPage() {
           }
           extra={
             <div className={styles.headerActions}>
-              <div className={styles.routeSwitch} title={codexRouteTitle}>
-                <span className={styles.routeStatus}>当前：{codexRouteModeLabel}</span>
-                <Select
-                  className={styles.routeSelect}
-                  value={resolvedSelectedCodexRouteTargetId}
-                  options={codexRouteOptions}
-                  onChange={setSelectedCodexRouteTargetId}
-                  placeholder={codexRouteError ? '检测失败' : '选择路由'}
-                  disabled={
-                    !desktopBridgeAvailable ||
-                    codexRouteLoading ||
-                    codexRouteSwitching ||
-                    codexRouteOptions.length === 0
-                  }
-                  ariaLabel="Codex 路由目标"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleCodexRouteSwitch}
-                  disabled={codexRouteDisabled}
-                  loading={codexRouteSwitching}
-                >
-                  应用
-                </Button>
-                {codexRouteError && <span className={styles.routeError}>检测失败</span>}
-              </div>
               <div className={styles.summaryPills}>
                 <span
                   className={`${styles.summaryPill} ${styles.summaryPillQuota}`}

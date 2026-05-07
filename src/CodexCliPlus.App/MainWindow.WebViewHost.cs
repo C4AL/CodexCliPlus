@@ -558,6 +558,48 @@ public partial class MainWindow
                     );
                     break;
 
+                case "requestCodexUserFiles":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SendCodexUserFilesAsync(ReadRequestId(root))
+                    );
+                    break;
+
+                case "readCodexUserFile":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SendCodexUserFileAsync(ReadRequestId(root), ReadString(root, "fileId"))
+                    );
+                    break;
+
+                case "validateCodexUserFile":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await ValidateCodexUserFileAsync(
+                            ReadRequestId(root),
+                            ReadString(root, "fileId"),
+                            ReadString(root, "content") ?? string.Empty
+                        )
+                    );
+                    break;
+
+                case "backupCodexUserFile":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await BackupCodexUserFileAsync(
+                            ReadRequestId(root),
+                            ReadString(root, "fileId")
+                        )
+                    );
+                    break;
+
+                case "saveCodexUserFile":
+                    _ = Dispatcher.InvokeAsync(async () =>
+                        await SaveCodexUserFileAsync(
+                            ReadRequestId(root),
+                            ReadString(root, "fileId"),
+                            ReadString(root, "content") ?? string.Empty,
+                            ReadExpectedLastWriteTimeUtc(root)
+                        )
+                    );
+                    break;
+
                 case "requestLocalDependencySnapshot":
                     _ = SendLocalDependencySnapshotAsync(ReadRequestId(root));
                     break;
@@ -1123,6 +1165,44 @@ public partial class MainWindow
             : null;
     }
 
+    private static DateTimeOffset? ReadExpectedLastWriteTimeUtc(JsonElement root)
+    {
+        if (!root.TryGetProperty("expectedLastWriteTimeUtc", out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.String)
+        {
+            return DateTimeOffset.MinValue;
+        }
+
+        var text = value.GetString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        if (
+            !DateTimeOffset.TryParse(
+                text,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var timestamp
+            )
+        )
+        {
+            return DateTimeOffset.MinValue;
+        }
+
+        return timestamp.ToUniversalTime();
+    }
+
     private async Task SendCodexRouteStateAsync(string? requestId)
     {
         try
@@ -1205,6 +1285,167 @@ public partial class MainWindow
                 }
             );
             _notificationService.ShowManual("切换 Codex 路由失败", exception.Message);
+        }
+    }
+
+    private async Task SendCodexUserFilesAsync(string? requestId)
+    {
+        try
+        {
+            var files = await _codexConfigService.GetCodexUserFileSnapshotsAsync();
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = true,
+                    files,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+        }
+    }
+
+    private async Task SendCodexUserFileAsync(string? requestId, string? fileId)
+    {
+        try
+        {
+            var file = await _codexConfigService.ReadCodexUserFileAsync(fileId);
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = true,
+                    file,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+        }
+    }
+
+    private Task ValidateCodexUserFileAsync(string? requestId, string? fileId, string content)
+    {
+        try
+        {
+            var validation = _codexConfigService.ValidateCodexUserFile(fileId, content);
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = true,
+                    validation,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task BackupCodexUserFileAsync(string? requestId, string? fileId)
+    {
+        try
+        {
+            var result = await _codexConfigService.BackupCodexUserFileAsync(fileId);
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = true,
+                    result,
+                }
+            );
+            _notificationService.ShowAuto("Codex 用户配置备份已创建。");
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+            _notificationService.ShowManual("备份 Codex 用户配置失败", exception.Message);
+        }
+    }
+
+    private async Task SaveCodexUserFileAsync(
+        string? requestId,
+        string? fileId,
+        string content,
+        DateTimeOffset? expectedLastWriteTimeUtc
+    )
+    {
+        try
+        {
+            var result = await _codexConfigService.SaveCodexUserFileAsync(
+                fileId,
+                content,
+                expectedLastWriteTimeUtc
+            );
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = true,
+                    result,
+                }
+            );
+            _changeBroadcastService.Broadcast("config", "providers", "quota", "auth-files");
+            _notificationService.ShowAuto("Codex 用户配置已保存。");
+        }
+        catch (Exception exception)
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "codexUserFileResponse",
+                    requestId,
+                    ok = false,
+                    error = exception.Message,
+                }
+            );
+            _notificationService.ShowManual("保存 Codex 用户配置失败", exception.Message);
         }
     }
 

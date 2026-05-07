@@ -1,6 +1,9 @@
 import { useMemo, type Ref } from 'react';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
+import { json } from '@codemirror/lang-json';
 import { yaml } from '@codemirror/lang-yaml';
+import { StreamLanguage } from '@codemirror/language';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
 
@@ -11,6 +14,7 @@ type ConfigSourceEditorProps = {
   theme: 'light' | 'dark';
   editable: boolean;
   placeholder: string;
+  language?: 'yaml' | 'toml' | 'json';
 };
 
 export default function ConfigSourceEditor({
@@ -20,10 +24,17 @@ export default function ConfigSourceEditor({
   theme,
   editable,
   placeholder,
+  language = 'yaml',
 }: ConfigSourceEditorProps) {
+  const languageExtension = useMemo(() => {
+    if (language === 'json') return json();
+    if (language === 'toml') return StreamLanguage.define(toml);
+    return yaml();
+  }, [language]);
+
   const extensions = useMemo(
-    () => [yaml(), search(), highlightSelectionMatches(), keymap.of(searchKeymap)],
-    []
+    () => [languageExtension, search(), highlightSelectionMatches(), keymap.of(searchKeymap)],
+    [languageExtension]
   );
 
   return (

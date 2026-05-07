@@ -85,48 +85,6 @@
   flex-wrap: wrap;
 }
 
-.routeSwitch {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.routeSwitch :global(.btn) {
-  min-width: 64px;
-  white-space: nowrap;
-}
-
-.routeSelect {
-  width: min(260px, 42vw);
-  min-width: 196px;
-}
-
-.routeSelect > button {
-  height: 32px;
-  min-height: 32px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.routeStatus {
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.routeError {
-  max-width: 96px;
-  color: var(--danger-color, #dc2626);
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .summaryPills {
   display: inline-flex;
   align-items: center;
@@ -679,11 +637,6 @@
 @media (max-width: 640px) {
   .accountGrid {
     grid-template-columns: 1fr;
-  }
-
-  .routeSelect {
-    width: 100%;
-    min-width: 0;
   }
 
   .quotaGrid {

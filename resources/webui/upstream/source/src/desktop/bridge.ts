@@ -146,6 +146,46 @@ export interface CodexRouteSwitchResponse {
   officialAuthBackupPath?: string | null;
 }
 
+export type CodexUserFileId = 'config' | 'auth';
+export type CodexUserFileLanguage = 'toml' | 'json';
+
+export interface CodexUserFileValidation {
+  isValid: boolean;
+  message: string;
+}
+
+export interface CodexUserFileSnapshot {
+  fileId: CodexUserFileId;
+  path: string;
+  content: string;
+  language: CodexUserFileLanguage;
+  exists: boolean;
+  lastWriteTimeUtc?: string | null;
+  sizeBytes: number;
+  validation: CodexUserFileValidation;
+}
+
+export interface CodexUserFileBackupResult {
+  fileId: CodexUserFileId;
+  path: string;
+  backupPath: string;
+  snapshot: CodexUserFileSnapshot;
+}
+
+export interface CodexUserFileSaveResult {
+  fileId: CodexUserFileId;
+  path: string;
+  backupPath?: string | null;
+  snapshot: CodexUserFileSnapshot;
+}
+
+interface CodexUserFileBridgeResponse {
+  files?: CodexUserFileSnapshot[];
+  file?: CodexUserFileSnapshot;
+  validation?: CodexUserFileValidation;
+  result?: CodexUserFileBackupResult | CodexUserFileSaveResult;
+}
+
 export type DesktopShellCommand =
   | {
       type: 'setTheme';
@@ -176,6 +216,20 @@ interface DesktopBridge {
   applyDesktopUpdate?: () => void;
   requestCodexRouteState?: (requestId: string) => boolean | void;
   switchCodexRoute?: (targetId: string, requestId: string) => boolean | void;
+  requestCodexUserFiles?: (requestId: string) => boolean | void;
+  readCodexUserFile?: (fileId: CodexUserFileId, requestId: string) => boolean | void;
+  validateCodexUserFile?: (
+    fileId: CodexUserFileId,
+    content: string,
+    requestId: string
+  ) => boolean | void;
+  backupCodexUserFile?: (fileId: CodexUserFileId, requestId: string) => boolean | void;
+  saveCodexUserFile?: (
+    fileId: CodexUserFileId,
+    content: string,
+    expectedLastWriteTimeUtc: string | null | undefined,
+    requestId: string
+  ) => boolean | void;
   managementRequest?: (request: DesktopManagementRequest & { requestId: string }) => void;
   requestLocalDependencySnapshot?: (requestId: string) => boolean | void;
   runLocalDependencyRepair?: (actionId: string, requestId: string) => boolean | void;
@@ -222,10 +276,19 @@ const pendingCodexRouteRequests = new Map<
     timer: ReturnType<typeof window.setTimeout>;
   }
 >();
+const pendingCodexUserFileRequests = new Map<
+  string,
+  {
+    resolve: (value: CodexUserFileBridgeResponse) => void;
+    reject: (reason?: unknown) => void;
+    timer: ReturnType<typeof window.setTimeout>;
+  }
+>();
 const MANAGEMENT_REQUEST_TIMEOUT_MS = 120_000;
 const LOCAL_DEPENDENCY_SNAPSHOT_TIMEOUT_MS = 2_000;
 const LOCAL_DEPENDENCY_REPAIR_TIMEOUT_MS = 35 * 60_000;
 const CODEX_ROUTE_REQUEST_TIMEOUT_MS = 30_000;
+const CODEX_USER_FILE_REQUEST_TIMEOUT_MS = 30_000;
 let localDependencySnapshotInFlight: Promise<LocalDependencySnapshot> | null = null;
 
 function getBridge(): DesktopBridge | null {
@@ -490,6 +553,91 @@ function normalizeCodexRouteState(value: unknown): CodexRouteState | null {
   };
 }
 
+function normalizeCodexUserFileId(value: unknown): CodexUserFileId | null {
+  return value === 'config' || value === 'auth' ? value : null;
+}
+
+function normalizeCodexUserFileLanguage(value: unknown): CodexUserFileLanguage {
+  return value === 'json' ? 'json' : 'toml';
+}
+
+function normalizeCodexUserFileValidation(value: unknown): CodexUserFileValidation | null {
+  if (!isRecord(value)) return null;
+  return {
+    isValid: value.isValid === true,
+    message: typeof value.message === 'string' ? value.message : '',
+  };
+}
+
+function normalizeCodexUserFileSnapshot(value: unknown): CodexUserFileSnapshot | null {
+  if (!isRecord(value)) return null;
+  const fileId = normalizeCodexUserFileId(value.fileId);
+  const validation = normalizeCodexUserFileValidation(value.validation);
+  if (!fileId || !validation) return null;
+  const sizeBytes =
+    typeof value.sizeBytes === 'number' && Number.isFinite(value.sizeBytes)
+      ? Math.max(0, Math.round(value.sizeBytes))
+      : 0;
+  return {
+    fileId,
+    path: typeof value.path === 'string' ? value.path : '',
+    content: typeof value.content === 'string' ? value.content : '',
+    language: normalizeCodexUserFileLanguage(value.language),
+    exists: value.exists === true,
+    lastWriteTimeUtc: typeof value.lastWriteTimeUtc === 'string' ? value.lastWriteTimeUtc : null,
+    sizeBytes,
+    validation,
+  };
+}
+
+function normalizeCodexUserFileSnapshots(value: unknown): CodexUserFileSnapshot[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => normalizeCodexUserFileSnapshot(item))
+    .filter((item): item is CodexUserFileSnapshot => item !== null);
+}
+
+function normalizeCodexUserFileBackupResult(value: unknown): CodexUserFileBackupResult | null {
+  if (!isRecord(value)) return null;
+  const fileId = normalizeCodexUserFileId(value.fileId);
+  const snapshot = normalizeCodexUserFileSnapshot(value.snapshot);
+  if (!fileId || !snapshot) return null;
+  return {
+    fileId,
+    path: typeof value.path === 'string' ? value.path : '',
+    backupPath: typeof value.backupPath === 'string' ? value.backupPath : '',
+    snapshot,
+  };
+}
+
+function normalizeCodexUserFileSaveResult(value: unknown): CodexUserFileSaveResult | null {
+  if (!isRecord(value)) return null;
+  const fileId = normalizeCodexUserFileId(value.fileId);
+  const snapshot = normalizeCodexUserFileSnapshot(value.snapshot);
+  if (!fileId || !snapshot) return null;
+  return {
+    fileId,
+    path: typeof value.path === 'string' ? value.path : '',
+    backupPath: typeof value.backupPath === 'string' ? value.backupPath : null,
+    snapshot,
+  };
+}
+
+function normalizeCodexUserFileResponse(message: Record<string, unknown>): CodexUserFileBridgeResponse {
+  const files = normalizeCodexUserFileSnapshots(message.files);
+  const file = normalizeCodexUserFileSnapshot(message.file);
+  const validation = normalizeCodexUserFileValidation(message.validation);
+  const saveResult = normalizeCodexUserFileSaveResult(message.result);
+  const backupResult = saveResult ? null : normalizeCodexUserFileBackupResult(message.result);
+
+  return {
+    ...(files.length > 0 ? { files } : {}),
+    ...(file ? { file } : {}),
+    ...(validation ? { validation } : {}),
+    ...(saveResult || backupResult ? { result: saveResult ?? backupResult ?? undefined } : {}),
+  };
+}
+
 function settleLocalDependencyRequest(
   requestId: unknown,
   value: unknown,
@@ -639,6 +787,30 @@ function handleCodexRouteMessage(message: unknown): boolean {
   return true;
 }
 
+function handleCodexUserFileMessage(message: unknown): boolean {
+  if (!isRecord(message) || message.type !== 'codexUserFileResponse') return false;
+  const requestId = typeof message.requestId === 'string' ? message.requestId : '';
+  if (!requestId) return true;
+  const pending = pendingCodexUserFileRequests.get(requestId);
+  if (!pending) return true;
+  pendingCodexUserFileRequests.delete(requestId);
+  window.clearTimeout(pending.timer);
+
+  if (message.ok === true) {
+    pending.resolve(normalizeCodexUserFileResponse(message));
+    return true;
+  }
+
+  pending.reject(
+    new Error(
+      typeof message.error === 'string' && message.error.trim()
+        ? message.error
+        : 'Codex 用户配置操作失败'
+    )
+  );
+  return true;
+}
+
 function registerLocalDependencyRequest<T>(
   requestId: string,
   timeoutMs: number,
@@ -668,6 +840,18 @@ function registerCodexRouteRequest(requestId: string): Promise<CodexRouteSwitchR
   });
 }
 
+function registerCodexUserFileRequest(
+  requestId: string
+): Promise<CodexUserFileBridgeResponse> {
+  return new Promise<CodexUserFileBridgeResponse>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      pendingCodexUserFileRequests.delete(requestId);
+      reject(new Error('Codex 用户配置响应超时'));
+    }, CODEX_USER_FILE_REQUEST_TIMEOUT_MS);
+    pendingCodexUserFileRequests.set(requestId, { resolve, reject, timer });
+  });
+}
+
 function ensureDesktopCommandListener() {
   if (desktopCommandListenerReady || typeof window === 'undefined') {
     return;
@@ -680,6 +864,10 @@ function ensureDesktopCommandListener() {
 
   desktopCommandListenerReady = true;
   webview.addEventListener('message', (event: MessageEvent) => {
+    if (handleCodexUserFileMessage(event.data)) {
+      return;
+    }
+
     if (handleCodexRouteMessage(event.data)) {
       return;
     }
@@ -913,6 +1101,149 @@ export function switchCodexRoute(targetId: string): Promise<CodexRouteSwitchResp
     const pending = pendingCodexRouteRequests.get(requestId);
     if (pending) window.clearTimeout(pending.timer);
     pendingCodexRouteRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function requestCodexUserFiles(): Promise<CodexUserFileSnapshot[]> {
+  const bridge = getBridge();
+  if (typeof bridge?.requestCodexUserFiles !== 'function') {
+    return Promise.reject(new Error('需要桌面端桥接'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-user-files');
+  const request = registerCodexUserFileRequest(requestId).then((response) => response.files ?? []);
+  try {
+    const posted = bridge.requestCodexUserFiles(requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再同步。');
+    }
+  } catch (error) {
+    const pending = pendingCodexUserFileRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexUserFileRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function readCodexUserFile(fileId: CodexUserFileId): Promise<CodexUserFileSnapshot> {
+  const bridge = getBridge();
+  if (typeof bridge?.readCodexUserFile !== 'function') {
+    return Promise.reject(new Error('需要桌面端桥接'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-user-file-read');
+  const request = registerCodexUserFileRequest(requestId).then((response) => {
+    if (!response.file) throw new Error('Codex 用户配置读取结果无效');
+    return response.file;
+  });
+  try {
+    const posted = bridge.readCodexUserFile(fileId, requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再读取。');
+    }
+  } catch (error) {
+    const pending = pendingCodexUserFileRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexUserFileRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function validateCodexUserFile(
+  fileId: CodexUserFileId,
+  content: string
+): Promise<CodexUserFileValidation> {
+  const bridge = getBridge();
+  if (typeof bridge?.validateCodexUserFile !== 'function') {
+    return Promise.reject(new Error('需要桌面端桥接'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-user-file-validate');
+  const request = registerCodexUserFileRequest(requestId).then((response) => {
+    if (!response.validation) throw new Error('Codex 用户配置校验结果无效');
+    return response.validation;
+  });
+  try {
+    const posted = bridge.validateCodexUserFile(fileId, content, requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再校验。');
+    }
+  } catch (error) {
+    const pending = pendingCodexUserFileRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexUserFileRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function backupCodexUserFile(fileId: CodexUserFileId): Promise<CodexUserFileBackupResult> {
+  const bridge = getBridge();
+  if (typeof bridge?.backupCodexUserFile !== 'function') {
+    return Promise.reject(new Error('需要桌面端桥接'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-user-file-backup');
+  const request = registerCodexUserFileRequest(requestId).then((response) => {
+    const result = response.result;
+    if (!result || !('backupPath' in result) || !result.backupPath) {
+      throw new Error('Codex 用户配置备份结果无效');
+    }
+    return result as CodexUserFileBackupResult;
+  });
+  try {
+    const posted = bridge.backupCodexUserFile(fileId, requestId);
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再备份。');
+    }
+  } catch (error) {
+    const pending = pendingCodexUserFileRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexUserFileRequests.delete(requestId);
+    return Promise.reject(error);
+  }
+  return request;
+}
+
+export function saveCodexUserFile(
+  fileId: CodexUserFileId,
+  content: string,
+  expectedLastWriteTimeUtc?: string | null
+): Promise<CodexUserFileSaveResult> {
+  const bridge = getBridge();
+  if (typeof bridge?.saveCodexUserFile !== 'function') {
+    return Promise.reject(new Error('需要桌面端桥接'));
+  }
+
+  ensureDesktopCommandListener();
+  const requestId = createDesktopRequestId('codex-user-file-save');
+  const request = registerCodexUserFileRequest(requestId).then((response) => {
+    const result = response.result;
+    if (!result) throw new Error('Codex 用户配置保存结果无效');
+    return result as CodexUserFileSaveResult;
+  });
+  try {
+    const posted = bridge.saveCodexUserFile(
+      fileId,
+      content,
+      expectedLastWriteTimeUtc ?? null,
+      requestId
+    );
+    if (posted === false) {
+      throw new Error('桌面桥接通道未就绪，请重新打开桌面应用后再保存。');
+    }
+  } catch (error) {
+    const pending = pendingCodexUserFileRequests.get(requestId);
+    if (pending) window.clearTimeout(pending.timer);
+    pendingCodexUserFileRequests.delete(requestId);
     return Promise.reject(error);
   }
   return request;

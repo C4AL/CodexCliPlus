@@ -98,6 +98,149 @@ public sealed class CodexConfigServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCodexUserFileSnapshotsAsyncOnlyReadsAllowedUserFiles()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var service = new CodexConfigService();
+        var snapshots = await service.GetCodexUserFileSnapshotsAsync();
+
+        Assert.Collection(
+            snapshots,
+            config =>
+            {
+                Assert.Equal("config", config.FileId);
+                Assert.Equal(Path.Combine(_codexHome, "config.toml"), config.Path);
+                Assert.False(config.Exists);
+                Assert.Equal("toml", config.Language);
+                Assert.True(config.Validation.IsValid);
+            },
+            auth =>
+            {
+                Assert.Equal("auth", auth.FileId);
+                Assert.Equal(Path.Combine(_codexHome, "auth.json"), auth.Path);
+                Assert.False(auth.Exists);
+                Assert.Equal("json", auth.Language);
+                Assert.True(auth.Validation.IsValid);
+            }
+        );
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ReadCodexUserFileAsync(@"..\config.toml")
+        );
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.BackupCodexUserFileAsync(@"C:\Users\Reol\.codex\auth.json")
+        );
+    }
+
+    [Fact]
+    public async Task ValidateCodexUserFileRejectsInvalidTomlAndJsonObject()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var service = new CodexConfigService();
+
+        var toml = service.ValidateCodexUserFile("config", "[notice");
+        var jsonArray = service.ValidateCodexUserFile("auth", "[]");
+        var jsonSyntax = service.ValidateCodexUserFile("auth", "{");
+
+        Assert.False(toml.IsValid);
+        Assert.Contains("TOML", toml.Message, StringComparison.Ordinal);
+        Assert.False(jsonArray.IsValid);
+        Assert.Contains("JSON 对象", jsonArray.Message, StringComparison.Ordinal);
+        Assert.False(jsonSyntax.IsValid);
+        Assert.Contains("JSON", jsonSyntax.Message, StringComparison.Ordinal);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SaveCodexUserFileAsync("auth", "[]", expectedLastWriteTimeUtc: null)
+        );
+        Assert.False(File.Exists(Path.Combine(_codexHome, "auth.json")));
+    }
+
+    [Fact]
+    public async Task SaveCodexUserFileAsyncBacksUpExistingFileAndWritesUtf8WithoutBom()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var configPath = Path.Combine(_codexHome, "config.toml");
+        await File.WriteAllTextAsync(configPath, "model = \"gpt-5.4\"\n");
+        var service = new CodexConfigService();
+        var snapshot = await service.ReadCodexUserFileAsync("config");
+
+        var result = await service.SaveCodexUserFileAsync(
+            "config",
+            "model = \"gpt-5.5\"\n",
+            snapshot.LastWriteTimeUtc
+        );
+
+        var bytes = await File.ReadAllBytesAsync(configPath);
+        var backupContent = await File.ReadAllTextAsync(result.BackupPath!);
+
+        Assert.Equal("config", result.FileId);
+        Assert.True(File.Exists(result.BackupPath));
+        Assert.Contains(
+            ".codexcliplus-source-backup-",
+            Path.GetFileName(result.BackupPath),
+            StringComparison.Ordinal
+        );
+        Assert.Equal("model = \"gpt-5.4\"\n", backupContent);
+        Assert.Equal("model = \"gpt-5.5\"\n", await File.ReadAllTextAsync(configPath));
+        Assert.False(
+            bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF
+        );
+    }
+
+    [Fact]
+    public async Task SaveCodexUserFileAsyncRejectsExternalTimestampConflict()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var authPath = Path.Combine(_codexHome, "auth.json");
+        await File.WriteAllTextAsync(authPath, "{\n  \"token\": \"original\"\n}\n");
+        var service = new CodexConfigService();
+        var snapshot = await service.ReadCodexUserFileAsync("auth");
+
+        await Task.Delay(30);
+        await File.WriteAllTextAsync(authPath, "{\n  \"token\": \"external\"\n}\n");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.SaveCodexUserFileAsync(
+                "auth",
+                "{\n  \"token\": \"next\"\n}\n",
+                snapshot.LastWriteTimeUtc
+            )
+        );
+
+        Assert.Contains("外部修改", exception.Message, StringComparison.Ordinal);
+        Assert.Equal("{\n  \"token\": \"external\"\n}\n", await File.ReadAllTextAsync(authPath));
+        Assert.Empty(Directory.GetFiles(_codexHome, "auth.codexcliplus-source-backup-*.json"));
+    }
+
+    [Fact]
+    public async Task BackupCodexUserFileAsyncOnlyBacksUpExistingAllowedFiles()
+    {
+        Directory.CreateDirectory(_codexHome);
+        Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);
+
+        var authPath = Path.Combine(_codexHome, "auth.json");
+        await File.WriteAllTextAsync(authPath, "{\n  \"token\": \"official\"\n}\n");
+        var service = new CodexConfigService();
+
+        var result = await service.BackupCodexUserFileAsync("auth");
+
+        Assert.Equal("auth", result.FileId);
+        Assert.True(File.Exists(result.BackupPath));
+        Assert.Equal("{\n  \"token\": \"official\"\n}\n", await File.ReadAllTextAsync(result.BackupPath));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.BackupCodexUserFileAsync("config")
+        );
+    }
+
+    [Fact]
     public void BuildLaunchCommandUsesRequestedProfileAndRepository()
     {
         Environment.SetEnvironmentVariable("CODEX_HOME", _codexHome);

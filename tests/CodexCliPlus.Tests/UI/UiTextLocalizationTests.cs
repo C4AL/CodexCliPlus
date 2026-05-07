@@ -48,7 +48,7 @@ public sealed class UiTextLocalizationTests
     }
 
     [Fact]
-    public void DesktopWebUiChineseBrandingUsesCodexCliPlusAndHidesWebLoginConnectionHints()
+    public void DesktopWebUiChineseBrandingUsesCodexCliPlusAndBlocksBrowserManagementEntry()
     {
         var repositoryRoot = FindRepositoryRoot();
         var zhCn = File.ReadAllText(
@@ -65,7 +65,7 @@ public sealed class UiTextLocalizationTests
             ),
             Encoding.UTF8
         );
-        var loginPage = File.ReadAllText(
+        var loginRoute = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
                 "resources",
@@ -73,8 +73,21 @@ public sealed class UiTextLocalizationTests
                 "upstream",
                 "source",
                 "src",
-                "pages",
-                "LoginPage.tsx"
+                "router",
+                "LoginRoute.tsx"
+            ),
+            Encoding.UTF8
+        );
+        var browserManagementBlocked = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "BrowserManagementBlocked.tsx"
             ),
             Encoding.UTF8
         );
@@ -124,7 +137,8 @@ public sealed class UiTextLocalizationTests
         var visibleText = string.Join(
             Environment.NewLine,
             zhCn,
-            loginPage,
+            loginRoute,
+            browserManagementBlocked,
             mainLayout,
             systemPage,
             mainEntry,
@@ -134,8 +148,22 @@ public sealed class UiTextLocalizationTests
         Assert.Contains("\"main\": \"CodexCliPlus\"", zhCn, StringComparison.Ordinal);
         Assert.Contains("CodexCliPlus", visibleText, StringComparison.Ordinal);
         Assert.Contains("账号中心", visibleText, StringComparison.Ordinal);
-        Assert.Contains("\"desktop_subtitle\"", zhCn, StringComparison.Ordinal);
-        Assert.Contains("!desktopMode &&", loginPage, StringComparison.Ordinal);
+        Assert.Contains("请在桌面应用内打开管理界面", visibleText, StringComparison.Ordinal);
+        Assert.Contains("<BrowserManagementBlocked />", loginRoute, StringComparison.Ordinal);
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    repositoryRoot,
+                    "resources",
+                    "webui",
+                    "upstream",
+                    "source",
+                    "src",
+                    "pages",
+                    "LoginPage.tsx"
+                )
+            )
+        );
 
         var forbiddenPhrases = new[]
         {

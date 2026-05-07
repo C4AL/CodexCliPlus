@@ -8,7 +8,7 @@ import { apiClient } from '@/services/api/client';
 import { useConfigStore } from './useConfigStore';
 import { useUsageStatsStore } from './useUsageStatsStore';
 import { useModelsStore } from './useModelsStore';
-import { detectApiBaseFromLocation, normalizeApiBase } from '@/utils/connection';
+import { normalizeApiBase } from '@/utils/connection';
 
 interface AuthStoreState extends AuthState {
   connectionStatus: ConnectionStatus;
@@ -22,6 +22,14 @@ interface AuthStoreState extends AuthState {
 }
 
 let restoreSessionPromise: Promise<boolean> | null = null;
+
+function clearBrowserManagementSession() {
+  localStorage.removeItem('isLoggedIn');
+  obfuscatedStorage.removeItem('apiBase');
+  obfuscatedStorage.removeItem('apiUrl');
+  obfuscatedStorage.removeItem('managementKey');
+  obfuscatedStorage.removeItem(STORAGE_KEY_AUTH);
+}
 
 export const useAuthStore = create<AuthStoreState>()(
   persist(
@@ -78,41 +86,18 @@ export const useAuthStore = create<AuthStoreState>()(
             return true;
           }
 
-          obfuscatedStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
-
-          const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-          const legacyBase =
-            obfuscatedStorage.getItem<string>('apiBase') ||
-            obfuscatedStorage.getItem<string>('apiUrl', { encrypt: true });
-          const legacyKey = obfuscatedStorage.getItem<string>('managementKey');
-
-          const { apiBase, managementKey, rememberPassword } = get();
-          const resolvedBase = normalizeApiBase(apiBase || legacyBase || detectApiBaseFromLocation());
-          const resolvedKey = managementKey || legacyKey || '';
-          const resolvedRememberPassword = rememberPassword || Boolean(managementKey) || Boolean(legacyKey);
-
+          resetRestoreSessionPromise = true;
+          clearBrowserManagementSession();
           set({
-            apiBase: resolvedBase,
-            managementKey: resolvedKey,
+            isAuthenticated: false,
+            apiBase: '',
+            managementKey: '',
             desktopSessionId: '',
-            rememberPassword: resolvedRememberPassword
+            rememberPassword: false,
+            connectionStatus: 'disconnected',
+            connectionError: null
           });
-          apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
-
-          if (wasLoggedIn && resolvedBase && resolvedKey) {
-            try {
-              await get().login({
-                apiBase: resolvedBase,
-                managementKey: resolvedKey,
-                rememberPassword: resolvedRememberPassword
-              });
-              return true;
-            } catch (error) {
-              console.warn('Auto login failed:', error);
-              return false;
-            }
-          }
-
+          apiClient.setConfig({ apiBase: '', managementKey: '' });
           return false;
         })().finally(() => {
           if (resetRestoreSessionPromise && restoreSessionPromise === nextRestoreSessionPromise) {
@@ -126,11 +111,23 @@ export const useAuthStore = create<AuthStoreState>()(
 
       login: async (credentials) => {
         const desktopMode = isDesktopMode();
+        if (!desktopMode) {
+          clearBrowserManagementSession();
+          set({
+            isAuthenticated: false,
+            apiBase: '',
+            managementKey: '',
+            desktopSessionId: '',
+            rememberPassword: false,
+            connectionStatus: 'disconnected',
+            connectionError: null
+          });
+          throw new Error('管理界面只能在桌面应用内打开。');
+        }
+
         const apiBase = normalizeApiBase(credentials.apiBase);
-        const managementKey = desktopMode ? '' : credentials.managementKey.trim();
-        const rememberPassword = desktopMode
-          ? false
-          : credentials.rememberPassword ?? get().rememberPassword ?? false;
+        const managementKey = '';
+        const rememberPassword = false;
 
         try {
           set({ connectionStatus: 'connecting' });
@@ -147,17 +144,13 @@ export const useAuthStore = create<AuthStoreState>()(
             isAuthenticated: true,
             apiBase,
             managementKey,
-            desktopSessionId: desktopMode ? get().desktopSessionId : '',
+            desktopSessionId: get().desktopSessionId,
             rememberPassword,
             connectionStatus: 'connected',
             connectionError: null
           });
 
-          if (!desktopMode && rememberPassword) {
-            localStorage.setItem('isLoggedIn', 'true');
-          } else {
-            localStorage.removeItem('isLoggedIn');
-          }
+          localStorage.removeItem('isLoggedIn');
         } catch (error: unknown) {
           const message =
             error instanceof Error
@@ -192,15 +185,29 @@ export const useAuthStore = create<AuthStoreState>()(
       },
 
       checkAuth: async () => {
-        const { managementKey, apiBase } = get();
+        const { apiBase } = get();
         const desktopMode = isDesktopMode();
 
-        if (!apiBase || (!desktopMode && !managementKey)) {
+        if (!desktopMode) {
+          clearBrowserManagementSession();
+          set({
+            isAuthenticated: false,
+            apiBase: '',
+            managementKey: '',
+            desktopSessionId: '',
+            rememberPassword: false,
+            connectionStatus: 'disconnected',
+            connectionError: null
+          });
+          return false;
+        }
+
+        if (!apiBase) {
           return false;
         }
 
         try {
-          apiClient.setConfig({ apiBase, managementKey: desktopMode ? '' : managementKey });
+          apiClient.setConfig({ apiBase, managementKey: '' });
           await useConfigStore.getState().fetchConfig();
 
           set({
@@ -259,9 +266,7 @@ export const useAuthStore = create<AuthStoreState>()(
               serverBuildDate: state.serverBuildDate
             }
           : {
-              apiBase: state.apiBase,
-              ...(state.rememberPassword ? { managementKey: state.managementKey } : {}),
-              rememberPassword: state.rememberPassword,
+              rememberPassword: false,
               serverVersion: state.serverVersion,
               serverBuildDate: state.serverBuildDate
             }

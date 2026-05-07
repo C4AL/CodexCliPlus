@@ -2483,6 +2483,19 @@ public sealed class NavigationShellTests
             ),
             Encoding.UTF8
         );
+        var browserManagementBlockedSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "resources",
+                "webui",
+                "upstream",
+                "source",
+                "src",
+                "router",
+                "BrowserManagementBlocked.tsx"
+            ),
+            Encoding.UTF8
+        );
         var bridgeSource = File.ReadAllText(
             Path.Combine(
                 repositoryRoot,
@@ -2652,9 +2665,16 @@ public sealed class NavigationShellTests
             loginRouteSource,
             StringComparison.Ordinal
         );
-        Assert.Contains("<LoginPage />", loginRouteSource, StringComparison.Ordinal);
+        Assert.Contains("<BrowserManagementBlocked />", loginRouteSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoginPage", loginRouteSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "请在桌面应用内打开管理界面",
+            browserManagementBlockedSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("restoreSession", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", protectedRouteSource, StringComparison.Ordinal);
+        Assert.Contains("return <BrowserManagementBlocked />;", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("桌面会话需要恢复", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("返回登录", protectedRouteSource, StringComparison.Ordinal);
         Assert.Contains("setRetryAttempt", protectedRouteSource, StringComparison.Ordinal);
@@ -2845,8 +2865,30 @@ public sealed class NavigationShellTests
         Assert.Contains("restoreSessionPromise = null", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("resetRestoreSessionPromise = true", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("if (!desktopBootstrap)", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains("clearBrowserManagementSession", authStoreSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "throw new Error('管理界面只能在桌面应用内打开。')",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains(
             "normalizeApiBase(desktopBootstrap.apiBase)",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("detectApiBaseFromLocation", authStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "obfuscatedStorage.migratePlaintextKeys",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "localStorage.setItem('isLoggedIn'",
+            authStoreSource,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain(
+            "managementKey: state.managementKey",
             authStoreSource,
             StringComparison.Ordinal
         );

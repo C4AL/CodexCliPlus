@@ -1,19 +1,15 @@
 import { useEffect, useState, type ReactElement } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import { isDesktopMode, requestNativeLogin } from '@/desktop/bridge';
+import { BrowserManagementBlocked } from '@/router/BrowserManagementBlocked';
 
 export function ProtectedRoute({ children }: { children: ReactElement }) {
-  const location = useLocation();
   const desktopMode = isDesktopMode();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const managementKey = useAuthStore((state) => state.managementKey);
-  const apiBase = useAuthStore((state) => state.apiBase);
   const connectionError = useAuthStore((state) => state.connectionError);
   const restoreSession = useAuthStore((state) => state.restoreSession);
-  const checkAuth = useAuthStore((state) => state.checkAuth);
   const [checking, setChecking] = useState(() => desktopMode);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
@@ -21,12 +17,12 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
     let cancelled = false;
 
     const tryRestore = async () => {
-      if (isAuthenticated) {
+      if (!desktopMode) {
         setChecking(false);
         return;
       }
 
-      if (!desktopMode && (!managementKey || !apiBase)) {
+      if (isAuthenticated) {
         setChecking(false);
         return;
       }
@@ -35,17 +31,12 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
       try {
         const restored = await restoreSession();
         let authorized = restored;
-        if (!restored && !desktopMode && managementKey && apiBase) {
-          authorized = await checkAuth();
-        }
 
-        if (!authorized && desktopMode) {
+        if (!authorized) {
           return;
         }
       } catch (error) {
-        if (desktopMode) {
-          console.warn('Desktop authentication check failed:', error);
-        }
+        console.warn('Desktop authentication check failed:', error);
       } finally {
         if (!cancelled) {
           setChecking(false);
@@ -56,7 +47,7 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
     return () => {
       cancelled = true;
     };
-  }, [apiBase, checkAuth, desktopMode, isAuthenticated, managementKey, restoreSession, retryAttempt]);
+  }, [desktopMode, isAuthenticated, restoreSession, retryAttempt]);
 
   const desktopAuthMessage = connectionError || '无法通过桌面代理恢复当前管理会话。';
 
@@ -66,6 +57,10 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
         <LoadingSpinner />
       </div>
     );
+  }
+
+  if (!desktopMode) {
+    return <BrowserManagementBlocked />;
   }
 
   if (!isAuthenticated && desktopMode) {
@@ -96,10 +91,6 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
         </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   return children;

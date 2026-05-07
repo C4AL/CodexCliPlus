@@ -34,7 +34,7 @@ public sealed class ConfigAndLogsPageTests
     }
 
     [Fact]
-    public void DesktopModeRestoresSessionFromBootstrapWithoutRememberPassword()
+    public void DesktopModeRestoresSessionFromBootstrapAndBrowserModeDoesNotPersistManagementKey()
     {
         var repositoryRoot = FindRepositoryRoot();
         var authStoreSource = File.ReadAllText(
@@ -59,11 +59,9 @@ public sealed class ConfigAndLogsPageTests
         Assert.Contains("rememberPassword: false", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("desktopSessionId: state.desktopSessionId", authStoreSource, StringComparison.Ordinal);
         Assert.Contains("isDesktopMode()", authStoreSource, StringComparison.Ordinal);
-        Assert.Contains(
-            "state.rememberPassword ? { managementKey: state.managementKey } : {}",
-            authStoreSource,
-            StringComparison.Ordinal
-        );
+        Assert.Contains("clearBrowserManagementSession", authStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("managementKey: state.managementKey", authStoreSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("detectApiBaseFromLocation", authStoreSource, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "!isDesktopMode() && state.rememberPassword",
             authStoreSource,

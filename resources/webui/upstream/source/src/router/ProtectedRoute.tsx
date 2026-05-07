@@ -30,9 +30,8 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
       setChecking(true);
       try {
         const restored = await restoreSession();
-        let authorized = restored;
 
-        if (!authorized) {
+        if (!restored) {
           return;
         }
       } catch (error) {

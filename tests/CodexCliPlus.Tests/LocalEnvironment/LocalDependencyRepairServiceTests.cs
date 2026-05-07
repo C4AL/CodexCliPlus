@@ -18,10 +18,31 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         PropertyNameCaseInsensitive = true,
     };
 
+    private static readonly string[] RequiredEnvironmentLatestCodexCommandOrder =
+    [
+        "winget --version",
+        "node --version",
+        "cmd.exe /d /c npm --version",
+        "winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements",
+        "node --version",
+        "cmd.exe /d /c npm --version",
+        "cmd.exe /d /c npm install -g @openai/codex@latest",
+    ];
+
     private readonly string _rootDirectory = Path.Combine(
         Path.GetTempPath(),
         $"codexcliplus-local-repair-{Guid.NewGuid():N}"
     );
+
+    [Fact]
+    public void RepairRequiredEnvironmentActionIsWhitelisted()
+    {
+        Assert.True(
+            LocalDependencyRepairActionIds.IsKnown(
+                LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex
+            )
+        );
+    }
 
     [Fact]
     public async Task ExecuteRepairModeAsyncRunsWhitelistedWingetInstallAndWritesStatus()
@@ -102,12 +123,141 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.Equal("commandRunning", progress.Phase);
         Assert.NotNull(progress.CommandLine);
         Assert.Contains("npm install -g @openai/codex", progress.CommandLine, StringComparison.Ordinal);
+        Assert.Contains("@openai/codex@latest", progress.CommandLine, StringComparison.Ordinal);
         Assert.NotNull(progress.LogPath);
 
         processRunner.Complete(new LocalEnvironmentProcessResult(0, "installed", ""));
         var result = await repairTask;
 
         Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncRunsRequiredEnvironmentAndLatestCodexInstallInOrder()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(0, "v1.10.0", ""),
+            new LocalEnvironmentProcessResult(1, "", "node not found"),
+            new LocalEnvironmentProcessResult(1, "", "npm not found"),
+            new LocalEnvironmentProcessResult(0, "node installed", ""),
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(0, "10.9.0", ""),
+            new LocalEnvironmentProcessResult(0, "updated latest codex", "")
+        );
+        var writtenPath = string.Empty;
+        var refreshCount = 0;
+        var service = CreateService(
+            processRunner,
+            directoryExists: path => path.Contains("nodejs", StringComparison.OrdinalIgnoreCase),
+            createDirectory: _ => { },
+            userPathReader: _ => string.Empty,
+            userPathWriter: value => writtenPath = value,
+            processPathRefresher: () => refreshCount++
+        );
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            statusPath
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("一键修复并安装最新 Codex 已完成。", result.Summary);
+        Assert.Equal(
+            RequiredEnvironmentLatestCodexCommandOrder,
+            processRunner.Commands.Select(command => $"{command.FileName} {command.Arguments}")
+        );
+        Assert.Contains("npm", writtenPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("nodejs", writtenPath, StringComparison.OrdinalIgnoreCase);
+        Assert.True(refreshCount >= 3);
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.NotNull(progress);
+        Assert.True(progress!.IsCompleted);
+        Assert.Equal("completed", progress.Phase);
+        Assert.Equal(LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex, progress.ActionId);
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncRepairsWingetBeforeRequiredEnvironmentInstall()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(1, "", "winget not found"),
+            new LocalEnvironmentProcessResult(0, "winget repaired", ""),
+            new LocalEnvironmentProcessResult(0, "v1.10.0", ""),
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(0, "10.9.0", ""),
+            new LocalEnvironmentProcessResult(0, "updated latest codex", "")
+        );
+        var service = CreateService(
+            processRunner,
+            createDirectory: _ => { },
+            userPathReader: _ => string.Empty,
+            userPathWriter: _ => { },
+            processPathRefresher: () => { }
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("winget --version", FormatCommand(processRunner.Commands[0]));
+        Assert.Equal("powershell.exe", processRunner.Commands[1].FileName);
+        Assert.Contains("Repair-WinGetPackageManager", processRunner.Commands[1].Arguments);
+        Assert.Equal("winget --version", FormatCommand(processRunner.Commands[2]));
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncStopsRequiredEnvironmentInstallWhenWingetRepairFails()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(1, "", "winget not found"),
+            new LocalEnvironmentProcessResult(9, "", "Repair-WinGetPackageManager 失败")
+        );
+        var service = CreateService(processRunner, processPathRefresher: () => { });
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(9, result.ExitCode);
+        Assert.Contains("Repair-WinGetPackageManager 失败", result.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            processRunner.Commands,
+            command => command.Arguments.Contains("OpenJS.NodeJS.LTS", StringComparison.Ordinal)
+        );
+    }
+
+    [Fact]
+    public async Task ExecuteRepairModeAsyncStopsRequiredEnvironmentInstallWhenNpmStillUnavailable()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(0, "v1.10.0", ""),
+            new LocalEnvironmentProcessResult(1, "", "node not found"),
+            new LocalEnvironmentProcessResult(1, "", "npm not found"),
+            new LocalEnvironmentProcessResult(0, "node installed", ""),
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(1, "", "npm still not found")
+        );
+        var service = CreateService(processRunner, processPathRefresher: () => { });
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Node.js/npm 安装后仍不可用", result.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            processRunner.Commands,
+            command => command.Arguments.Contains("@openai/codex@latest", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -321,7 +471,8 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Func<string, bool>? directoryExists = null,
         Action<string>? createDirectory = null,
         Func<EnvironmentVariableTarget, string?>? userPathReader = null,
-        Action<string>? userPathWriter = null
+        Action<string>? userPathWriter = null,
+        Action? processPathRefresher = null
     )
     {
         return new LocalDependencyRepairService(
@@ -334,9 +485,13 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
             createDirectory,
             userPathReader,
             userPathWriter,
-            environmentChangeBroadcaster: () => { }
+            environmentChangeBroadcaster: () => { },
+            processPathRefresher: processPathRefresher ?? (() => { })
         );
     }
+
+    private static string FormatCommand((string FileName, string Arguments) command) =>
+        $"{command.FileName} {command.Arguments}";
 
     private sealed class RecordingProcessRunner : ILocalEnvironmentProcessRunner
     {
@@ -362,6 +517,34 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             Commands.Add((fileName, string.Join(" ", arguments)));
             return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class ScriptedProcessRunner : ILocalEnvironmentProcessRunner
+    {
+        private readonly Queue<LocalEnvironmentProcessResult> _results;
+
+        public ScriptedProcessRunner(params LocalEnvironmentProcessResult[] results)
+        {
+            _results = new Queue<LocalEnvironmentProcessResult>(results);
+        }
+
+        public List<(string FileName, string Arguments)> Commands { get; } = [];
+
+        public Task<LocalEnvironmentProcessResult> RunAsync(
+            string fileName,
+            IReadOnlyList<string> arguments,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default
+        )
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Commands.Add((fileName, string.Join(" ", arguments)));
+            return Task.FromResult(
+                _results.Count == 0
+                    ? new LocalEnvironmentProcessResult(0, "ok", "")
+                    : _results.Dequeue()
+            );
         }
     }
 

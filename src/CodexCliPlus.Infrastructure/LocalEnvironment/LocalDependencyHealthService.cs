@@ -968,9 +968,19 @@ public sealed class LocalDependencyHealthService
         var hasMissingSafePathDirectories = toolState.MissingSafePathDirectories.Length > 0;
         var pathRepairAvailable =
             hasMissingSafePathDirectories || toolState.UserPathCleanupAvailable;
+        var requiredEnvironmentRepairAvailable = npmReady || wingetReady || powershellReady;
 
         return
         [
+            new LocalDependencyRepairCapability
+            {
+                ActionId = LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+                Name = "一键修复并安装最新 Codex",
+                IsAvailable = requiredEnvironmentRepairAvailable,
+                Detail = requiredEnvironmentRepairAvailable
+                    ? "将一次提权修复 winget、Node.js/npm、Codex CLI 和用户 PATH，不处理 WSL。"
+                    : "需要 winget、PowerShell 或 npm 至少一项可用。",
+            },
             new LocalDependencyRepairCapability
             {
                 ActionId = LocalDependencyRepairActionIds.InstallNodeNpm,

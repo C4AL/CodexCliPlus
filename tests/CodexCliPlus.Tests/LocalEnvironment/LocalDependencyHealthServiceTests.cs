@@ -56,6 +56,24 @@ public sealed class LocalDependencyHealthServiceTests
     }
 
     [Fact]
+    public async Task CheckAsyncReturnsRequiredEnvironmentLatestCodexRepairCapability()
+    {
+        var fixture = LocalEnvironmentFixture.CreateHealthy();
+
+        var snapshot = await fixture.CreateService().CheckAsync();
+
+        var capability = Assert.Single(
+            snapshot.RepairCapabilities,
+            item =>
+                item.ActionId
+                == LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex
+        );
+        Assert.True(capability.IsAvailable);
+        Assert.False(capability.IsOptional);
+        Assert.Contains("不处理 WSL", capability.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CheckAsyncOffersWingetRepairWhenWingetIsMissing()
     {
         var fixture = LocalEnvironmentFixture.CreateHealthy();

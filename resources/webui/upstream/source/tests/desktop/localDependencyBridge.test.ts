@@ -206,4 +206,39 @@ describe('local dependency desktop bridge', () => {
       snapshot: { readinessScore: 100 },
     });
   });
+
+  it('passes required environment repair action through the existing repair channel', async () => {
+    const repairCalls: Array<{ actionId: string; requestId: string }> = [];
+    const bridge = await loadBridge({
+      runRepair: (actionId, requestId) => {
+        repairCalls.push({ actionId, requestId });
+        return true;
+      },
+    });
+
+    const request = bridge.runLocalDependencyRepair('repair-required-env-install-latest-codex');
+
+    expect(repairCalls).toHaveLength(1);
+    expect(repairCalls[0].actionId).toBe('repair-required-env-install-latest-codex');
+    bridge.emit({
+      type: 'localDependencyRepairResult',
+      requestId: repairCalls[0].requestId,
+      result: {
+        actionId: 'repair-required-env-install-latest-codex',
+        succeeded: true,
+        exitCode: 0,
+        summary: '一键修复并安装最新 Codex 已完成。',
+        detail: '已完成。',
+      },
+      snapshot: sampleSnapshot,
+    });
+
+    await expect(request).resolves.toMatchObject({
+      result: {
+        actionId: 'repair-required-env-install-latest-codex',
+        succeeded: true,
+      },
+      snapshot: { readinessScore: 100 },
+    });
+  });
 });

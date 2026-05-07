@@ -3590,6 +3590,11 @@ public sealed class NavigationShellTests
             StringComparison.Ordinal
         );
         Assert.Contains("runLocalDependencyRepair", dashboardSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "repair-required-env-install-latest-codex",
+            dashboardSource,
+            StringComparison.Ordinal
+        );
         Assert.Contains("local_environment", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("repairCapabilities", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("LocalDependencyRepairProgress", bridgeSource, StringComparison.Ordinal);
@@ -3597,6 +3602,7 @@ public sealed class NavigationShellTests
         Assert.Contains("localDependencyRepairProgress", bridgeSource, StringComparison.Ordinal);
         Assert.Contains("LocalDependencyRepairProgress", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("本地环境", zhCn, StringComparison.Ordinal);
+        Assert.Contains("一键修复并安装最新 Codex", zhCn, StringComparison.Ordinal);
         Assert.Contains("日志路径", zhCn, StringComparison.Ordinal);
         Assert.Contains("修复入口仅在桌面模式可用", zhCn, StringComparison.Ordinal);
     }

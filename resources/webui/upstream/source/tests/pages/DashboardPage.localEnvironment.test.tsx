@@ -98,6 +98,14 @@ const snapshot: LocalDependencySnapshot = {
   ],
   repairCapabilities: [
     {
+      actionId: 'repair-required-env-install-latest-codex',
+      name: '一键修复并安装最新 Codex',
+      isAvailable: true,
+      requiresElevation: true,
+      isOptional: false,
+      detail: '将一次提权修复 winget、Node.js/npm、Codex CLI 和用户 PATH，不处理 WSL。',
+    },
+    {
       actionId: 'install-node-npm',
       name: '安装 Node.js LTS 和 npm',
       isAvailable: true,
@@ -261,6 +269,114 @@ describe('DashboardPage local environment loading', () => {
         'success'
       );
     });
+  });
+
+  it('runs required environment and latest Codex repair from the panel header', async () => {
+    bridgeMocks.runLocalDependencyRepair.mockResolvedValue({
+      result: {
+        actionId: 'repair-required-env-install-latest-codex',
+        succeeded: true,
+        exitCode: 0,
+        summary: '一键修复并安装最新 Codex 已完成。',
+        detail: '已完成。',
+        logPath: 'C:\\logs\\local-environment-repair.log',
+      },
+      snapshot: repairedSnapshot,
+    });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repair',
+      })
+    );
+
+    expect(storeState.notifications.showConfirmation).toHaveBeenCalledTimes(1);
+    const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      confirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
+      'repair-required-env-install-latest-codex',
+      expect.any(Function)
+    );
+    await waitFor(() => {
+      expect(storeState.notifications.showNotification).toHaveBeenCalledWith(
+        '一键修复并安装最新 Codex 已完成。',
+        'success'
+      );
+    });
+  });
+
+  it('shows required environment repair progress in the panel header', async () => {
+    bridgeMocks.runLocalDependencyRepair.mockImplementation((_actionId, onProgress) => {
+      onProgress({
+        actionId: 'repair-required-env-install-latest-codex',
+        phase: 'commandRunning',
+        message: '正在安装最新 Codex。',
+        commandLine: 'cmd.exe /d /c npm install -g @openai/codex@latest',
+        recentOutput: ['updated latest codex'],
+        logPath: 'C:\\logs\\local-environment-repair.log',
+        updatedAt: '2026-05-02T00:00:01.000Z',
+        exitCode: null,
+      });
+      return new Promise(() => {});
+    });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repair',
+      })
+    );
+    const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      confirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repairing_button',
+      })
+    ).toBeDisabled();
+    expect(
+      screen.getByText('cmd.exe /d /c npm install -g @openai/codex@latest')
+    ).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('updated latest codex'))).toBeInTheDocument();
+  });
+
+  it('disables required environment repair when the capability is unavailable', async () => {
+    bridgeMocks.requestLocalDependencySnapshot.mockResolvedValue({
+      ...snapshot,
+      repairCapabilities: [
+        {
+          actionId: 'repair-required-env-install-latest-codex',
+          name: '一键修复并安装最新 Codex',
+          isAvailable: false,
+          requiresElevation: true,
+          isOptional: false,
+          detail: '需要 winget、PowerShell 或 npm 至少一项可用。',
+        },
+      ],
+    });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+
+    expect(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repair',
+      })
+    ).toBeDisabled();
+    expect(screen.getByText('需要 winget、PowerShell 或 npm 至少一项可用。')).toBeInTheDocument();
   });
 
   it('keeps shared repair action loading and progress attached to the clicked item', async () => {

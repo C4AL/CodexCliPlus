@@ -18,6 +18,7 @@ public sealed class LocalDependencyRepairService
 {
     private const int ElevationCancelledErrorCode = 1223;
     private const int RecentOutputLineLimit = 20;
+    private const string LatestCodexPackage = "@openai/codex@latest";
     private const string RepairWingetScript =
         "$ErrorActionPreference = 'Stop'\n"
         + "$ProgressPreference = 'SilentlyContinue'\n"
@@ -44,6 +45,7 @@ public sealed class LocalDependencyRepairService
     private readonly Func<EnvironmentVariableTarget, string?> _userPathReader;
     private readonly Action<string> _userPathWriter;
     private readonly Action _environmentChangeBroadcaster;
+    private readonly Action _processPathRefresher;
 
     public LocalDependencyRepairService(
         IPathService pathService,
@@ -55,7 +57,8 @@ public sealed class LocalDependencyRepairService
         Action<string>? createDirectory = null,
         Func<EnvironmentVariableTarget, string?>? userPathReader = null,
         Action<string>? userPathWriter = null,
-        Action? environmentChangeBroadcaster = null
+        Action? environmentChangeBroadcaster = null,
+        Action? processPathRefresher = null
     )
     {
         _pathService = pathService;
@@ -80,6 +83,7 @@ public sealed class LocalDependencyRepairService
                     )
             );
         _environmentChangeBroadcaster = environmentChangeBroadcaster ?? BroadcastEnvironmentChange;
+        _processPathRefresher = processPathRefresher ?? RefreshCurrentProcessPath;
     }
 
     public Task<LocalDependencyRepairResult> RunElevatedRepairAsync(
@@ -141,13 +145,19 @@ public sealed class LocalDependencyRepairService
                 return Failure(actionId, "修复进程未启动。", "系统未返回提权修复进程。");
             }
 
-            return await WaitForRepairStatusAsync(
+            var result = await WaitForRepairStatusAsync(
                 process,
                 actionId,
                 statusPath,
                 progressReporter,
                 cancellationToken
             );
+            if (result.Succeeded)
+            {
+                _processPathRefresher();
+            }
+
+            return result;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -256,6 +266,12 @@ public sealed class LocalDependencyRepairService
                         statusPath,
                         cancellationToken
                     ),
+                    LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex =>
+                        await RepairRequiredEnvironmentAndInstallLatestCodexAsync(
+                            actionId,
+                            statusPath,
+                            cancellationToken
+                        ),
                     LocalDependencyRepairActionIds.InstallWsl => await RunCommandRepairAsync(
                         actionId,
                         "安装 WSL",
@@ -276,7 +292,7 @@ public sealed class LocalDependencyRepairService
                         [
                             new RepairCommand(
                                 "cmd.exe",
-                                ["/d", "/c", "npm", "install", "-g", "@openai/codex"]
+                                ["/d", "/c", "npm", "install", "-g", LatestCodexPackage]
                             ),
                         ],
                         statusPath,
@@ -323,88 +339,17 @@ public sealed class LocalDependencyRepairService
 
         foreach (var command in commands)
         {
-            var commandLine = BuildCommandLine(command);
-            await AppendRepairLogAsync(
-                logPath,
-                $"$ {commandLine}",
-                cancellationToken
-            );
-            await WriteStatusAsync(
+            var failure = await RunRepairCommandStepAsync(
+                actionId,
+                summary,
+                command,
                 statusPath,
-                CreateProgress(
-                    actionId,
-                    "commandRunning",
-                    $"正在执行：{summary}。",
-                    commandLine: commandLine,
-                    logPath: logPath
-                ),
-                cancellationToken
-            );
-
-            LocalEnvironmentProcessResult result;
-            try
-            {
-                result = await _processRunner.RunAsync(
-                    command.FileName,
-                    command.Arguments,
-                    RepairCommandTimeout,
-                    cancellationToken
-                );
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                await AppendRepairLogAsync(
-                    logPath,
-                    $"Command '{commandLine}' failed before completion.{Environment.NewLine}{exception.Message}",
-                    cancellationToken
-                );
-                return new LocalDependencyRepairResult
-                {
-                    ActionId = actionId,
-                    Succeeded = false,
-                    Summary = $"{summary}失败。",
-                    Detail = exception.Message,
-                    LogPath = logPath,
-                };
-            }
-
-            await AppendRepairLogAsync(
                 logPath,
-                BuildCommandLog(command, result),
                 cancellationToken
             );
-            var recentOutput = ExtractRecentOutput(result.StandardOutput, result.StandardError);
-            await WriteStatusAsync(
-                statusPath,
-                CreateProgress(
-                    actionId,
-                    result.ExitCode == 0 ? "commandCompleted" : "failed",
-                    result.ExitCode == 0 ? $"{summary}命令已完成。" : $"{summary}命令失败。",
-                    commandLine: commandLine,
-                    recentOutput: recentOutput,
-                    logPath: logPath,
-                    exitCode: result.ExitCode
-                ),
-                cancellationToken
-            );
-
-            if (result.ExitCode != 0)
+            if (failure is not null)
             {
-                var detail =
-                    FirstNonEmptyLine(result.StandardError, result.StandardOutput)
-                    ?? "命令返回非零退出码。";
-                return new LocalDependencyRepairResult
-                {
-                    ActionId = actionId,
-                    Succeeded = false,
-                    ExitCode = result.ExitCode,
-                    Summary = $"{summary}失败。",
-                    Detail = string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"退出码 {result.ExitCode}：{detail}"
-                    ),
-                    LogPath = logPath,
-                };
+                return failure;
             }
         }
 
@@ -702,6 +647,412 @@ public sealed class LocalDependencyRepairService
         };
     }
 
+    private async Task<LocalDependencyRepairResult?> RunRepairCommandStepAsync(
+        string actionId,
+        string summary,
+        RepairCommand command,
+        string statusPath,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var commandLine = BuildCommandLine(command);
+        await AppendRepairLogAsync(logPath, $"$ {commandLine}", cancellationToken);
+        await WriteStatusAsync(
+            statusPath,
+            CreateProgress(
+                actionId,
+                "commandRunning",
+                $"正在执行：{summary}。",
+                commandLine: commandLine,
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        LocalEnvironmentProcessResult result;
+        try
+        {
+            result = await _processRunner.RunAsync(
+                command.FileName,
+                command.Arguments,
+                RepairCommandTimeout,
+                cancellationToken
+            );
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Command '{commandLine}' failed before completion.{Environment.NewLine}{exception.Message}",
+                cancellationToken
+            );
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                Summary = $"{summary}失败。",
+                Detail = exception.Message,
+                LogPath = logPath,
+            };
+        }
+
+        await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
+        var recentOutput = ExtractRecentOutput(result.StandardOutput, result.StandardError);
+        await WriteStatusAsync(
+            statusPath,
+            CreateProgress(
+                actionId,
+                result.ExitCode == 0 ? "commandCompleted" : "failed",
+                result.ExitCode == 0 ? $"{summary}命令已完成。" : $"{summary}命令失败。",
+                commandLine: commandLine,
+                recentOutput: recentOutput,
+                logPath: logPath,
+                exitCode: result.ExitCode
+            ),
+            cancellationToken
+        );
+
+        if (result.ExitCode == 0)
+        {
+            return null;
+        }
+
+        var detail =
+            FirstNonEmptyLine(result.StandardError, result.StandardOutput) ?? "命令返回非零退出码。";
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            ExitCode = result.ExitCode,
+            Summary = $"{summary}失败。",
+            Detail = string.Create(
+                CultureInfo.InvariantCulture,
+                $"退出码 {result.ExitCode}：{detail}"
+            ),
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<LocalDependencyRepairResult> RepairRequiredEnvironmentAndInstallLatestCodexAsync(
+        string actionId,
+        string statusPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var logPath = GetRepairLogPath();
+        await AppendRepairLogAsync(
+            logPath,
+            "Starting required local environment repair and latest Codex install.",
+            cancellationToken
+        );
+        await WriteStatusAsync(
+            statusPath,
+            CreateProgress(
+                actionId,
+                "running",
+                "正在准备一键修复必备环境并安装最新 Codex。",
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        _processPathRefresher();
+        var wingetFailure = await EnsureWingetAvailableAsync(
+            actionId,
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (wingetFailure is not null)
+        {
+            return wingetFailure;
+        }
+
+        var nodeNpmFailure = await EnsureNodeNpmAvailableAsync(
+            actionId,
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (nodeNpmFailure is not null)
+        {
+            return nodeNpmFailure;
+        }
+
+        var codexFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "安装或升级最新 Codex CLI",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "install", "-g", LatestCodexPackage]),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (codexFailure is not null)
+        {
+            return codexFailure;
+        }
+
+        _processPathRefresher();
+        var pathResult = await RepairUserPathAsync(actionId, statusPath, cancellationToken);
+        if (!pathResult.Succeeded)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                ExitCode = pathResult.ExitCode,
+                Summary = "一键修复失败。",
+                Detail = pathResult.Detail,
+                LogPath = logPath,
+            };
+        }
+
+        _logger.Info($"Local dependency repair '{actionId}' finished.");
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = true,
+            ExitCode = 0,
+            Summary = "一键修复并安装最新 Codex 已完成。",
+            Detail = "已处理 winget、Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<LocalDependencyRepairResult?> EnsureWingetAvailableAsync(
+        string actionId,
+        string statusPath,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        if (
+            await ProbeRepairCommandAsync(
+                actionId,
+                "winget",
+                new RepairCommand("winget", ["--version"]),
+                statusPath,
+                logPath,
+                cancellationToken
+            )
+        )
+        {
+            return null;
+        }
+
+        await WriteStatusAsync(
+            statusPath,
+            CreateProgress(actionId, "running", "未检测到可用 winget，正在尝试修复。", logPath: logPath),
+            cancellationToken
+        );
+        var repairFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "修复 winget",
+            new RepairCommand(
+                "powershell.exe",
+                [
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    RepairWingetScript,
+                ]
+            ),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (repairFailure is not null)
+        {
+            return repairFailure;
+        }
+
+        _processPathRefresher();
+        if (
+            await ProbeRepairCommandAsync(
+                actionId,
+                "winget",
+                new RepairCommand("winget", ["--version"]),
+                statusPath,
+                logPath,
+                cancellationToken
+            )
+        )
+        {
+            return null;
+        }
+
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            Summary = "winget 修复后仍不可用。",
+            Detail = "无法继续安装 Node.js/npm，请查看修复日志确认 winget 状态。",
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<LocalDependencyRepairResult?> EnsureNodeNpmAvailableAsync(
+        string actionId,
+        string statusPath,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var nodeReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Node.js",
+            new RepairCommand("node", ["--version"]),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        var npmReady = await ProbeRepairCommandAsync(
+            actionId,
+            "npm",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (nodeReady && npmReady)
+        {
+            return null;
+        }
+
+        var installFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "安装 Node.js LTS 和 npm",
+            new RepairCommand(
+                "winget",
+                [
+                    "install",
+                    "--id",
+                    "OpenJS.NodeJS.LTS",
+                    "-e",
+                    "--source",
+                    "winget",
+                    "--accept-package-agreements",
+                    "--accept-source-agreements",
+                ]
+            ),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (installFailure is not null)
+        {
+            return installFailure;
+        }
+
+        _processPathRefresher();
+        var installedNodeReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Node.js",
+            new RepairCommand("node", ["--version"]),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        var installedNpmReady = await ProbeRepairCommandAsync(
+            actionId,
+            "npm",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+            statusPath,
+            logPath,
+            cancellationToken
+        );
+        if (installedNodeReady && installedNpmReady)
+        {
+            return null;
+        }
+
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            Summary = "Node.js/npm 安装后仍不可用。",
+            Detail = "无法继续安装 Codex CLI，请查看修复日志确认 node 和 npm 状态。",
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<bool> ProbeRepairCommandAsync(
+        string actionId,
+        string name,
+        RepairCommand command,
+        string statusPath,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var commandLine = BuildCommandLine(command);
+        await AppendRepairLogAsync(logPath, $"$ {commandLine}", cancellationToken);
+        await WriteStatusAsync(
+            statusPath,
+            CreateProgress(
+                actionId,
+                "commandRunning",
+                $"正在检测：{name}。",
+                commandLine: commandLine,
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        try
+        {
+            var result = await _processRunner.RunAsync(
+                command.FileName,
+                command.Arguments,
+                TimeSpan.FromSeconds(15),
+                cancellationToken
+            );
+            await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
+            await WriteStatusAsync(
+                statusPath,
+                CreateProgress(
+                    actionId,
+                    result.ExitCode == 0 ? "commandCompleted" : "running",
+                    result.ExitCode == 0 ? $"{name}检测通过。" : $"{name}检测未通过。",
+                    commandLine: commandLine,
+                    recentOutput: ExtractRecentOutput(
+                        result.StandardOutput,
+                        result.StandardError
+                    ),
+                    logPath: logPath,
+                    exitCode: result.ExitCode
+                ),
+                cancellationToken
+            );
+            return result.ExitCode == 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Probe '{commandLine}' failed before completion.{Environment.NewLine}{exception.Message}",
+                cancellationToken
+            );
+            await WriteStatusAsync(
+                statusPath,
+                CreateProgress(
+                    actionId,
+                    "running",
+                    $"{name}检测未通过。",
+                    commandLine: commandLine,
+                    recentOutput: [exception.Message],
+                    logPath: logPath
+                ),
+                cancellationToken
+            );
+            return false;
+        }
+    }
+
     private static LocalDependencyRepairProgress CreateCompletedProgress(
         LocalDependencyRepairResult result,
         LocalDependencyRepairProgress? previousProgress
@@ -882,6 +1233,85 @@ public sealed class LocalDependencyRepairService
         }
 
         return $"已{string.Join("，", changes)}。新终端和重启后的 CodexCliPlus 会读取更新后的 PATH。";
+    }
+
+    private static void RefreshCurrentProcessPath()
+    {
+        var entries = new List<string>();
+        AddPathEntries(entries, Environment.GetEnvironmentVariable("PATH"));
+        AddPathEntries(
+            entries,
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine)
+        );
+        AddPathEntries(
+            entries,
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User)
+        );
+
+        foreach (var directory in GetCurrentProcessPathRefreshDirectories())
+        {
+            if (Directory.Exists(directory))
+            {
+                AddDistinctPathEntry(entries, directory);
+            }
+        }
+
+        if (entries.Count > 0)
+        {
+            Environment.SetEnvironmentVariable(
+                "PATH",
+                string.Join(Path.PathSeparator, entries),
+                EnvironmentVariableTarget.Process
+            );
+        }
+    }
+
+    private static void AddPathEntries(List<string> entries, string? value)
+    {
+        foreach (var entry in SplitPath(value ?? string.Empty))
+        {
+            AddDistinctPathEntry(entries, entry);
+        }
+    }
+
+    private static void AddDistinctPathEntry(List<string> entries, string entry)
+    {
+        if (!entries.Any(existing => IsSameDirectory(existing, entry)))
+        {
+            entries.Add(entry);
+        }
+    }
+
+    private static List<string> GetCurrentProcessPathRefreshDirectories()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+        var candidates = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(appData))
+        {
+            candidates.Add(Path.Combine(appData, "npm"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            candidates.Add(Path.Combine(localAppData, "Microsoft", "WindowsApps"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(programFiles))
+        {
+            candidates.Add(Path.Combine(programFiles, "nodejs"));
+            candidates.Add(Path.Combine(programFiles, "PowerShell", "7"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(programFilesX86))
+        {
+            candidates.Add(Path.Combine(programFilesX86, "nodejs"));
+        }
+
+        return candidates;
     }
 
     private static string[] SplitPath(string value)

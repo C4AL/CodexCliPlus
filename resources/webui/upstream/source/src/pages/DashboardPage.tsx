@@ -38,6 +38,9 @@ type LocalRepairTarget = {
   actionId: string;
 };
 
+const REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID = 'repair-required-env-install-latest-codex';
+const REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID = 'required-env-codex';
+
 type IdleWindow = Window & {
   requestIdleCallback?: (
     callback: IdleRequestCallback,
@@ -405,6 +408,37 @@ export function DashboardPage() {
     });
   };
 
+  const handleRepairRequiredEnvironment = () => {
+    if (!isDesktopMode()) {
+      showNotification(t('dashboard.local_environment_desktop_required'), 'warning');
+      return;
+    }
+
+    const capability = localEnvironmentSnapshot?.repairCapabilities.find(
+      (candidate) => candidate.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID
+    );
+    if (!capability?.isAvailable) {
+      showNotification(
+        capability?.detail || t('dashboard.local_environment_required_repair_unavailable'),
+        'warning'
+      );
+      return;
+    }
+
+    showConfirmation({
+      title: t('dashboard.local_environment_required_repair_confirm_title'),
+      message: t('dashboard.local_environment_required_repair_confirm_message'),
+      confirmText: t('common.confirm'),
+      variant: 'danger',
+      onConfirm: () => {
+        void startLocalDependencyRepair(
+          REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID,
+          REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID
+        );
+      },
+    });
+  };
+
   const quickStats: QuickStat[] = [
     {
       label: t('dashboard.management_keys'),
@@ -445,6 +479,26 @@ export function DashboardPage() {
     localEnvironmentSnapshot?.checkedAt &&
     new Date(localEnvironmentSnapshot.checkedAt).toLocaleString(i18n.language);
   const localEnvironmentDesktopMode = isDesktopMode();
+  const requiredEnvironmentRepairCapability = localEnvironmentSnapshot?.repairCapabilities.find(
+    (candidate) => candidate.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID
+  );
+  const isRequiredEnvironmentRepairing =
+    repairingTarget?.itemId === REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID &&
+    repairingTarget.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID;
+  const requiredEnvironmentRepairProgress =
+    localRepairProgressItemId === REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID &&
+    localRepairProgress?.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID
+      ? localRepairProgress
+      : null;
+  const requiredEnvironmentRepairAvailable =
+    localEnvironmentDesktopMode &&
+    Boolean(localEnvironmentSnapshot) &&
+    requiredEnvironmentRepairCapability?.isAvailable === true;
+  const requiredEnvironmentRepairHint =
+    requiredEnvironmentRepairCapability?.detail ??
+    (localEnvironmentLoading
+      ? t('dashboard.local_environment_required_repair_loading')
+      : t('dashboard.local_environment_required_repair_unavailable'));
 
   const routingStrategyRaw = config?.routingStrategy?.trim() || '';
   const routingSessionAffinity = Boolean(config?.routingSessionAffinity);
@@ -483,6 +537,40 @@ export function DashboardPage() {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const renderLocalRepairProgress = (progress: LocalDependencyRepairProgress) => (
+    <div className={styles.localDependencyRepairProgress}>
+      <div className={styles.localDependencyRepairProgressHeader}>
+        <strong>{getLocalRepairPhaseLabel(progress.phase)}</strong>
+        {progress.exitCode !== null && progress.exitCode !== undefined && (
+          <span>
+            {t('dashboard.local_environment_repair_exit_code', {
+              code: progress.exitCode,
+            })}
+          </span>
+        )}
+      </div>
+      <p>{progress.message}</p>
+      {progress.commandLine && (
+        <div className={styles.localDependencyRepairField}>
+          <span>{t('dashboard.local_environment_repair_command')}</span>
+          <code>{progress.commandLine}</code>
+        </div>
+      )}
+      {progress.recentOutput.length > 0 && (
+        <div className={styles.localDependencyRepairField}>
+          <span>{t('dashboard.local_environment_repair_recent_output')}</span>
+          <pre>{progress.recentOutput.join('\n')}</pre>
+        </div>
+      )}
+      {progress.logPath && (
+        <div className={styles.localDependencyRepairField}>
+          <span>{t('dashboard.local_environment_repair_log_path')}</span>
+          <code>{progress.logPath}</code>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={styles.dashboard}>
@@ -596,7 +684,7 @@ export function DashboardPage() {
         {localEnvironmentOpen && (
           <div className={styles.localEnvironmentPanel}>
             <div className={styles.localEnvironmentHeader}>
-              <div>
+              <div className={styles.localEnvironmentHeaderMain}>
                 <h3>{t('dashboard.local_environment_detail')}</h3>
                 <p>
                   {localEnvironmentSnapshot?.summary ??
@@ -608,7 +696,28 @@ export function DashboardPage() {
                   <span>{t('dashboard.local_environment_checked_at', { time: localCheckedAt })}</span>
                 )}
               </div>
+              <div className={styles.localEnvironmentHeaderActions}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={handleRepairRequiredEnvironment}
+                  loading={isRequiredEnvironmentRepairing}
+                  disabled={
+                    repairingTarget !== null ||
+                    localEnvironmentLoading ||
+                    !requiredEnvironmentRepairAvailable
+                  }
+                >
+                  {isRequiredEnvironmentRepairing
+                    ? t('dashboard.local_environment_required_repairing_button')
+                    : t('dashboard.local_environment_required_repair')}
+                </Button>
+                <small>{requiredEnvironmentRepairHint}</small>
+              </div>
             </div>
+            {requiredEnvironmentRepairProgress &&
+              renderLocalRepairProgress(requiredEnvironmentRepairProgress)}
             {localEnvironmentError && (
               <div className={styles.localEnvironmentError}>
                 <strong>{t('dashboard.local_environment_bridge_error_title')}</strong>
@@ -684,38 +793,7 @@ export function DashboardPage() {
                         </Button>
                       )}
                       {itemRepairProgress && (
-                        <div className={styles.localDependencyRepairProgress}>
-                          <div className={styles.localDependencyRepairProgressHeader}>
-                            <strong>{getLocalRepairPhaseLabel(itemRepairProgress.phase)}</strong>
-                            {itemRepairProgress.exitCode !== null &&
-                              itemRepairProgress.exitCode !== undefined && (
-                                <span>
-                                  {t('dashboard.local_environment_repair_exit_code', {
-                                    code: itemRepairProgress.exitCode,
-                                  })}
-                                </span>
-                              )}
-                          </div>
-                          <p>{itemRepairProgress.message}</p>
-                          {itemRepairProgress.commandLine && (
-                            <div className={styles.localDependencyRepairField}>
-                              <span>{t('dashboard.local_environment_repair_command')}</span>
-                              <code>{itemRepairProgress.commandLine}</code>
-                            </div>
-                          )}
-                          {itemRepairProgress.recentOutput.length > 0 && (
-                            <div className={styles.localDependencyRepairField}>
-                              <span>{t('dashboard.local_environment_repair_recent_output')}</span>
-                              <pre>{itemRepairProgress.recentOutput.join('\n')}</pre>
-                            </div>
-                          )}
-                          {itemRepairProgress.logPath && (
-                            <div className={styles.localDependencyRepairField}>
-                              <span>{t('dashboard.local_environment_repair_log_path')}</span>
-                              <code>{itemRepairProgress.logPath}</code>
-                            </div>
-                          )}
-                        </div>
+                        renderLocalRepairProgress(itemRepairProgress)
                       )}
                     </div>
                   );

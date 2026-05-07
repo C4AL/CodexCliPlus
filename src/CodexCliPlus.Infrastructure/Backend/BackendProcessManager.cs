@@ -25,6 +25,7 @@ public sealed class BackendProcessManager : IDisposable
     private IManagedProcess? _managedProcess;
     private CancellationTokenSource _operationCts = new();
     private bool _stopRequested;
+    private BackendProcessStopOptions _requestedStopOptions = BackendProcessStopOptions.Default;
     private bool _disposed;
 
     public BackendProcessManager(
@@ -107,6 +108,7 @@ public sealed class BackendProcessManager : IDisposable
                 .ConfigureAwait(false);
 
             _stopRequested = false;
+            _requestedStopOptions = BackendProcessStopOptions.Default;
             _managedProcess = await _processService
                 .StartAsync(
                     new ManagedProcessStartInfo(
@@ -150,7 +152,8 @@ public sealed class BackendProcessManager : IDisposable
                     }
                 );
 
-                await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+                await StopManagedProcessAsync(BackendProcessStopOptions.Default, CancellationToken.None)
+                    .ConfigureAwait(false);
                 await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
                 return CurrentStatus;
             }
@@ -174,7 +177,8 @@ public sealed class BackendProcessManager : IDisposable
         catch (OperationCanceledException)
             when (_stopRequested || _operationCts.IsCancellationRequested)
         {
-            await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+            await StopManagedProcessAsync(_requestedStopOptions, CancellationToken.None)
+                .ConfigureAwait(false);
             await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
             CleanupRuntimeArtifacts();
             UpdateStatus(
@@ -191,7 +195,8 @@ public sealed class BackendProcessManager : IDisposable
         catch (Exception exception)
         {
             _logger.LogError("Failed to start backend process.", exception);
-            await StopManagedProcessAsync(CancellationToken.None).ConfigureAwait(false);
+            await StopManagedProcessAsync(BackendProcessStopOptions.Default, CancellationToken.None)
+                .ConfigureAwait(false);
             await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
             CleanupRuntimeArtifacts();
             UpdateStatus(
@@ -215,13 +220,28 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        return await StopAsync(BackendProcessStopOptions.Default, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<BackendStatusSnapshot> StopAsync(
+        BackendProcessStopOptions stopOptions,
+        CancellationToken cancellationToken = default
+    )
+    {
         _stopRequested = true;
+        _requestedStopOptions = stopOptions;
         CancelActiveOperation();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (IsStopComplete())
+            {
+                return CurrentStatus;
+            }
+
             var runtime = CurrentStatus.Runtime;
-            await StopManagedProcessAsync(cancellationToken).ConfigureAwait(false);
+            await StopManagedProcessAsync(stopOptions, cancellationToken).ConfigureAwait(false);
             await _secretBrokerService.StopAsync(cancellationToken).ConfigureAwait(false);
             CleanupRuntimeArtifacts();
 
@@ -239,6 +259,7 @@ public sealed class BackendProcessManager : IDisposable
         finally
         {
             ResetActiveOperation();
+            _requestedStopOptions = BackendProcessStopOptions.Default;
             _gate.Release();
         }
     }
@@ -261,7 +282,7 @@ public sealed class BackendProcessManager : IDisposable
         _disposed = true;
         try
         {
-            Task.Run(() => StopAsync()).GetAwaiter().GetResult();
+            Task.Run(() => StopAsync(BackendProcessStopOptions.FastExit)).GetAwaiter().GetResult();
         }
         catch { }
 
@@ -321,7 +342,10 @@ public sealed class BackendProcessManager : IDisposable
         StatusChanged?.Invoke(this, CurrentStatus);
     }
 
-    private async Task StopManagedProcessAsync(CancellationToken cancellationToken)
+    private async Task StopManagedProcessAsync(
+        BackendProcessStopOptions stopOptions,
+        CancellationToken cancellationToken
+    )
     {
         if (_managedProcess is null)
         {
@@ -331,13 +355,31 @@ public sealed class BackendProcessManager : IDisposable
         try
         {
             _managedProcess.Exited -= OnProcessExited;
-            await _managedProcess.StopAsync(cancellationToken).ConfigureAwait(false);
+            await _managedProcess
+                .StopAsync(ToManagedProcessStopOptions(stopOptions), cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
             _managedProcess.Dispose();
             _managedProcess = null;
         }
+    }
+
+    private bool IsStopComplete()
+    {
+        return _managedProcess is null
+            && _secretBrokerService.CurrentSession is null
+            && CurrentStatus.State == BackendStateKind.Stopped;
+    }
+
+    private static ManagedProcessStopOptions ToManagedProcessStopOptions(
+        BackendProcessStopOptions stopOptions
+    )
+    {
+        return stopOptions == BackendProcessStopOptions.FastExit
+            ? ManagedProcessStopOptions.FastExit
+            : ManagedProcessStopOptions.Default;
     }
 
     private void CancelActiveOperation()

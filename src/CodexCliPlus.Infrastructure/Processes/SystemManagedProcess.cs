@@ -5,6 +5,9 @@ namespace CodexCliPlus.Infrastructure.Processes;
 
 public sealed class SystemManagedProcess : IManagedProcess
 {
+    private static readonly TimeSpan GracefulStopTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan FastExitWaitTimeout = TimeSpan.FromMilliseconds(2500);
+
     private readonly Process _process;
 
     public SystemManagedProcess(Process process)
@@ -31,6 +34,14 @@ public sealed class SystemManagedProcess : IManagedProcess
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
+        await StopAsync(ManagedProcessStopOptions.Default, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task StopAsync(
+        ManagedProcessStopOptions stopOptions,
+        CancellationToken cancellationToken = default
+    )
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_process.HasExited)
@@ -38,11 +49,17 @@ public sealed class SystemManagedProcess : IManagedProcess
             return;
         }
 
+        if (stopOptions == ManagedProcessStopOptions.FastExit)
+        {
+            await KillProcessTreeAsync(FastExitWaitTimeout, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         try
         {
             if (_process.CloseMainWindow())
             {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                using var timeout = new CancellationTokenSource(GracefulStopTimeout);
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(
                     cancellationToken,
                     timeout.Token
@@ -63,12 +80,44 @@ public sealed class SystemManagedProcess : IManagedProcess
         if (!_process.HasExited)
         {
             _process.Kill(entireProcessTree: true);
-            await _process.WaitForExitAsync(cancellationToken);
+            await _process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
     public Task WaitForExitAsync(CancellationToken cancellationToken = default)
     {
         return _process.WaitForExitAsync(cancellationToken);
+    }
+
+    private async Task KillProcessTreeAsync(
+        TimeSpan waitTimeout,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(waitTimeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeout.Token
+        );
+        try
+        {
+            await _process.WaitForExitAsync(linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Fast application shutdown should not wait indefinitely after a hard kill request.
+        }
     }
 }

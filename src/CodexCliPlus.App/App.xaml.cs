@@ -14,7 +14,8 @@ public partial class App : System.Windows.Application, IDisposable
     private const string SingleInstanceMutexName = "BlackblockInc.CodexCliPlus.App";
     private const string SingleInstanceWakeEventName = "BlackblockInc.CodexCliPlus.App.Wake";
     private const string SingleInstanceExitingEventName = "BlackblockInc.CodexCliPlus.App.Exiting";
-    private static readonly TimeSpan SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan SingleInstanceExitTakeoverTimeout = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan FastExitBackendStopTimeout = TimeSpan.FromMilliseconds(2500);
 
     private ServiceProvider? _serviceProvider;
     private Mutex? _singleInstanceMutex;
@@ -70,7 +71,15 @@ public partial class App : System.Windows.Application, IDisposable
             var backendProcessManager = _serviceProvider?.GetService<BackendProcessManager>();
             if (backendProcessManager is not null)
             {
-                Task.Run(() => backendProcessManager.StopAsync()).GetAwaiter().GetResult();
+                using var stopTimeout = new CancellationTokenSource(FastExitBackendStopTimeout);
+                Task.Run(() =>
+                        backendProcessManager.StopAsync(
+                            BackendProcessStopOptions.FastExit,
+                            stopTimeout.Token
+                        )
+                    )
+                    .GetAwaiter()
+                    .GetResult();
             }
         }
         catch { }

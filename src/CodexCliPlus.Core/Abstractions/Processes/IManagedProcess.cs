@@ -12,5 +12,10 @@ public interface IManagedProcess : IDisposable
 
     Task StopAsync(CancellationToken cancellationToken = default);
 
+    Task StopAsync(
+        ManagedProcessStopOptions stopOptions,
+        CancellationToken cancellationToken = default
+    );
+
     Task WaitForExitAsync(CancellationToken cancellationToken = default);
 }

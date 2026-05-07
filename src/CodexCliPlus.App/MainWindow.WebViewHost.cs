@@ -590,9 +590,7 @@ public partial class MainWindow
         {
             var method = CreateHttpMethod(request.Method);
             var path = NormalizeManagementPath(request.Path);
-            var accept = string.IsNullOrWhiteSpace(request.Accept)
-                ? "application/json"
-                : NormalizeMediaType(request.Accept);
+            var accept = NormalizeAcceptHeader(request.Accept);
             var contentType = NormalizeMediaType(request.ContentType);
 
             _logger.Info($"Desktop management request {requestId}: {method.Method} {path}");
@@ -888,6 +886,12 @@ public partial class MainWindow
         var separatorIndex = rawValue.IndexOf(';', StringComparison.Ordinal);
         var mediaType = (separatorIndex >= 0 ? rawValue[..separatorIndex] : rawValue).Trim();
         return string.IsNullOrWhiteSpace(mediaType) ? "application/json" : mediaType;
+    }
+
+    private static string NormalizeAcceptHeader(string? value)
+    {
+        var accept = value?.Trim();
+        return string.IsNullOrWhiteSpace(accept) ? "application/json" : accept;
     }
 
     private static bool IsReadOnlyMethod(HttpMethod method)

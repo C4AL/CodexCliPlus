@@ -208,7 +208,7 @@ public sealed class ManagementApiClient : IManagementApiClient
 
         if (!string.IsNullOrWhiteSpace(accept))
         {
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
+            request.Headers.Accept.ParseAdd(accept);
         }
 
         if (!string.IsNullOrWhiteSpace(bearerToken) && !HasHeader(headers, "Authorization"))

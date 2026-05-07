@@ -2,6 +2,8 @@ using MicaSetup.Design.Commands;
 using MicaSetup.Design.ComponentModel;
 using MicaSetup.Helper;
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 
@@ -10,6 +12,9 @@ namespace MicaSetup.ViewModels;
 public partial class FinishViewModel : ObservableObject
 {
     private const int InstallerDeleteRetryCount = 15;
+    private const string InstallerDeleteEnvironmentVariable = "CODEXCLIPLUS_INSTALLER_TO_DELETE";
+
+    private bool installerDeleteScheduled;
 
     public string Message => Option.Current.MessageOfPage3;
 
@@ -17,6 +22,10 @@ public partial class FinishViewModel : ObservableObject
 
     public FinishViewModel()
     {
+        if (ApplicationDispatcherHelper.MainWindow is Window window)
+        {
+            window.Closing += OnMainWindowClosing;
+        }
     }
 
     [RelayCommand]
@@ -55,14 +64,14 @@ public partial class FinishViewModel : ObservableObject
 
     private void CleanupOriginalInstallerAfterInstall()
     {
-        if (!CleanupInstallerAfterInstall)
+        if (!CleanupInstallerAfterInstall || installerDeleteScheduled)
         {
             return;
         }
 
         try
         {
-            string currentFullPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppDomain.CurrentDomain.FriendlyName));
+            string currentFullPath = GetCurrentExecutablePath();
             if (string.IsNullOrWhiteSpace(currentFullPath) || !File.Exists(currentFullPath))
             {
                 Logger.Information($"[InstallerCleanup] current installer missing: {currentFullPath}");
@@ -83,6 +92,7 @@ public partial class FinishViewModel : ObservableObject
             }
 
             ScheduleDelayedInstallerDelete(currentFullPath);
+            installerDeleteScheduled = true;
             Logger.Information($"[InstallerCleanup] scheduled installer delete: {currentFullPath}");
         }
         catch (Exception e)
@@ -91,21 +101,50 @@ public partial class FinishViewModel : ObservableObject
         }
     }
 
+    private void OnMainWindowClosing(object? sender, CancelEventArgs e)
+    {
+        CleanupOriginalInstallerAfterInstall();
+
+        if (sender is Window window)
+        {
+            window.Closing -= OnMainWindowClosing;
+        }
+    }
+
+    private static string GetCurrentExecutablePath()
+    {
+        try
+        {
+            using Process currentProcess = Process.GetCurrentProcess();
+            string? processPath = currentProcess.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(processPath))
+            {
+                return Path.GetFullPath(processPath);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Warning($"[InstallerCleanup] cannot resolve process executable path: {e.Message}");
+        }
+
+        return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppDomain.CurrentDomain.FriendlyName));
+    }
+
     private static void ScheduleDelayedInstallerDelete(string installerPath)
     {
-        string command = BuildInstallerDeleteCommand(installerPath);
-        FluentProcess.Create()
+        string command = BuildInstallerDeleteCommand();
+        FluentProcess process = FluentProcess.Create()
             .FileName(GetCommandProcessorPath())
             .Arguments("/d /s /c " + QuoteCmdCommand(command))
             .UseShellExecute(false)
-            .CreateNoWindow(true)
-            .Start()
-            .Forget();
+            .CreateNoWindow(true);
+        process.StartInfo.EnvironmentVariables[InstallerDeleteEnvironmentVariable] = installerPath;
+        process.Start().Forget();
     }
 
-    private static string BuildInstallerDeleteCommand(string installerPath)
+    private static string BuildInstallerDeleteCommand()
     {
-        string quotedInstallerPath = QuoteCmdPath(installerPath);
+        string quotedInstallerPath = QuoteCmdPath("%" + InstallerDeleteEnvironmentVariable + "%");
         return $"for /l %i in (1,1,{InstallerDeleteRetryCount}) do @(del /f /q {quotedInstallerPath} 2>nul & if not exist {quotedInstallerPath} exit /b 0 & if %i geq {InstallerDeleteRetryCount} exit /b 0 & timeout /t 1 /nobreak >nul) & exit /b 0";
     }
 

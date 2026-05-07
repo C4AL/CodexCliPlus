@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -354,14 +355,40 @@ public sealed class InstallerPackagingTests : IDisposable
             StringComparison.Ordinal
         );
         Assert.Equal(
-            2,
+            3,
             CountOccurrences(finishViewModel, "CleanupOriginalInstallerAfterInstall();")
         );
+        Assert.Contains("window.Closing += OnMainWindowClosing;", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("window.Closing -= OnMainWindowClosing;", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("private bool installerDeleteScheduled;", finishViewModel, StringComparison.Ordinal);
+        Assert.Contains("if (!CleanupInstallerAfterInstall || installerDeleteScheduled)", finishViewModel, StringComparison.Ordinal);
         Assert.Contains(
             "ScheduleDelayedInstallerDelete",
             finishViewModel,
             StringComparison.Ordinal
         );
+        Assert.Contains(
+            "private const string InstallerDeleteEnvironmentVariable = \"CODEXCLIPLUS_INSTALLER_TO_DELETE\";",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "process.StartInfo.EnvironmentVariables[InstallerDeleteEnvironmentVariable] = installerPath;",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("BuildInstallerDeleteCommand()", finishViewModel, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "BuildInstallerDeleteCommand(installerPath)",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "QuoteCmdPath(\"%\" + InstallerDeleteEnvironmentVariable + \"%\")",
+            finishViewModel,
+            StringComparison.Ordinal
+        );
+        Assert.DoesNotContain("QuoteCmdPath(installerPath)", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("GetCommandProcessorPath()", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("\"cmd.exe\"", finishViewModel, StringComparison.Ordinal);
         Assert.Contains("/d /s /c", finishViewModel, StringComparison.Ordinal);
@@ -418,6 +445,39 @@ public sealed class InstallerPackagingTests : IDisposable
             ReadPngWidth(Path.Combine(distRoot, "Resources", "Images", "FaviconUninst.png")) >= 256
         );
         Assert.Contains("kept package staging", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InstallerDeleteCommandRemovesInstallerPathWithSpacesFromEnvironmentVariable()
+    {
+        const string installerDeleteEnvironmentVariable = "CODEXCLIPLUS_INSTALLER_TO_DELETE";
+        var cleanupRoot = Path.Combine(_rootDirectory, "installer cleanup with spaces");
+        Directory.CreateDirectory(cleanupRoot);
+        var installerPath = Path.Combine(cleanupRoot, "CodexCliPlus Setup Test.exe");
+        File.WriteAllBytes(installerPath, CreateExecutableBytes());
+
+        var command =
+            $"for /l %i in (1,1,5) do @(del /f /q \"%{installerDeleteEnvironmentVariable}%\" 2>nul & if not exist \"%{installerDeleteEnvironmentVariable}%\" exit /b 0 & if %i geq 5 exit /b 0 & timeout /t 1 /nobreak >nul) & exit /b 0";
+        var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = File.Exists(cmdPath) ? cmdPath : "cmd.exe",
+                Arguments = "/d /s /c \"" + command + "\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            },
+        };
+        process.StartInfo.EnvironmentVariables[installerDeleteEnvironmentVariable] =
+            installerPath;
+
+        Assert.True(process.Start());
+        await process.WaitForExitAsync();
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.False(File.Exists(installerPath));
     }
 
     [Fact]
@@ -965,6 +1025,17 @@ public sealed class InstallerPackagingTests : IDisposable
             public sealed class FinishViewModel
             {
                 private const int InstallerDeleteRetryCount = 15;
+                private const string InstallerDeleteEnvironmentVariable = "CODEXCLIPLUS_INSTALLER_TO_DELETE";
+
+                private bool installerDeleteScheduled;
+
+                public FinishViewModel()
+                {
+                    if (ApplicationDispatcherHelper.MainWindow is Window window)
+                    {
+                        window.Closing += OnMainWindowClosing;
+                    }
+                }
 
                 public void Close()
                 {
@@ -978,20 +1049,38 @@ public sealed class InstallerPackagingTests : IDisposable
 
                 private void CleanupOriginalInstallerAfterInstall()
                 {
+                    if (!CleanupInstallerAfterInstall || installerDeleteScheduled)
+                    {
+                        return;
+                    }
+
                     ScheduleDelayedInstallerDelete("setup.exe");
+                    installerDeleteScheduled = true;
                 }
 
-                private static void ScheduleDelayedInstallerDelete(string path)
+                private void OnMainWindowClosing(object? sender, CancelEventArgs e)
                 {
-                    string command = BuildInstallerDeleteCommand(path);
+                    CleanupOriginalInstallerAfterInstall();
+
+                    if (sender is Window window)
+                    {
+                        window.Closing -= OnMainWindowClosing;
+                    }
+                }
+
+                private static void ScheduleDelayedInstallerDelete(string installerPath)
+                {
+                    string command = BuildInstallerDeleteCommand();
+                    FluentProcess process = FluentProcess.Create();
+                    process.StartInfo.EnvironmentVariables[InstallerDeleteEnvironmentVariable] = installerPath;
                     _ = GetCommandProcessorPath();
                     _ = "/d /s /c " + QuoteCmdCommand(command);
                     _ = ".CreateNoWindow(true)";
                 }
 
-                private static string BuildInstallerDeleteCommand(string path)
+                private static string BuildInstallerDeleteCommand()
                 {
-                    string quotedPath = QuoteCmdPath(path);
+                    string quotedPath = QuoteCmdPath("%" + InstallerDeleteEnvironmentVariable + "%");
                     return $"for /l %i in (1,1,{InstallerDeleteRetryCount}) do @(del /f /q {quotedPath} 2>nul & if not exist {quotedPath} exit /b 0 & if %i geq {InstallerDeleteRetryCount} exit /b 0 & timeout /t 1 /nobreak >nul) & exit /b 0";
                 }
 

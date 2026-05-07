@@ -93,6 +93,34 @@ public static class DesktopBridgeScriptFactory
                   targetMode: typeof targetId === 'string' ? targetId : '',
                   requestId: typeof requestId === 'string' ? requestId : undefined
                 }),
+                requestCodexUserFiles: (requestId) => postHostMessage({
+                  type: 'requestCodexUserFiles',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                readCodexUserFile: (fileId, requestId) => postHostMessage({
+                  type: 'readCodexUserFile',
+                  fileId: typeof fileId === 'string' ? fileId : '',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                validateCodexUserFile: (fileId, content, requestId) => postHostMessage({
+                  type: 'validateCodexUserFile',
+                  fileId: typeof fileId === 'string' ? fileId : '',
+                  content: typeof content === 'string' ? content : '',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                backupCodexUserFile: (fileId, requestId) => postHostMessage({
+                  type: 'backupCodexUserFile',
+                  fileId: typeof fileId === 'string' ? fileId : '',
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
+                saveCodexUserFile: (fileId, content, expectedLastWriteTimeUtc, requestId) => postHostMessage({
+                  type: 'saveCodexUserFile',
+                  fileId: typeof fileId === 'string' ? fileId : '',
+                  content: typeof content === 'string' ? content : '',
+                  expectedLastWriteTimeUtc:
+                    typeof expectedLastWriteTimeUtc === 'string' ? expectedLastWriteTimeUtc : null,
+                  requestId: typeof requestId === 'string' ? requestId : undefined
+                }),
                 managementRequest: (request) => {
                   const normalized = request && typeof request === 'object' ? request : {};
                   postHostMessage({

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
@@ -75,6 +76,166 @@ public sealed class CodexConfigService
     public string GetDesktopAuthBackupPath()
     {
         return Path.Combine(GetUserConfigDirectory(), "codexcliplus-auth", "official-auth.json");
+    }
+
+    public async Task<IReadOnlyList<CodexUserFileSnapshot>> GetCodexUserFileSnapshotsAsync(
+        CancellationToken cancellationToken = default
+    )
+    {
+        return
+        [
+            await ReadCodexUserFileAsync("config", cancellationToken),
+            await ReadCodexUserFileAsync("auth", cancellationToken),
+        ];
+    }
+
+    public async Task<CodexUserFileSnapshot> ReadCodexUserFileAsync(
+        string? fileId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var descriptor = ResolveCodexUserFile(fileId);
+        var path = descriptor.Path;
+        if (!File.Exists(path))
+        {
+            return new CodexUserFileSnapshot
+            {
+                FileId = descriptor.FileId,
+                Path = path,
+                Content = string.Empty,
+                Language = descriptor.Language,
+                Exists = false,
+                LastWriteTimeUtc = null,
+                SizeBytes = 0,
+                Validation = CreateMissingFileValidation(descriptor),
+            };
+        }
+
+        var info = new FileInfo(path);
+        var content = await File.ReadAllTextAsync(path, cancellationToken);
+        return new CodexUserFileSnapshot
+        {
+            FileId = descriptor.FileId,
+            Path = path,
+            Content = content,
+            Language = descriptor.Language,
+            Exists = true,
+            LastWriteTimeUtc = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+            SizeBytes = info.Length,
+            Validation = ValidateCodexUserFile(descriptor.FileId, content),
+        };
+    }
+
+    public CodexUserFileValidation ValidateCodexUserFile(string? fileId, string? content)
+    {
+        var descriptor = ResolveCodexUserFile(fileId);
+        var normalizedContent = content ?? string.Empty;
+
+        if (descriptor.FileId == "config")
+        {
+            return TryParseTomlTable(normalizedContent, out _, out var errorMessage)
+                ? CreateValidValidation("config.toml 校验通过。")
+                : CreateInvalidValidation($"config.toml 不是有效 TOML：{errorMessage}");
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(normalizedContent);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return CreateInvalidValidation("auth.json 必须是 JSON 对象。");
+            }
+
+            return CreateValidValidation("auth.json 校验通过。");
+        }
+        catch (JsonException exception)
+        {
+            return CreateInvalidValidation($"auth.json 不是有效 JSON：{exception.Message}");
+        }
+    }
+
+    public async Task<CodexUserFileBackupResult> BackupCodexUserFileAsync(
+        string? fileId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var descriptor = ResolveCodexUserFile(fileId);
+        if (!File.Exists(descriptor.Path))
+        {
+            throw new InvalidOperationException("目标文件不存在，无法创建备份。");
+        }
+
+        var backupPath = await BackupSourceFileAsync(descriptor, cancellationToken);
+        return new CodexUserFileBackupResult
+        {
+            FileId = descriptor.FileId,
+            Path = descriptor.Path,
+            BackupPath = backupPath,
+            Snapshot = await ReadCodexUserFileAsync(descriptor.FileId, cancellationToken),
+        };
+    }
+
+    public async Task<CodexUserFileSaveResult> SaveCodexUserFileAsync(
+        string? fileId,
+        string? content,
+        DateTimeOffset? expectedLastWriteTimeUtc,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var descriptor = ResolveCodexUserFile(fileId);
+        var normalizedContent = content ?? string.Empty;
+        var validation = ValidateCodexUserFile(descriptor.FileId, normalizedContent);
+        if (!validation.IsValid)
+        {
+            throw new InvalidOperationException(validation.Message);
+        }
+
+        EnsureCodexUserFileWriteIsCurrent(descriptor, expectedLastWriteTimeUtc);
+
+        Directory.CreateDirectory(GetUserConfigDirectory());
+        string? backupPath = null;
+        var tempPath = Path.Combine(
+            GetUserConfigDirectory(),
+            $".{descriptor.FileName}.codexcliplus-save-{Guid.NewGuid():N}.tmp"
+        );
+        var existedBeforeWrite = File.Exists(descriptor.Path);
+
+        try
+        {
+            if (existedBeforeWrite)
+            {
+                backupPath = await BackupSourceFileAsync(descriptor, cancellationToken);
+            }
+
+            await WriteUtf8NoBomAsync(tempPath, normalizedContent, cancellationToken);
+            File.Move(tempPath, descriptor.Path, overwrite: true);
+
+            return new CodexUserFileSaveResult
+            {
+                FileId = descriptor.FileId,
+                Path = descriptor.Path,
+                BackupPath = backupPath,
+                Snapshot = await ReadCodexUserFileAsync(descriptor.FileId, cancellationToken),
+            };
+        }
+        catch
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
+            if (backupPath is not null && File.Exists(backupPath))
+            {
+                File.Copy(backupPath, descriptor.Path, overwrite: true);
+            }
+            else if (!existedBeforeWrite && File.Exists(descriptor.Path))
+            {
+                File.Delete(descriptor.Path);
+            }
+
+            throw;
+        }
     }
 
     [SuppressMessage(
@@ -1578,6 +1739,114 @@ public sealed class CodexConfigService
         );
     }
 
+    private CodexUserFileDescriptor ResolveCodexUserFile(string? fileId)
+    {
+        var normalized = fileId?.Trim();
+        return normalized switch
+        {
+            "config" => new CodexUserFileDescriptor(
+                "config",
+                "config",
+                GetUserConfigPath(),
+                "toml",
+                "toml"
+            ),
+            "auth" => new CodexUserFileDescriptor(
+                "auth",
+                "auth",
+                GetUserAuthPath(),
+                "json",
+                "json"
+            ),
+            _ => throw new ArgumentException(
+                "Codex 用户配置文件标识无效，只能使用 config 或 auth。",
+                nameof(fileId)
+            ),
+        };
+    }
+
+    private static CodexUserFileValidation CreateMissingFileValidation(
+        CodexUserFileDescriptor descriptor
+    )
+    {
+        return new CodexUserFileValidation
+        {
+            IsValid = true,
+            Message = $"{descriptor.FileName} 尚未创建。",
+        };
+    }
+
+    private static CodexUserFileValidation CreateValidValidation(string message)
+    {
+        return new CodexUserFileValidation { IsValid = true, Message = message };
+    }
+
+    private static CodexUserFileValidation CreateInvalidValidation(string message)
+    {
+        return new CodexUserFileValidation { IsValid = false, Message = message };
+    }
+
+    private static async Task<string> BackupSourceFileAsync(
+        CodexUserFileDescriptor descriptor,
+        CancellationToken cancellationToken
+    )
+    {
+        var directory = Path.GetDirectoryName(descriptor.Path);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("无法解析 Codex 用户配置目录。");
+        }
+
+        Directory.CreateDirectory(directory);
+        var backupPath = Path.Combine(
+            directory,
+            $"{descriptor.BaseName}.codexcliplus-source-backup-{DateTimeOffset.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.{descriptor.Extension}"
+        );
+
+        await using var sourceStream = new FileStream(
+            descriptor.Path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read
+        );
+        await using var targetStream = new FileStream(
+            backupPath,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None
+        );
+        await sourceStream.CopyToAsync(targetStream, cancellationToken);
+        return backupPath;
+    }
+
+    private static void EnsureCodexUserFileWriteIsCurrent(
+        CodexUserFileDescriptor descriptor,
+        DateTimeOffset? expectedLastWriteTimeUtc
+    )
+    {
+        var exists = File.Exists(descriptor.Path);
+        if (!exists)
+        {
+            if (expectedLastWriteTimeUtc is not null)
+            {
+                throw new InvalidOperationException("目标文件已被外部删除，请重新同步后再保存。");
+            }
+
+            return;
+        }
+
+        if (expectedLastWriteTimeUtc is null)
+        {
+            throw new InvalidOperationException("目标文件已在外部创建，请重新同步后再保存。");
+        }
+
+        var actual = new DateTimeOffset(File.GetLastWriteTimeUtc(descriptor.Path), TimeSpan.Zero);
+        if (actual != expectedLastWriteTimeUtc.Value.ToUniversalTime())
+        {
+            throw new InvalidOperationException("目标文件已被外部修改，请重新同步后再保存。");
+        }
+    }
+
     private static async Task<string> BackupFileContentAsync(
         string content,
         string directory,
@@ -1715,4 +1984,15 @@ public sealed class CodexConfigService
     }
 
     private sealed record OfficialAuthCandidate(string Path, string Content);
+
+    private sealed record CodexUserFileDescriptor(
+        string FileId,
+        string BaseName,
+        string Path,
+        string Extension,
+        string Language
+    )
+    {
+        public string FileName => $"{BaseName}.{Extension}";
+    }
 }

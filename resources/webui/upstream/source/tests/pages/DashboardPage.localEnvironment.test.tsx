@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LocalDependencySnapshot } from '@/desktop/bridge';
@@ -133,6 +133,12 @@ function getLocalEnvironmentButton() {
   return screen.getByRole('button', { name: /dashboard\.local_environment/ });
 }
 
+function getDependencyRow(name: string) {
+  const row = screen.getByText(name).closest('[class*="localDependencyItem"]');
+  expect(row).not.toBeNull();
+  return row as HTMLElement;
+}
+
 describe('DashboardPage local environment loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -253,6 +259,70 @@ describe('DashboardPage local environment loading', () => {
         'success'
       );
     });
+  });
+
+  it('keeps shared repair action loading and progress attached to the clicked item', async () => {
+    const sharedActionSnapshot: LocalDependencySnapshot = {
+      ...snapshot,
+      items: [
+        snapshot.items[0],
+        {
+          id: 'npm',
+          name: 'npm',
+          status: 'missing',
+          severity: 'required',
+          version: null,
+          path: null,
+          detail: '未找到 npm。',
+          recommendation: '安装 Node.js LTS 后 npm 会同步恢复。',
+          repairActionId: 'install-node-npm',
+        },
+      ],
+    };
+    bridgeMocks.requestLocalDependencySnapshot.mockResolvedValue(sharedActionSnapshot);
+    bridgeMocks.runLocalDependencyRepair.mockImplementation(() => new Promise(() => {}));
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(sharedActionSnapshot.summary);
+    const nodeRow = getDependencyRow('Node.js');
+    const npmRow = getDependencyRow('npm');
+    fireEvent.click(
+      within(nodeRow).getByRole('button', { name: 'dashboard.local_environment_repair' })
+    );
+
+    const confirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      void confirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenCalledWith(
+      'install-node-npm',
+      expect.any(Function)
+    );
+    expect(
+      within(nodeRow).getByRole('button', {
+        name: 'dashboard.local_environment_repairing_button',
+      })
+    ).toBeDisabled();
+    expect(
+      within(npmRow).getByRole('button', { name: 'dashboard.local_environment_repair' })
+    ).toBeDisabled();
+    expect(
+      within(npmRow).queryByRole('button', {
+        name: 'dashboard.local_environment_repairing_button',
+      })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText('dashboard.local_environment_repair_progress_starting')
+    ).toHaveLength(1);
+    expect(
+      within(nodeRow).getByText('dashboard.local_environment_repair_progress_starting')
+    ).toBeInTheDocument();
+    expect(
+      within(npmRow).queryByText('dashboard.local_environment_repair_progress_starting')
+    ).not.toBeInTheDocument();
   });
 
   it('runs winget repair action from the local environment item', async () => {

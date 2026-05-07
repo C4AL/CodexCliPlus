@@ -33,6 +33,11 @@ interface QuickStat {
 type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 const DASHBOARD_MODELS_FETCH_TIMEOUT_MS = 1_500;
 
+type LocalRepairTarget = {
+  itemId: string;
+  actionId: string;
+};
+
 type IdleWindow = Window & {
   requestIdleCallback?: (
     callback: IdleRequestCallback,
@@ -102,7 +107,8 @@ export function DashboardPage() {
   const [localEnvironmentError, setLocalEnvironmentError] = useState('');
   const [localEnvironmentSnapshot, setLocalEnvironmentSnapshot] =
     useState<LocalDependencySnapshot | null>(null);
-  const [repairingActionId, setRepairingActionId] = useState<string | null>(null);
+  const [repairingTarget, setRepairingTarget] = useState<LocalRepairTarget | null>(null);
+  const [localRepairProgressItemId, setLocalRepairProgressItemId] = useState<string | null>(null);
   const [localRepairProgress, setLocalRepairProgress] =
     useState<LocalDependencyRepairProgress | null>(null);
 
@@ -347,7 +353,8 @@ export function DashboardPage() {
       variant: 'danger',
       onConfirm: async () => {
         const actionId = item.repairActionId!;
-        setRepairingActionId(actionId);
+        setRepairingTarget({ itemId: item.id, actionId });
+        setLocalRepairProgressItemId(item.id);
         setLocalRepairProgress({
           actionId,
           phase: 'starting',
@@ -360,6 +367,7 @@ export function DashboardPage() {
         });
         try {
           const response = await runLocalDependencyRepair(actionId, (progress) => {
+            setLocalRepairProgressItemId(item.id);
             setLocalRepairProgress(progress);
           });
           setLocalRepairProgress((current) => ({
@@ -385,7 +393,7 @@ export function DashboardPage() {
           const message = error instanceof Error ? error.message : t('common.unknown_error');
           showNotification(message, 'error');
         } finally {
-          setRepairingActionId(null);
+          setRepairingTarget(null);
         }
       },
     });
@@ -628,8 +636,13 @@ export function DashboardPage() {
             {localEnvironmentSnapshot && (
               <div className={styles.localEnvironmentItems}>
                 {localEnvironmentSnapshot.items.map((item) => {
+                  const isRepairingItem =
+                    repairingTarget?.itemId === item.id &&
+                    repairingTarget.actionId === item.repairActionId;
                   const itemRepairProgress =
-                    item.repairActionId && localRepairProgress?.actionId === item.repairActionId
+                    item.id === localRepairProgressItemId &&
+                    item.repairActionId &&
+                    localRepairProgress?.actionId === item.repairActionId
                       ? localRepairProgress
                       : null;
                   return (
@@ -656,10 +669,10 @@ export function DashboardPage() {
                           variant="secondary"
                           size="sm"
                           onClick={() => handleRepairLocalDependency(item)}
-                          loading={repairingActionId === item.repairActionId}
-                          disabled={repairingActionId !== null}
+                          loading={isRepairingItem}
+                          disabled={repairingTarget !== null}
                         >
-                          {repairingActionId === item.repairActionId
+                          {isRepairingItem
                             ? t('dashboard.local_environment_repairing_button')
                             : t('dashboard.local_environment_repair')}
                         </Button>

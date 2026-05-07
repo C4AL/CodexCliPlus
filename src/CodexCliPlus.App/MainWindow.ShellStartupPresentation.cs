@@ -112,6 +112,7 @@ public partial class MainWindow
         ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
+        RevealInitialPresentation();
     }
 
     private void ShowFirstRunKeyReveal()
@@ -130,6 +131,7 @@ public partial class MainWindow
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
+        RevealInitialPresentation();
     }
 
     private void ShowLogin(string? errorMessage = null)
@@ -146,6 +148,7 @@ public partial class MainWindow
         BlockerPanel.Visibility = Visibility.Collapsed;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
+        RevealInitialPresentation();
     }
 
     private void ShowLoginError(string message)
@@ -170,6 +173,7 @@ public partial class MainWindow
         ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Collapsed;
         SetNavigationDockPopupOpen(false);
+        RevealInitialPresentation();
     }
 
     private void ShowWebView()
@@ -184,6 +188,19 @@ public partial class MainWindow
         ManagementContentHost.Visibility = Visibility.Visible;
         ManagementWebView.Visibility = Visibility.Visible;
         UpdateNavigationDockPopupVisibility();
+        RevealInitialPresentation();
+    }
+
+    private void RevealInitialPresentation()
+    {
+        if (_initialPresentationRevealed)
+        {
+            return;
+        }
+
+        _initialPresentationRevealed = true;
+        Opacity = 1;
+        ShowInTaskbar = true;
     }
 
     private static bool ShouldUseManagementEntryTransition()
@@ -228,6 +245,7 @@ public partial class MainWindow
         }
 
         await ShowManagementEntryTransitionPopupAsync();
+        RevealInitialPresentation();
         SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.LoadingWebView);
     }
 

@@ -22,6 +22,12 @@ public static class AssetCommands
         new("config.example.yaml", "config.example.yaml"),
     ];
 
+    private static readonly string[] RepositoryTrackedBackendFallbackFiles =
+    [
+        "README.md",
+        "README_CN.md",
+    ];
+
     private static readonly string[] RequiredBackendFileNames = RequiredBackendFiles
         .Select(file => file.TargetFileName)
         .ToArray();
@@ -95,14 +101,7 @@ public static class AssetCommands
             )
         )
         {
-            var sourcePath = Path.Combine(sourceRoot, file.SourceFileName);
-            if (!File.Exists(sourcePath))
-            {
-                throw new FileNotFoundException(
-                    $"Backend source is missing required file '{file.SourceFileName}'.",
-                    sourcePath
-                );
-            }
+            var sourcePath = ResolveBackendAssetSourceFile(context, sourceRoot, file);
 
             File.Copy(
                 sourcePath,
@@ -160,6 +159,47 @@ public static class AssetCommands
         var sha256 = await ComputeSha256Async(executablePath);
         context.Logger.Info(
             $"asset built from source: backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName} ({sha256})"
+        );
+    }
+
+    private static string ResolveBackendAssetSourceFile(
+        BuildContext context,
+        string sourceRoot,
+        BackendAssetFileMapping file
+    )
+    {
+        var sourcePath = Path.Combine(sourceRoot, file.SourceFileName);
+        if (File.Exists(sourcePath))
+        {
+            return sourcePath;
+        }
+
+        if (
+            RepositoryTrackedBackendFallbackFiles.Contains(
+                file.TargetFileName,
+                StringComparer.OrdinalIgnoreCase
+            )
+        )
+        {
+            var fallbackPath = Path.Combine(
+                context.Options.RepositoryRoot,
+                "resources",
+                "backend",
+                "windows-x64",
+                file.TargetFileName
+            );
+            if (File.Exists(fallbackPath))
+            {
+                context.Logger.Warning(
+                    $"backend source file '{file.SourceFileName}' is missing; using tracked backend asset fallback."
+                );
+                return fallbackPath;
+            }
+        }
+
+        throw new FileNotFoundException(
+            $"Backend source is missing required file '{file.SourceFileName}'.",
+            sourcePath
         );
     }
 

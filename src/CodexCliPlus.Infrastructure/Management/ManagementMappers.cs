@@ -519,6 +519,11 @@ internal static class ManagementMappers
                         {
                             foreach (var detail in detailArray.Value.EnumerateArray())
                             {
+                                if (detail.ValueKind != JsonValueKind.Object)
+                                {
+                                    continue;
+                                }
+
                                 var tokens = ManagementJson.GetObject(detail, "tokens");
                                 details.Add(
                                     new ManagementUsageRequestDetail

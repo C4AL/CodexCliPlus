@@ -347,22 +347,44 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken
     )
     {
-        if (_managedProcess is null)
+        var managedProcess = _managedProcess;
+        if (managedProcess is null)
         {
             return;
         }
 
+        var shouldReleaseProcess = false;
+        managedProcess.Exited -= OnProcessExited;
         try
         {
-            _managedProcess.Exited -= OnProcessExited;
-            await _managedProcess
+            await managedProcess
                 .StopAsync(ToManagedProcessStopOptions(stopOptions), cancellationToken)
                 .ConfigureAwait(false);
+            shouldReleaseProcess = true;
+        }
+        catch
+        {
+            if (managedProcess.HasExited)
+            {
+                shouldReleaseProcess = true;
+            }
+            else
+            {
+                managedProcess.Exited += OnProcessExited;
+            }
+
+            throw;
         }
         finally
         {
-            _managedProcess.Dispose();
-            _managedProcess = null;
+            if (shouldReleaseProcess)
+            {
+                managedProcess.Dispose();
+                if (ReferenceEquals(_managedProcess, managedProcess))
+                {
+                    _managedProcess = null;
+                }
+            }
         }
     }
 

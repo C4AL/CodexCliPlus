@@ -40,7 +40,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         var task = GetOrCreateLightweightTask(
             forceRefresh,
-            _shellStatusCache,
+            () => _shellStatusCache,
             () => _shellStatusInFlight,
             task => _shellStatusInFlight = task,
             BuildShellStatusAsync
@@ -58,7 +58,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         var task = GetOrCreateLightweightTask(
             forceRefresh,
-            _settingsSummaryCache,
+            () => _settingsSummaryCache,
             () => _settingsSummaryInFlight,
             task => _settingsSummaryInFlight = task,
             BuildSettingsSummaryAsync
@@ -69,7 +69,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
 
     private Task<T> GetOrCreateLightweightTask<T>(
         bool forceRefresh,
-        CacheEntry<T>? cache,
+        Func<CacheEntry<T>?> getCache,
         Func<Task<T>?> getInFlight,
         Action<Task<T>?> setInFlight,
         Func<Task<T>> factory
@@ -77,6 +77,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         lock (_gate)
         {
+            var cache = getCache();
             if (!forceRefresh && cache is not null && cache.IsFresh(LightweightCacheTtl))
             {
                 return Task.FromResult(cache.Value);
@@ -89,7 +90,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
 
             var task = factory();
             setInFlight(task);
-            _ = ClearInFlightWhenCompleteAsync(task, () => setInFlight(null));
+            _ = ClearInFlightWhenCompleteAsync(task, getInFlight, setInFlight);
             return task;
         }
     }
@@ -167,7 +168,11 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         return response;
     }
 
-    private async Task ClearInFlightWhenCompleteAsync<T>(Task<T> task, Action clear)
+    private async Task ClearInFlightWhenCompleteAsync<T>(
+        Task<T> task,
+        Func<Task<T>?> getInFlight,
+        Action<Task<T>?> setInFlight
+    )
     {
         try
         {
@@ -178,7 +183,10 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         {
             lock (_gate)
             {
-                clear();
+                if (ReferenceEquals(getInFlight(), task))
+                {
+                    setInFlight(null);
+                }
             }
         }
     }

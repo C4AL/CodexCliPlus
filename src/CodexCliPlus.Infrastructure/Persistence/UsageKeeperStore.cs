@@ -250,13 +250,24 @@ internal sealed class UsageKeeperStore
 
         await transaction.CommitAsync(cancellationToken);
 
-        if (File.Exists(LegacyUsageSnapshotPath))
+        DeleteLegacySnapshotIfPossible();
+        ClearBackupDirectory();
+        Directory.CreateDirectory(_backupDirectory);
+    }
+
+    private void DeleteLegacySnapshotIfPossible()
+    {
+        if (!File.Exists(LegacyUsageSnapshotPath))
+        {
+            return;
+        }
+
+        try
         {
             File.Delete(LegacyUsageSnapshotPath);
         }
-
-        ClearBackupDirectory();
-        Directory.CreateDirectory(_backupDirectory);
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void ClearBackupDirectory()

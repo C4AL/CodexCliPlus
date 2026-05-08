@@ -129,7 +129,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         if (settings.RememberPassword)
         {
-            _sessionManagementKey = string.Empty;
             if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
             {
                 await _credentialStore.SaveSecretAsync(
@@ -138,14 +137,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                     cancellationToken
                 );
             }
-        }
-        else
-        {
-            _sessionManagementKey = settings.ManagementKey;
-            await _credentialStore.DeleteSecretAsync(
-                settings.ManagementKeyReference,
-                cancellationToken
-            );
         }
 
         var persisted = PersistedAppSettings.FromModel(settings);
@@ -156,6 +147,19 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             cancellationToken
         );
+
+        if (settings.RememberPassword)
+        {
+            _sessionManagementKey = string.Empty;
+        }
+        else
+        {
+            _sessionManagementKey = settings.ManagementKey;
+            await _credentialStore.DeleteSecretAsync(
+                settings.ManagementKeyReference,
+                cancellationToken
+            );
+        }
     }
 
     private AppSettings CreateDefaultSettingsForDataMode()

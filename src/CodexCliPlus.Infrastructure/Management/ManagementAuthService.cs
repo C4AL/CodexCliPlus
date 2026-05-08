@@ -1140,7 +1140,13 @@ public sealed class ManagementAuthService : IManagementAuthService
 
     private static string BuildProviderDeletePath(string route, string apiKey, string? baseUrl)
     {
-        var query = $"api-key={Uri.EscapeDataString(apiKey.Trim())}";
+        var normalizedApiKey = apiKey.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedApiKey))
+        {
+            throw new ArgumentException("Provider API key cannot be empty.", nameof(apiKey));
+        }
+
+        var query = $"api-key={Uri.EscapeDataString(normalizedApiKey)}";
         if (baseUrl is not null)
         {
             query += $"&base-url={Uri.EscapeDataString(baseUrl.Trim())}";

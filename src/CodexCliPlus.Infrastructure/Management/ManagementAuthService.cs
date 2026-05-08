@@ -703,17 +703,7 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
-        var normalized = excludedModels.ToDictionary(
-            pair => pair.Key.Trim().ToLowerInvariant(),
-            pair =>
-                (IReadOnlyList<string>)
-                    pair
-                        .Value.Select(model => model.Trim())
-                        .Where(model => !string.IsNullOrWhiteSpace(model))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray(),
-            StringComparer.OrdinalIgnoreCase
-        );
+        var normalized = NormalizeOAuthStringListMap(excludedModels);
 
         return SendOperationAsync(
             HttpMethod.Put,
@@ -777,18 +767,7 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
-        var normalized = aliases.ToDictionary(
-            pair => pair.Key.Trim().ToLowerInvariant(),
-            pair =>
-                (IReadOnlyList<ManagementOAuthModelAliasEntry>)
-                    pair
-                        .Value.Where(item =>
-                            !string.IsNullOrWhiteSpace(item.Name)
-                            && !string.IsNullOrWhiteSpace(item.Alias)
-                        )
-                        .ToArray(),
-            StringComparer.OrdinalIgnoreCase
-        );
+        var normalized = NormalizeOAuthAliasMap(aliases);
 
         return SendOperationAsync(
             HttpMethod.Put,
@@ -986,6 +965,117 @@ public sealed class ManagementAuthService : IManagementAuthService
         }
 
         return normalizedFileName;
+    }
+
+    private static Dictionary<string, IReadOnlyList<string>> NormalizeOAuthStringListMap(
+        IReadOnlyDictionary<string, IReadOnlyList<string>> source
+    )
+    {
+        var merged = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in source)
+        {
+            var key = NormalizeOAuthMapKey(pair.Key);
+            if (key is null)
+            {
+                continue;
+            }
+
+            if (!merged.TryGetValue(key, out var values))
+            {
+                values = [];
+                merged[key] = values;
+            }
+
+            if (pair.Value is null)
+            {
+                continue;
+            }
+
+            foreach (var model in pair.Value)
+            {
+                var value = model?.Trim();
+                if (
+                    !string.IsNullOrWhiteSpace(value)
+                    && !values.Contains(value, StringComparer.OrdinalIgnoreCase)
+                )
+                {
+                    values.Add(value);
+                }
+            }
+        }
+
+        return merged.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<string>)pair.Value.ToArray(),
+            StringComparer.OrdinalIgnoreCase
+        );
+    }
+
+    private static Dictionary<
+        string,
+        IReadOnlyList<ManagementOAuthModelAliasEntry>
+    > NormalizeOAuthAliasMap(
+        IReadOnlyDictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>> source
+    )
+    {
+        var merged = new Dictionary<string, List<ManagementOAuthModelAliasEntry>>(
+            StringComparer.OrdinalIgnoreCase
+        );
+        foreach (var pair in source)
+        {
+            var key = NormalizeOAuthMapKey(pair.Key);
+            if (key is null)
+            {
+                continue;
+            }
+
+            if (!merged.TryGetValue(key, out var values))
+            {
+                values = [];
+                merged[key] = values;
+            }
+
+            if (pair.Value is null)
+            {
+                continue;
+            }
+
+            foreach (var item in pair.Value)
+            {
+                if (item is null)
+                {
+                    continue;
+                }
+
+                var name = item.Name?.Trim();
+                var alias = item.Alias?.Trim();
+                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(alias))
+                {
+                    continue;
+                }
+
+                values.Add(
+                    new ManagementOAuthModelAliasEntry
+                    {
+                        Name = name,
+                        Alias = alias,
+                        Fork = item.Fork,
+                    }
+                );
+            }
+        }
+
+        return merged.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<ManagementOAuthModelAliasEntry>)pair.Value.ToArray(),
+            StringComparer.OrdinalIgnoreCase
+        );
+    }
+
+    private static string? NormalizeOAuthMapKey(string key)
+    {
+        var normalized = key.Trim().ToLowerInvariant();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 
     private static Dictionary<string, object?> BuildIndexedPayload<T>(int index, T value)

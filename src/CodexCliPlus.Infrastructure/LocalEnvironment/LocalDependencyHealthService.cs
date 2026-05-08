@@ -327,12 +327,16 @@ public sealed class LocalDependencyHealthService
         CancellationToken cancellationToken
     )
     {
-        var pwshPath = PickExecutablePath(
-            await FindExecutablePathsAsync("pwsh", budget, cancellationToken)
+        var pwshPathsTask = FindExecutablePathsAsync("pwsh", budget, cancellationToken);
+        var powershellPathsTask = FindExecutablePathsAsync(
+            "powershell",
+            budget,
+            cancellationToken
         );
-        var powershellPath = PickExecutablePath(
-            await FindExecutablePathsAsync("powershell", budget, cancellationToken)
-        );
+        await Task.WhenAll(pwshPathsTask, powershellPathsTask);
+
+        var pwshPath = PickExecutablePath(await pwshPathsTask);
+        var powershellPath = PickExecutablePath(await powershellPathsTask);
         var shellPath = string.IsNullOrWhiteSpace(pwshPath) ? powershellPath : pwshPath;
         toolState.PowerShellPath = shellPath;
 

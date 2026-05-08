@@ -304,9 +304,7 @@ internal static class ManagementMappers
             return new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var result = new Dictionary<string, IReadOnlyList<string>>(
-            StringComparer.OrdinalIgnoreCase
-        );
+        var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var property in source.EnumerateObject())
         {
             if (property.Value.ValueKind != JsonValueKind.Array)
@@ -314,18 +312,36 @@ internal static class ManagementMappers
                 continue;
             }
 
-            var items = property
-                .Value.EnumerateArray()
-                .Select(ManagementJson.AsString)
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => value!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            var provider = property.Name.Trim();
+            if (string.IsNullOrWhiteSpace(provider))
+            {
+                continue;
+            }
 
-            result[property.Name] = items;
+            if (!result.TryGetValue(provider, out var items))
+            {
+                items = [];
+                result[provider] = items;
+            }
+
+            foreach (var item in property.Value.EnumerateArray())
+            {
+                var value = ManagementJson.AsString(item)?.Trim();
+                if (
+                    !string.IsNullOrWhiteSpace(value)
+                    && !items.Contains(value, StringComparer.OrdinalIgnoreCase)
+                )
+                {
+                    items.Add(value);
+                }
+            }
         }
 
-        return result;
+        return result.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<string>)pair.Value.ToArray(),
+            StringComparer.OrdinalIgnoreCase
+        );
     }
 
     public static IReadOnlyDictionary<
@@ -357,7 +373,7 @@ internal static class ManagementMappers
             );
         }
 
-        var result = new Dictionary<string, IReadOnlyList<ManagementOAuthModelAliasEntry>>(
+        var result = new Dictionary<string, List<ManagementOAuthModelAliasEntry>>(
             StringComparer.OrdinalIgnoreCase
         );
         foreach (var channel in source.EnumerateObject())
@@ -367,7 +383,18 @@ internal static class ManagementMappers
                 continue;
             }
 
-            var entries = new List<ManagementOAuthModelAliasEntry>();
+            var provider = channel.Name.Trim();
+            if (string.IsNullOrWhiteSpace(provider))
+            {
+                continue;
+            }
+
+            if (!result.TryGetValue(provider, out var entries))
+            {
+                entries = [];
+                result[provider] = entries;
+            }
+
             foreach (var item in channel.Value.EnumerateArray())
             {
                 if (item.ValueKind != JsonValueKind.Object)
@@ -375,8 +402,8 @@ internal static class ManagementMappers
                     continue;
                 }
 
-                var name = ManagementJson.GetString(item, "name");
-                var alias = ManagementJson.GetString(item, "alias");
+                var name = ManagementJson.GetString(item, "name")?.Trim();
+                var alias = ManagementJson.GetString(item, "alias")?.Trim();
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(alias))
                 {
                     continue;
@@ -391,11 +418,13 @@ internal static class ManagementMappers
                     }
                 );
             }
-
-            result[channel.Name] = entries;
         }
 
-        return result;
+        return result.ToDictionary(
+            pair => pair.Key,
+            pair => (IReadOnlyList<ManagementOAuthModelAliasEntry>)pair.Value.ToArray(),
+            StringComparer.OrdinalIgnoreCase
+        );
     }
 
     public static IReadOnlyList<ManagementModelDescriptor> MapModelDescriptors(JsonElement root)

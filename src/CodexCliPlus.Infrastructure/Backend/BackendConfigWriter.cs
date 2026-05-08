@@ -223,7 +223,10 @@ public sealed class BackendConfigWriter
         try
         {
             var yaml = File.ReadAllText(_pathService.Directories.BackendConfigFilePath);
-            var match = Regex.Match(yaml, "secret-key:\\s*\"(?<hash>\\$2[aby]\\$.+)\"");
+            var match = Regex.Match(
+                yaml,
+                "(?im)^\\s*secret-key\\s*:\\s*[\"']?(?<hash>\\$2[aby]\\$[^\"'\\r\\n]+)[\"']?\\s*$"
+            );
             return match.Success ? match.Groups["hash"].Value : null;
         }
         catch

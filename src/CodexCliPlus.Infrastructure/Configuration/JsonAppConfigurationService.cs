@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CodexCliPlus.Core.Abstractions.Configuration;
@@ -47,13 +48,22 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             return CreateDefaultSettingsForDataMode();
         }
 
-        var json = await File.ReadAllTextAsync(
-            _pathService.Directories.SettingsFilePath,
-            cancellationToken
-        );
-        var persisted =
-            JsonSerializer.Deserialize<PersistedAppSettings>(json, JsonOptions)
-            ?? new PersistedAppSettings();
+        PersistedAppSettings persisted;
+        try
+        {
+            var json = await File.ReadAllTextAsync(
+                _pathService.Directories.SettingsFilePath,
+                cancellationToken
+            );
+            persisted =
+                JsonSerializer.Deserialize<PersistedAppSettings>(json, JsonOptions)
+                ?? new PersistedAppSettings();
+        }
+        catch (JsonException)
+        {
+            IsolateInvalidSettingsFile();
+            return CreateDefaultSettingsForDataMode();
+        }
 
         var settings = persisted.ToModel();
         var shouldPersistRememberPasswordMigration =
@@ -118,6 +128,26 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                     or UnauthorizedAccessException
                     or SecureCredentialStoreException)
         { }
+    }
+
+    private void IsolateInvalidSettingsFile()
+    {
+        var settingsPath = _pathService.Directories.SettingsFilePath;
+        if (!File.Exists(settingsPath))
+        {
+            return;
+        }
+
+        var stamp = DateTimeOffset.UtcNow.ToString(
+            "yyyyMMddHHmmssfffffff",
+            CultureInfo.InvariantCulture
+        );
+        try
+        {
+            File.Move(settingsPath, $"{settingsPath}.invalid.{stamp}", overwrite: false);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)

@@ -2,7 +2,7 @@ using System.Text;
 
 namespace CodexCliPlus.Infrastructure.Utilities;
 
-internal static class AtomicFileWriter
+public static class AtomicFileWriter
 {
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(
         encoderShouldEmitUTF8Identifier: false
@@ -54,8 +54,17 @@ internal static class AtomicFileWriter
         CancellationToken cancellationToken
     )
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        var tempDirectory = string.IsNullOrWhiteSpace(directory) ? "." : directory;
+        var tempPath = Path.Combine(
+            tempDirectory,
+            $"{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp"
+        );
         try
         {
             await using (

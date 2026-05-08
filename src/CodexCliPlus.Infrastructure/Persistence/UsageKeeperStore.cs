@@ -311,7 +311,7 @@ internal sealed class UsageKeeperStore
         }
 
         await SaveExportAsync(payload, rawJson, cancellationToken);
-        File.Delete(LegacyUsageSnapshotPath);
+        DeleteLegacySnapshotIfPossible();
         return true;
     }
 

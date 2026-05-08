@@ -842,8 +842,14 @@ public sealed class ManagementAuthService : IManagementAuthService
         ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
     > GetModelDefinitionsAsync(string channel, CancellationToken cancellationToken = default)
     {
+        var normalizedChannel = channel.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedChannel))
+        {
+            throw new ArgumentException("Model definition channel cannot be empty.", nameof(channel));
+        }
+
         return GetMappedAsync(
-            $"model-definitions/{Uri.EscapeDataString(channel)}",
+            $"model-definitions/{Uri.EscapeDataString(normalizedChannel)}",
             ManagementMappers.MapModelDescriptors,
             cancellationToken
         );

@@ -8,6 +8,7 @@ using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models.Security;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.Security;
 
@@ -403,8 +404,12 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         manifest.Version = ManifestVersion;
         manifest.UpdatedAtUtc = DateTimeOffset.UtcNow;
         Directory.CreateDirectory(GetSecretRootDirectory());
-        await using var stream = File.Create(GetManifestPath());
-        await JsonSerializer.SerializeAsync(stream, manifest, JsonOptions, cancellationToken);
+        var json = JsonSerializer.Serialize(manifest, JsonOptions);
+        await AtomicFileWriter.WriteUtf8NoBomTextAsync(
+            GetManifestPath(),
+            json,
+            cancellationToken
+        );
     }
 
     private async Task<string> WriteNewBlobAsync(

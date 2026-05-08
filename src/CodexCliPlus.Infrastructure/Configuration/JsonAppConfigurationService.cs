@@ -203,7 +203,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             _sessionManagementKey = settings.ManagementKey;
             await _credentialStore.DeleteSecretAsync(
                 settings.ManagementKeyReference,
-                cancellationToken
+                CancellationToken.None
             );
         }
     }

@@ -52,16 +52,51 @@ public sealed class CodexLocator
 
         if (result.ExitCode == 0)
         {
-            return result
-                .StandardOutput.Split(
-                    Environment.NewLine,
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                )
-                .FirstOrDefault();
+            var resolvedPath = PickExecutablePath(SplitLines(result.StandardOutput));
+            if (!string.IsNullOrWhiteSpace(resolvedPath))
+            {
+                return resolvedPath;
+            }
         }
 
         var appDataNpm = _npmFallbackPathProvider();
 
         return File.Exists(appDataNpm) ? appDataNpm : null;
+    }
+
+    private static string? PickExecutablePath(IEnumerable<string> candidates)
+    {
+        return candidates
+            .OrderBy(GetExecutablePreference)
+            .FirstOrDefault(candidate => GetExecutablePreference(candidate) < int.MaxValue);
+    }
+
+    private static string[] SplitLines(string value)
+    {
+        return value.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+        );
+    }
+
+    private static int GetExecutablePreference(string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (extension.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        if (extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            return 1;
+        }
+
+        if (extension.Equals(".bat", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+
+        return int.MaxValue;
     }
 }

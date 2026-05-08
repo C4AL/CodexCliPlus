@@ -45,11 +45,16 @@ public sealed class FileAppLogger : IAppLogger
             $"{DateTimeOffset.Now:O} [{level}] {SensitiveDataRedactor.Redact(message)}{Environment.NewLine}";
         lock (_gate)
         {
-            File.AppendAllText(
-                LogFilePath,
-                line,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-            );
+            try
+            {
+                File.AppendAllText(
+                    LogFilePath,
+                    line,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+                );
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

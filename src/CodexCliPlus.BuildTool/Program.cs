@@ -458,6 +458,8 @@ public interface IProcessRunner
 
 public sealed class ProcessRunner : IProcessRunner
 {
+    private static readonly TimeSpan TerminationWaitTimeout = TimeSpan.FromSeconds(5);
+
     public async Task<int> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
@@ -525,7 +527,16 @@ public sealed class ProcessRunner : IProcessRunner
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync(cancellationToken);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            await KillProcessTreeAsync(process);
+            throw;
+        }
+
         process.WaitForExit();
 
         foreach (var line in standardErrorLines)
@@ -541,5 +552,27 @@ public sealed class ProcessRunner : IProcessRunner
         }
 
         return process.ExitCode;
+    }
+
+    private static async Task KillProcessTreeAsync(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TerminationWaitTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) { }
     }
 }

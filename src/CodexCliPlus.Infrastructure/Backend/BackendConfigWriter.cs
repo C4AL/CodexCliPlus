@@ -3,11 +3,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Abstractions.Configuration;
 using CodexCliPlus.Core.Abstractions.Paths;
+using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Security;
 
 namespace CodexCliPlus.Infrastructure.Backend;
@@ -16,14 +17,17 @@ public sealed class BackendConfigWriter
 {
     private readonly IAppConfigurationService _configurationService;
     private readonly IPathService _pathService;
+    private readonly ISecretVault? _secretVault;
 
     public BackendConfigWriter(
         IAppConfigurationService configurationService,
-        IPathService pathService
+        IPathService pathService,
+        ISecretVault? secretVault = null
     )
     {
         _configurationService = configurationService;
         _pathService = pathService;
+        _secretVault = secretVault;
     }
 
     public Task<BackendRuntimeInfo> WriteAsync(
@@ -127,7 +131,7 @@ public sealed class BackendConfigWriter
 
     public bool HasExistingManagementKeyHash()
     {
-        return !string.IsNullOrWhiteSpace(TryLoadExistingManagementKeyHash());
+        return !string.IsNullOrWhiteSpace(TryLoadExistingManagementKeySecret());
     }
 
     public bool VerifyManagementKey(string managementKey)
@@ -137,13 +141,13 @@ public sealed class BackendConfigWriter
             return false;
         }
 
-        var existingHash = TryLoadExistingManagementKeyHash();
-        if (string.IsNullOrWhiteSpace(existingHash))
+        var existingSecret = TryLoadExistingManagementKeySecret();
+        if (string.IsNullOrWhiteSpace(existingSecret))
         {
             return false;
         }
 
-        return VerifyManagementKeyHash(managementKey.Trim(), existingHash);
+        return VerifyManagementKeySecret(managementKey.Trim(), existingSecret);
     }
 
     private static string BuildYaml(int port, string managementKey, string authDirectory)
@@ -182,8 +186,8 @@ public sealed class BackendConfigWriter
 
     private string ResolveManagementKeyHash(string managementKey, bool allowManagementKeyRotation)
     {
-        var existingHash = TryLoadExistingManagementKeyHash();
-        if (string.IsNullOrWhiteSpace(existingHash))
+        var existingSecret = TryLoadExistingManagementKeySecret();
+        if (string.IsNullOrWhiteSpace(existingSecret))
         {
             if (!allowManagementKeyRotation)
             {
@@ -195,9 +199,11 @@ public sealed class BackendConfigWriter
             return ManagementKeyHasher.Hash(managementKey);
         }
 
-        if (VerifyManagementKeyHash(managementKey, existingHash))
+        if (VerifyManagementKeySecret(managementKey, existingSecret))
         {
-            return existingHash;
+            return LooksLikeBcryptHash(existingSecret)
+                ? existingSecret
+                : ManagementKeyHasher.Hash(managementKey);
         }
 
         if (!allowManagementKeyRotation)
@@ -213,7 +219,7 @@ public sealed class BackendConfigWriter
         return Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
     }
 
-    private string? TryLoadExistingManagementKeyHash()
+    private string? TryLoadExistingManagementKeySecret()
     {
         if (!File.Exists(_pathService.Directories.BackendConfigFilePath))
         {
@@ -223,16 +229,46 @@ public sealed class BackendConfigWriter
         try
         {
             var yaml = File.ReadAllText(_pathService.Directories.BackendConfigFilePath);
-            var match = Regex.Match(
-                yaml,
-                "(?im)^\\s*secret-key\\s*:\\s*[\"']?(?<hash>\\$2[aby]\\$[^\"'\\r\\n]+)[\"']?\\s*$"
+            return ResolveSecretReference(
+                BackendConfigReader.TryReadRemoteManagementSecretKey(yaml)
             );
-            return match.Success ? match.Groups["hash"].Value : null;
         }
         catch
         {
             return null;
         }
+    }
+
+    private string? ResolveSecretReference(string? value)
+    {
+        var secret = value?.Trim();
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            return null;
+        }
+
+        if (!SecretRef.TryParse(secret, out var secretRef))
+        {
+            return secret;
+        }
+
+        if (_secretVault is null)
+        {
+            return null;
+        }
+
+        return _secretVault
+            .RevealSecretAsync(secretRef!.SecretId)
+            .GetAwaiter()
+            .GetResult()
+            ?.Trim();
+    }
+
+    private static bool VerifyManagementKeySecret(string managementKey, string secret)
+    {
+        return LooksLikeBcryptHash(secret)
+            ? VerifyManagementKeyHash(managementKey, secret)
+            : FixedTimeEquals(managementKey, secret);
     }
 
     private static bool VerifyManagementKeyHash(string managementKey, string hash)
@@ -245,6 +281,20 @@ public sealed class BackendConfigWriter
         {
             return false;
         }
+    }
+
+    private static bool LooksLikeBcryptHash(string value)
+    {
+        return value.StartsWith("$2a$", StringComparison.Ordinal)
+            || value.StartsWith("$2b$", StringComparison.Ordinal)
+            || value.StartsWith("$2y$", StringComparison.Ordinal);
+    }
+
+    private static bool FixedTimeEquals(string left, string right)
+    {
+        var leftBytes = Encoding.UTF8.GetBytes(left);
+        var rightBytes = Encoding.UTF8.GetBytes(right);
+        return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
     }
 
     private string ResolveAuthDirectory()

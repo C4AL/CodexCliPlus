@@ -72,9 +72,10 @@ internal static class SecureAccountPackageService
     )
     {
         var json = await File.ReadAllTextAsync(packagePath, cancellationToken);
-        var payload =
-            JsonSerializer.Deserialize<SecureAccountPackagePayload>(json, JsonOptions)
-            ?? throw new InvalidDataException("配置文件内容无效。");
+        var payload = DeserializePackageJson<SecureAccountPackagePayload>(
+            json,
+            "配置文件内容无效。"
+        );
         ValidatePayload(payload);
         if ((payload.VaultSecrets?.Count ?? 0) > 0)
         {
@@ -167,9 +168,10 @@ internal static class SecureAccountPackageService
         }
 
         var json = await File.ReadAllTextAsync(packagePath, cancellationToken);
-        var package =
-            JsonSerializer.Deserialize<SecureAccountPackageFile>(json, JsonOptions)
-            ?? throw new InvalidDataException("安全包内容无效。");
+        var package = DeserializePackageJson<SecureAccountPackageFile>(
+            json,
+            "安全包内容无效。"
+        );
 
         if (
             !string.Equals(package.Format, SecurePackageFormat, StringComparison.Ordinal)
@@ -206,9 +208,10 @@ internal static class SecureAccountPackageService
         {
             using var aes = new AesGcm(key, TagSize);
             aes.Decrypt(nonce, ciphertext, tag, plaintext, AssociatedData);
-            var payload =
-                JsonSerializer.Deserialize<SecureAccountPackagePayload>(plaintext, JsonOptions)
-                ?? throw new InvalidDataException("安全包负载无效。");
+            var payload = DeserializePackageJson<SecureAccountPackagePayload>(
+                plaintext,
+                "安全包负载无效。"
+            );
             ValidatePayload(payload);
             if (
                 package.Version == CurrentVersion
@@ -246,6 +249,32 @@ internal static class SecureAccountPackageService
         )
         {
             throw new InvalidDataException("安全包 KDF 参数无效。");
+        }
+    }
+
+    private static T DeserializePackageJson<T>(string json, string invalidMessage)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOptions)
+                ?? throw new InvalidDataException(invalidMessage);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException(invalidMessage, exception);
+        }
+    }
+
+    private static T DeserializePackageJson<T>(ReadOnlySpan<byte> json, string invalidMessage)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOptions)
+                ?? throw new InvalidDataException(invalidMessage);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException(invalidMessage, exception);
         }
     }
 

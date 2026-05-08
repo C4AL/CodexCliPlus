@@ -282,7 +282,7 @@ public sealed class DependencyHealthService
         {
             try
             {
-                await _credentialStore.DeleteSecretAsync(probeReference, cancellationToken);
+                await _credentialStore.DeleteSecretAsync(probeReference, CancellationToken.None);
             }
             catch { }
         }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -385,15 +386,44 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
             return new SecretVaultManifest();
         }
 
-        await using var stream = File.OpenRead(manifestPath);
-        var manifest =
-            await JsonSerializer.DeserializeAsync<SecretVaultManifest>(
-                stream,
-                JsonOptions,
-                cancellationToken
-            ) ?? new SecretVaultManifest();
+        SecretVaultManifest manifest;
+        try
+        {
+            await using var stream = File.OpenRead(manifestPath);
+            manifest =
+                await JsonSerializer.DeserializeAsync<SecretVaultManifest>(
+                    stream,
+                    JsonOptions,
+                    cancellationToken
+                ) ?? new SecretVaultManifest();
+        }
+        catch (JsonException)
+        {
+            IsolateInvalidManifest(manifestPath);
+            return new SecretVaultManifest();
+        }
+
         NormalizeManifest(manifest);
         return manifest;
+    }
+
+    private static void IsolateInvalidManifest(string manifestPath)
+    {
+        if (!File.Exists(manifestPath))
+        {
+            return;
+        }
+
+        var stamp = DateTimeOffset.UtcNow.ToString(
+            "yyyyMMddHHmmssfffffff",
+            CultureInfo.InvariantCulture
+        );
+        try
+        {
+            File.Move(manifestPath, $"{manifestPath}.invalid.{stamp}", overwrite: false);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private async Task WriteManifestAsync(

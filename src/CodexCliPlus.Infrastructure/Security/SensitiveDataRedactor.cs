@@ -14,28 +14,32 @@ internal static partial class SensitiveDataRedactor
         var redacted = text;
         redacted = SecretKeyPattern().Replace(redacted, "$1***$3");
         redacted = AuthorizationPattern().Replace(redacted, "$1***");
-        redacted = HeaderSecretPattern().Replace(redacted, "$1***");
+        redacted = HeaderSecretPattern().Replace(redacted, "$1***$3");
         redacted = ApiKeyPattern().Replace(redacted, "$1***$3");
         redacted = TokenPattern().Replace(redacted, "$1***$3");
         return redacted;
     }
 
-    [GeneratedRegex("(?im)(secret[-_]?key\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
+    [GeneratedRegex("(?im)([\"']?secret[-_]?key[\"']?\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
     private static partial Regex SecretKeyPattern();
 
-    [GeneratedRegex("(?im)((?:proxy-)?authorization\\s*:\\s*(?:(?:bearer|basic)\\s+)?)([^\\r\\n]+)")]
+    [GeneratedRegex(
+        "(?im)([\"']?(?:proxy-)?authorization[\"']?\\s*:\\s*[\"']?(?:(?:bearer|basic)\\s+)?)([^\\r\\n\"']+)"
+    )]
     private static partial Regex AuthorizationPattern();
 
-    [GeneratedRegex("(?im)((?:x-management-key|x-api-key|x-goog-api-key|cookie)\\s*:\\s*)([^\\r\\n]+)")]
+    [GeneratedRegex(
+        "(?im)([\"']?(?:x-management-key|x-api-key|x-goog-api-key|cookie)[\"']?\\s*:\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+    )]
     private static partial Regex HeaderSecretPattern();
 
     [GeneratedRegex(
-        "(?im)((?:(?:[a-z0-9]+[-_])*(?:api[-_]?key)|management[-_ ]?key)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+        "(?im)([\"']?(?:(?:[a-z0-9]+[-_])*(?:api[-_]?key)|management[-_ ]?key)[\"']?\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
     )]
     private static partial Regex ApiKeyPattern();
 
     [GeneratedRegex(
-        "(?im)((?:access[-_]?token|refresh[-_]?token|token)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+        "(?im)([\"']?(?:access[-_]?token|refresh[-_]?token|token)[\"']?\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
     )]
     private static partial Regex TokenPattern();
 }

@@ -6,6 +6,7 @@ using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
+using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Security;
 
@@ -134,10 +135,18 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         {
             if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
             {
-                previousManagementKey = await _credentialStore.LoadSecretAsync(
-                    settings.ManagementKeyReference,
-                    cancellationToken
-                );
+                try
+                {
+                    previousManagementKey = await _credentialStore.LoadSecretAsync(
+                        settings.ManagementKeyReference,
+                        cancellationToken
+                    );
+                }
+                catch (SecureCredentialStoreException)
+                {
+                    previousManagementKey = null;
+                }
+
                 hadPreviousManagementKey = previousManagementKey is not null;
                 await _credentialStore.SaveSecretAsync(
                     settings.ManagementKeyReference,

@@ -296,6 +296,10 @@ internal sealed class PortableToolchainResolver : IPortableToolchainResolver
             );
             return result.ExitCode == 0 && validator(result.StandardOutput, version);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch
         {
             return false;
@@ -316,6 +320,10 @@ internal sealed class PortableToolchainResolver : IPortableToolchainResolver
                 cancellationToken: cancellationToken
             );
             return result.ExitCode == 0 ? result.StandardOutput.Trim() : null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {

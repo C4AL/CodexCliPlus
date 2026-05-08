@@ -22,6 +22,11 @@ internal static class SecureAccountPackageService
     private const int KeySize = 32;
     private const int Argon2MemoryKb = 64 * 1024;
     private const int Argon2Iterations = 3;
+    private const int MinArgon2MemoryKb = 8 * 1024;
+    private const int MaxArgon2MemoryKb = 256 * 1024;
+    private const int MinArgon2Iterations = 1;
+    private const int MaxArgon2Iterations = 10;
+    private const int MaxArgon2Parallelism = 16;
     private static readonly byte[] AssociatedData = Encoding.UTF8.GetBytes(SecurePackageFormat);
 
     internal static JsonSerializerOptions JsonOptions { get; } =
@@ -163,6 +168,7 @@ internal static class SecureAccountPackageService
         if (
             !string.Equals(package.Format, SecurePackageFormat, StringComparison.Ordinal)
             || package.Version is not (LegacyVersion or CurrentVersion)
+            || package.Kdf is null
             || !string.Equals(package.Kdf.Algorithm, "argon2id", StringComparison.OrdinalIgnoreCase)
             || !string.Equals(package.Cipher, "AES-256-GCM", StringComparison.OrdinalIgnoreCase)
         )
@@ -175,10 +181,12 @@ internal static class SecureAccountPackageService
             throw new InvalidDataException("安全包已过期。");
         }
 
-        var salt = Convert.FromBase64String(package.Kdf.Salt);
-        var nonce = Convert.FromBase64String(package.Nonce);
-        var tag = Convert.FromBase64String(package.Tag);
-        var ciphertext = Convert.FromBase64String(package.Ciphertext);
+        ValidateEncryptedPackageParameters(package);
+
+        var salt = ReadBase64Field(package.Kdf.Salt, SaltSize);
+        var nonce = ReadBase64Field(package.Nonce, NonceSize);
+        var tag = ReadBase64Field(package.Tag, TagSize);
+        var ciphertext = ReadBase64Field(package.Ciphertext);
         var plaintext = new byte[ciphertext.Length];
         var key = await DeriveKeyAsync(
             password,
@@ -216,6 +224,46 @@ internal static class SecureAccountPackageService
             CryptographicOperations.ZeroMemory(key);
             CryptographicOperations.ZeroMemory(plaintext);
         }
+    }
+
+    private static void ValidateEncryptedPackageParameters(SecureAccountPackageFile package)
+    {
+        if (
+            package.Kdf.MemoryKb is < MinArgon2MemoryKb or > MaxArgon2MemoryKb
+            || package.Kdf.Iterations is < MinArgon2Iterations or > MaxArgon2Iterations
+            || package.Kdf.Parallelism is < 0 or > MaxArgon2Parallelism
+        )
+        {
+            throw new InvalidDataException("安全包 KDF 参数无效。");
+        }
+    }
+
+    private static byte[] ReadBase64Field(string? value, int? expectedLength = null)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidDataException("安全包加密参数无效。");
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(value);
+        }
+        catch (FormatException exception)
+        {
+            throw new InvalidDataException("安全包加密参数无效。", exception);
+        }
+
+        if (
+            bytes.Length == 0
+            || (expectedLength is { } length && bytes.Length != length)
+        )
+        {
+            throw new InvalidDataException("安全包加密参数无效。");
+        }
+
+        return bytes;
     }
 
     private static void ValidatePayload(SecureAccountPackagePayload payload)

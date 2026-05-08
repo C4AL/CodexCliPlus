@@ -65,10 +65,16 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedValue = value.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedValue))
+        {
+            throw new ArgumentException("API key cannot be empty.", nameof(value));
+        }
+
         return SendOperationAsync(
             HttpMethod.Patch,
             "api-keys",
-            new Dictionary<string, object?> { ["index"] = index, ["value"] = value.Trim() },
+            new Dictionary<string, object?> { ["index"] = index, ["value"] = normalizedValue },
             cancellationToken
         );
     }

@@ -235,10 +235,15 @@ internal static class SecureAccountPackageService
 
     private static void ValidateEncryptedPackageParameters(SecureAccountPackageFile package)
     {
+        var invalidParallelism =
+            package.Version >= CurrentVersion
+                ? package.Kdf.Parallelism is <= 0 or > MaxArgon2Parallelism
+                : package.Kdf.Parallelism is < 0 or > MaxArgon2Parallelism;
+
         if (
             package.Kdf.MemoryKb is < MinArgon2MemoryKb or > MaxArgon2MemoryKb
             || package.Kdf.Iterations is < MinArgon2Iterations or > MaxArgon2Iterations
-            || package.Kdf.Parallelism is < 0 or > MaxArgon2Parallelism
+            || invalidParallelism
         )
         {
             throw new InvalidDataException("安全包 KDF 参数无效。");

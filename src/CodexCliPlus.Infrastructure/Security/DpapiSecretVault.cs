@@ -282,19 +282,21 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
             var record = manifest.Secrets.FirstOrDefault(item =>
                 string.Equals(item.SecretId, normalizedSecretId, StringComparison.OrdinalIgnoreCase)
             );
-            if (record is not null)
+            if (record is null)
             {
-                var blobPath = GetBlobPath(record.BlobReference);
-                if (File.Exists(blobPath))
-                {
-                    File.Delete(blobPath);
-                }
+                return;
             }
 
             manifest.Secrets.RemoveAll(item =>
                 string.Equals(item.SecretId, normalizedSecretId, StringComparison.OrdinalIgnoreCase)
             );
             await WriteManifestAsync(manifest, cancellationToken);
+
+            var blobPath = GetBlobPath(record.BlobReference);
+            if (File.Exists(blobPath))
+            {
+                File.Delete(blobPath);
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

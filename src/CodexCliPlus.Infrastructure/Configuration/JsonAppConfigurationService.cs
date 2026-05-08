@@ -143,6 +143,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         string? previousManagementKey = null;
         var hadPreviousManagementKey = false;
         var savedManagementKey = false;
+        var deletedManagementKey = false;
         if (settings.RememberPassword)
         {
             if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
@@ -168,6 +169,27 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 savedManagementKey = true;
             }
         }
+        else
+        {
+            try
+            {
+                previousManagementKey = await _credentialStore.LoadSecretAsync(
+                    settings.ManagementKeyReference,
+                    cancellationToken
+                );
+            }
+            catch (SecureCredentialStoreException)
+            {
+                previousManagementKey = null;
+            }
+
+            hadPreviousManagementKey = previousManagementKey is not null;
+            await _credentialStore.DeleteSecretAsync(
+                settings.ManagementKeyReference,
+                CancellationToken.None
+            );
+            deletedManagementKey = true;
+        }
 
         var persisted = PersistedAppSettings.FromModel(settings);
         var json = JsonSerializer.Serialize(persisted, JsonOptions);
@@ -190,6 +212,14 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                     previousManagementKey
                 );
             }
+            else if (deletedManagementKey)
+            {
+                await RestoreManagementKeyAsync(
+                    settings.ManagementKeyReference,
+                    hadPreviousManagementKey,
+                    previousManagementKey
+                );
+            }
 
             throw;
         }
@@ -201,10 +231,6 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         else
         {
             _sessionManagementKey = settings.ManagementKey;
-            await _credentialStore.DeleteSecretAsync(
-                settings.ManagementKeyReference,
-                CancellationToken.None
-            );
         }
     }
 

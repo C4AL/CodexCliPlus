@@ -4,7 +4,6 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -457,19 +456,7 @@ public partial class MainWindow
             }
 
             var yaml = File.ReadAllText(_pathService.Directories.BackendConfigFilePath);
-            var match = Regex.Match(yaml, "(?m)^auth-dir:\\s*\"(?<path>(?:\\\\.|[^\"])*)\"");
-            if (!match.Success)
-            {
-                return null;
-            }
-
-            var authDirectory = match
-                .Groups["path"]
-                .Value.Replace("\\\"", "\"", StringComparison.Ordinal)
-                .Replace("\\\\", "\\", StringComparison.Ordinal)
-                .Trim();
-
-            return string.IsNullOrWhiteSpace(authDirectory) ? null : authDirectory;
+            return BackendConfigReader.TryReadAuthDirectory(yaml);
         }
         catch
         {

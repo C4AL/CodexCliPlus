@@ -831,7 +831,12 @@ internal sealed class UsageKeeperStore
                 && backupDay.Date < cutoff
             )
             {
-                Directory.Delete(directory, recursive: true);
+                try
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
         }
     }

@@ -825,7 +825,12 @@ public sealed class ManagementAuthService : IManagementAuthService
         ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
     > GetAuthFileModelsAsync(string name, CancellationToken cancellationToken = default)
     {
-        var normalizedName = NormalizeFileName(name);
+        var normalizedName = name.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            throw new ArgumentException("Auth file name cannot be empty.", nameof(name));
+        }
+
         return GetMappedAsync(
             $"auth-files/models?name={Uri.EscapeDataString(normalizedName)}",
             ManagementMappers.MapModelDescriptors,

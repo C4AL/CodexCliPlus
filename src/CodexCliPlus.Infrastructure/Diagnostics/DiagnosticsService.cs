@@ -261,10 +261,15 @@ public sealed class DiagnosticsService
             return;
         }
 
-        WriteArchiveEntry(
-            archive,
-            entryName,
-            SensitiveDataRedactor.Redact(File.ReadAllText(sourcePath))
-        );
+        try
+        {
+            WriteArchiveEntry(
+                archive,
+                entryName,
+                SensitiveDataRedactor.Redact(File.ReadAllText(sourcePath))
+            );
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 }

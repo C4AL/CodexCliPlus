@@ -43,6 +43,7 @@ internal static class SecureAccountPackageService
         CancellationToken cancellationToken = default
     )
     {
+        NormalizePayloadCollections(payload);
         if (payload.VaultSecrets.Count > 0)
         {
             throw new InvalidOperationException(
@@ -273,6 +274,8 @@ internal static class SecureAccountPackageService
 
     private static void ValidatePayload(SecureAccountPackagePayload payload)
     {
+        NormalizePayloadCollections(payload);
+
         if (payload.Version is not (LegacyVersion or CurrentVersion))
         {
             throw new InvalidDataException("不支持的账号配置版本。");
@@ -295,6 +298,8 @@ internal static class SecureAccountPackageService
 
     private static void PreparePayloadForExport(SecureAccountPackagePayload payload)
     {
+        NormalizePayloadCollections(payload);
+
         payload.Format = PlainPackageFormat;
         payload.Version = CurrentVersion;
         payload.PackageId = string.IsNullOrWhiteSpace(payload.PackageId)
@@ -305,6 +310,21 @@ internal static class SecureAccountPackageService
             : payload.CreatedDeviceId.Trim();
         payload.CreatedAtUtc = DateTimeOffset.UtcNow;
         payload.ExportPolicy ??= new SecureAccountPackageExportPolicy();
+    }
+
+    private static void NormalizePayloadCollections(SecureAccountPackagePayload payload)
+    {
+        payload.ExportPolicy ??= new SecureAccountPackageExportPolicy();
+        payload.AuthFiles ??= [];
+        payload.VaultSecrets ??= [];
+        payload.Revocations ??= [];
+        payload.OAuthExcludedModels ??= new Dictionary<string, List<string>>(
+            StringComparer.OrdinalIgnoreCase
+        );
+        payload.OAuthModelAliases ??= new Dictionary<
+            string,
+            List<ManagementOAuthModelAliasEntry>
+        >(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string CreateDeviceId()

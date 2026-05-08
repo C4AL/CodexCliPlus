@@ -66,6 +66,10 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
             await SaveExportAsync(current, cancellationToken);
             _lastError = null;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             _lastError = exception.Message;
@@ -88,6 +92,10 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
             var payload = (await _usageService.ExportUsageAsync(cancellationToken)).Value;
             await SaveExportAsync(payload, cancellationToken);
             _lastError = null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
@@ -115,6 +123,10 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
                 JsonSerializer.Serialize(payload, JsonOptions)
             );
             _lastError = null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
@@ -144,6 +156,10 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
                 cancellationToken
             );
             _lastError = null;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {

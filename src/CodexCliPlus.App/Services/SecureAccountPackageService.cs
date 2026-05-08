@@ -28,6 +28,9 @@ internal static class SecureAccountPackageService
     private const int MinArgon2Iterations = 1;
     private const int MaxArgon2Iterations = 10;
     private const int MaxArgon2Parallelism = 16;
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(
+        encoderShouldEmitUTF8Identifier: false
+    );
     private static readonly byte[] AssociatedData = Encoding.UTF8.GetBytes(SecurePackageFormat);
     private static readonly Regex SecretReferencePattern =
         new(
@@ -61,14 +64,8 @@ internal static class SecureAccountPackageService
         ValidatePlainPackageHasNoSecretReferences(payload, invalidOperation: true);
 
         PreparePayloadForExport(payload);
-        EnsurePackageDirectory(packagePath);
         var json = JsonSerializer.Serialize(payload, JsonOptions);
-        await File.WriteAllTextAsync(
-            packagePath,
-            json,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
+        await WritePackageJsonAsync(packagePath, json, cancellationToken);
     }
 
     public static async Task<SecureAccountPackagePayload> ReadPlainPackageAsync(
@@ -156,14 +153,8 @@ internal static class SecureAccountPackageService
             },
         };
 
-        EnsurePackageDirectory(packagePath);
         var json = JsonSerializer.Serialize(package, JsonOptions);
-        await File.WriteAllTextAsync(
-            packagePath,
-            json,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
+        await WritePackageJsonAsync(packagePath, json, cancellationToken);
     }
 
     public static async Task<SecureAccountPackagePayload> ReadEncryptedPackageAsync(
@@ -460,6 +451,75 @@ internal static class SecureAccountPackageService
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
+        }
+    }
+
+    private static async Task WritePackageJsonAsync(
+        string packagePath,
+        string json,
+        CancellationToken cancellationToken
+    )
+    {
+        EnsurePackageDirectory(packagePath);
+        var directory = Path.GetDirectoryName(packagePath);
+        var tempDirectory = string.IsNullOrWhiteSpace(directory) ? "." : directory;
+        var tempPath = Path.Combine(
+            tempDirectory,
+            $"{Path.GetFileName(packagePath)}.{Guid.NewGuid():N}.tmp"
+        );
+
+        try
+        {
+            await using (
+                var stream = new FileStream(
+                    tempPath,
+                    new FileStreamOptions
+                    {
+                        Mode = FileMode.CreateNew,
+                        Access = FileAccess.Write,
+                        Share = FileShare.None,
+                        Options = FileOptions.Asynchronous | FileOptions.WriteThrough,
+                    }
+                )
+            )
+            {
+                using (
+                    var writer = new StreamWriter(
+                        stream,
+                        Utf8NoBom,
+                        bufferSize: 1024,
+                        leaveOpen: true
+                    )
+                )
+                {
+                    await writer.WriteAsync(json.AsMemory(), cancellationToken);
+                    await writer.FlushAsync(cancellationToken);
+                }
+
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(packagePath))
+            {
+                File.Replace(tempPath, packagePath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, packagePath);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
     }
 

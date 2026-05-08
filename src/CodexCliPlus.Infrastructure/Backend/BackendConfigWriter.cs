@@ -10,6 +10,7 @@ using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Security;
 using CodexCliPlus.Infrastructure.Security;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.Backend;
 
@@ -88,7 +89,7 @@ public sealed class BackendConfigWriter
             )
         )
         {
-            await WriteTextAtomicallyAsync(
+            await AtomicFileWriter.WriteUtf8NoBomTextAsync(
                 _pathService.Directories.BackendConfigFilePath,
                 yaml,
                 cancellationToken
@@ -328,69 +329,6 @@ public sealed class BackendConfigWriter
 
         var currentContent = await File.ReadAllTextAsync(path, cancellationToken);
         return string.Equals(currentContent, expectedContent, StringComparison.Ordinal);
-    }
-
-    private static async Task WriteTextAtomicallyAsync(
-        string path,
-        string content,
-        CancellationToken cancellationToken
-    )
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            await using (
-                var stream = new FileStream(
-                    tempPath,
-                    new FileStreamOptions
-                    {
-                        Mode = FileMode.CreateNew,
-                        Access = FileAccess.Write,
-                        Share = FileShare.None,
-                        Options = FileOptions.Asynchronous | FileOptions.WriteThrough,
-                    }
-                )
-            )
-            {
-                using (
-                    var writer = new StreamWriter(
-                        stream,
-                        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                        bufferSize: 1024,
-                        leaveOpen: true
-                    )
-                )
-                {
-                    await writer.WriteAsync(content.AsMemory(), cancellationToken);
-                    await writer.FlushAsync(cancellationToken);
-                }
-
-                await stream.FlushAsync(cancellationToken);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            if (File.Exists(path))
-            {
-                File.Replace(tempPath, path, destinationBackupFileName: null);
-            }
-            else
-            {
-                File.Move(tempPath, path);
-            }
-        }
-        finally
-        {
-            if (File.Exists(tempPath))
-            {
-                try
-                {
-                    File.Delete(tempPath);
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
-            }
-        }
     }
 
     private static bool IsPortAvailable(int port)

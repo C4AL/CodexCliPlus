@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CodexCliPlus.Core.Abstractions.Configuration;
@@ -9,6 +8,7 @@ using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Exceptions;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Infrastructure.Security;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.Configuration;
 
@@ -195,10 +195,9 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
         var json = JsonSerializer.Serialize(persisted, JsonOptions);
         try
         {
-            await File.WriteAllTextAsync(
+            await AtomicFileWriter.WriteUtf8NoBomTextAsync(
                 _pathService.Directories.SettingsFilePath,
                 json,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
                 cancellationToken
             );
         }

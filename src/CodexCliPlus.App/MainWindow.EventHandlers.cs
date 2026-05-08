@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -26,6 +25,7 @@ using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Infrastructure.Backend;
+using CodexCliPlus.Infrastructure.Utilities;
 using CodexCliPlus.Services;
 using CodexCliPlus.Services.Notifications;
 using CodexCliPlus.ViewModels;
@@ -256,10 +256,10 @@ public partial class MainWindow
         {
             var filePath = BuildDesktopSecurityKeyFilePath();
             var content = BuildSecurityKeyFileContent(_firstRunManagementKey);
-            await File.WriteAllTextAsync(
+            await AtomicFileWriter.WriteUtf8NoBomTextAsync(
                 filePath,
                 content,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+                CancellationToken.None
             );
             _notificationService.ShowAuto($"已保存到桌面：{Path.GetFileName(filePath)}");
         }

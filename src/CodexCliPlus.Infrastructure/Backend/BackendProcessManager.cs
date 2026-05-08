@@ -453,12 +453,12 @@ public sealed class BackendProcessManager : IDisposable
 
             foreach (var file in Directory.EnumerateFiles(runtimeDirectory))
             {
-                File.Delete(file);
+                DeleteRuntimeFile(file);
             }
 
             foreach (var directory in Directory.EnumerateDirectories(runtimeDirectory))
             {
-                Directory.Delete(directory, recursive: true);
+                DeleteRuntimeDirectory(directory);
             }
 
             AppendLogLine($"Cleaned runtime artifacts in {runtimeDirectory}.");
@@ -467,6 +467,32 @@ public sealed class BackendProcessManager : IDisposable
         {
             _logger.Warn(
                 $"Failed to clean runtime artifacts in {runtimeDirectory}: {exception.Message}"
+            );
+        }
+    }
+
+    private void DeleteRuntimeFile(string file)
+    {
+        try
+        {
+            File.Delete(file);
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn($"Failed to delete runtime artifact file '{file}': {exception.Message}");
+        }
+    }
+
+    private void DeleteRuntimeDirectory(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception exception)
+        {
+            _logger.Warn(
+                $"Failed to delete runtime artifact directory '{directory}': {exception.Message}"
             );
         }
     }

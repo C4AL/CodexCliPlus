@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Models.Management;
 using CodexCliPlus.Core.Models.Security;
 using Konscious.Security.Cryptography;
@@ -28,6 +29,11 @@ internal static class SecureAccountPackageService
     private const int MaxArgon2Iterations = 10;
     private const int MaxArgon2Parallelism = 16;
     private static readonly byte[] AssociatedData = Encoding.UTF8.GetBytes(SecurePackageFormat);
+    private static readonly Regex SecretReferencePattern =
+        new(
+            @"\b(?:ccp-secret|vault)://[A-Za-z0-9][A-Za-z0-9._-]*\b",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
 
     internal static JsonSerializerOptions JsonOptions { get; } =
         new()
@@ -51,6 +57,8 @@ internal static class SecureAccountPackageService
                 "明文导出已禁用，包含凭据的配置只能导出为 .sac 安全包。"
             );
         }
+
+        ValidatePlainPackageHasNoSecretReferences(payload, invalidOperation: true);
 
         PreparePayloadForExport(payload);
         EnsurePackageDirectory(packagePath);
@@ -77,6 +85,8 @@ internal static class SecureAccountPackageService
         {
             throw new InvalidDataException("明文账号配置包含凭据，请使用 .sac 安全包导入。");
         }
+
+        ValidatePlainPackageHasNoSecretReferences(payload, invalidOperation: false);
 
         return payload;
     }
@@ -300,6 +310,54 @@ internal static class SecureAccountPackageService
         {
             throw new InvalidDataException("账号配置已过期。");
         }
+    }
+
+    private static void ValidatePlainPackageHasNoSecretReferences(
+        SecureAccountPackagePayload payload,
+        bool invalidOperation
+    )
+    {
+        if (!PayloadContainsSecretReference(payload))
+        {
+            return;
+        }
+
+        if (invalidOperation)
+        {
+            throw new InvalidOperationException(
+                "明文导出已禁用，包含凭据引用的配置只能导出为 .sac 安全包。"
+            );
+        }
+
+        throw new InvalidDataException("明文账号配置包含凭据引用，请使用 .sac 安全包导入。");
+    }
+
+    private static bool PayloadContainsSecretReference(SecureAccountPackagePayload payload)
+    {
+        if (ContainsSecretReference(payload.ConfigYaml))
+        {
+            return true;
+        }
+
+        return payload.AuthFiles.Any(file => ContainsSecretReference(file.Content));
+    }
+
+    private static bool ContainsSecretReference(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        foreach (Match match in SecretReferencePattern.Matches(value))
+        {
+            if (SecretRef.TryParse(match.Value, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void PreparePayloadForExport(SecureAccountPackagePayload payload)

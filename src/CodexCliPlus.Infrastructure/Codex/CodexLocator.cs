@@ -36,7 +36,20 @@ public sealed class CodexLocator
 
     public async Task<string?> LocateAsync(CancellationToken cancellationToken = default)
     {
-        var result = await _whereRunner(cancellationToken);
+        (int ExitCode, string StandardOutput, string StandardError) result;
+        try
+        {
+            result = await _whereRunner(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            result = (1, string.Empty, string.Empty);
+        }
+
         if (result.ExitCode == 0)
         {
             return result

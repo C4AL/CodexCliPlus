@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
+using CodexCliPlus.Infrastructure.Utilities;
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -329,12 +330,7 @@ public sealed class CodexConfigService
 
         try
         {
-            await File.WriteAllTextAsync(
-                configPath,
-                mergedContent,
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-                cancellationToken
-            );
+            await WriteUtf8NoBomAsync(configPath, mergedContent, cancellationToken);
         }
         catch
         {
@@ -1930,13 +1926,7 @@ public sealed class CodexConfigService
         CancellationToken cancellationToken
     )
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.WriteAllTextAsync(
-            path,
-            content,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
+        await AtomicFileWriter.WriteUtf8NoBomTextAsync(path, content, cancellationToken);
     }
 
     private static async Task RestoreFileAsync(string path, bool existed, string content)

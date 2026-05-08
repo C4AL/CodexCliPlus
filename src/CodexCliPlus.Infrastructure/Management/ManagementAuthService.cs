@@ -514,9 +514,15 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedName = name.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            throw new ArgumentException("OpenAI compatibility name cannot be empty.", nameof(name));
+        }
+
         return SendOperationAsync(
             HttpMethod.Delete,
-            $"openai-compatibility?name={Uri.EscapeDataString(name.Trim())}",
+            $"openai-compatibility?name={Uri.EscapeDataString(normalizedName)}",
             payload: null,
             cancellationToken
         );

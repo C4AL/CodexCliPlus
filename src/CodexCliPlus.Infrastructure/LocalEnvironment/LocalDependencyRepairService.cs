@@ -29,6 +29,7 @@ public sealed class LocalDependencyRepairService
     private static readonly TimeSpan RepairCommandTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan RepairProcessPollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan RepairProcessTimeout = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan RepairProcessTerminationWaitTimeout = TimeSpan.FromSeconds(5);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -136,10 +137,11 @@ public sealed class LocalDependencyRepairService
             WindowStyle = ProcessWindowStyle.Hidden,
         };
 
+        Process? process = null;
         try
         {
             _logger.Info($"Starting elevated local dependency repair '{actionId}'.");
-            var process = _processStarter(startInfo);
+            process = _processStarter(startInfo);
             if (process is null)
             {
                 return Failure(actionId, "修复进程未启动。", "系统未返回提权修复进程。");
@@ -161,7 +163,13 @@ public sealed class LocalDependencyRepairService
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            await TerminateRepairProcessAsync(process);
             return Failure(actionId, "修复进程等待超时。", "提权修复进程未在预期时间内返回状态。");
+        }
+        catch (OperationCanceledException)
+        {
+            await TerminateRepairProcessAsync(process);
+            throw;
         }
         catch (Win32Exception exception)
             when (exception.NativeErrorCode == ElevationCancelledErrorCode)
@@ -173,6 +181,38 @@ public sealed class LocalDependencyRepairService
             _logger.LogError($"Failed to start local dependency repair '{actionId}'.", exception);
             return Failure(actionId, "启动修复失败。", exception.Message);
         }
+    }
+
+    private static async Task TerminateRepairProcessAsync(Process? process)
+    {
+        if (process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+        catch (Win32Exception)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(RepairProcessTerminationWaitTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) { }
+        catch (InvalidOperationException) { }
     }
 
     public async Task<LocalDependencyRepairResult> ExecuteRepairModeAsync(

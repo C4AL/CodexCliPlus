@@ -11,6 +11,7 @@ using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Security;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 
@@ -639,19 +640,11 @@ public sealed class LocalDependencyRepairService
         CancellationToken cancellationToken
     )
     {
-        var directory = Path.GetDirectoryName(statusPath)!;
-        Directory.CreateDirectory(directory);
-        var tempPath = Path.Combine(
-            directory,
-            $"{Path.GetFileName(statusPath)}.{Guid.NewGuid():N}.tmp"
-        );
-        await File.WriteAllTextAsync(
-            tempPath,
+        await AtomicFileWriter.WriteUtf8NoBomTextAsync(
+            statusPath,
             JsonSerializer.Serialize(result, JsonOptions),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             cancellationToken
         );
-        File.Move(tempPath, statusPath, overwrite: true);
     }
 
     private string GetRepairLogPath()

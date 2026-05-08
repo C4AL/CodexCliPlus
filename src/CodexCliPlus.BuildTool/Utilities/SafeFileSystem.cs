@@ -178,15 +178,24 @@ public static class SafeFileSystem
         IReadOnlyCollection<string>? excludedRootDirectoryNames = null
     )
     {
-        if (!Directory.Exists(sourceDirectory))
+        var fullSource = NormalizeDirectoryPath(sourceDirectory);
+        var fullTarget = NormalizeDirectoryPath(targetDirectory);
+        if (!Directory.Exists(fullSource))
         {
-            throw new DirectoryNotFoundException($"Source directory not found: {sourceDirectory}");
+            throw new DirectoryNotFoundException($"Source directory not found: {fullSource}");
+        }
+
+        if (PathsEqual(fullSource, fullTarget) || IsSameOrDescendant(fullTarget, fullSource))
+        {
+            throw new InvalidOperationException(
+                $"Refusing to copy directory into itself: {fullSource} -> {fullTarget}"
+            );
         }
 
         var excludedRoots = excludedRootDirectoryNames is null
             ? null
             : new HashSet<string>(excludedRootDirectoryNames, StringComparer.OrdinalIgnoreCase);
-        CopyDirectoryCore(sourceDirectory, targetDirectory, sourceDirectory, excludedRoots);
+        CopyDirectoryCore(fullSource, fullTarget, fullSource, excludedRoots);
     }
 
     private static void CopyDirectoryCore(

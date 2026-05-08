@@ -279,7 +279,7 @@ public sealed class CodexConfigService
                     effectiveSource = profile;
                 }
             }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 errorMessage = exception.Message;
             }

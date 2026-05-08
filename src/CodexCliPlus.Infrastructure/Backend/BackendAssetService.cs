@@ -200,7 +200,7 @@ public sealed class BackendAssetService
                 Size = executable.Length,
                 Version = version,
             };
-            await File.WriteAllTextAsync(
+            await AtomicFileWriter.WriteUtf8NoBomTextAsync(
                 GetExecutableVersionCachePath(),
                 JsonSerializer.Serialize(cache, VersionCacheJsonOptions),
                 cancellationToken

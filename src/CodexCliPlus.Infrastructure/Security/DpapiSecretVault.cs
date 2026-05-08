@@ -385,11 +385,14 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         }
 
         await using var stream = File.OpenRead(manifestPath);
-        return await JsonSerializer.DeserializeAsync<SecretVaultManifest>(
+        var manifest =
+            await JsonSerializer.DeserializeAsync<SecretVaultManifest>(
                 stream,
                 JsonOptions,
                 cancellationToken
             ) ?? new SecretVaultManifest();
+        NormalizeManifest(manifest);
+        return manifest;
     }
 
     private async Task WriteManifestAsync(
@@ -484,6 +487,39 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
     private string GetBlobPath(string blobReference)
     {
         return Path.Combine(GetBlobDirectory(), Path.GetFileName(blobReference));
+    }
+
+    private static void NormalizeManifest(SecretVaultManifest manifest)
+    {
+        manifest.Secrets = manifest
+            .Secrets?.Where(record =>
+                record is not null
+                && !string.IsNullOrWhiteSpace(record.SecretId)
+                && !string.IsNullOrWhiteSpace(record.BlobReference)
+            )
+            .Select(NormalizeManifestRecord)
+            .ToList() ?? [];
+    }
+
+    private static SecretRecord NormalizeManifestRecord(SecretRecord record)
+    {
+        return new SecretRecord
+        {
+            SecretId = record.SecretId.Trim(),
+            Kind = record.Kind,
+            Source = string.IsNullOrWhiteSpace(record.Source) ? "unknown" : record.Source.Trim(),
+            CreatedAtUtc = record.CreatedAtUtc,
+            LastUsedAtUtc = record.LastUsedAtUtc,
+            Status = record.Status,
+            BlobReference = record.BlobReference.Trim(),
+            ValueSha256 = record.ValueSha256,
+            Metadata = record.Metadata is null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(
+                    record.Metadata,
+                    StringComparer.OrdinalIgnoreCase
+                ),
+        };
     }
 
     private static string NormalizeSecretId(string? requestedSecretId)

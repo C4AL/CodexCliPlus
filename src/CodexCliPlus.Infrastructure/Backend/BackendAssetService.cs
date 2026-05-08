@@ -206,7 +206,7 @@ public sealed class BackendAssetService
                 cancellationToken
             );
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.Warn($"Failed to write CLIProxyAPI version cache: {exception.Message}");
         }

@@ -192,6 +192,23 @@ public sealed class BackendProcessManager : IDisposable
 
             return CurrentStatus;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await StopManagedProcessAsync(BackendProcessStopOptions.Default, CancellationToken.None)
+                .ConfigureAwait(false);
+            await _secretBrokerService.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            CleanupRuntimeArtifacts();
+            UpdateStatus(
+                new BackendStatusSnapshot
+                {
+                    State = BackendStateKind.Stopped,
+                    Message = "Backend is stopped.",
+                    Runtime = CurrentStatus.Runtime,
+                }
+            );
+
+            throw;
+        }
         catch (Exception exception)
         {
             _logger.LogError("Failed to start backend process.", exception);

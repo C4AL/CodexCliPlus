@@ -195,48 +195,21 @@ public sealed class CodexConfigService
 
         Directory.CreateDirectory(GetUserConfigDirectory());
         string? backupPath = null;
-        var tempPath = Path.Combine(
-            GetUserConfigDirectory(),
-            $".{descriptor.FileName}.codexcliplus-save-{Guid.NewGuid():N}.tmp"
-        );
-        var existedBeforeWrite = File.Exists(descriptor.Path);
 
-        try
+        if (File.Exists(descriptor.Path))
         {
-            if (existedBeforeWrite)
-            {
-                backupPath = await BackupSourceFileAsync(descriptor, cancellationToken);
-            }
-
-            await WriteUtf8NoBomAsync(tempPath, normalizedContent, cancellationToken);
-            File.Move(tempPath, descriptor.Path, overwrite: true);
-
-            return new CodexUserFileSaveResult
-            {
-                FileId = descriptor.FileId,
-                Path = descriptor.Path,
-                BackupPath = backupPath,
-                Snapshot = await ReadCodexUserFileAsync(descriptor.FileId, cancellationToken),
-            };
+            backupPath = await BackupSourceFileAsync(descriptor, cancellationToken);
         }
-        catch
+
+        await WriteUtf8NoBomAsync(descriptor.Path, normalizedContent, cancellationToken);
+
+        return new CodexUserFileSaveResult
         {
-            if (File.Exists(tempPath))
-            {
-                File.Delete(tempPath);
-            }
-
-            if (backupPath is not null && File.Exists(backupPath))
-            {
-                File.Copy(backupPath, descriptor.Path, overwrite: true);
-            }
-            else if (!existedBeforeWrite && File.Exists(descriptor.Path))
-            {
-                File.Delete(descriptor.Path);
-            }
-
-            throw;
-        }
+            FileId = descriptor.FileId,
+            Path = descriptor.Path,
+            BackupPath = backupPath,
+            Snapshot = await ReadCodexUserFileAsync(descriptor.FileId, cancellationToken),
+        };
     }
 
     [SuppressMessage(

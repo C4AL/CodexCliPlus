@@ -278,6 +278,10 @@ internal sealed class UsageKeeperStore
             using var document = ManagementJson.Parse(rawJson);
             payload = ManagementMappers.MapUsageExport(document.RootElement);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
             return false;

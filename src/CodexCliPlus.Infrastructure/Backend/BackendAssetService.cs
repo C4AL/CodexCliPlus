@@ -254,6 +254,10 @@ public sealed class BackendAssetService
             _logger.Warn($"CLIProxyAPI version probe timed out for '{executablePath}'.");
             return null;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             _logger.Warn(

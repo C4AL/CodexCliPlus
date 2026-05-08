@@ -33,6 +33,7 @@ internal static class SecureAccountPackageService
         new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
             WriteIndented = true,
             Converters = { new JsonStringEnumConverter() },
         };
@@ -318,13 +319,76 @@ internal static class SecureAccountPackageService
         payload.AuthFiles ??= [];
         payload.VaultSecrets ??= [];
         payload.Revocations ??= [];
-        payload.OAuthExcludedModels ??= new Dictionary<string, List<string>>(
+        payload.OAuthExcludedModels = NormalizeStringListMap(payload.OAuthExcludedModels);
+        payload.OAuthModelAliases = NormalizeAliasMap(payload.OAuthModelAliases);
+    }
+
+    private static Dictionary<string, List<string>> NormalizeStringListMap(
+        Dictionary<string, List<string>>? source
+    )
+    {
+        var normalized = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+        {
+            return normalized;
+        }
+
+        foreach (var pair in source)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key))
+            {
+                continue;
+            }
+
+            if (!normalized.TryGetValue(pair.Key, out var values))
+            {
+                values = [];
+                normalized[pair.Key] = values;
+            }
+
+            foreach (var value in pair.Value ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    values.Add(value);
+                }
+            }
+
+            normalized[pair.Key] = values.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        return normalized;
+    }
+
+    private static Dictionary<string, List<ManagementOAuthModelAliasEntry>> NormalizeAliasMap(
+        Dictionary<string, List<ManagementOAuthModelAliasEntry>>? source
+    )
+    {
+        var normalized = new Dictionary<string, List<ManagementOAuthModelAliasEntry>>(
             StringComparer.OrdinalIgnoreCase
         );
-        payload.OAuthModelAliases ??= new Dictionary<
-            string,
-            List<ManagementOAuthModelAliasEntry>
-        >(StringComparer.OrdinalIgnoreCase);
+        if (source is null)
+        {
+            return normalized;
+        }
+
+        foreach (var pair in source)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key))
+            {
+                continue;
+            }
+
+            if (!normalized.TryGetValue(pair.Key, out var values))
+            {
+                values = [];
+                normalized[pair.Key] = values;
+            }
+
+            values.AddRange((pair.Value ?? []).Where(entry => entry is not null));
+        }
+
+        return normalized;
     }
 
     private static string CreateDeviceId()

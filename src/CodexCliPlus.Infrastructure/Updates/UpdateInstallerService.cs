@@ -257,13 +257,15 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     {
         if (
             updateCheckResult.InstallableAsset is not null
-            && IsSelfUpdatePackage(updateCheckResult.InstallableAsset)
+            && UpdateAssetSelector.IsInstallableSelfUpdatePackage(
+                updateCheckResult.InstallableAsset
+            )
         )
         {
             return updateCheckResult.InstallableAsset;
         }
 
-        return updateCheckResult.Assets.FirstOrDefault(IsSelfUpdatePackage);
+        return UpdateAssetSelector.FindInstallableSelfUpdatePackage(updateCheckResult.Assets);
     }
 
     private void EnsureInstalledModeForInstallerHandoff()
@@ -418,13 +420,6 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     {
         using var stream = File.OpenRead(installerPath);
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-    }
-
-    private static bool IsSelfUpdatePackage(UpdateReleaseAsset asset)
-    {
-        return asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
-            && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
     }
 
     private static void DeleteFileIfPresent(string path)

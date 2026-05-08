@@ -195,18 +195,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         UpdateReleaseAsset[] assets
     )
     {
-        static bool IsUpdatePackage(UpdateReleaseAsset asset)
-        {
-            return asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
-                && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
-        }
-
-        return assets
-            .Where(IsUpdatePackage)
-            .OrderByDescending(asset => asset.Size)
-            .ThenBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+        return UpdateAssetSelector.FindInstallableSelfUpdatePackage(assets);
     }
 
     private static int? CompareVersions(string latestVersion, string currentVersion)

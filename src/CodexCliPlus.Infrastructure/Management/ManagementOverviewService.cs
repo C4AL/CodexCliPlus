@@ -21,6 +21,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     private Task<
         ManagementApiResponse<ManagementSettingsSummarySnapshot>
     >? _settingsSummaryInFlight;
+    private long _shellStatusGeneration;
+    private long _settingsSummaryGeneration;
 
     public ManagementOverviewService(
         IManagementConnectionProvider connectionProvider,
@@ -43,7 +45,10 @@ public sealed class ManagementOverviewService : IManagementOverviewService
             () => _shellStatusCache,
             () => _shellStatusInFlight,
             task => _shellStatusInFlight = task,
-            BuildShellStatusAsync
+            BuildShellStatusAsync,
+            () => ++_shellStatusGeneration,
+            () => _shellStatusGeneration,
+            StoreShellStatusCache
         );
 
         return await task.WaitAsync(cancellationToken);
@@ -61,7 +66,10 @@ public sealed class ManagementOverviewService : IManagementOverviewService
             () => _settingsSummaryCache,
             () => _settingsSummaryInFlight,
             task => _settingsSummaryInFlight = task,
-            BuildSettingsSummaryAsync
+            BuildSettingsSummaryAsync,
+            () => ++_settingsSummaryGeneration,
+            () => _settingsSummaryGeneration,
+            StoreSettingsSummaryCache
         );
 
         return await task.WaitAsync(cancellationToken);
@@ -72,7 +80,10 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         Func<CacheEntry<T>?> getCache,
         Func<Task<T>?> getInFlight,
         Action<Task<T>?> setInFlight,
-        Func<Task<T>> factory
+        Func<Task<T>> factory,
+        Func<long> nextGeneration,
+        Func<long> getGeneration,
+        Action<T> storeCache
     )
     {
         lock (_gate)
@@ -88,11 +99,31 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                 return existingTask;
             }
 
-            var task = factory();
+            var generation = nextGeneration();
+            var task = RunLightweightTaskAsync(factory, generation, getGeneration, storeCache);
             setInFlight(task);
             _ = ClearInFlightWhenCompleteAsync(task, getInFlight, setInFlight);
             return task;
         }
+    }
+
+    private async Task<T> RunLightweightTaskAsync<T>(
+        Func<Task<T>> factory,
+        long generation,
+        Func<long> getGeneration,
+        Action<T> storeCache
+    )
+    {
+        var value = await factory().ConfigureAwait(false);
+        lock (_gate)
+        {
+            if (getGeneration() == generation)
+            {
+                storeCache(value);
+            }
+        }
+
+        return value;
     }
 
     private async Task<ManagementApiResponse<ManagementShellStatusSnapshot>> BuildShellStatusAsync()
@@ -111,7 +142,6 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                 }
             );
 
-            StoreShellStatusCache(response);
             return response;
         }
         catch (Exception exception)
@@ -126,7 +156,6 @@ public sealed class ManagementOverviewService : IManagementOverviewService
                 Metadata = new ManagementServerMetadata(),
                 StatusCode = HttpStatusCode.ServiceUnavailable,
             };
-            StoreShellStatusCache(response);
             return response;
         }
     }
@@ -164,7 +193,6 @@ public sealed class ManagementOverviewService : IManagementOverviewService
             }
         );
 
-        StoreSettingsSummaryCache(response);
         return response;
     }
 
@@ -195,24 +223,18 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         ManagementApiResponse<ManagementShellStatusSnapshot> response
     )
     {
-        lock (_gate)
-        {
-            _shellStatusCache = CacheEntry<
-                ManagementApiResponse<ManagementShellStatusSnapshot>
-            >.Create(response);
-        }
+        _shellStatusCache = CacheEntry<
+            ManagementApiResponse<ManagementShellStatusSnapshot>
+        >.Create(response);
     }
 
     private void StoreSettingsSummaryCache(
         ManagementApiResponse<ManagementSettingsSummarySnapshot> response
     )
     {
-        lock (_gate)
-        {
-            _settingsSummaryCache = CacheEntry<
-                ManagementApiResponse<ManagementSettingsSummarySnapshot>
-            >.Create(response);
-        }
+        _settingsSummaryCache = CacheEntry<
+            ManagementApiResponse<ManagementSettingsSummarySnapshot>
+        >.Create(response);
     }
 
     private sealed record CacheEntry<T>(T Value, DateTimeOffset CachedAt)

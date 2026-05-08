@@ -284,12 +284,33 @@ internal sealed class UsageKeeperStore
         }
         catch
         {
+            IsolateInvalidLegacySnapshot();
             return false;
         }
 
         await SaveExportAsync(payload, rawJson, cancellationToken);
         File.Delete(LegacyUsageSnapshotPath);
         return true;
+    }
+
+    private void IsolateInvalidLegacySnapshot()
+    {
+        if (!File.Exists(LegacyUsageSnapshotPath))
+        {
+            return;
+        }
+
+        var stamp = DateTimeOffset.UtcNow.ToString(
+            "yyyyMMddHHmmssfffffff",
+            CultureInfo.InvariantCulture
+        );
+        var target = $"{LegacyUsageSnapshotPath}.invalid.{stamp}";
+        try
+        {
+            File.Move(LegacyUsageSnapshotPath, target, overwrite: false);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     public static void AtomicWriteText(string path, string content)

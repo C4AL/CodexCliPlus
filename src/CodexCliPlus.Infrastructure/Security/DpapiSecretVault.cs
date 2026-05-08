@@ -320,7 +320,19 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
             var blobPath = GetBlobPath(record.BlobReference);
             if (File.Exists(blobPath))
             {
-                File.Delete(blobPath);
+                try
+                {
+                    File.Delete(blobPath);
+                }
+                catch (Exception exception)
+                    when (exception is IOException or UnauthorizedAccessException)
+                {
+                    await TryRestoreDeletedSecretRecordAsync(normalizedSecretId, record);
+                    throw new SecureCredentialStoreException(
+                        $"Failed to delete vault secret '{normalizedSecretId}'.",
+                        exception
+                    );
+                }
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -334,6 +346,34 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         {
             _gate.Release();
         }
+    }
+
+    private async Task TryRestoreDeletedSecretRecordAsync(
+        string normalizedSecretId,
+        SecretRecord record
+    )
+    {
+        try
+        {
+            var manifest = await ReadManifestAsync(CancellationToken.None);
+            if (
+                manifest.Secrets.Any(item =>
+                    string.Equals(
+                        item.SecretId,
+                        normalizedSecretId,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                )
+            )
+            {
+                return;
+            }
+
+            manifest.Secrets.Add(record);
+            await WriteManifestAsync(manifest, CancellationToken.None);
+        }
+        catch
+        { }
     }
 
     private async Task<SecretVaultManifest> ReadManifestAsync(CancellationToken cancellationToken)

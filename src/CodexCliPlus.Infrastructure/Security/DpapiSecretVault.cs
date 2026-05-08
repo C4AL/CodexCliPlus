@@ -179,12 +179,19 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
             try
             {
                 var value = Encoding.UTF8.GetString(plainBytes);
-                UpdateRecord(
-                    manifest,
-                    normalizedSecretId,
-                    record.WithLastUsedAtUtc(DateTimeOffset.UtcNow)
-                );
-                await WriteManifestAsync(manifest, cancellationToken);
+                try
+                {
+                    UpdateRecord(
+                        manifest,
+                        normalizedSecretId,
+                        record.WithLastUsedAtUtc(DateTimeOffset.UtcNow)
+                    );
+                    await WriteManifestAsync(manifest, cancellationToken);
+                }
+                catch (Exception exception)
+                    when (exception is IOException or UnauthorizedAccessException)
+                { }
+
                 return value;
             }
             finally

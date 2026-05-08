@@ -1158,7 +1158,7 @@ public sealed class ManagementAuthService : IManagementAuthService
             && !string.IsNullOrWhiteSpace(projectId)
         )
         {
-            parameters.Add($"project_id={Uri.EscapeDataString(projectId)}");
+            parameters.Add($"project_id={Uri.EscapeDataString(projectId.Trim())}");
         }
 
         var query = parameters.Count == 0 ? string.Empty : $"?{string.Join("&", parameters)}";

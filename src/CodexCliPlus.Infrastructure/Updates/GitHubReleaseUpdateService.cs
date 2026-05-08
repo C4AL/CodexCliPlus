@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.Updates;
-using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
 using NuGet.Versioning;
@@ -203,20 +202,9 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
                 && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
         }
 
-        static bool IsOfflineInstaller(UpdateReleaseAsset asset)
-        {
-            return asset.Name.StartsWith(
-                    $"{AppConstants.InstallerNamePrefix}.Offline.",
-                    StringComparison.OrdinalIgnoreCase
-                )
-                && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
-        }
-
         return assets
-            .Where(asset => IsUpdatePackage(asset) || IsOfflineInstaller(asset))
-            .OrderBy(asset => IsUpdatePackage(asset) ? 0 : 1)
-            .ThenByDescending(asset => asset.Size)
+            .Where(IsUpdatePackage)
+            .OrderByDescending(asset => asset.Size)
             .ThenBy(asset => asset.Name, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault();
     }

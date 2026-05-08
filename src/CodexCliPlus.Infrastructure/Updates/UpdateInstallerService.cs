@@ -257,13 +257,13 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
     {
         if (
             updateCheckResult.InstallableAsset is not null
-            && IsInstallableAsset(updateCheckResult.InstallableAsset)
+            && IsSelfUpdatePackage(updateCheckResult.InstallableAsset)
         )
         {
             return updateCheckResult.InstallableAsset;
         }
 
-        return updateCheckResult.Assets.FirstOrDefault(IsInstallableAsset);
+        return updateCheckResult.Assets.FirstOrDefault(IsSelfUpdatePackage);
     }
 
     private void EnsureInstalledModeForInstallerHandoff()
@@ -420,20 +420,11 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
-    private static bool IsInstallableAsset(UpdateReleaseAsset asset)
+    private static bool IsSelfUpdatePackage(UpdateReleaseAsset asset)
     {
-        var supported =
-            (
-                asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
-                && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-            )
-            || (
-                asset.Name.StartsWith(
-                    $"{AppConstants.InstallerNamePrefix}.Offline.",
-                    StringComparison.OrdinalIgnoreCase
-                ) && asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            );
-        return supported && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
+        return asset.Name.StartsWith("CodexCliPlus.Update.", StringComparison.OrdinalIgnoreCase)
+            && asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(asset.DownloadUrl);
     }
 
     private static void DeleteFileIfPresent(string path)

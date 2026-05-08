@@ -149,9 +149,10 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedName = NormalizeFileName(name);
         return SendOperationAsync(
             HttpMethod.Delete,
-            $"auth-files?name={Uri.EscapeDataString(name.Trim())}",
+            $"auth-files?name={Uri.EscapeDataString(normalizedName)}",
             payload: null,
             cancellationToken
         );
@@ -163,8 +164,8 @@ public sealed class ManagementAuthService : IManagementAuthService
     )
     {
         var normalizedNames = names
-            .Select(name => name.Trim())
             .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(NormalizeFileName)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -204,9 +205,10 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedName = NormalizeFileName(name);
         return _apiClient.SendManagementAsync(
             HttpMethod.Get,
-            $"auth-files/download?name={Uri.EscapeDataString(name)}",
+            $"auth-files/download?name={Uri.EscapeDataString(normalizedName)}",
             accept: "*/*",
             cancellationToken: cancellationToken
         );
@@ -218,10 +220,15 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedName = NormalizeFileName(name);
         return SendOperationAsync(
             HttpMethod.Patch,
             "auth-files/status",
-            new Dictionary<string, object?> { ["name"] = name.Trim(), ["disabled"] = disabled },
+            new Dictionary<string, object?>
+            {
+                ["name"] = normalizedName,
+                ["disabled"] = disabled,
+            },
             cancellationToken
         );
     }
@@ -231,7 +238,7 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
-        var payload = new Dictionary<string, object?> { ["name"] = patch.Name.Trim() };
+        var payload = new Dictionary<string, object?> { ["name"] = NormalizeFileName(patch.Name) };
 
         if (patch.Prefix is not null)
         {
@@ -818,8 +825,9 @@ public sealed class ManagementAuthService : IManagementAuthService
         ManagementApiResponse<IReadOnlyList<ManagementModelDescriptor>>
     > GetAuthFileModelsAsync(string name, CancellationToken cancellationToken = default)
     {
+        var normalizedName = NormalizeFileName(name);
         return GetMappedAsync(
-            $"auth-files/models?name={Uri.EscapeDataString(name)}",
+            $"auth-files/models?name={Uri.EscapeDataString(normalizedName)}",
             ManagementMappers.MapModelDescriptors,
             cancellationToken
         );

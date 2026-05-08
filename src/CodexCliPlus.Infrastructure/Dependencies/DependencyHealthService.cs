@@ -321,6 +321,10 @@ public sealed class DependencyHealthService
                 }
             );
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             issues.Add(

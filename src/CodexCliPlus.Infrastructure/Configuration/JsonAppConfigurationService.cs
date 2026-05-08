@@ -127,26 +127,51 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
             settings.RememberPassword = true;
         }
 
+        string? previousManagementKey = null;
+        var hadPreviousManagementKey = false;
+        var savedManagementKey = false;
         if (settings.RememberPassword)
         {
             if (!string.IsNullOrWhiteSpace(settings.ManagementKey))
             {
+                previousManagementKey = await _credentialStore.LoadSecretAsync(
+                    settings.ManagementKeyReference,
+                    cancellationToken
+                );
+                hadPreviousManagementKey = previousManagementKey is not null;
                 await _credentialStore.SaveSecretAsync(
                     settings.ManagementKeyReference,
                     settings.ManagementKey,
                     cancellationToken
                 );
+                savedManagementKey = true;
             }
         }
 
         var persisted = PersistedAppSettings.FromModel(settings);
         var json = JsonSerializer.Serialize(persisted, JsonOptions);
-        await File.WriteAllTextAsync(
-            _pathService.Directories.SettingsFilePath,
-            json,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
+        try
+        {
+            await File.WriteAllTextAsync(
+                _pathService.Directories.SettingsFilePath,
+                json,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                cancellationToken
+            );
+        }
+        catch
+        {
+            if (savedManagementKey)
+            {
+                await RestoreManagementKeyAsync(
+                    settings.ManagementKeyReference,
+                    hadPreviousManagementKey,
+                    previousManagementKey
+                );
+            }
+
+            throw;
+        }
 
         if (settings.RememberPassword)
         {
@@ -160,6 +185,31 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 cancellationToken
             );
         }
+    }
+
+    private async Task RestoreManagementKeyAsync(
+        string reference,
+        bool hadPreviousManagementKey,
+        string? previousManagementKey
+    )
+    {
+        try
+        {
+            if (hadPreviousManagementKey)
+            {
+                await _credentialStore.SaveSecretAsync(
+                    reference,
+                    previousManagementKey ?? string.Empty,
+                    CancellationToken.None
+                );
+            }
+            else
+            {
+                await _credentialStore.DeleteSecretAsync(reference, CancellationToken.None);
+            }
+        }
+        catch
+        { }
     }
 
     private AppSettings CreateDefaultSettingsForDataMode()

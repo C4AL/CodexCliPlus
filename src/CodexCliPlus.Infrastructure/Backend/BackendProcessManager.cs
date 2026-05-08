@@ -229,6 +229,8 @@ public sealed class BackendProcessManager : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         _stopRequested = true;
         _requestedStopOptions = stopOptions;
         CancelActiveOperation();

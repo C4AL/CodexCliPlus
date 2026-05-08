@@ -53,7 +53,7 @@ internal static class SecureAccountPackageService
         }
 
         PreparePayloadForExport(payload);
-        Directory.CreateDirectory(Path.GetDirectoryName(packagePath)!);
+        EnsurePackageDirectory(packagePath);
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         await File.WriteAllTextAsync(
             packagePath,
@@ -146,7 +146,7 @@ internal static class SecureAccountPackageService
             },
         };
 
-        Directory.CreateDirectory(Path.GetDirectoryName(packagePath)!);
+        EnsurePackageDirectory(packagePath);
         var json = JsonSerializer.Serialize(package, JsonOptions);
         await File.WriteAllTextAsync(
             packagePath,
@@ -389,6 +389,15 @@ internal static class SecureAccountPackageService
         }
 
         return normalized;
+    }
+
+    private static void EnsurePackageDirectory(string packagePath)
+    {
+        var directory = Path.GetDirectoryName(packagePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
     }
 
     private static string CreateDeviceId()

@@ -108,7 +108,7 @@ public sealed class AppPathService : IPathService
         try
         {
             Directory.CreateDirectory(directory);
-            var probePath = Path.Combine(directory, ".write-test");
+            var probePath = Path.Combine(directory, $".write-test-{Guid.NewGuid():N}.tmp");
             File.WriteAllText(probePath, string.Empty);
             File.Delete(probePath);
             return true;

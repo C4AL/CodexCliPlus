@@ -20,20 +20,22 @@ internal static partial class SensitiveDataRedactor
         return redacted;
     }
 
-    [GeneratedRegex("(?im)(secret-key\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
+    [GeneratedRegex("(?im)(secret[-_]?key\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
     private static partial Regex SecretKeyPattern();
 
-    [GeneratedRegex("(?im)(authorization\\s*:\\s*bearer\\s+)([^\\s]+)")]
+    [GeneratedRegex("(?im)((?:proxy-)?authorization\\s*:\\s*(?:(?:bearer|basic)\\s+)?)([^\\r\\n]+)")]
     private static partial Regex AuthorizationPattern();
 
-    [GeneratedRegex("(?im)((?:x-management-key|x-api-key|cookie)\\s*:\\s*)([^\\r\\n]+)")]
+    [GeneratedRegex("(?im)((?:x-management-key|x-api-key|x-goog-api-key|cookie)\\s*:\\s*)([^\\r\\n]+)")]
     private static partial Regex HeaderSecretPattern();
 
-    [GeneratedRegex("(?im)((?:api-key|management key)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)")]
+    [GeneratedRegex(
+        "(?im)((?:(?:[a-z0-9]+[-_])*(?:api[-_]?key)|management[-_ ]?key)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+    )]
     private static partial Regex ApiKeyPattern();
 
     [GeneratedRegex(
-        "(?im)((?:access-token|refresh-token|token)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
+        "(?im)((?:access[-_]?token|refresh[-_]?token|token)\\s*[:=]\\s*[\"']?)([^\\r\\n\"']+)([\"']?)"
     )]
     private static partial Regex TokenPattern();
 }

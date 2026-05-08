@@ -17,6 +17,8 @@ internal interface IOfflineBuilderProcessRunner
 
 internal sealed class OfflineBuilderProcessRunner : IOfflineBuilderProcessRunner
 {
+    private static readonly TimeSpan TerminationWaitTimeout = TimeSpan.FromSeconds(5);
+
     public async Task<ProcessRunResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
@@ -56,11 +58,21 @@ internal sealed class OfflineBuilderProcessRunner : IOfflineBuilderProcessRunner
 
         using var process = new Process { StartInfo = startInfo };
         process.Start();
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
+        string stdout;
+        string stderr;
+        try
+        {
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+            stdout = await stdoutTask;
+            stderr = await stderrTask;
+        }
+        catch (OperationCanceledException)
+        {
+            await KillProcessTreeAsync(process);
+            throw;
+        }
 
         var shouldEchoOutput = ShouldEchoOutput(arguments);
         if (shouldEchoOutput && !string.IsNullOrWhiteSpace(stdout))
@@ -101,5 +113,27 @@ internal sealed class OfflineBuilderProcessRunner : IOfflineBuilderProcessRunner
         }
 
         return true;
+    }
+
+    private static async Task KillProcessTreeAsync(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TerminationWaitTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) { }
     }
 }

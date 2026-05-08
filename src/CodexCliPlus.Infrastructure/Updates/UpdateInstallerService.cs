@@ -89,8 +89,10 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
             );
         }
 
-        var temporaryPath = $"{installerPath}.download";
-        DeleteFileIfPresent(temporaryPath);
+        var temporaryPath = Path.Combine(
+            updatesCacheDirectory,
+            $"{safeFileName}.{Guid.NewGuid():N}.download"
+        );
 
         try
         {

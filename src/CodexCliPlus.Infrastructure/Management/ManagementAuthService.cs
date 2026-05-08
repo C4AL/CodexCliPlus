@@ -719,13 +719,15 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedProvider = NormalizeRequiredOAuthMapKey(provider, nameof(provider));
+        var normalizedModels = NormalizeOAuthModelList(models);
         return SendOperationAsync(
             HttpMethod.Patch,
             "oauth-excluded-models",
             new Dictionary<string, object?>
             {
-                ["provider"] = provider.Trim().ToLowerInvariant(),
-                ["models"] = models,
+                ["provider"] = normalizedProvider,
+                ["models"] = normalizedModels,
             },
             cancellationToken
         );
@@ -736,9 +738,10 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedProvider = NormalizeRequiredOAuthMapKey(provider, nameof(provider));
         return SendOperationAsync(
             HttpMethod.Delete,
-            $"oauth-excluded-models?provider={Uri.EscapeDataString(provider.Trim().ToLowerInvariant())}",
+            $"oauth-excluded-models?provider={Uri.EscapeDataString(normalizedProvider)}",
             payload: null,
             cancellationToken: cancellationToken
         );
@@ -783,13 +786,15 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedChannel = NormalizeRequiredOAuthMapKey(channel, nameof(channel));
+        var normalizedAliases = NormalizeOAuthAliasList(aliases);
         return SendOperationAsync(
             HttpMethod.Patch,
             "oauth-model-alias",
             new Dictionary<string, object?>
             {
-                ["channel"] = channel.Trim().ToLowerInvariant(),
-                ["aliases"] = aliases,
+                ["channel"] = normalizedChannel,
+                ["aliases"] = normalizedAliases,
             },
             cancellationToken
         );
@@ -800,9 +805,10 @@ public sealed class ManagementAuthService : IManagementAuthService
         CancellationToken cancellationToken = default
     )
     {
+        var normalizedChannel = NormalizeRequiredOAuthMapKey(channel, nameof(channel));
         return SendOperationAsync(
             HttpMethod.Delete,
-            $"oauth-model-alias?channel={Uri.EscapeDataString(channel.Trim().ToLowerInvariant())}",
+            $"oauth-model-alias?channel={Uri.EscapeDataString(normalizedChannel)}",
             payload: null,
             cancellationToken: cancellationToken
         );
@@ -986,18 +992,9 @@ public sealed class ManagementAuthService : IManagementAuthService
                 merged[key] = values;
             }
 
-            if (pair.Value is null)
+            foreach (var value in NormalizeOAuthModelList(pair.Value))
             {
-                continue;
-            }
-
-            foreach (var model in pair.Value)
-            {
-                var value = model?.Trim();
-                if (
-                    !string.IsNullOrWhiteSpace(value)
-                    && !values.Contains(value, StringComparer.OrdinalIgnoreCase)
-                )
+                if (!values.Contains(value, StringComparer.OrdinalIgnoreCase))
                 {
                     values.Add(value);
                 }
@@ -1035,34 +1032,7 @@ public sealed class ManagementAuthService : IManagementAuthService
                 merged[key] = values;
             }
 
-            if (pair.Value is null)
-            {
-                continue;
-            }
-
-            foreach (var item in pair.Value)
-            {
-                if (item is null)
-                {
-                    continue;
-                }
-
-                var name = item.Name?.Trim();
-                var alias = item.Alias?.Trim();
-                if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(alias))
-                {
-                    continue;
-                }
-
-                values.Add(
-                    new ManagementOAuthModelAliasEntry
-                    {
-                        Name = name,
-                        Alias = alias,
-                        Fork = item.Fork,
-                    }
-                );
-            }
+            values.AddRange(NormalizeOAuthAliasList(pair.Value));
         }
 
         return merged.ToDictionary(
@@ -1072,10 +1042,76 @@ public sealed class ManagementAuthService : IManagementAuthService
         );
     }
 
-    private static string? NormalizeOAuthMapKey(string key)
+    private static string[] NormalizeOAuthModelList(IReadOnlyList<string>? source)
     {
-        var normalized = key.Trim().ToLowerInvariant();
+        if (source is null)
+        {
+            return [];
+        }
+
+        var values = new List<string>();
+        foreach (var model in source)
+        {
+            var value = model?.Trim();
+            if (
+                !string.IsNullOrWhiteSpace(value)
+                && !values.Contains(value, StringComparer.OrdinalIgnoreCase)
+            )
+            {
+                values.Add(value);
+            }
+        }
+
+        return values.ToArray();
+    }
+
+    private static ManagementOAuthModelAliasEntry[] NormalizeOAuthAliasList(
+        IReadOnlyList<ManagementOAuthModelAliasEntry>? source
+    )
+    {
+        if (source is null)
+        {
+            return [];
+        }
+
+        var values = new List<ManagementOAuthModelAliasEntry>();
+        foreach (var item in source)
+        {
+            if (item is null)
+            {
+                continue;
+            }
+
+            var name = item.Name?.Trim();
+            var alias = item.Alias?.Trim();
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(alias))
+            {
+                continue;
+            }
+
+            values.Add(
+                new ManagementOAuthModelAliasEntry
+                {
+                    Name = name,
+                    Alias = alias,
+                    Fork = item.Fork,
+                }
+            );
+        }
+
+        return values.ToArray();
+    }
+
+    private static string? NormalizeOAuthMapKey(string? key)
+    {
+        var normalized = key?.Trim().ToLowerInvariant();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string NormalizeRequiredOAuthMapKey(string? key, string parameterName)
+    {
+        return NormalizeOAuthMapKey(key)
+            ?? throw new ArgumentException("OAuth provider cannot be empty.", parameterName);
     }
 
     private static Dictionary<string, object?> BuildIndexedPayload<T>(int index, T value)

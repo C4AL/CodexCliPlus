@@ -255,12 +255,23 @@ internal sealed class UsageKeeperStore
             File.Delete(LegacyUsageSnapshotPath);
         }
 
-        if (Directory.Exists(_backupDirectory))
+        ClearBackupDirectory();
+        Directory.CreateDirectory(_backupDirectory);
+    }
+
+    private void ClearBackupDirectory()
+    {
+        if (!Directory.Exists(_backupDirectory))
+        {
+            return;
+        }
+
+        try
         {
             Directory.Delete(_backupDirectory, recursive: true);
         }
-
-        Directory.CreateDirectory(_backupDirectory);
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     public async Task<bool> MigrateLegacySnapshotAsync(CancellationToken cancellationToken)

@@ -52,7 +52,7 @@ public sealed class SecretBrokerService : IDisposable
             listener.Start();
 
             _listener = listener;
-            _listenerCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _listenerCts = new CancellationTokenSource();
             _listenerTask = Task.Run(
                 () => RunListenerAsync(listener, token, _listenerCts.Token),
                 CancellationToken.None

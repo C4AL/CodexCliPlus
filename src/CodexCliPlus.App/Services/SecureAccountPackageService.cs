@@ -71,6 +71,11 @@ internal static class SecureAccountPackageService
             JsonSerializer.Deserialize<SecureAccountPackagePayload>(json, JsonOptions)
             ?? throw new InvalidDataException("配置文件内容无效。");
         ValidatePayload(payload);
+        if ((payload.VaultSecrets?.Count ?? 0) > 0)
+        {
+            throw new InvalidDataException("明文账号配置包含凭据，请使用 .sac 安全包导入。");
+        }
+
         return payload;
     }
 

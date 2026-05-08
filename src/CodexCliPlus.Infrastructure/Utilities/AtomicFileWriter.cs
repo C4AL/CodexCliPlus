@@ -14,6 +14,46 @@ internal static class AtomicFileWriter
         CancellationToken cancellationToken
     )
     {
+        await WriteAsync(
+            path,
+            async (stream, token) =>
+            {
+                using (
+                    var writer = new StreamWriter(
+                        stream,
+                        Utf8NoBom,
+                        bufferSize: 1024,
+                        leaveOpen: true
+                    )
+                )
+                {
+                    await writer.WriteAsync(content.AsMemory(), token);
+                    await writer.FlushAsync(token);
+                }
+            },
+            cancellationToken
+        );
+    }
+
+    public static async Task WriteBytesAsync(
+        string path,
+        ReadOnlyMemory<byte> content,
+        CancellationToken cancellationToken
+    )
+    {
+        await WriteAsync(
+            path,
+            async (stream, token) => await stream.WriteAsync(content, token),
+            cancellationToken
+        );
+    }
+
+    private static async Task WriteAsync(
+        string path,
+        Func<FileStream, CancellationToken, Task> writeContentAsync,
+        CancellationToken cancellationToken
+    )
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
         try
@@ -31,19 +71,7 @@ internal static class AtomicFileWriter
                 )
             )
             {
-                using (
-                    var writer = new StreamWriter(
-                        stream,
-                        Utf8NoBom,
-                        bufferSize: 1024,
-                        leaveOpen: true
-                    )
-                )
-                {
-                    await writer.WriteAsync(content.AsMemory(), cancellationToken);
-                    await writer.FlushAsync(cancellationToken);
-                }
-
+                await writeContentAsync(stream, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
             }
 

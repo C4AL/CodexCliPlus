@@ -5,6 +5,7 @@ using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Security;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Exceptions;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.Security;
 
@@ -39,7 +40,7 @@ public sealed class DpapiCredentialStore : ISecureCredentialStore
                 DataProtectionScope.CurrentUser
             );
 
-            await File.WriteAllBytesAsync(secretPath, payload, cancellationToken);
+            await AtomicFileWriter.WriteBytesAsync(secretPath, payload, cancellationToken);
         }
         catch (Exception exception)
             when (exception is CryptographicException or IOException or UnauthorizedAccessException)

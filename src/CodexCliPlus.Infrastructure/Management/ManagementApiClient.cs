@@ -135,7 +135,7 @@ public sealed class ManagementApiClient : IManagementApiClient
                 );
                 var payload = await response.Content.ReadAsStringAsync(timeoutCts.Token);
 
-                if (IsTransientStatusCode(response.StatusCode) && attempt < 2)
+                if (IsTransientStatusCode(response.StatusCode) && ShouldRetry(method, attempt))
                 {
                     lastError = CreateException(response.StatusCode, payload);
                     await Task.Delay(RetryDelay, cancellationToken);
@@ -155,12 +155,12 @@ public sealed class ManagementApiClient : IManagementApiClient
                 };
             }
             catch (TaskCanceledException exception)
-                when (!cancellationToken.IsCancellationRequested && attempt < 2)
+                when (!cancellationToken.IsCancellationRequested && ShouldRetry(method, attempt))
             {
                 lastError = exception;
                 await Task.Delay(RetryDelay, cancellationToken);
             }
-            catch (HttpRequestException exception) when (attempt < 2)
+            catch (HttpRequestException exception) when (ShouldRetry(method, attempt))
             {
                 lastError = exception;
                 await Task.Delay(RetryDelay, cancellationToken);
@@ -266,6 +266,20 @@ public sealed class ManagementApiClient : IManagementApiClient
                 or HttpStatusCode.BadGateway
                 or HttpStatusCode.ServiceUnavailable
                 or HttpStatusCode.GatewayTimeout;
+    }
+
+    private static bool ShouldRetry(HttpMethod method, int attempt)
+    {
+        return attempt < 2 && IsRetryableMethod(method);
+    }
+
+    private static bool IsRetryableMethod(HttpMethod method)
+    {
+        return method == HttpMethod.Get
+            || method == HttpMethod.Head
+            || method == HttpMethod.Options
+            || method == HttpMethod.Put
+            || method == HttpMethod.Delete;
     }
 
     private static ManagementServerMetadata ReadMetadata(HttpResponseMessage response)

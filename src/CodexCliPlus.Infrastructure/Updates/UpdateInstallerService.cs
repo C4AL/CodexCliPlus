@@ -125,8 +125,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
                 strictDigestValidation: true
             );
 
-            DeleteFileIfPresent(installerPath);
-            File.Move(temporaryPath, installerPath);
+            PromoteDownloadedInstaller(temporaryPath, installerPath);
 
             return CreatePreparedInstaller(
                 updateCheckResult,
@@ -430,5 +429,16 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         {
             File.Delete(path);
         }
+    }
+
+    internal static void PromoteDownloadedInstaller(string temporaryPath, string installerPath)
+    {
+        if (File.Exists(installerPath))
+        {
+            File.Replace(temporaryPath, installerPath, destinationBackupFileName: null);
+            return;
+        }
+
+        File.Move(temporaryPath, installerPath);
     }
 }

@@ -15,6 +15,7 @@ namespace CodexCliPlus.Infrastructure.Diagnostics;
 
 public sealed class DiagnosticsService
 {
+    private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -112,19 +113,13 @@ public sealed class DiagnosticsService
         LocalDependencySnapshot? localDependencySnapshot = null
     )
     {
-        Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
-
-        var packagePath = Path.Combine(
+        using var packageStream = CreateUniqueArtifactStream(
             _pathService.Directories.DiagnosticsDirectory,
-            $"diagnostics-{DateTimeOffset.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.zip"
+            "diagnostics",
+            ".zip",
+            out var packagePath
         );
-
-        if (File.Exists(packagePath))
-        {
-            File.Delete(packagePath);
-        }
-
-        using var archive = ZipFile.Open(packagePath, ZipArchiveMode.Create);
+        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Create);
         WriteArchiveEntry(
             archive,
             "report.txt",
@@ -170,11 +165,11 @@ public sealed class DiagnosticsService
         LocalDependencySnapshot? localDependencySnapshot = null
     )
     {
-        Directory.CreateDirectory(_pathService.Directories.DiagnosticsDirectory);
-
-        var snapshotPath = Path.Combine(
+        using var snapshotStream = CreateUniqueArtifactStream(
             _pathService.Directories.DiagnosticsDirectory,
-            $"error-snapshot-{DateTimeOffset.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.txt"
+            "error-snapshot",
+            ".txt",
+            out var snapshotPath
         );
 
         var builder = new StringBuilder();
@@ -204,12 +199,43 @@ public sealed class DiagnosticsService
             BuildReport(backendStatus, codexStatus, dependencyStatus, localDependencySnapshot)
         );
 
-        File.WriteAllText(
-            snapshotPath,
-            SensitiveDataRedactor.Redact(builder.ToString()),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-        );
+        using var writer = new StreamWriter(snapshotStream, Utf8NoBom);
+        writer.Write(SensitiveDataRedactor.Redact(builder.ToString()));
         return snapshotPath;
+    }
+
+    private static FileStream CreateUniqueArtifactStream(
+        string directory,
+        string prefix,
+        string extension,
+        out string path
+    )
+    {
+        Directory.CreateDirectory(directory);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var timestamp = DateTimeOffset.Now.ToString(
+                "yyyyMMddHHmmss",
+                CultureInfo.InvariantCulture
+            );
+            var suffix = Guid.NewGuid().ToString("N")[..12];
+            path = Path.Combine(directory, $"{prefix}-{timestamp}-{suffix}{extension}");
+
+            try
+            {
+                return new FileStream(
+                    path,
+                    FileMode.CreateNew,
+                    FileAccess.ReadWrite,
+                    FileShare.None
+                );
+            }
+            catch (IOException) when (File.Exists(path))
+            { }
+        }
+
+        throw new IOException($"Failed to create unique diagnostics artifact '{prefix}'.");
     }
 
     private static void AppendInvariantLine(StringBuilder builder, FormattableString value)
@@ -223,7 +249,7 @@ public sealed class DiagnosticsService
         using var stream = entry.Open();
         using var writer = new StreamWriter(
             stream,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+            Utf8NoBom
         );
         writer.Write(content);
     }

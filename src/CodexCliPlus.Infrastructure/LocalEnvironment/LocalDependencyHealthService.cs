@@ -256,20 +256,24 @@ public sealed class LocalDependencyHealthService
             };
         }
 
-        var versionAttempt = await TryRunExecutableAsync(
+        var versionTask = TryRunExecutableAsync(
             npmPath,
             ["--version"],
             ShortCommandTimeout,
             budget,
             cancellationToken
         );
-        var prefixAttempt = await TryRunExecutableAsync(
+        var prefixTask = TryRunExecutableAsync(
             npmPath,
             ["config", "get", "prefix"],
             ShortCommandTimeout,
             budget,
             cancellationToken
         );
+        await Task.WhenAll(versionTask, prefixTask);
+
+        var versionAttempt = await versionTask;
+        var prefixAttempt = await prefixTask;
         var version = FirstOutputLine(versionAttempt.Output);
         var prefix = FirstOutputLine(prefixAttempt.Output);
         toolState.NpmPrefix = string.IsNullOrWhiteSpace(prefix) ? null : prefix;

@@ -4,6 +4,7 @@ using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Abstractions.Persistence;
 using CodexCliPlus.Core.Models;
 using CodexCliPlus.Core.Models.Management;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.Persistence;
 
@@ -118,9 +119,10 @@ public sealed class ManagementPersistenceService : IManagementPersistenceService
             var payload = (
                 await _logsService.GetLogsAsync(limit: 500, cancellationToken: cancellationToken)
             ).Value;
-            UsageKeeperStore.AtomicWriteText(
+            await AtomicFileWriter.WriteUtf8NoBomTextAsync(
                 _usageKeeperStore.LogsSnapshotPath,
-                JsonSerializer.Serialize(payload, JsonOptions)
+                JsonSerializer.Serialize(payload, JsonOptions),
+                cancellationToken
             );
             _lastError = null;
         }

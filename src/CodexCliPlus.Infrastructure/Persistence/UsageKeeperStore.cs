@@ -335,25 +335,6 @@ internal sealed class UsageKeeperStore
         catch (UnauthorizedAccessException) { }
     }
 
-    public static void AtomicWriteText(string path, string content)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
-        File.WriteAllText(
-            tempPath,
-            content,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-        );
-        if (File.Exists(path))
-        {
-            File.Replace(tempPath, path, destinationBackupFileName: null);
-        }
-        else
-        {
-            File.Move(tempPath, path);
-        }
-    }
-
     private async Task<SqliteConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var builder = new SqliteConnectionStringBuilder

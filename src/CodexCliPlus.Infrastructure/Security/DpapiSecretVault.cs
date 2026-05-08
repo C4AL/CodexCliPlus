@@ -53,25 +53,15 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         }
 
         var normalizedSecretId = NormalizeSecretId(secretId);
-        var blobReference = $"{normalizedSecretId}.bin";
         var plainBytes = Encoding.UTF8.GetBytes(value);
+        string? newBlobPath = null;
+        var manifestUpdated = false;
 
         await _gate.WaitAsync(cancellationToken);
         try
         {
             await _pathService.EnsureCreatedAsync(cancellationToken);
             Directory.CreateDirectory(GetBlobDirectory());
-
-            var protectedBytes = ProtectedData.Protect(
-                plainBytes,
-                Entropy,
-                DataProtectionScope.CurrentUser
-            );
-            await File.WriteAllBytesAsync(
-                GetBlobPath(blobReference),
-                protectedBytes,
-                cancellationToken
-            );
 
             var manifest = await ReadManifestAsync(cancellationToken);
             var now = DateTimeOffset.UtcNow;
@@ -82,6 +72,17 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
                     StringComparison.OrdinalIgnoreCase
                 )
             );
+            var protectedBytes = ProtectedData.Protect(
+                plainBytes,
+                Entropy,
+                DataProtectionScope.CurrentUser
+            );
+            var blobReference = await WriteNewBlobAsync(
+                normalizedSecretId,
+                protectedBytes,
+                cancellationToken
+            );
+            newBlobPath = GetBlobPath(blobReference);
 
             var record = new SecretRecord
             {
@@ -109,16 +110,33 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
             );
             manifest.Secrets.Add(record);
             await WriteManifestAsync(manifest, cancellationToken);
+            manifestUpdated = true;
+
+            DeleteSupersededBlob(existing?.BlobReference, blobReference);
 
             return record;
         }
         catch (Exception exception)
             when (exception is CryptographicException or IOException or UnauthorizedAccessException)
         {
+            if (!manifestUpdated && newBlobPath is not null)
+            {
+                TryDeleteFile(newBlobPath);
+            }
+
             throw new SecureCredentialStoreException(
                 $"Failed to save vault secret '{normalizedSecretId}'.",
                 exception
             );
+        }
+        catch
+        {
+            if (!manifestUpdated && newBlobPath is not null)
+            {
+                TryDeleteFile(newBlobPath);
+            }
+
+            throw;
         }
         finally
         {
@@ -337,6 +355,65 @@ public sealed class DpapiSecretVault : ISecretVault, IDisposable
         Directory.CreateDirectory(GetSecretRootDirectory());
         await using var stream = File.Create(GetManifestPath());
         await JsonSerializer.SerializeAsync(stream, manifest, JsonOptions, cancellationToken);
+    }
+
+    private async Task<string> WriteNewBlobAsync(
+        string normalizedSecretId,
+        byte[] protectedBytes,
+        CancellationToken cancellationToken
+    )
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var blobReference = $"{normalizedSecretId}-{suffix}.bin";
+        var blobPath = GetBlobPath(blobReference);
+
+        try
+        {
+            await using var stream = new FileStream(
+                blobPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                useAsync: true
+            );
+            await stream.WriteAsync(protectedBytes, cancellationToken);
+            return blobReference;
+        }
+        catch
+        {
+            TryDeleteFile(blobPath);
+            throw;
+        }
+    }
+
+    private void DeleteSupersededBlob(string? oldBlobReference, string newBlobReference)
+    {
+        if (string.IsNullOrWhiteSpace(oldBlobReference))
+        {
+            return;
+        }
+
+        var oldBlobPath = GetBlobPath(oldBlobReference);
+        if (string.Equals(oldBlobPath, GetBlobPath(newBlobReference), StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        TryDeleteFile(oldBlobPath);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private string GetSecretRootDirectory()

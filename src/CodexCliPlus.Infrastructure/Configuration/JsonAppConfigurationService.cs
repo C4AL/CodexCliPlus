@@ -69,12 +69,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 settings.ManagementKeyReference = AppConstants.DefaultManagementKeyReference;
             }
 
-            await _credentialStore.SaveSecretAsync(
-                settings.ManagementKeyReference,
-                settings.ManagementKey,
-                cancellationToken
-            );
-            await SaveAsync(settings, cancellationToken);
+            await TryPersistLoadedSettingsAsync(settings, cancellationToken);
             return settings;
         }
 
@@ -91,7 +86,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 settings.ManagementKey = storedManagementKey;
                 if (shouldPersistRememberPasswordMigration)
                 {
-                    await SaveAsync(settings, cancellationToken);
+                    await TryPersistLoadedSettingsAsync(settings, cancellationToken);
                 }
 
                 return settings;
@@ -102,10 +97,27 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         if (shouldPersistRememberPasswordMigration)
         {
-            await SaveAsync(settings, cancellationToken);
+            await TryPersistLoadedSettingsAsync(settings, cancellationToken);
         }
 
         return settings;
+    }
+
+    private async Task TryPersistLoadedSettingsAsync(
+        AppSettings settings,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await SaveAsync(settings, cancellationToken);
+        }
+        catch (Exception exception)
+            when (exception
+                is IOException
+                    or UnauthorizedAccessException
+                    or SecureCredentialStoreException)
+        { }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)

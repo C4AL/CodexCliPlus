@@ -255,12 +255,10 @@ public sealed class BackendProcessManager : IDisposable
         _requestedStopOptions = stopOptions;
         CancelActiveOperation();
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        var stopCompleted = false;
         try
         {
             if (IsStopComplete())
             {
-                stopCompleted = true;
                 return CurrentStatus;
             }
 
@@ -278,16 +276,11 @@ public sealed class BackendProcessManager : IDisposable
                 }
             );
 
-            stopCompleted = true;
             return CurrentStatus;
         }
         finally
         {
-            if (!stopCompleted && _managedProcess is { HasExited: false })
-            {
-                _stopRequested = false;
-            }
-
+            _stopRequested = false;
             ResetActiveOperation();
             _requestedStopOptions = BackendProcessStopOptions.Default;
             _gate.Release();

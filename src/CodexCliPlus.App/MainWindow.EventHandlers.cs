@@ -499,6 +499,17 @@ public partial class MainWindow
         try
         {
             var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
+            if (!result.IsCheckSuccessful)
+            {
+                SetSettingsUpdateStatus("检查失败");
+                SettingsApplyUpdateButton.Tag = null;
+                _notificationService.ShowManual(
+                    "检查更新失败",
+                    BuildUpdateFailureMessage(result)
+                );
+                return;
+            }
+
             SetSettingsUpdateStatus(
                 result.IsUpdateAvailable
                     ? $"发现版本 {result.LatestVersion ?? "未知"}"
@@ -628,6 +639,18 @@ public partial class MainWindow
         try
         {
             var result = await _updateCheckService.CheckAsync(_buildInfo.ApplicationVersion);
+            if (!result.IsCheckSuccessful)
+            {
+                MessageBox.Show(
+                    this,
+                    BuildUpdateFailureMessage(result),
+                    "检查更新失败",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+                return;
+            }
+
             var title = result.IsUpdateAvailable ? "发现更新" : "检查更新";
             var message = result.IsUpdateAvailable
                 ? $"检测到新版本：{result.LatestVersion}{Environment.NewLine}{Environment.NewLine}{result.Detail}"
@@ -644,6 +667,16 @@ public partial class MainWindow
                 MessageBoxImage.Error
             );
         }
+    }
+
+    private static string BuildUpdateFailureMessage(UpdateCheckResult result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            return result.ErrorMessage;
+        }
+
+        return string.IsNullOrWhiteSpace(result.Detail) ? "无法读取更新信息。" : result.Detail;
     }
 
     private void TrayExitMenuItem_Click(object sender, RoutedEventArgs e)

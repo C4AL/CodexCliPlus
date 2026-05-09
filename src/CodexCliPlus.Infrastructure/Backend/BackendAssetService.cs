@@ -118,6 +118,8 @@ public sealed class BackendAssetService
         CancellationToken cancellationToken
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (TryReadCachedExecutableVersion(executablePath, out var cachedVersion))
         {
             return IsExpectedBackendVersion(cachedVersion);

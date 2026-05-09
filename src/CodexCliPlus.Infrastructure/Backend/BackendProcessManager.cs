@@ -189,6 +189,9 @@ public sealed class BackendProcessManager : IDisposable
                     Runtime = CurrentStatus.Runtime,
                 }
             );
+            ResetActiveOperation();
+            _requestedStopOptions = BackendProcessStopOptions.Default;
+            _stopRequested = false;
 
             return CurrentStatus;
         }

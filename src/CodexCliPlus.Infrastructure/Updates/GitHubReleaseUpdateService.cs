@@ -86,11 +86,8 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
                 CurrentVersion = normalizedCurrent,
                 IsCheckSuccessful = false,
                 Status = "Check failed",
-                Detail =
-                    $"GitHub latest release request failed with HTTP {(int)response.StatusCode} {response.ReasonPhrase}.",
-                ErrorMessage = string.IsNullOrWhiteSpace(body)
-                    ? response.ReasonPhrase
-                    : TruncateSingleLine(body, 240),
+                Detail = $"GitHub 最新版本接口返回 HTTP {(int)response.StatusCode}。",
+                ErrorMessage = $"GitHub 更新检查失败：HTTP {(int)response.StatusCode}。",
                 ReleasePageUrl = ReleasePageUrl,
             };
         }
@@ -133,8 +130,8 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
                 CurrentVersion = normalizedCurrent,
                 IsCheckSuccessful = false,
                 Status = "Check failed",
-                Detail = "GitHub returned a release document without tag_name or name.",
-                ErrorMessage = "Missing release version.",
+                Detail = "GitHub 返回的更新信息缺少版本号。",
+                ErrorMessage = "GitHub 更新信息缺少版本号。",
                 ReleasePageUrl = GetString(root, "html_url") ?? ReleasePageUrl,
             };
         }
@@ -269,9 +266,4 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             : null;
     }
 
-    private static string TruncateSingleLine(string value, int maxLength)
-    {
-        var normalized = value.Replace("\r", " ").Replace("\n", " ").Trim();
-        return normalized.Length <= maxLength ? normalized : $"{normalized[..maxLength]}...";
-    }
 }

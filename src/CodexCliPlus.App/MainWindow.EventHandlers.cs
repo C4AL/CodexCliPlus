@@ -652,9 +652,7 @@ public partial class MainWindow
             }
 
             var title = result.IsUpdateAvailable ? "发现更新" : "检查更新";
-            var message = result.IsUpdateAvailable
-                ? $"检测到新版本：{result.LatestVersion}{Environment.NewLine}{Environment.NewLine}{result.Detail}"
-                : $"{result.Status}{Environment.NewLine}{Environment.NewLine}{result.Detail}";
+            var message = BuildUpdateResultMessage(result);
             MessageBox.Show(this, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception exception)
@@ -667,6 +665,49 @@ public partial class MainWindow
                 MessageBoxImage.Error
             );
         }
+    }
+
+    private static string BuildUpdateResultMessage(UpdateCheckResult result)
+    {
+        var lines = new List<string>();
+        if (result.IsUpdateAvailable)
+        {
+            lines.Add($"检测到新版本：{FormatUpdateVersion(result.LatestVersion)}");
+            lines.Add(string.Empty);
+            lines.Add($"当前版本：{FormatUpdateVersion(result.CurrentVersion)}");
+            lines.Add(
+                result.HasInstallableAsset
+                    ? "已找到可直接应用的更新包。"
+                    : "未找到可直接应用的更新包，请打开发布页手动下载。"
+            );
+        }
+        else if (result.IsNoReleasePublished)
+        {
+            lines.Add("当前仓库尚未发布稳定版本。");
+        }
+        else
+        {
+            lines.Add("当前未发现可用更新。");
+            lines.Add(string.Empty);
+            lines.Add($"当前版本：{FormatUpdateVersion(result.CurrentVersion)}");
+            if (!string.IsNullOrWhiteSpace(result.LatestVersion))
+            {
+                lines.Add($"最新稳定版本：{FormatUpdateVersion(result.LatestVersion)}");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.ReleasePageUrl))
+        {
+            lines.Add(string.Empty);
+            lines.Add($"发布页：{result.ReleasePageUrl}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string FormatUpdateVersion(string? version)
+    {
+        return string.IsNullOrWhiteSpace(version) ? "未知" : version.Trim();
     }
 
     private static string BuildUpdateFailureMessage(UpdateCheckResult result)

@@ -27,6 +27,11 @@ public sealed class LocalDependencyRepairService
         + "Install-Module -Name Microsoft.WinGet.Client -Repository PSGallery -Scope AllUsers -Force -AllowClobber | Out-Null\n"
         + "Import-Module Microsoft.WinGet.Client -Force\n"
         + "Repair-WinGetPackageManager -AllUsers -Latest -Force";
+    private static readonly TimeSpan DefaultElevationAuthorizationTimeout = TimeSpan.FromSeconds(
+        120
+    );
+    private static readonly TimeSpan ElevationAuthorizationProgressInterval =
+        TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan RepairCommandTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan RepairProcessPollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan RepairProcessTimeout = TimeSpan.FromMinutes(30);
@@ -48,6 +53,7 @@ public sealed class LocalDependencyRepairService
     private readonly Action<string> _userPathWriter;
     private readonly Action _environmentChangeBroadcaster;
     private readonly Action _processPathRefresher;
+    private readonly TimeSpan _elevationAuthorizationTimeout;
 
     public LocalDependencyRepairService(
         IPathService pathService,
@@ -60,7 +66,8 @@ public sealed class LocalDependencyRepairService
         Func<EnvironmentVariableTarget, string?>? userPathReader = null,
         Action<string>? userPathWriter = null,
         Action? environmentChangeBroadcaster = null,
-        Action? processPathRefresher = null
+        Action? processPathRefresher = null,
+        TimeSpan? elevationAuthorizationTimeout = null
     )
     {
         _pathService = pathService;
@@ -86,6 +93,10 @@ public sealed class LocalDependencyRepairService
             );
         _environmentChangeBroadcaster = environmentChangeBroadcaster ?? BroadcastEnvironmentChange;
         _processPathRefresher = processPathRefresher ?? RefreshCurrentProcessPath;
+        _elevationAuthorizationTimeout =
+            elevationAuthorizationTimeout is { } timeout && timeout > TimeSpan.Zero
+                ? timeout
+                : DefaultElevationAuthorizationTimeout;
     }
 
     public Task<LocalDependencyRepairResult> RunElevatedRepairAsync(
@@ -121,11 +132,14 @@ public sealed class LocalDependencyRepairService
         var executablePath = _currentProcessPathResolver();
         if (string.IsNullOrWhiteSpace(executablePath))
         {
-            return Failure(
+            var failure = Failure(
                 actionId,
                 "无法定位桌面程序。",
-                "当前进程路径不可用，无法进入提权修复模式。"
+                "当前进程路径不可用，无法进入提权修复模式。",
+                GetRepairLogPath()
             );
+            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            return failure;
         }
 
         var startInfo = new ProcessStartInfo
@@ -142,10 +156,23 @@ public sealed class LocalDependencyRepairService
         try
         {
             _logger.Info($"Starting elevated local dependency repair '{actionId}'.");
-            process = _processStarter(startInfo);
+            process = await StartElevatedRepairProcessAsync(
+                startInfo,
+                actionId,
+                statusPath,
+                progressReporter,
+                cancellationToken
+            );
             if (process is null)
             {
-                return Failure(actionId, "修复进程未启动。", "系统未返回提权修复进程。");
+                var failure = Failure(
+                    actionId,
+                    "修复进程未启动。",
+                    "系统未返回提权修复进程。",
+                    GetRepairLogPath()
+                );
+                await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+                return failure;
             }
 
             var result = await WaitForRepairStatusAsync(
@@ -172,15 +199,172 @@ public sealed class LocalDependencyRepairService
             await TerminateRepairProcessAsync(process);
             throw;
         }
+        catch (TimeoutException exception)
+        {
+            var failure = Failure(
+                actionId,
+                "等待管理员授权超时。",
+                exception.Message,
+                GetRepairLogPath()
+            );
+            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            return failure;
+        }
         catch (Win32Exception exception)
             when (exception.NativeErrorCode == ElevationCancelledErrorCode)
         {
-            return Failure(actionId, "用户取消了提权授权。", exception.Message);
+            var failure = Failure(
+                actionId,
+                "用户取消了提权授权。",
+                exception.Message,
+                GetRepairLogPath()
+            );
+            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            return failure;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogError($"Failed to start local dependency repair '{actionId}'.", exception);
-            return Failure(actionId, "启动修复失败。", exception.Message);
+            var failure = Failure(actionId, "启动修复失败。", exception.Message, GetRepairLogPath());
+            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            return failure;
+        }
+    }
+
+    private async Task<Process?> StartElevatedRepairProcessAsync(
+        ProcessStartInfo startInfo,
+        string actionId,
+        string statusPath,
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        CancellationToken cancellationToken
+    )
+    {
+        var launchTask = Task.Run(() => _processStarter(startInfo));
+        var startedAt = DateTimeOffset.UtcNow;
+        var nextProgressAt = startedAt + ElevationAuthorizationProgressInterval;
+
+        while (!launchTask.IsCompleted)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var now = DateTimeOffset.UtcNow;
+            if (now - startedAt >= _elevationAuthorizationTimeout)
+            {
+                ObserveTimedOutLaunchTask(launchTask);
+                throw new TimeoutException(
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"超过 {_elevationAuthorizationTimeout.TotalSeconds:0} 秒未完成管理员授权，修复未启动。"
+                    )
+                );
+            }
+
+            var remainingUntilProgress = nextProgressAt - now;
+            if (remainingUntilProgress < TimeSpan.Zero)
+            {
+                remainingUntilProgress = TimeSpan.Zero;
+            }
+
+            var remainingUntilTimeout = _elevationAuthorizationTimeout - (now - startedAt);
+            var delay = remainingUntilProgress < remainingUntilTimeout
+                ? remainingUntilProgress
+                : remainingUntilTimeout;
+            if (delay <= TimeSpan.Zero)
+            {
+                delay = TimeSpan.FromMilliseconds(1);
+            }
+
+            var completedTask = await Task.WhenAny(
+                launchTask,
+                Task.Delay(delay, cancellationToken)
+            );
+            if (ReferenceEquals(completedTask, launchTask))
+            {
+                break;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            now = DateTimeOffset.UtcNow;
+            if (now >= nextProgressAt)
+            {
+                nextProgressAt = now + ElevationAuthorizationProgressInterval;
+                var progress = CreateProgress(
+                    actionId,
+                    "starting",
+                    "等待管理员授权。",
+                    logPath: GetRepairLogPath()
+                );
+                await TryWriteProgressStatusAsync(statusPath, progress, cancellationToken);
+                progressReporter?.Invoke(progress);
+            }
+        }
+
+        return await launchTask.WaitAsync(cancellationToken);
+    }
+
+    private void ObserveTimedOutLaunchTask(Task<Process?> launchTask)
+    {
+        _ = launchTask.ContinueWith(
+            completedTask =>
+            {
+                if (completedTask.IsFaulted)
+                {
+                    _logger.LogError(
+                        "Timed out elevated local dependency repair launch later failed.",
+                        completedTask.Exception
+                    );
+                    return;
+                }
+
+                if (completedTask.Status == TaskStatus.RanToCompletion)
+                {
+                    TerminateRepairProcessAsync(completedTask.Result).GetAwaiter().GetResult();
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
+    }
+
+    private async Task TryWriteProgressStatusAsync(
+        string statusPath,
+        LocalDependencyRepairProgress progress,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            await WriteStatusAsync(statusPath, progress, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warn(
+                $"Failed to write local dependency repair progress status: {exception.Message}"
+            );
+        }
+    }
+
+    private async Task TryWriteCompletedStatusAsync(
+        string statusPath,
+        LocalDependencyRepairResult result,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            var previousProgress = TryReadStatus(statusPath, out var progress) ? progress : null;
+            await WriteStatusAsync(
+                statusPath,
+                CreateCompletedProgress(result, previousProgress),
+                cancellationToken
+            );
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warn(
+                $"Failed to write local dependency repair completed status: {exception.Message}"
+            );
         }
     }
 

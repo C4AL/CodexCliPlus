@@ -901,35 +901,7 @@ internal static class ManagementMappers
             ? ManagementJson.GetStringDictionary(headerObject)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        var apiKeyEntries = new List<ManagementApiKeyEntry>();
-        if (ManagementJson.GetArray(item, "api-key-entries", "apiKeyEntries") is { } apiEntryArray)
-        {
-            foreach (var apiEntry in apiEntryArray.EnumerateArray())
-            {
-                if (apiEntry.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var apiKey = ManagementJson.GetString(apiEntry, "api-key", "apiKey");
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    continue;
-                }
-
-                apiKeyEntries.Add(
-                    new ManagementApiKeyEntry
-                    {
-                        ApiKey = apiKey,
-                        ProxyUrl = ManagementJson.GetString(apiEntry, "proxy-url", "proxyUrl"),
-                        Headers = ManagementJson.GetObject(apiEntry, "headers") is { } apiHeaders
-                            ? ManagementJson.GetStringDictionary(apiHeaders)
-                            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-                        AuthIndex = ManagementJson.GetString(apiEntry, "auth-index", "authIndex"),
-                    }
-                );
-            }
-        }
+        var apiKeyEntries = MapApiKeyEntries(item);
 
         return new ManagementOpenAiCompatibilityEntry
         {
@@ -943,6 +915,69 @@ internal static class ManagementMappers
             TestModel = ManagementJson.GetString(item, "test-model", "testModel"),
             AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex"),
         };
+    }
+
+    private static List<ManagementApiKeyEntry> MapApiKeyEntries(JsonElement item)
+    {
+        var entries = new List<ManagementApiKeyEntry>();
+
+        if (ManagementJson.GetArray(item, "api-key-entries", "apiKeyEntries") is { } entryArray)
+        {
+            foreach (var entry in entryArray.EnumerateArray())
+            {
+                AddApiKeyEntry(entries, entry);
+            }
+
+            return entries;
+        }
+
+        if (ManagementJson.GetArray(item, "api-keys", "apiKeys") is { } keyArray)
+        {
+            foreach (var key in keyArray.EnumerateArray())
+            {
+                AddApiKeyEntry(entries, key);
+            }
+        }
+
+        return entries;
+    }
+
+    private static void AddApiKeyEntry(List<ManagementApiKeyEntry> entries, JsonElement entry)
+    {
+        string? apiKey;
+        string? proxyUrl = null;
+        string? authIndex = null;
+        IReadOnlyDictionary<string, string> headers =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (entry.ValueKind == JsonValueKind.Object)
+        {
+            apiKey = ManagementJson.GetString(entry, "api-key", "apiKey", "key");
+            proxyUrl = ManagementJson.GetString(entry, "proxy-url", "proxyUrl");
+            authIndex = ManagementJson.GetString(entry, "auth-index", "authIndex");
+            headers = ManagementJson.GetObject(entry, "headers") is { } apiHeaders
+                ? ManagementJson.GetStringDictionary(apiHeaders)
+                : headers;
+        }
+        else
+        {
+            apiKey = ManagementJson.AsString(entry);
+        }
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return;
+        }
+
+        entries.Add(
+            new ManagementApiKeyEntry
+            {
+                ApiKey = apiKey,
+                ProxyUrl = proxyUrl,
+                Headers = headers,
+                AuthIndex = authIndex,
+            }
+        );
     }
 
     private static ManagementModelAlias[] MapModelAliases(JsonElement item)

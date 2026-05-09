@@ -50,6 +50,17 @@ public sealed class BackendConfigWriter
 
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
+        var requestedPort = AppConstants.DefaultBackendPort;
+        if (options.ValidatePort && !IsPortAvailable(requestedPort))
+        {
+            throw new InvalidOperationException(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"CodexCliPlus backend port {requestedPort} is already in use. Stop the process using 127.0.0.1:{requestedPort} and start CodexCliPlus again."
+                )
+            );
+        }
+
         var settingsFileExists = File.Exists(_pathService.Directories.SettingsFilePath);
         var generatedManagementKey = false;
 
@@ -70,7 +81,6 @@ public sealed class BackendConfigWriter
             settings.ManagementKey = settings.ManagementKey.Trim();
         }
 
-        var requestedPort = AppConstants.DefaultBackendPort;
         settings.BackendPort = requestedPort;
 
         var authDirectory = ResolveAuthDirectory();
@@ -99,16 +109,6 @@ public sealed class BackendConfigWriter
         if (!settingsFileExists || generatedManagementKey)
         {
             await _configurationService.SaveAsync(settings, cancellationToken);
-        }
-
-        if (options.ValidatePort && !IsPortAvailable(settings.BackendPort))
-        {
-            throw new InvalidOperationException(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"CodexCliPlus backend port {settings.BackendPort} is already in use. Stop the process using 127.0.0.1:{settings.BackendPort} and start CodexCliPlus again."
-                )
-            );
         }
 
         var loopbackBaseUrl = string.Create(

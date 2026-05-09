@@ -12,6 +12,8 @@ internal static class ProcessCapture
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var startInfo = new ProcessStartInfo
         {
             FileName = fileName,

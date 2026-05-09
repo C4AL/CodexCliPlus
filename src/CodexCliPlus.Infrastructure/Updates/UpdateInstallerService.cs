@@ -53,6 +53,8 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         ValidateStableUpdateResult(updateCheckResult);
 
         var installerAsset = ResolveInstallableAsset(updateCheckResult);
+        ValidateInstallerDigestFormat(installerAsset);
+
         await _pathService.EnsureCreatedAsync(cancellationToken);
 
         var updatesCacheDirectory = Path.Combine(
@@ -70,7 +72,6 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         }
 
         var installerPath = Path.Combine(updatesCacheDirectory, safeFileName);
-        ValidateInstallerDigestFormat(installerAsset);
         if (TryReuseCachedInstaller(installerPath, installerAsset, out var cachedDigestValidated))
         {
             return CreatePreparedInstaller(
@@ -403,18 +404,48 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         )
         {
             throw new InvalidOperationException(
-                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'."
+                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<64 hex>'."
             );
         }
 
         if (string.IsNullOrWhiteSpace(parts[1]))
         {
             throw new InvalidOperationException(
-                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<hex>'."
+                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<64 hex>'."
             );
         }
 
-        normalizedDigest = parts[1].Trim().ToLowerInvariant();
+        var candidateDigest = parts[1].Trim();
+        if (!IsSha256HexDigest(candidateDigest))
+        {
+            throw new InvalidOperationException(
+                $"Unsupported installer digest format '{digest}'. Expected 'sha256:<64 hex>'."
+            );
+        }
+
+        normalizedDigest = candidateDigest.ToLowerInvariant();
+        return true;
+    }
+
+    private static bool IsSha256HexDigest(string value)
+    {
+        if (value.Length != 64)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (
+                character is not (>= '0' and <= '9')
+                    and not (>= 'a' and <= 'f')
+                    and not (>= 'A' and <= 'F')
+            )
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

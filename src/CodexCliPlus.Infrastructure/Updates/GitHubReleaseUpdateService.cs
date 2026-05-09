@@ -31,6 +31,8 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var normalizedCurrent = NormalizeVersionSource(currentVersion);
         if (channel == UpdateChannel.Beta)
         {

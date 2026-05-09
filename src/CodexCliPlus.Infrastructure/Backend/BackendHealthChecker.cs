@@ -17,6 +17,8 @@ public sealed class BackendHealthChecker
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var client = _httpClientFactory.CreateClient();
         var deadline = DateTimeOffset.UtcNow.Add(timeout);
 

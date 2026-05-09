@@ -872,15 +872,16 @@ internal static class ManagementMappers
             ApiKey = apiKey ?? string.Empty,
             Priority = ManagementJson.GetInt32(item, "priority"),
             Prefix = ManagementJson.GetString(item, "prefix"),
-            BaseUrl = ManagementJson.GetString(item, "base-url", "baseUrl"),
+            BaseUrl = ManagementJson.GetString(item, "base-url", "baseUrl", "base_url"),
             WebSockets = ManagementJson.GetBoolean(item, "websockets", "webSockets"),
-            ProxyUrl = ManagementJson.GetString(item, "proxy-url", "proxyUrl"),
+            ProxyUrl = ManagementJson.GetString(item, "proxy-url", "proxyUrl", "proxy_url"),
             Headers = headers,
             Models = MapModelAliases(item),
             ExcludedModels = ManagementJson.GetStringList(
                 item,
                 "excluded-models",
-                "excludedModels"
+                "excludedModels",
+                "excluded_models"
             ),
             Cloak = ManagementJson.GetObject(item, "cloak") is { } cloakObject
                 ? new ManagementCloakConfiguration
@@ -889,16 +890,23 @@ internal static class ManagementMappers
                     StrictMode = ManagementJson.GetBoolean(
                         cloakObject,
                         "strict-mode",
-                        "strictMode"
+                        "strictMode",
+                        "strict_mode"
                     ),
                     SensitiveWords = ManagementJson.GetStringList(
                         cloakObject,
                         "sensitive-words",
-                        "sensitiveWords"
+                        "sensitiveWords",
+                        "sensitive_words"
                     ),
                 }
                 : null,
-            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex"),
+            AuthIndex = ManagementJson.GetString(
+                item,
+                "auth-index",
+                "authIndex",
+                "auth_index"
+            ),
         };
 
         return factory(configuration);
@@ -940,7 +948,7 @@ internal static class ManagementMappers
 
         return new ManagementOpenAiCompatibilityEntry
         {
-            Name = ManagementJson.GetString(item, "name") ?? string.Empty,
+            Name = ManagementJson.GetString(item, "name", "id") ?? string.Empty,
             Prefix = ManagementJson.GetString(item, "prefix"),
             BaseUrl = ManagementJson.GetString(item, "base-url", "baseUrl") ?? string.Empty,
             ApiKeyEntries = apiKeyEntries,
@@ -948,7 +956,12 @@ internal static class ManagementMappers
             Models = MapModelAliases(item),
             Priority = ManagementJson.GetInt32(item, "priority"),
             TestModel = ManagementJson.GetString(item, "test-model", "testModel"),
-            AuthIndex = ManagementJson.GetString(item, "auth-index", "authIndex"),
+            AuthIndex = ManagementJson.GetString(
+                item,
+                "auth-index",
+                "authIndex",
+                "auth_index"
+            ),
         };
     }
 
@@ -989,7 +1002,12 @@ internal static class ManagementMappers
         {
             apiKey = ManagementJson.GetString(entry, "api-key", "apiKey", "key");
             proxyUrl = ManagementJson.GetString(entry, "proxy-url", "proxyUrl");
-            authIndex = ManagementJson.GetString(entry, "auth-index", "authIndex");
+            authIndex = ManagementJson.GetString(
+                entry,
+                "auth-index",
+                "authIndex",
+                "auth_index"
+            );
             headers = ManagementJson.GetObject(entry, "headers") is { } apiHeaders
                 ? ManagementJson.GetStringDictionary(apiHeaders)
                 : headers;

@@ -15,6 +15,7 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
     )
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        cancellationToken.ThrowIfCancellationRequested();
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);

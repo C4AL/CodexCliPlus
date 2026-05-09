@@ -139,8 +139,21 @@ public static class FileMaterializer
         var relativePath = Path.GetRelativePath(root, path);
         return relativePath.Length > 0
             && relativePath != "."
-            && !relativePath.StartsWith("..", StringComparison.Ordinal)
+            && !IsParentRelativePath(relativePath)
             && !Path.IsPathRooted(relativePath);
+    }
+
+    private static bool IsParentRelativePath(string relativePath)
+    {
+        return relativePath.Equals("..", StringComparison.Ordinal)
+            || relativePath.StartsWith(
+                $"..{Path.DirectorySeparatorChar}",
+                StringComparison.Ordinal
+            )
+            || relativePath.StartsWith(
+                $"..{Path.AltDirectorySeparatorChar}",
+                StringComparison.Ordinal
+            );
     }
 
     private static bool TryCreateHardLink(

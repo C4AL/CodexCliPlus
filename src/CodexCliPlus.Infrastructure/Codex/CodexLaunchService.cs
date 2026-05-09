@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Enums;
 using CodexCliPlus.Core.Models;
@@ -8,11 +9,22 @@ public sealed class CodexLaunchService
 {
     private readonly CodexConfigService _configService;
     private readonly IAppLogger _logger;
+    private readonly Action<ProcessStartInfo> _startProcess;
 
     public CodexLaunchService(CodexConfigService configService, IAppLogger logger)
+        : this(configService, logger, startInfo => Process.Start(startInfo))
+    {
+    }
+
+    internal CodexLaunchService(
+        CodexConfigService configService,
+        IAppLogger logger,
+        Action<ProcessStartInfo> startProcess
+    )
     {
         _configService = configService;
         _logger = logger;
+        _startProcess = startProcess;
     }
 
     public string BuildCommand(CodexSourceKind source, string? repositoryPath)
@@ -23,7 +35,6 @@ public sealed class CodexLaunchService
     public CodexLaunchResult LaunchInTerminal(CodexSourceKind source, string? repositoryPath)
     {
         var command = BuildCommand(source, repositoryPath);
-        var escapedCommand = command.Replace("'", "''", StringComparison.Ordinal);
         var workingDirectory = string.IsNullOrWhiteSpace(repositoryPath)
             ? Environment.CurrentDirectory
             : repositoryPath;
@@ -31,12 +42,12 @@ public sealed class CodexLaunchService
 
         try
         {
-            System.Diagnostics.Process.Start(
+            _startProcess(
                 new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "powershell.exe",
                     Arguments =
-                        $"-NoExit -Command \"& {{ Set-Location -LiteralPath '{escapedWorkingDirectory}'; {escapedCommand} }}\"",
+                        $"-NoExit -Command \"& {{ Set-Location -LiteralPath '{escapedWorkingDirectory}'; {command} }}\"",
                     UseShellExecute = true,
                     WorkingDirectory = workingDirectory,
                 }

@@ -566,9 +566,7 @@ public sealed class CodexConfigService
         if (!string.IsNullOrWhiteSpace(repositoryPath))
         {
             builder.Append(" -C ");
-            builder.Append('"');
-            builder.Append(repositoryPath);
-            builder.Append('"');
+            builder.Append(QuotePowerShellLiteral(repositoryPath));
         }
 
         return builder.ToString();
@@ -1401,6 +1399,11 @@ public sealed class CodexConfigService
     private static string EscapeTomlString(string value)
     {
         return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+    }
+
+    private static string QuotePowerShellLiteral(string value)
+    {
+        return "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
     }
 
     private async Task<RouteDetectionResult> DetectRouteAsync(

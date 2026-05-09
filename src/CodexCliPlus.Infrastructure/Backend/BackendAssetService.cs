@@ -49,7 +49,7 @@ public sealed class BackendAssetService
             return CreateLayout(workingDirectory, executablePath);
         }
 
-        return await RepairAssetsAsync(cancellationToken);
+        return await RepairAssetsAfterPathsCreatedAsync(cancellationToken);
     }
 
     public async Task<BackendAssetLayout> RepairAssetsAsync(
@@ -57,7 +57,13 @@ public sealed class BackendAssetService
     )
     {
         await _pathService.EnsureCreatedAsync(cancellationToken);
+        return await RepairAssetsAfterPathsCreatedAsync(cancellationToken);
+    }
 
+    private async Task<BackendAssetLayout> RepairAssetsAfterPathsCreatedAsync(
+        CancellationToken cancellationToken
+    )
+    {
         var workingDirectory = _pathService.Directories.BackendDirectory;
         var executablePath = GetManagedExecutablePath(workingDirectory);
         Directory.CreateDirectory(workingDirectory);

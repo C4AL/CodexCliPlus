@@ -35,7 +35,9 @@ public sealed class ManagementApiClient : IManagementApiClient
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var connection = await _connectionProvider.GetConnectionAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return await SendAsync(
             connection.ManagementApiBaseUrl,
             method,
@@ -59,7 +61,9 @@ public sealed class ManagementApiClient : IManagementApiClient
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var connection = await _connectionProvider.GetConnectionAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return await SendAsync(
             connection.ManagementApiBaseUrl,
             method,
@@ -81,7 +85,9 @@ public sealed class ManagementApiClient : IManagementApiClient
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var connection = await _connectionProvider.GetConnectionAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         return await SendAsync(
             connection.BaseUrl,
             HttpMethod.Get,
@@ -111,6 +117,7 @@ public sealed class ManagementApiClient : IManagementApiClient
 
         for (var attempt = 1; attempt <= 2; attempt++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var request = CreateRequest(
                 baseUrl,
                 method,

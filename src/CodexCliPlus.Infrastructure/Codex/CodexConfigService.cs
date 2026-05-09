@@ -33,6 +33,7 @@ public sealed class CodexConfigService
     private const string LegacyCpaProviderName = "cliproxyapi";
     private const string CpaDummyAuthJson = "{\n  \"OPENAI_API_KEY\": \"sk-dummy\"\n}\n";
     private static readonly TimeSpan RouteProbeTimeout = TimeSpan.FromMilliseconds(450);
+    private readonly Func<string, string, CancellationToken, Task> _writeUtf8NoBomTextAsync;
 
     private static readonly HashSet<string> RootRoutingKeys =
     [
@@ -44,6 +45,18 @@ public sealed class CodexConfigService
         "chatgpt_base_url",
         "cli_auth_credentials_store",
     ];
+
+    public CodexConfigService()
+        : this(AtomicFileWriter.WriteUtf8NoBomTextAsync)
+    {
+    }
+
+    internal CodexConfigService(
+        Func<string, string, CancellationToken, Task> writeUtf8NoBomTextAsync
+    )
+    {
+        _writeUtf8NoBomTextAsync = writeUtf8NoBomTextAsync;
+    }
 
     [SuppressMessage(
         "Performance",
@@ -533,6 +546,12 @@ public sealed class CodexConfigService
                 AuthBackupPath = authBackupPath,
                 OfficialAuthBackupPath = officialAuthBackupPath,
             };
+        }
+        catch (OperationCanceledException)
+        {
+            await RestoreFileAsync(configPath, configExisted, originalConfig);
+            await RestoreFileAsync(authPath, authExisted, originalAuth);
+            throw;
         }
         catch (Exception exception)
         {
@@ -1696,7 +1715,7 @@ public sealed class CodexConfigService
         }
     }
 
-    private static async Task<string> BackupAsync(
+    private async Task<string> BackupAsync(
         string existingContent,
         string configDirectory,
         CancellationToken cancellationToken
@@ -1819,7 +1838,7 @@ public sealed class CodexConfigService
         }
     }
 
-    private static async Task<string> BackupFileContentAsync(
+    private async Task<string> BackupFileContentAsync(
         string content,
         string directory,
         string name,
@@ -1896,16 +1915,16 @@ public sealed class CodexConfigService
         yield return Path.Combine(GetUserConfigDirectory(), "bridge-chatgpt-auth.json");
     }
 
-    private static async Task WriteUtf8NoBomAsync(
+    private async Task WriteUtf8NoBomAsync(
         string path,
         string content,
         CancellationToken cancellationToken
     )
     {
-        await AtomicFileWriter.WriteUtf8NoBomTextAsync(path, content, cancellationToken);
+        await _writeUtf8NoBomTextAsync(path, content, cancellationToken);
     }
 
-    private static async Task RestoreFileAsync(string path, bool existed, string content)
+    private async Task RestoreFileAsync(string path, bool existed, string content)
     {
         if (existed)
         {

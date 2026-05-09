@@ -51,6 +51,7 @@ internal static class SecureAccountPackageService
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
         NormalizePayloadCollections(payload);
         if (payload.VaultSecrets.Count > 0)
         {
@@ -99,6 +100,7 @@ internal static class SecureAccountPackageService
             throw new InvalidOperationException("安全包密码不能为空。");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         PreparePayloadForExport(payload);
 
         var salt = RandomNumberGenerator.GetBytes(SaltSize);

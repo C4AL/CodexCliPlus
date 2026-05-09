@@ -130,8 +130,13 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         try
         {
-            var connection = await _connectionProvider.GetConnectionAsync();
-            var config = await _configurationService.GetConfigAsync();
+            var connectionTask = _connectionProvider.GetConnectionAsync();
+            var configTask = _configurationService.GetConfigAsync();
+
+            await Task.WhenAll(connectionTask, configTask).ConfigureAwait(false);
+
+            var connection = await connectionTask.ConfigureAwait(false);
+            var config = await configTask.ConfigureAwait(false);
             var response = ManagementResponseFactory.Map(
                 config,
                 new ManagementShellStatusSnapshot

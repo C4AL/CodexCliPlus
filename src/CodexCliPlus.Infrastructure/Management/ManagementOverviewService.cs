@@ -40,6 +40,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var task = GetOrCreateLightweightTask(
             forceRefresh,
             () => _shellStatusCache,
@@ -61,6 +63,8 @@ public sealed class ManagementOverviewService : IManagementOverviewService
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var task = GetOrCreateLightweightTask(
             forceRefresh,
             () => _settingsSummaryCache,

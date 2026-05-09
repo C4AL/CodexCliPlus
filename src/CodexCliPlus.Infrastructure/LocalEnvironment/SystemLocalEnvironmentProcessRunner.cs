@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using CodexCliPlus.Core.Abstractions.LocalEnvironment;
+using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 
@@ -51,10 +52,7 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
+            await ProcessTermination.KillProcessTreeAndWaitAsync(process);
 
             throw new TimeoutException(
                 $"Process '{fileName} {string.Join(" ", arguments)}' exceeded {timeout.TotalSeconds:0.#} seconds."
@@ -62,10 +60,7 @@ public sealed class SystemLocalEnvironmentProcessRunner : ILocalEnvironmentProce
         }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
+            await ProcessTermination.KillProcessTreeAndWaitAsync(process);
 
             throw;
         }

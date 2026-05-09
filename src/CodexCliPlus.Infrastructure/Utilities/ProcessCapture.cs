@@ -44,10 +44,7 @@ internal static class ProcessCapture
         }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
+            await ProcessTermination.KillProcessTreeAndWaitAsync(process);
 
             throw;
         }

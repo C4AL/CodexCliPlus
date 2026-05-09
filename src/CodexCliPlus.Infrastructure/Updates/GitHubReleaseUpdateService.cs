@@ -95,8 +95,29 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             };
         }
 
-        using var document = JsonDocument.Parse(body);
-        var root = document.RootElement;
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(body);
+        }
+        catch (JsonException)
+        {
+            return new UpdateCheckResult
+            {
+                Channel = UpdateChannel.Stable,
+                Repository = Repository,
+                ApiUrl = StableReleaseApiUrl,
+                CurrentVersion = normalizedCurrent,
+                IsCheckSuccessful = false,
+                Status = "Check failed",
+                Detail = "GitHub 返回的更新信息不是有效 JSON。",
+                ErrorMessage = "无法解析 GitHub 更新信息。",
+                ReleasePageUrl = ReleasePageUrl,
+            };
+        }
+
+        using var releaseDocument = document;
+        var root = releaseDocument.RootElement;
         var tagName = GetString(root, "tag_name");
         var name = GetString(root, "name");
         var latestVersion = NormalizeVersionSource(

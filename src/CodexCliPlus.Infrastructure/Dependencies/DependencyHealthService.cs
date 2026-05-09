@@ -54,6 +54,8 @@ public sealed class DependencyHealthService
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var issues = new List<DependencyCheckIssue>();
 
         CheckRuntimeVersion(issues);

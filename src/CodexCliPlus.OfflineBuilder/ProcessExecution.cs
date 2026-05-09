@@ -27,6 +27,8 @@ internal sealed class OfflineBuilderProcessRunner : IOfflineBuilderProcessRunner
         CancellationToken cancellationToken = default
     )
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var startInfo = new ProcessStartInfo
         {
             FileName = fileName,

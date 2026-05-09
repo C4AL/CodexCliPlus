@@ -600,29 +600,9 @@ public sealed class ManagementAuthService : IManagementAuthService
             cancellationToken: cancellationToken
         );
         using var document = ManagementJson.Parse(response.Value);
-        var array = ManagementJson.GetArray(
-            document.RootElement,
-            "upstream-api-keys",
-            "upstreamApiKeys"
-        );
-        var mappings = array is null
-            ? Array.Empty<ManagementAmpCodeUpstreamApiKeyMapping>()
-            : array
-                .Value.EnumerateArray()
-                .Where(item => item.ValueKind == JsonValueKind.Object)
-                .Select(item => new ManagementAmpCodeUpstreamApiKeyMapping
-                {
-                    UpstreamApiKey =
-                        ManagementJson.GetString(item, "upstream-api-key", "upstreamApiKey")
-                        ?? string.Empty,
-                    ApiKeys = ManagementJson.GetStringList(item, "api-keys", "apiKeys"),
-                })
-                .Where(item => !string.IsNullOrWhiteSpace(item.UpstreamApiKey))
-                .ToArray();
-
         return ManagementResponseFactory.Map(
             response,
-            (IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping>)mappings
+            ManagementMappers.MapAmpCodeUpstreamApiKeys(document.RootElement)
         );
     }
 
@@ -649,29 +629,9 @@ public sealed class ManagementAuthService : IManagementAuthService
             cancellationToken: cancellationToken
         );
         using var document = ManagementJson.Parse(response.Value);
-        var array = ManagementJson.GetArray(
-            document.RootElement,
-            "model-mappings",
-            "modelMappings"
-        );
-        var mappings = array is null
-            ? Array.Empty<ManagementAmpCodeModelMapping>()
-            : array
-                .Value.EnumerateArray()
-                .Where(item => item.ValueKind == JsonValueKind.Object)
-                .Select(item => new ManagementAmpCodeModelMapping
-                {
-                    From = ManagementJson.GetString(item, "from") ?? string.Empty,
-                    To = ManagementJson.GetString(item, "to") ?? string.Empty,
-                })
-                .Where(item =>
-                    !string.IsNullOrWhiteSpace(item.From) && !string.IsNullOrWhiteSpace(item.To)
-                )
-                .ToArray();
-
         return ManagementResponseFactory.Map(
             response,
-            (IReadOnlyList<ManagementAmpCodeModelMapping>)mappings
+            ManagementMappers.MapAmpCodeModelMappings(document.RootElement)
         );
     }
 

@@ -771,55 +771,90 @@ internal static class ManagementMappers
 
     private static ManagementAmpCodeConfiguration MapAmpCodeConfiguration(JsonElement element)
     {
-        var modelMappings = ManagementJson.GetArray(element, "model-mappings", "modelMappings");
-        var upstreamApiKeys = ManagementJson.GetArray(
-            element,
-            "upstream-api-keys",
-            "upstreamApiKeys"
-        );
-
         return new ManagementAmpCodeConfiguration
         {
-            UpstreamUrl = ManagementJson.GetString(element, "upstream-url", "upstreamUrl"),
+            UpstreamUrl = ManagementJson.GetString(
+                element,
+                "upstream-url",
+                "upstreamUrl",
+                "upstream_url"
+            ),
             UpstreamApiKey = ManagementJson.GetString(
                 element,
                 "upstream-api-key",
-                "upstreamApiKey"
+                "upstreamApiKey",
+                "upstream_api_key"
             ),
             ForceModelMappings = ManagementJson.GetBoolean(
                 element,
                 "force-model-mappings",
-                "forceModelMappings"
+                "forceModelMappings",
+                "force_model_mappings"
             ),
-            ModelMappings = modelMappings is null
-                ? []
-                : modelMappings
-                    .Value.EnumerateArray()
-                    .Where(item => item.ValueKind == JsonValueKind.Object)
-                    .Select(item => new ManagementAmpCodeModelMapping
-                    {
-                        From = ManagementJson.GetString(item, "from") ?? string.Empty,
-                        To = ManagementJson.GetString(item, "to") ?? string.Empty,
-                    })
-                    .Where(item =>
-                        !string.IsNullOrWhiteSpace(item.From) && !string.IsNullOrWhiteSpace(item.To)
-                    )
-                    .ToArray(),
-            UpstreamApiKeys = upstreamApiKeys is null
-                ? []
-                : upstreamApiKeys
-                    .Value.EnumerateArray()
-                    .Where(item => item.ValueKind == JsonValueKind.Object)
-                    .Select(item => new ManagementAmpCodeUpstreamApiKeyMapping
-                    {
-                        UpstreamApiKey =
-                            ManagementJson.GetString(item, "upstream-api-key", "upstreamApiKey")
-                            ?? string.Empty,
-                        ApiKeys = ManagementJson.GetStringList(item, "api-keys", "apiKeys"),
-                    })
-                    .Where(item => !string.IsNullOrWhiteSpace(item.UpstreamApiKey))
-                    .ToArray(),
+            ModelMappings = MapAmpCodeModelMappings(element),
+            UpstreamApiKeys = MapAmpCodeUpstreamApiKeys(element),
         };
+    }
+
+    public static IReadOnlyList<ManagementAmpCodeModelMapping> MapAmpCodeModelMappings(
+        JsonElement root
+    )
+    {
+        var array = ManagementJson.GetArray(
+            root,
+            "model-mappings",
+            "modelMappings",
+            "model_mappings"
+        );
+        return array is null
+            ? []
+            : array
+                .Value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.Object)
+                .Select(item => new ManagementAmpCodeModelMapping
+                {
+                    From = ManagementJson.GetString(item, "from") ?? string.Empty,
+                    To = ManagementJson.GetString(item, "to") ?? string.Empty,
+                })
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.From) && !string.IsNullOrWhiteSpace(item.To)
+                )
+                .ToArray();
+    }
+
+    public static IReadOnlyList<ManagementAmpCodeUpstreamApiKeyMapping> MapAmpCodeUpstreamApiKeys(
+        JsonElement root
+    )
+    {
+        var array = ManagementJson.GetArray(
+            root,
+            "upstream-api-keys",
+            "upstreamApiKeys",
+            "upstream_api_keys"
+        );
+        return array is null
+            ? []
+            : array
+                .Value.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.Object)
+                .Select(item => new ManagementAmpCodeUpstreamApiKeyMapping
+                {
+                    UpstreamApiKey =
+                        ManagementJson.GetString(
+                            item,
+                            "upstream-api-key",
+                            "upstreamApiKey",
+                            "upstream_api_key"
+                        ) ?? string.Empty,
+                    ApiKeys = ManagementJson.GetStringList(
+                        item,
+                        "api-keys",
+                        "apiKeys",
+                        "api_keys"
+                    ),
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.UpstreamApiKey))
+                .ToArray();
     }
 
     private static T MapProviderBase<T>(

@@ -57,7 +57,11 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
         );
         request.Headers.TryAddWithoutValidation("X-GitHub-Api-Version", "2022-11-28");
 
-        using var response = await client.SendAsync(request, cancellationToken);
+        using var response = await client.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken
+        );
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return new UpdateCheckResult
@@ -75,7 +79,6 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             };
         }
 
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             return new UpdateCheckResult
@@ -92,6 +95,7 @@ public sealed class GitHubReleaseUpdateService : IUpdateCheckService
             };
         }
 
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         JsonDocument document;
         try
         {

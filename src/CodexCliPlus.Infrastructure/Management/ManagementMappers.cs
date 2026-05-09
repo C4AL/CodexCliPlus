@@ -101,28 +101,38 @@ internal static class ManagementMappers
             ApiKeys = ManagementJson.GetStringList(root, "api-keys", "apiKeys"),
             GeminiApiKeys = MapProviderList<ManagementGeminiKeyConfiguration>(
                 root,
+                MapGeminiKeyConfiguration,
                 "gemini-api-key",
-                MapGeminiKeyConfiguration
+                "geminiApiKey",
+                "geminiApiKeys"
             ),
             CodexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
                 root,
+                MapProviderKeyConfiguration,
                 "codex-api-key",
-                MapProviderKeyConfiguration
+                "codexApiKey",
+                "codexApiKeys"
             ),
             ClaudeApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
                 root,
+                MapProviderKeyConfiguration,
                 "claude-api-key",
-                MapProviderKeyConfiguration
+                "claudeApiKey",
+                "claudeApiKeys"
             ),
             VertexApiKeys = MapProviderList<ManagementProviderKeyConfiguration>(
                 root,
+                MapProviderKeyConfiguration,
                 "vertex-api-key",
-                MapProviderKeyConfiguration
+                "vertexApiKey",
+                "vertexApiKeys"
             ),
             OpenAiCompatibility = MapProviderList(
                 root,
+                MapOpenAiCompatibilityEntry,
                 "openai-compatibility",
-                MapOpenAiCompatibilityEntry
+                "openaiCompatibility",
+                "openAICompatibility"
             ),
             OAuthExcludedModels = oauthExcluded,
             AmpCode = ampCodeObject is null ? null : MapAmpCodeConfiguration(ampCodeObject.Value),
@@ -967,11 +977,11 @@ internal static class ManagementMappers
 
     private static T[] MapProviderList<T>(
         JsonElement root,
-        string propertyName,
-        Func<JsonElement, T> factory
+        Func<JsonElement, T> factory,
+        params string[] propertyNames
     )
     {
-        if (ManagementJson.GetArray(root, propertyName) is not { } array)
+        if (ManagementJson.GetArray(root, propertyNames) is not { } array)
         {
             return [];
         }

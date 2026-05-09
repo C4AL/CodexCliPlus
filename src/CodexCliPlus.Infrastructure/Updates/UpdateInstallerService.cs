@@ -70,6 +70,7 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
         }
 
         var installerPath = Path.Combine(updatesCacheDirectory, safeFileName);
+        ValidateInstallerDigestFormat(installerAsset);
         if (TryReuseCachedInstaller(installerPath, installerAsset, out var cachedDigestValidated))
         {
             return CreatePreparedInstaller(
@@ -415,6 +416,11 @@ public sealed class UpdateInstallerService : IUpdateInstallerService
 
         normalizedDigest = parts[1].Trim().ToLowerInvariant();
         return true;
+    }
+
+    private static void ValidateInstallerDigestFormat(UpdateReleaseAsset installerAsset)
+    {
+        _ = TryParseSha256Digest(installerAsset.Digest, out _);
     }
 
     private static string ComputeSha256(string installerPath)

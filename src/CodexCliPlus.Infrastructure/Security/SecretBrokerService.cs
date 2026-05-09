@@ -19,17 +19,26 @@ public sealed class SecretBrokerService : IDisposable
 
     private readonly ISecretVault _secretVault;
     private readonly IAppLogger _logger;
+    private readonly Func<ISecretBrokerListener> _listenerFactory;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    private HttpListener? _listener;
+    private ISecretBrokerListener? _listener;
     private CancellationTokenSource? _listenerCts;
     private Task? _listenerTask;
     private bool _disposed;
 
     public SecretBrokerService(ISecretVault secretVault, IAppLogger logger)
+        : this(secretVault, logger, static () => new HttpSecretBrokerListener()) { }
+
+    internal SecretBrokerService(
+        ISecretVault secretVault,
+        IAppLogger logger,
+        Func<ISecretBrokerListener> listenerFactory
+    )
     {
         _secretVault = secretVault;
         _logger = logger;
+        _listenerFactory = listenerFactory;
     }
 
     public SecretBrokerSession? CurrentSession { get; private set; }
@@ -47,9 +56,17 @@ public sealed class SecretBrokerService : IDisposable
             var port = ReserveLoopbackPort();
             var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
             var baseUrl = string.Create(CultureInfo.InvariantCulture, $"http://127.0.0.1:{port}");
-            var listener = new HttpListener();
-            listener.Prefixes.Add($"{baseUrl}/");
-            listener.Start();
+            var listener = _listenerFactory();
+            try
+            {
+                listener.Prefixes.Add($"{baseUrl}/");
+                listener.Start();
+            }
+            catch
+            {
+                listener.Dispose();
+                throw;
+            }
 
             _listener = listener;
             _listenerCts = new CancellationTokenSource();
@@ -131,7 +148,7 @@ public sealed class SecretBrokerService : IDisposable
     }
 
     private async Task RunListenerAsync(
-        HttpListener listener,
+        ISecretBrokerListener listener,
         string token,
         CancellationToken cancellationToken
     )
@@ -362,4 +379,53 @@ internal sealed class SecretBrokerSaveRequest
     public string? SecretId { get; init; }
 
     public Dictionary<string, string>? Metadata { get; init; }
+}
+
+internal interface ISecretBrokerListener : IDisposable
+{
+    ICollection<string> Prefixes { get; }
+
+    bool IsListening { get; }
+
+    void Start();
+
+    void Stop();
+
+    void Close();
+
+    Task<HttpListenerContext> GetContextAsync();
+}
+
+internal sealed class HttpSecretBrokerListener : ISecretBrokerListener
+{
+    private readonly HttpListener _listener = new();
+
+    public ICollection<string> Prefixes => _listener.Prefixes;
+
+    public bool IsListening => _listener.IsListening;
+
+    public void Start()
+    {
+        _listener.Start();
+    }
+
+    public void Stop()
+    {
+        _listener.Stop();
+    }
+
+    public void Close()
+    {
+        _listener.Close();
+    }
+
+    public Task<HttpListenerContext> GetContextAsync()
+    {
+        return _listener.GetContextAsync();
+    }
+
+    public void Dispose()
+    {
+        _listener.Close();
+    }
 }

@@ -170,9 +170,6 @@ public sealed class ManagementApiClient : IManagementApiClient
             {
                 throw new ManagementApiException(
                     "The management API request timed out.",
-                    responseBody: content is StringContent
-                        ? await content.ReadAsStringAsync(cancellationToken)
-                        : null,
                     innerException: exception
                 );
             }
@@ -180,9 +177,6 @@ public sealed class ManagementApiClient : IManagementApiClient
             {
                 throw new ManagementApiException(
                     "The management API request failed.",
-                    responseBody: content is StringContent
-                        ? await content.ReadAsStringAsync(cancellationToken)
-                        : null,
                     innerException: exception
                 );
             }

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -53,6 +54,7 @@ public sealed class LocalDependencyRepairService
     private readonly Action<string> _userPathWriter;
     private readonly Action _environmentChangeBroadcaster;
     private readonly Action _processPathRefresher;
+    private readonly Func<bool> _currentProcessAdministratorChecker;
     private readonly TimeSpan _elevationAuthorizationTimeout;
 
     public LocalDependencyRepairService(
@@ -67,7 +69,8 @@ public sealed class LocalDependencyRepairService
         Action<string>? userPathWriter = null,
         Action? environmentChangeBroadcaster = null,
         Action? processPathRefresher = null,
-        TimeSpan? elevationAuthorizationTimeout = null
+        TimeSpan? elevationAuthorizationTimeout = null,
+        Func<bool>? currentProcessAdministratorChecker = null
     )
     {
         _pathService = pathService;
@@ -93,6 +96,8 @@ public sealed class LocalDependencyRepairService
             );
         _environmentChangeBroadcaster = environmentChangeBroadcaster ?? BroadcastEnvironmentChange;
         _processPathRefresher = processPathRefresher ?? RefreshCurrentProcessPath;
+        _currentProcessAdministratorChecker =
+            currentProcessAdministratorChecker ?? IsCurrentProcessAdministrator;
         _elevationAuthorizationTimeout =
             elevationAuthorizationTimeout is { } timeout && timeout > TimeSpan.Zero
                 ? timeout
@@ -123,11 +128,21 @@ public sealed class LocalDependencyRepairService
         var initialProgress = CreateProgress(
             actionId,
             "starting",
-            "正在请求管理员权限。",
+            "正在准备修复。",
             logPath: GetRepairLogPath()
         );
         await WriteStatusAsync(statusPath, initialProgress, cancellationToken);
         progressReporter?.Invoke(initialProgress);
+
+        if (IsCurrentProcessRunningAsAdministrator())
+        {
+            return await RunRepairInCurrentProcessAsync(
+                actionId,
+                statusPath,
+                progressReporter,
+                cancellationToken
+            );
+        }
 
         var executablePath = _currentProcessPathResolver();
         if (string.IsNullOrWhiteSpace(executablePath))
@@ -231,6 +246,82 @@ public sealed class LocalDependencyRepairService
         }
     }
 
+    private async Task<LocalDependencyRepairResult> RunRepairInCurrentProcessAsync(
+        string actionId,
+        string statusPath,
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        CancellationToken cancellationToken
+    )
+    {
+        using var repairCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken
+        );
+        LocalDependencyRepairResult result;
+        Task<LocalDependencyRepairResult>? repairTask = null;
+        try
+        {
+            _logger.Info(
+                $"Executing local dependency repair '{actionId}' in current elevated process."
+            );
+            repairTask = ExecuteRepairModeAsync(actionId, statusPath, repairCancellation.Token);
+            result = await WaitForRepairStatusAsync(
+                repairTask,
+                statusPath,
+                progressReporter,
+                cancellationToken
+            );
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            repairCancellation.Cancel();
+            ObserveRepairTask(repairTask);
+            return Failure(
+                actionId,
+                "修复任务等待超时。",
+                "修复任务未在预期时间内返回状态。",
+                GetRepairLogPath()
+            );
+        }
+        catch (OperationCanceledException)
+        {
+            repairCancellation.Cancel();
+            ObserveRepairTask(repairTask);
+            throw;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError(
+                $"Failed to execute local dependency repair '{actionId}' in current process.",
+                exception
+            );
+            var failure = Failure(actionId, "启动修复失败。", exception.Message, GetRepairLogPath());
+            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            return failure;
+        }
+
+        if (result.Succeeded)
+        {
+            _processPathRefresher();
+        }
+
+        return result;
+    }
+
+    private bool IsCurrentProcessRunningAsAdministrator()
+    {
+        try
+        {
+            return _currentProcessAdministratorChecker();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warn(
+                $"Failed to determine current process administrator state: {exception.Message}"
+            );
+            return false;
+        }
+    }
+
     private async Task<Process?> StartElevatedRepairProcessAsync(
         ProcessStartInfo startInfo,
         string actionId,
@@ -327,6 +418,30 @@ public sealed class LocalDependencyRepairService
         );
     }
 
+    private void ObserveRepairTask(Task<LocalDependencyRepairResult>? repairTask)
+    {
+        if (repairTask is null || repairTask.IsCompletedSuccessfully)
+        {
+            return;
+        }
+
+        _ = repairTask.ContinueWith(
+            completedTask =>
+            {
+                if (completedTask.IsFaulted)
+                {
+                    _logger.LogError(
+                        "Observed failed local dependency repair task.",
+                        completedTask.Exception
+                    );
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
+    }
+
     private async Task TryWriteProgressStatusAsync(
         string statusPath,
         LocalDependencyRepairProgress progress,
@@ -412,7 +527,7 @@ public sealed class LocalDependencyRepairService
             CreateProgress(
                 actionId,
                 "starting",
-                "提权修复进程已启动。",
+                "修复任务已启动。",
                 logPath: GetRepairLogPath()
             ),
             cancellationToken
@@ -742,35 +857,22 @@ public sealed class LocalDependencyRepairService
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(RepairProcessTimeout);
-        DateTimeOffset? lastProgressUpdate = null;
-
-        while (!process.HasExited)
+        var pollResult = await PollRepairStatusUntilAsync(
+            () => process.HasExited,
+            statusPath,
+            progressReporter,
+            timeoutCts.Token
+        );
+        if (pollResult.Result is not null)
         {
-            timeoutCts.Token.ThrowIfCancellationRequested();
-            if (TryReadStatus(statusPath, out var interimProgress))
-            {
-                if (lastProgressUpdate != interimProgress.UpdatedAt)
-                {
-                    lastProgressUpdate = interimProgress.UpdatedAt;
-                    progressReporter?.Invoke(interimProgress);
-                }
-
-                if (interimProgress.IsCompleted)
-                {
-                    return CreateResult(interimProgress);
-                }
-            }
-
-            await Task.Delay(RepairProcessPollInterval, timeoutCts.Token);
+            return pollResult.Result;
         }
 
         await process.WaitForExitAsync(cancellationToken);
+        var lastProgressUpdate = pollResult.LastProgressUpdate;
         if (TryReadStatus(statusPath, out var result))
         {
-            if (lastProgressUpdate != result.UpdatedAt)
-            {
-                progressReporter?.Invoke(result);
-            }
+            ReportProgressIfUpdated(result, progressReporter, ref lastProgressUpdate);
 
             if (result.IsCompleted)
             {
@@ -787,6 +889,88 @@ public sealed class LocalDependencyRepairService
             Detail = "请查看桌面日志和 repair log 获取详细错误。",
             LogPath = GetRepairLogPath(),
         };
+    }
+
+    private async Task<LocalDependencyRepairResult> WaitForRepairStatusAsync(
+        Task<LocalDependencyRepairResult> repairTask,
+        string statusPath,
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        CancellationToken cancellationToken
+    )
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(RepairProcessTimeout);
+        var pollResult = await PollRepairStatusUntilAsync(
+            () => repairTask.IsCompleted,
+            statusPath,
+            progressReporter,
+            timeoutCts.Token
+        );
+        if (pollResult.Result is not null)
+        {
+            ObserveRepairTask(repairTask);
+            return pollResult.Result;
+        }
+
+        var taskResult = await repairTask.WaitAsync(cancellationToken);
+        var lastProgressUpdate = pollResult.LastProgressUpdate;
+        if (TryReadStatus(statusPath, out var result))
+        {
+            ReportProgressIfUpdated(result, progressReporter, ref lastProgressUpdate);
+
+            if (result.IsCompleted)
+            {
+                return CreateResult(result);
+            }
+        }
+
+        return taskResult;
+    }
+
+    private static async Task<RepairStatusPollResult> PollRepairStatusUntilAsync(
+        Func<bool> shouldStop,
+        string statusPath,
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        CancellationToken cancellationToken
+    )
+    {
+        DateTimeOffset? lastProgressUpdate = null;
+
+        while (!shouldStop())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (TryReadStatus(statusPath, out var interimProgress))
+            {
+                ReportProgressIfUpdated(interimProgress, progressReporter, ref lastProgressUpdate);
+
+                if (interimProgress.IsCompleted)
+                {
+                    return new RepairStatusPollResult(
+                        CreateResult(interimProgress),
+                        lastProgressUpdate
+                    );
+                }
+            }
+
+            await Task.Delay(RepairProcessPollInterval, cancellationToken);
+        }
+
+        return new RepairStatusPollResult(null, lastProgressUpdate);
+    }
+
+    private static void ReportProgressIfUpdated(
+        LocalDependencyRepairProgress progress,
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        ref DateTimeOffset? lastProgressUpdate
+    )
+    {
+        if (lastProgressUpdate == progress.UpdatedAt)
+        {
+            return;
+        }
+
+        lastProgressUpdate = progress.UpdatedAt;
+        progressReporter?.Invoke(progress);
     }
 
     private static bool TryReadStatus(string statusPath, out LocalDependencyRepairProgress result)
@@ -1607,6 +1791,18 @@ public sealed class LocalDependencyRepairService
         );
     }
 
+    private static bool IsCurrentProcessAdministrator()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        using var identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern IntPtr SendMessageTimeout(
         IntPtr hWnd,
@@ -1621,6 +1817,11 @@ public sealed class LocalDependencyRepairService
     private sealed record RepairCommand(string FileName, IReadOnlyList<string> Arguments);
 
     private sealed record AllowedPathDirectory(string Path, bool CreateIfMissing = false);
+
+    private sealed record RepairStatusPollResult(
+        LocalDependencyRepairResult? Result,
+        DateTimeOffset? LastProgressUpdate
+    );
 
     private sealed record UserPathCleanupResult(
         IReadOnlyList<string> Entries,

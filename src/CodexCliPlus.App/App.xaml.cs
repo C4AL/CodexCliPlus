@@ -1,4 +1,5 @@
 using CodexCliPlus.Core.Abstractions.Build;
+using CodexCliPlus.Core.Models.LocalEnvironment;
 using CodexCliPlus.Infrastructure.Backend;
 using CodexCliPlus.Infrastructure.DependencyInjection;
 using CodexCliPlus.Infrastructure.LocalEnvironment;
@@ -35,14 +36,21 @@ public partial class App : System.Windows.Application, IDisposable
         if (TryParseRepairMode(e.Args, out var repairActionId, out var repairStatusPath))
         {
             _serviceProvider = services.BuildServiceProvider();
-            var repairService = _serviceProvider.GetRequiredService<LocalDependencyRepairService>();
-            var result = repairService
-                .ExecuteRepairModeAsync(repairActionId, repairStatusPath)
-                .GetAwaiter()
-                .GetResult();
-            _serviceProvider.Dispose();
-            _serviceProvider = null;
-            Shutdown(result.Succeeded ? 0 : 1);
+            var exitCode = 1;
+            try
+            {
+                var repairService =
+                    _serviceProvider.GetRequiredService<LocalDependencyRepairService>();
+                var result = ExecuteRepairMode(repairService, repairActionId, repairStatusPath);
+                exitCode = result.Succeeded ? 0 : 1;
+            }
+            finally
+            {
+                _serviceProvider.Dispose();
+                _serviceProvider = null;
+            }
+
+            Shutdown(exitCode);
             return;
         }
 
@@ -62,6 +70,17 @@ public partial class App : System.Windows.Application, IDisposable
 
         MainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         MainWindow.Show();
+    }
+
+    internal static LocalDependencyRepairResult ExecuteRepairMode(
+        LocalDependencyRepairService repairService,
+        string actionId,
+        string statusPath
+    )
+    {
+        return Task.Run(() => repairService.ExecuteRepairModeAsync(actionId, statusPath))
+            .GetAwaiter()
+            .GetResult();
     }
 
     protected override void OnExit(System.Windows.ExitEventArgs e)

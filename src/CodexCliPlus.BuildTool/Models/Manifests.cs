@@ -89,11 +89,15 @@ public sealed class BuildAssetManifest
         );
     }
 
-    public IReadOnlyList<string> Verify(string assetsRoot)
+    public async Task<IReadOnlyList<string>> VerifyAsync(
+        string assetsRoot,
+        CancellationToken cancellationToken = default
+    )
     {
         var failures = new List<string>();
         foreach (var file in Files)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var fullPath = Path.Combine(
                 assetsRoot,
                 file.Path.Replace('/', Path.DirectorySeparatorChar)
@@ -111,9 +115,7 @@ public sealed class BuildAssetManifest
                 continue;
             }
 
-            var actualHash = ComputeSha256Async(fullPath, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
+            var actualHash = await ComputeSha256Async(fullPath, cancellationToken);
             if (!string.Equals(actualHash, file.Sha256, StringComparison.OrdinalIgnoreCase))
             {
                 failures.Add($"Asset hash mismatch: {file.Path}");
@@ -122,6 +124,7 @@ public sealed class BuildAssetManifest
 
         foreach (var requiredFile in AssetCommands.RequiredFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var manifestPath = $"backend/windows-x64/{requiredFile}";
             if (
                 !Files.Any(file =>

@@ -67,7 +67,7 @@ public static class AssetCommands
         }
 
         var manifest = await BuildAssetManifest.ReadAsync(context.AssetManifestPath);
-        var failures = manifest.Verify(context.AssetsRoot);
+        var failures = await manifest.VerifyAsync(context.AssetsRoot);
         if (failures.Count > 0)
         {
             foreach (var failure in failures)

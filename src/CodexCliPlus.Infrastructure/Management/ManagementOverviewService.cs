@@ -166,14 +166,12 @@ public sealed class ManagementOverviewService : IManagementOverviewService
     {
         var connectionTask = _connectionProvider.GetConnectionAsync();
         var configTask = _configurationService.GetConfigAsync();
-        var apiKeysTask = _authService.GetApiKeysAsync();
         var authFilesTask = _authService.GetAuthFilesAsync();
 
-        await Task.WhenAll(connectionTask, configTask, apiKeysTask, authFilesTask);
+        await Task.WhenAll(connectionTask, configTask, authFilesTask);
 
         var connection = await connectionTask;
         var config = await configTask;
-        var apiKeys = await apiKeysTask;
         var authFiles = await authFilesTask;
 
         var response = ManagementResponseFactory.Map(
@@ -182,7 +180,7 @@ public sealed class ManagementOverviewService : IManagementOverviewService
             {
                 ManagementApiBaseUrl = connection.ManagementApiBaseUrl,
                 ServerVersion = config.Metadata.Version,
-                ApiKeyCount = apiKeys.Value.Count,
+                ApiKeyCount = config.Value.ApiKeys.Count,
                 AuthFileCount = authFiles.Value.Count,
                 GeminiKeyCount = config.Value.GeminiApiKeys.Count,
                 CodexKeyCount = config.Value.CodexApiKeys.Count,

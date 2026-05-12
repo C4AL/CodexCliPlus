@@ -35,6 +35,10 @@ public static class MicaSetupInstallerBuilder
             Path.Combine("Helper", "Setup", "ArchiveFileHelper.cs")
         ),
         (
+            Path.Combine("Helper", "Setup", "InstallerSelfCleanupHelper.cs.template"),
+            Path.Combine("Helper", "Setup", "InstallerSelfCleanupHelper.cs")
+        ),
+        (
             Path.Combine("Helper", "Setup", "UninstallHelper.cs.template"),
             Path.Combine("Helper", "Setup", "UninstallHelper.cs")
         ),

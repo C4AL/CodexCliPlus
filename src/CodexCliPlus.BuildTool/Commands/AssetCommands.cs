@@ -6,7 +6,7 @@ namespace CodexCliPlus.BuildTool;
 
 public static class AssetCommands
 {
-    private const string BackendBuildDate = "2026-05-07T01:37:01Z";
+    private const string BackendBuildDate = "2026-05-11T20:16:47Z";
 
     private sealed record BackendAssetFileMapping(string SourceFileName, string TargetFileName);
 

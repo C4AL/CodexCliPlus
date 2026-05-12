@@ -2,25 +2,25 @@ namespace CodexCliPlus.Core.Constants;
 
 public static class BackendReleaseMetadata
 {
-    public const string Version = "6.10.9";
+    public const string Version = "7.0.3";
 
-    public const string ReleaseTag = "v6.10.9";
+    public const string ReleaseTag = "v7.0.3";
 
-    public const string AssetName = "CLIProxyAPI_6.10.9_windows_amd64.zip";
+    public const string AssetName = "CLIProxyAPI_7.0.3_windows_amd64.zip";
 
     public const string ReleaseUrl =
-        "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v6.10.9";
+        "https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.0.3";
 
     public const string ArchiveUrl =
-        "https://github.com/router-for-me/CLIProxyAPI/releases/download/v6.10.9/CLIProxyAPI_6.10.9_windows_amd64.zip";
+        "https://github.com/router-for-me/CLIProxyAPI/releases/download/v7.0.3/CLIProxyAPI_7.0.3_windows_amd64.zip";
 
     public const string ArchiveSha256 =
-        "1da9061b7620aafd07b05fb95461065a935c5948378dc14dd5090797e16fd50c";
+        "65f1657a900b50cbcbe14526b4a59753141b18e3b8f09a691648fc50ca601660";
 
-    public const string SourceCommit = "785b00c3127eea6aa207f1207ead8a2aa93690a3";
+    public const string SourceCommit = "bd8c05a830a36b2e5181bb5c8596a2c8d85c3dbc";
 
     public const string BundledExecutableSha256 =
-        "f17d22d4fb7df11c84b06b1fe2123e45561bdc6f14226a3f3cffa344491d4023";
+        "711a79280e415e9b1d8d131b1388c2861bb2f3587b8a4ba22b51fb0f9fbde72c";
 
     public static bool RemoteArchiveFallbackEnabled => false;
 }

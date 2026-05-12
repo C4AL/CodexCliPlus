@@ -1094,56 +1094,87 @@ public partial class MainWindow
             string.IsNullOrWhiteSpace(actionId) || !LocalDependencyRepairActionIds.IsKnown(actionId)
         )
         {
+            var invalidActionResult = CreateLocalDependencyRepairFailure(
+                actionId ?? string.Empty,
+                "未知修复动作。",
+                "桌面端只接受内置白名单 action id。"
+            );
             PostWebUiCommand(
                 new
                 {
                     type = "localDependencyRepairResult",
                     requestId,
-                    result = new
-                    {
-                        actionId = actionId ?? string.Empty,
-                        succeeded = false,
-                        summary = "未知修复动作。",
-                        detail = "桌面端只接受内置白名单 action id。",
-                    },
+                    result = invalidActionResult,
                 }
             );
             return;
         }
 
-        PostWebUiCommand(
-            new
-            {
-                type = "localDependencyRepairStarted",
-                requestId,
-                actionId,
-            }
-        );
+        LocalDependencyRepairResult result;
+        LocalDependencySnapshot? snapshot = null;
+        try
+        {
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencyRepairStarted",
+                    requestId,
+                    actionId,
+                }
+            );
 
-        var result = await _localDependencyRepairService.RunElevatedRepairAsync(
-            actionId,
-            progress =>
-                Dispatcher.InvokeAsync(() =>
-                    PostWebUiCommand(
-                        new
-                        {
-                            type = "localDependencyRepairProgress",
-                            requestId,
-                            progress,
-                        }
+            result = await _localDependencyRepairService.RunElevatedRepairAsync(
+                actionId,
+                progress =>
+                    Dispatcher.InvokeAsync(() =>
+                        PostWebUiCommand(
+                            new
+                            {
+                                type = "localDependencyRepairProgress",
+                                requestId,
+                                progress,
+                            }
+                        )
                     )
-                )
-        );
-        var snapshot = await _localDependencyHealthService.CheckAsync();
-        PostWebUiCommand(
-            new
+            );
+            try
             {
-                type = "localDependencyRepairResult",
-                requestId,
-                result,
-                snapshot,
+                snapshot = await _localDependencyHealthService.CheckAsync();
             }
-        );
+            catch (Exception exception)
+            {
+                _logger.LogError("Failed to check local dependency health after repair.", exception);
+                result = CreateLocalDependencyRepairFailure(
+                    actionId,
+                    "修复后检测失败。",
+                    exception.Message,
+                    result.LogPath
+                );
+            }
+
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencyRepairResult",
+                    requestId,
+                    result,
+                    snapshot,
+                }
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError($"Local dependency repair '{actionId}' failed before result.", exception);
+            result = CreateLocalDependencyRepairFailure(actionId, "本地环境修复失败。", exception.Message);
+            PostWebUiCommand(
+                new
+                {
+                    type = "localDependencyRepairResult",
+                    requestId,
+                    result,
+                }
+            );
+        }
 
         if (result.Succeeded)
         {
@@ -1153,6 +1184,40 @@ public partial class MainWindow
         else
         {
             _notificationService.ShowManual(result.Summary, result.Detail);
+        }
+    }
+
+    private LocalDependencyRepairResult CreateLocalDependencyRepairFailure(
+        string actionId,
+        string summary,
+        string detail,
+        string? logPath = null
+    )
+    {
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            Summary = summary,
+            Detail = detail,
+            LogPath = string.IsNullOrWhiteSpace(logPath)
+                ? GetLocalDependencyRepairLogPath()
+                : logPath,
+        };
+    }
+
+    private string GetLocalDependencyRepairLogPath()
+    {
+        try
+        {
+            return Path.Combine(
+                _pathService.Directories.LogsDirectory,
+                "local-environment-repair.log"
+            );
+        }
+        catch
+        {
+            return "local-environment-repair.log";
         }
     }
 

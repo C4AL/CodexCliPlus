@@ -120,19 +120,41 @@ public sealed class LocalDependencyRepairService
             return Failure(actionId, "未知修复动作。", "前端只能调用内置白名单动作。");
         }
 
-        await _pathService.EnsureCreatedAsync(cancellationToken);
-        var statusPath = Path.Combine(
-            _pathService.Directories.RuntimeDirectory,
-            $"local-environment-repair-{Guid.NewGuid():N}.json"
-        );
-        var initialProgress = CreateProgress(
-            actionId,
-            "starting",
-            "正在准备修复。",
-            logPath: GetRepairLogPath()
-        );
-        await WriteStatusAsync(statusPath, initialProgress, cancellationToken);
-        progressReporter?.Invoke(initialProgress);
+        string? statusPath = null;
+        LocalDependencyRepairProgress? initialProgress = null;
+        try
+        {
+            statusPath = Path.Combine(
+                _pathService.Directories.RuntimeDirectory,
+                $"local-environment-repair-{Guid.NewGuid():N}.json"
+            );
+            await _pathService.EnsureCreatedAsync(cancellationToken);
+            initialProgress = CreateProgress(
+                actionId,
+                "starting",
+                "正在准备修复。",
+                logPath: GetRepairLogPath()
+            );
+            await WriteStatusAsync(statusPath, initialProgress, cancellationToken);
+            progressReporter?.Invoke(initialProgress);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogError($"Failed to prepare local dependency repair '{actionId}'.", exception);
+            var failure = Failure(
+                actionId,
+                "准备修复失败。",
+                exception.Message,
+                TryGetRepairLogPath()
+            );
+            if (!string.IsNullOrWhiteSpace(statusPath))
+            {
+                await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            }
+
+            TryReportProgress(progressReporter, CreateCompletedProgress(failure, initialProgress));
+            return failure;
+        }
 
         if (IsCurrentProcessRunningAsAdministrator())
         {
@@ -456,6 +478,23 @@ public sealed class LocalDependencyRepairService
         {
             _logger.Warn(
                 $"Failed to write local dependency repair progress status: {exception.Message}"
+            );
+        }
+    }
+
+    private void TryReportProgress(
+        Action<LocalDependencyRepairProgress>? progressReporter,
+        LocalDependencyRepairProgress progress
+    )
+    {
+        try
+        {
+            progressReporter?.Invoke(progress);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warn(
+                $"Failed to report local dependency repair progress: {exception.Message}"
             );
         }
     }
@@ -1017,8 +1056,25 @@ public sealed class LocalDependencyRepairService
 
     private string GetRepairLogPath()
     {
-        Directory.CreateDirectory(_pathService.Directories.LogsDirectory);
-        return Path.Combine(_pathService.Directories.LogsDirectory, "local-environment-repair.log");
+        var logPath = GetRepairLogPathWithoutCreatingDirectory();
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        return logPath;
+    }
+
+    private string GetRepairLogPathWithoutCreatingDirectory() =>
+        Path.Combine(_pathService.Directories.LogsDirectory, "local-environment-repair.log");
+
+    private string? TryGetRepairLogPath()
+    {
+        try
+        {
+            return GetRepairLogPathWithoutCreatingDirectory();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.Warn($"Failed to resolve local dependency repair log path: {exception.Message}");
+            return null;
+        }
     }
 
     private static LocalDependencyRepairProgress CreateProgress(

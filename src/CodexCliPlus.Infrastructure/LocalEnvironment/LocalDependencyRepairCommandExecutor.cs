@@ -12,6 +12,17 @@ namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 internal sealed class LocalDependencyRepairCommandExecutor
 {
     private const int RecentOutputLineLimit = 20;
+    private const int WingetSourcesInvalidExitCode = unchecked((int)0x8A15000B);
+    private const int WingetSourceDataMissingExitCode = unchecked((int)0x8A15000F);
+    private const int WingetDownloadFailedExitCode = unchecked((int)0x8A150008);
+    private const int WingetCommandRequiresAdminExitCode = unchecked((int)0x8A150019);
+    private const int WingetSourceDataIntegrityFailureExitCode = unchecked((int)0x8A15003F);
+    private const int WingetPackageAgreementsNotAcceptedExitCode = unchecked((int)0x8A150041);
+    private const int WingetSourceOpenFailedExitCode = unchecked((int)0x8A150045);
+    private const int WingetSourceAgreementsNotAcceptedExitCode = unchecked((int)0x8A150046);
+    private const int WingetFailedToOpenAllSourcesExitCode = unchecked((int)0x8A15004B);
+    private const int WingetPackageAlreadyInstalledExitCode = unchecked((int)0x8A150061);
+    private const int WingetInstallCancelledByUserExitCode = unchecked((int)0x8A15010C);
     private const string LatestCodexPackage = "@openai/codex@latest";
     private const string RepairWingetScript =
         "$ErrorActionPreference = 'Stop'\n"
@@ -110,7 +121,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
                             ),
                         ],
                         progressSink,
-                        cancellationToken
+                        cancellationToken,
+                        retryWingetInstallAfterSourceUpdate: true
                     ),
                     LocalDependencyRepairActionIds.InstallPowerShell => await RunCommandRepairAsync(
                         actionId,
@@ -131,7 +143,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
                             ),
                         ],
                         progressSink,
-                        cancellationToken
+                        cancellationToken,
+                        retryWingetInstallAfterSourceUpdate: true
                     ),
                     LocalDependencyRepairActionIds.RepairWinget => await RunCommandRepairAsync(
                         actionId,
@@ -212,7 +225,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
         string summary,
         IReadOnlyList<RepairCommand> commands,
         ILocalDependencyRepairProgressSink progressSink,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool retryWingetInstallAfterSourceUpdate = false
     )
     {
         var logPath = GetRepairLogPath();
@@ -229,7 +243,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 command,
                 progressSink,
                 logPath,
-                cancellationToken
+                cancellationToken,
+                retryWingetInstallAfterSourceUpdate
             );
             if (failure is not null)
             {
@@ -396,7 +411,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
         RepairCommand command,
         ILocalDependencyRepairProgressSink progressSink,
         string logPath,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        bool retryWingetInstallAfterSourceUpdate = false
     )
     {
         var commandLine = BuildCommandLine(command);
@@ -450,11 +466,18 @@ internal sealed class LocalDependencyRepairCommandExecutor
 
         await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
         var recentOutput = ExtractRecentOutput(result.StandardOutput, result.StandardError);
+        var shouldUpdateWingetSource =
+            retryWingetInstallAfterSourceUpdate
+            && ShouldRetryAfterWingetSourceUpdate(command, result.ExitCode);
         await progressSink.ReportAsync(
             CreateProgress(
                 actionId,
-                result.ExitCode == 0 ? "commandCompleted" : "failed",
-                result.ExitCode == 0 ? $"{summary}命令已完成。" : $"{summary}命令失败。",
+                result.ExitCode == 0 ? "commandCompleted" : shouldUpdateWingetSource ? "running" : "failed",
+                result.ExitCode == 0
+                    ? $"{summary}命令已完成。"
+                    : shouldUpdateWingetSource
+                        ? "检测到 winget 源数据异常，正在更新源后重试。"
+                        : $"{summary}命令失败。",
                 commandLine: commandLine,
                 recentOutput: recentOutput,
                 logPath: logPath,
@@ -468,18 +491,61 @@ internal sealed class LocalDependencyRepairCommandExecutor
             return null;
         }
 
-        var detail =
-            FirstNonEmptyLine(result.StandardError, result.StandardOutput) ?? "命令返回非零退出码。";
+        if (shouldUpdateWingetSource)
+        {
+            var sourceUpdateFailure = await RunRepairCommandStepAsync(
+                actionId,
+                "更新 winget 源",
+                new RepairCommand(
+                    "winget",
+                    ["source", "update", "--name", "winget", "--disable-interactivity"]
+                ),
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+            if (sourceUpdateFailure is not null)
+            {
+                return new LocalDependencyRepairResult
+                {
+                    ActionId = actionId,
+                    Succeeded = false,
+                    ExitCode = sourceUpdateFailure.ExitCode,
+                    Summary = $"{summary}失败。",
+                    Detail = $"winget 源数据不可用，自动更新源失败：{sourceUpdateFailure.Detail}",
+                    LogPath = logPath,
+                };
+            }
+
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "commandRunning",
+                    $"winget 源已更新，正在重试：{summary}。",
+                    commandLine: commandLine,
+                    logPath: logPath
+                ),
+                cancellationToken
+            );
+
+            return await RunRepairCommandStepAsync(
+                actionId,
+                summary,
+                command,
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+        }
+
+        var detail = BuildCommandFailureDetail(command, result);
         return new LocalDependencyRepairResult
         {
             ActionId = actionId,
             Succeeded = false,
             ExitCode = result.ExitCode,
             Summary = $"{summary}失败。",
-            Detail = string.Create(
-                CultureInfo.InvariantCulture,
-                $"退出码 {result.ExitCode}：{detail}"
-            ),
+            Detail = detail,
             LogPath = logPath,
         };
     }
@@ -689,7 +755,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
             ),
             progressSink,
             logPath,
-            cancellationToken
+            cancellationToken,
+            retryWingetInstallAfterSourceUpdate: true
         );
         if (installFailure is not null)
         {
@@ -965,16 +1032,78 @@ internal sealed class LocalDependencyRepairCommandExecutor
     private static string[] ExtractRecentOutput(params string[] values)
     {
         return values
-            .SelectMany(value =>
-                value.Split(
-                    ['\r', '\n'],
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                )
-            )
-            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .SelectMany(SplitOutputLines)
+            .Where(IsMeaningfulOutputLine)
             .TakeLast(RecentOutputLineLimit)
             .ToArray();
     }
+
+    private static string BuildCommandFailureDetail(
+        RepairCommand command,
+        LocalEnvironmentProcessResult result
+    )
+    {
+        var knownReason = DescribeKnownExitCode(command, result.ExitCode);
+        var outputDetail = FirstMeaningfulOutputLine(result.StandardError, result.StandardOutput);
+        var exitCode = FormatExitCode(result.ExitCode);
+
+        if (!string.IsNullOrWhiteSpace(knownReason))
+        {
+            return string.IsNullOrWhiteSpace(outputDetail)
+                ? $"退出码 {exitCode}：{knownReason}"
+                : $"退出码 {exitCode}：{knownReason}；{outputDetail}";
+        }
+
+        return string.IsNullOrWhiteSpace(outputDetail)
+            ? $"退出码 {exitCode}：命令返回非零退出码。"
+            : $"退出码 {exitCode}：{outputDetail}";
+    }
+
+    private static string FormatExitCode(int exitCode)
+    {
+        if (exitCode >= 0)
+        {
+            return exitCode.ToString(CultureInfo.InvariantCulture);
+        }
+
+        var hexCode = unchecked((uint)exitCode);
+        return string.Create(CultureInfo.InvariantCulture, $"{exitCode}（0x{hexCode:X8}）");
+    }
+
+    private static string? DescribeKnownExitCode(RepairCommand command, int exitCode)
+    {
+        if (!IsWingetCommand(command))
+        {
+            return null;
+        }
+
+        return exitCode switch
+        {
+            WingetSourceDataMissingExitCode => "winget 源数据缺失或索引未就绪，无法读取安装包清单。",
+            WingetSourcesInvalidExitCode => "winget 源配置无效，需要更新或重置源。",
+            WingetSourceDataIntegrityFailureExitCode => "winget 源数据完整性校验失败，需要重新更新源。",
+            WingetSourceOpenFailedExitCode => "winget 无法打开包源，可能是源索引损坏或暂时不可用。",
+            WingetFailedToOpenAllSourcesExitCode => "winget 无法打开所有包源，需要更新源或检查网络。",
+            WingetDownloadFailedExitCode => "winget 下载安装包失败，请检查网络、代理或下载源。",
+            WingetCommandRequiresAdminExitCode => "winget 命令需要管理员权限。",
+            WingetPackageAgreementsNotAcceptedExitCode => "winget 包协议未接受。",
+            WingetSourceAgreementsNotAcceptedExitCode => "winget 源协议未接受。",
+            WingetPackageAlreadyInstalledExitCode => "目标包已安装。",
+            WingetInstallCancelledByUserExitCode => "安装已被用户取消。",
+            _ => null,
+        };
+    }
+
+    private static bool ShouldRetryAfterWingetSourceUpdate(RepairCommand command, int exitCode) =>
+        IsWingetInstallCommand(command) && IsWingetSourceRepairableExitCode(exitCode);
+
+    private static bool IsWingetSourceRepairableExitCode(int exitCode) =>
+        exitCode
+            is WingetSourcesInvalidExitCode
+                or WingetSourceDataMissingExitCode
+                or WingetSourceDataIntegrityFailureExitCode
+                or WingetSourceOpenFailedExitCode
+                or WingetFailedToOpenAllSourcesExitCode;
 
     private static LocalDependencyRepairResult Failure(
         string actionId,
@@ -993,17 +1122,74 @@ internal sealed class LocalDependencyRepairCommandExecutor
         };
     }
 
-    private static string? FirstNonEmptyLine(params string[] values)
+    private static string? FirstMeaningfulOutputLine(params string[] values)
     {
         return values
-            .SelectMany(value =>
-                value.Split(
-                    ['\r', '\n'],
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                )
-            )
-            .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
+            .SelectMany(SplitOutputLines)
+            .FirstOrDefault(IsMeaningfulOutputLine);
     }
+
+    private static IEnumerable<string> SplitOutputLines(string value)
+    {
+        return value.Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+        );
+    }
+
+    private static bool IsMeaningfulOutputLine(string line)
+    {
+        var trimmed = line.Trim();
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        if (trimmed is "/" or "-" or "\\" or "|")
+        {
+            return false;
+        }
+
+        return !IsProgressOnlyOutputLine(trimmed);
+    }
+
+    private static bool IsProgressOnlyOutputLine(string line)
+    {
+        if (!line.Any(IsProgressBarCharacter))
+        {
+            return false;
+        }
+
+        foreach (var character in line)
+        {
+            if (
+                char.IsDigit(character)
+                || char.IsWhiteSpace(character)
+                || IsProgressBarCharacter(character)
+                || character is '%' or '.' or '/' or 'K' or 'k' or 'M' or 'm' or 'G' or 'g' or 'B' or 'b'
+            )
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsProgressBarCharacter(char character) =>
+        character is '█' or '▒' or '▓' or '░';
+
+    private static bool IsWingetCommand(RepairCommand command) =>
+        string.Equals(command.FileName, "winget", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(command.FileName, "winget.exe", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsWingetInstallCommand(RepairCommand command) =>
+        IsWingetCommand(command)
+        && command.Arguments.Any(argument =>
+            string.Equals(argument, "install", StringComparison.OrdinalIgnoreCase)
+        );
 
     private static string BuildUserPathRepairDetail(
         int additions,

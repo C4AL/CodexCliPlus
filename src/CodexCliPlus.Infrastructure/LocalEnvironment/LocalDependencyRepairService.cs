@@ -11,7 +11,6 @@ using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
 using CodexCliPlus.Core.Constants;
 using CodexCliPlus.Core.Models.LocalEnvironment;
-using CodexCliPlus.Infrastructure.Security;
 using CodexCliPlus.Infrastructure.Utilities;
 
 namespace CodexCliPlus.Infrastructure.LocalEnvironment;
@@ -19,21 +18,11 @@ namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 public sealed class LocalDependencyRepairService
 {
     private const int ElevationCancelledErrorCode = 1223;
-    private const int RecentOutputLineLimit = 20;
-    private const string LatestCodexPackage = "@openai/codex@latest";
-    private const string RepairWingetScript =
-        "$ErrorActionPreference = 'Stop'\n"
-        + "$ProgressPreference = 'SilentlyContinue'\n"
-        + "Install-PackageProvider -Name NuGet -Force | Out-Null\n"
-        + "Install-Module -Name Microsoft.WinGet.Client -Repository PSGallery -Scope AllUsers -Force -AllowClobber | Out-Null\n"
-        + "Import-Module Microsoft.WinGet.Client -Force\n"
-        + "Repair-WinGetPackageManager -AllUsers -Latest -Force";
     private static readonly TimeSpan DefaultElevationAuthorizationTimeout = TimeSpan.FromSeconds(
         120
     );
     private static readonly TimeSpan ElevationAuthorizationProgressInterval =
         TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan RepairCommandTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan RepairProcessPollInterval = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan RepairProcessTimeout = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan RepairProcessTerminationWaitTimeout = TimeSpan.FromSeconds(5);
@@ -56,6 +45,8 @@ public sealed class LocalDependencyRepairService
     private readonly Action _processPathRefresher;
     private readonly Func<bool> _currentProcessAdministratorChecker;
     private readonly TimeSpan _elevationAuthorizationTimeout;
+    private readonly TimeSpan _repairProcessFirstProgressTimeout;
+    private readonly LocalDependencyRepairCommandExecutor _commandExecutor;
 
     public LocalDependencyRepairService(
         IPathService pathService,
@@ -70,7 +61,9 @@ public sealed class LocalDependencyRepairService
         Action? environmentChangeBroadcaster = null,
         Action? processPathRefresher = null,
         TimeSpan? elevationAuthorizationTimeout = null,
-        Func<bool>? currentProcessAdministratorChecker = null
+        Func<bool>? currentProcessAdministratorChecker = null,
+        TimeSpan? repairProcessFirstProgressTimeout = null,
+        TimeSpan? repairProgressHeartbeatInterval = null
     )
     {
         _pathService = pathService;
@@ -102,6 +95,23 @@ public sealed class LocalDependencyRepairService
             elevationAuthorizationTimeout is { } timeout && timeout > TimeSpan.Zero
                 ? timeout
                 : DefaultElevationAuthorizationTimeout;
+        _repairProcessFirstProgressTimeout =
+            repairProcessFirstProgressTimeout is { } firstProgressTimeout
+            && firstProgressTimeout > TimeSpan.Zero
+                ? firstProgressTimeout
+                : TimeSpan.FromSeconds(5);
+        _commandExecutor = new LocalDependencyRepairCommandExecutor(
+            _pathService,
+            _logger,
+            _processRunner,
+            _directoryExists,
+            _createDirectory,
+            _userPathReader,
+            _userPathWriter,
+            _environmentChangeBroadcaster,
+            _processPathRefresher,
+            repairProgressHeartbeatInterval
+        );
     }
 
     public Task<LocalDependencyRepairResult> RunElevatedRepairAsync(
@@ -118,6 +128,15 @@ public sealed class LocalDependencyRepairService
         if (!LocalDependencyRepairActionIds.IsKnown(actionId))
         {
             return Failure(actionId, "未知修复动作。", "前端只能调用内置白名单动作。");
+        }
+
+        if (IsCurrentProcessRunningAsAdministrator())
+        {
+            return await RunRepairInCurrentProcessAsync(
+                actionId,
+                progressReporter,
+                cancellationToken
+            );
         }
 
         string? statusPath = null;
@@ -154,16 +173,6 @@ public sealed class LocalDependencyRepairService
 
             TryReportProgress(progressReporter, CreateCompletedProgress(failure, initialProgress));
             return failure;
-        }
-
-        if (IsCurrentProcessRunningAsAdministrator())
-        {
-            return await RunRepairInCurrentProcessAsync(
-                actionId,
-                statusPath,
-                progressReporter,
-                cancellationToken
-            );
         }
 
         var executablePath = _currentProcessPathResolver();
@@ -270,13 +279,17 @@ public sealed class LocalDependencyRepairService
 
     private async Task<LocalDependencyRepairResult> RunRepairInCurrentProcessAsync(
         string actionId,
-        string statusPath,
         Action<LocalDependencyRepairProgress>? progressReporter,
         CancellationToken cancellationToken
     )
     {
         using var repairCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken
+        );
+        repairCancellation.CancelAfter(RepairProcessTimeout);
+        var progressSink = new CallbackLocalDependencyRepairProgressSink(
+            progressReporter,
+            _logger
         );
         LocalDependencyRepairResult result;
         Task<LocalDependencyRepairResult>? repairTask = null;
@@ -285,24 +298,36 @@ public sealed class LocalDependencyRepairService
             _logger.Info(
                 $"Executing local dependency repair '{actionId}' in current elevated process."
             );
-            repairTask = ExecuteRepairModeAsync(actionId, statusPath, repairCancellation.Token);
-            result = await WaitForRepairStatusAsync(
-                repairTask,
-                statusPath,
+            TryReportProgress(
                 progressReporter,
-                cancellationToken
+                CreateProgress(
+                    actionId,
+                    "starting",
+                    "正在准备修复。",
+                    logPath: TryGetRepairLogPath()
+                )
             );
+            repairTask = Task.Run(
+                () => _commandExecutor.ExecuteAsync(actionId, progressSink, repairCancellation.Token),
+                CancellationToken.None
+            );
+            result = await repairTask;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             repairCancellation.Cancel();
             ObserveRepairTask(repairTask);
-            return Failure(
+            var failure = Failure(
                 actionId,
                 "修复任务等待超时。",
                 "修复任务未在预期时间内返回状态。",
-                GetRepairLogPath()
+                TryGetRepairLogPath()
             );
+            TryReportProgress(
+                progressReporter,
+                CreateCompletedProgress(failure, progressSink.LastProgress)
+            );
+            return failure;
         }
         catch (OperationCanceledException)
         {
@@ -316,8 +341,11 @@ public sealed class LocalDependencyRepairService
                 $"Failed to execute local dependency repair '{actionId}' in current process.",
                 exception
             );
-            var failure = Failure(actionId, "启动修复失败。", exception.Message, GetRepairLogPath());
-            await TryWriteCompletedStatusAsync(statusPath, failure, cancellationToken);
+            var failure = Failure(actionId, "启动修复失败。", exception.Message, TryGetRepairLogPath());
+            TryReportProgress(
+                progressReporter,
+                CreateCompletedProgress(failure, progressSink.LastProgress)
+            );
             return failure;
         }
 
@@ -560,330 +588,8 @@ public sealed class LocalDependencyRepairService
         CancellationToken cancellationToken = default
     )
     {
-        await _pathService.EnsureCreatedAsync(cancellationToken);
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                "starting",
-                "修复任务已启动。",
-                logPath: GetRepairLogPath()
-            ),
-            cancellationToken
-        );
-        LocalDependencyRepairResult result;
-        try
-        {
-            if (!LocalDependencyRepairActionIds.IsKnown(actionId))
-            {
-                result = Failure(actionId, "未知修复动作。", "修复模式拒绝执行非白名单动作。");
-            }
-            else
-            {
-                _logger.Info($"Executing local dependency repair '{actionId}'.");
-                result = actionId switch
-                {
-                    LocalDependencyRepairActionIds.InstallNodeNpm => await RunCommandRepairAsync(
-                        actionId,
-                        "安装 Node.js LTS 和 npm",
-                        [
-                            new RepairCommand(
-                                "winget",
-                                [
-                                    "install",
-                                    "--id",
-                                    "OpenJS.NodeJS.LTS",
-                                    "-e",
-                                    "--source",
-                                    "winget",
-                                    "--accept-package-agreements",
-                                    "--accept-source-agreements",
-                                ]
-                            ),
-                        ],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.InstallPowerShell => await RunCommandRepairAsync(
-                        actionId,
-                        "安装 PowerShell 7",
-                        [
-                            new RepairCommand(
-                                "winget",
-                                [
-                                    "install",
-                                    "--id",
-                                    "Microsoft.PowerShell",
-                                    "-e",
-                                    "--source",
-                                    "winget",
-                                    "--accept-package-agreements",
-                                    "--accept-source-agreements",
-                                ]
-                            ),
-                        ],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.RepairWinget => await RunCommandRepairAsync(
-                        actionId,
-                        "修复 winget",
-                        [
-                            new RepairCommand(
-                                "powershell.exe",
-                                [
-                                    "-NoLogo",
-                                    "-NoProfile",
-                                    "-NonInteractive",
-                                    "-ExecutionPolicy",
-                                    "Bypass",
-                                    "-Command",
-                                    RepairWingetScript,
-                                ]
-                            ),
-                        ],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex =>
-                        await RepairRequiredEnvironmentAndInstallLatestCodexAsync(
-                            actionId,
-                            statusPath,
-                            cancellationToken
-                        ),
-                    LocalDependencyRepairActionIds.InstallWsl => await RunCommandRepairAsync(
-                        actionId,
-                        "安装 WSL",
-                        [new RepairCommand("wsl.exe", ["--install"])],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.UpdateWsl => await RunCommandRepairAsync(
-                        actionId,
-                        "更新 WSL",
-                        [new RepairCommand("wsl.exe", ["--update"])],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.InstallCodexCli => await RunCommandRepairAsync(
-                        actionId,
-                        "安装 Codex CLI",
-                        [
-                            new RepairCommand(
-                                "cmd.exe",
-                                ["/d", "/c", "npm", "install", "-g", LatestCodexPackage]
-                            ),
-                        ],
-                        statusPath,
-                        cancellationToken
-                    ),
-                    LocalDependencyRepairActionIds.RepairUserPath => await RepairUserPathAsync(
-                        actionId,
-                        statusPath,
-                        cancellationToken
-                    ),
-                    _ => Failure(actionId, "未知修复动作。", "修复模式拒绝执行非白名单动作。"),
-                };
-            }
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            _logger.LogError($"Local dependency repair '{actionId}' failed.", exception);
-            result = Failure(actionId, "修复执行失败。", exception.Message, GetRepairLogPath());
-        }
-
-        var previousProgress = TryReadStatus(statusPath, out var progress) ? progress : null;
-        await WriteStatusAsync(
-            statusPath,
-            CreateCompletedProgress(result, previousProgress),
-            cancellationToken
-        );
-        return result;
-    }
-
-    private async Task<LocalDependencyRepairResult> RunCommandRepairAsync(
-        string actionId,
-        string summary,
-        IReadOnlyList<RepairCommand> commands,
-        string statusPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var logPath = GetRepairLogPath();
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(actionId, "running", $"{summary}准备开始。", logPath: logPath),
-            cancellationToken
-        );
-
-        foreach (var command in commands)
-        {
-            var failure = await RunRepairCommandStepAsync(
-                actionId,
-                summary,
-                command,
-                statusPath,
-                logPath,
-                cancellationToken
-            );
-            if (failure is not null)
-            {
-                return failure;
-            }
-        }
-
-        _logger.Info($"Local dependency repair '{actionId}' finished.");
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = true,
-            ExitCode = 0,
-            Summary = $"{summary}已完成。",
-            Detail = "请重新打开终端或重启 CodexCliPlus 后再次检测。",
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<LocalDependencyRepairResult> RepairUserPathAsync(
-        string actionId,
-        string statusPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var logPath = GetRepairLogPath();
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                "running",
-                "正在检查并修复用户 PATH。",
-                logPath: logPath
-            ),
-            cancellationToken
-        );
-
-        try
-        {
-            var userPath = _userPathReader(EnvironmentVariableTarget.User) ?? string.Empty;
-            var cleanup = CleanUserPathEntries(SplitPath(userPath));
-            var existingEntries = cleanup.Entries.ToList();
-            var additions = GetAllowedUserPathRepairDirectories()
-                .Where(directory => directory.CreateIfMissing || _directoryExists(directory.Path))
-                .Select(directory =>
-                {
-                    if (directory.CreateIfMissing)
-                    {
-                        _createDirectory(directory.Path);
-                    }
-
-                    return directory.Path;
-                })
-                .Where(directory => !existingEntries.Any(entry => IsSameDirectory(entry, directory)))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            if (
-                additions.Length == 0
-                && cleanup.DuplicateEntriesRemoved == 0
-                && cleanup.UnreachableEntriesRemoved == 0
-            )
-            {
-                await AppendRepairLogAsync(
-                    logPath,
-                    "User PATH repair did not find required changes.",
-                    cancellationToken
-                );
-                return new LocalDependencyRepairResult
-                {
-                    ActionId = actionId,
-                    Succeeded = true,
-                    ExitCode = 0,
-                    Summary = "用户 PATH 无需修复。",
-                    Detail = "没有发现需要补齐或清理的用户 PATH 项。",
-                    LogPath = logPath,
-                };
-            }
-
-            var updatedEntries = existingEntries.Concat(additions).ToArray();
-            _userPathWriter(string.Join(System.IO.Path.PathSeparator, updatedEntries));
-            _environmentChangeBroadcaster();
-            await AppendRepairLogAsync(
-                logPath,
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Added {additions.Length} safe user PATH entries; removed {cleanup.DuplicateEntriesRemoved} duplicate entries; removed {cleanup.UnreachableEntriesRemoved} unreachable entries."
-                ),
-                cancellationToken
-            );
-            _logger.Info($"Local dependency repair '{actionId}' updated user PATH.");
-
-            return new LocalDependencyRepairResult
-            {
-                ActionId = actionId,
-                Succeeded = true,
-                ExitCode = 0,
-                Summary = "用户 PATH 已修复。",
-                Detail = BuildUserPathRepairDetail(
-                    additions.Length,
-                    cleanup.DuplicateEntriesRemoved,
-                    cleanup.UnreachableEntriesRemoved
-                ),
-                LogPath = logPath,
-            };
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            await AppendRepairLogAsync(
-                logPath,
-                $"User PATH repair failed.{Environment.NewLine}{exception.Message}",
-                cancellationToken
-            );
-            return new LocalDependencyRepairResult
-            {
-                ActionId = actionId,
-                Succeeded = false,
-                Summary = "用户 PATH 修复失败。",
-                Detail = exception.Message,
-                LogPath = logPath,
-            };
-        }
-    }
-
-    private UserPathCleanupResult CleanUserPathEntries(IEnumerable<string> entries)
-    {
-        var cleanedEntries = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var duplicateEntriesRemoved = 0;
-        var unreachableEntriesRemoved = 0;
-
-        foreach (var entry in entries)
-        {
-            if (!TryNormalizeResolvedPath(entry, out var normalized))
-            {
-                cleanedEntries.Add(entry);
-                continue;
-            }
-
-            if (!_directoryExists(normalized))
-            {
-                unreachableEntriesRemoved++;
-                continue;
-            }
-
-            if (!seen.Add(normalized))
-            {
-                duplicateEntriesRemoved++;
-                continue;
-            }
-
-            cleanedEntries.Add(entry);
-        }
-
-        return new UserPathCleanupResult(
-            cleanedEntries,
-            duplicateEntriesRemoved,
-            unreachableEntriesRemoved
-        );
+        var progressSink = new FileLocalDependencyRepairProgressSink(statusPath);
+        return await _commandExecutor.ExecuteAsync(actionId, progressSink, cancellationToken);
     }
 
     private async Task<LocalDependencyRepairResult> WaitForRepairStatusAsync(
@@ -894,13 +600,31 @@ public sealed class LocalDependencyRepairService
         CancellationToken cancellationToken
     )
     {
+        var firstProgress = await WaitForRepairWorkerProgressAsync(
+            process,
+            statusPath,
+            progressReporter,
+            cancellationToken
+        );
+        if (firstProgress.Result is not null)
+        {
+            return firstProgress.Result;
+        }
+
+        if (!firstProgress.HasWorkerProgress)
+        {
+            await TerminateRepairProcessAsync(process);
+            return CreateMissingWorkerProgressFailure(actionId, statusPath, process);
+        }
+
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(RepairProcessTimeout);
         var pollResult = await PollRepairStatusUntilAsync(
             () => process.HasExited,
             statusPath,
             progressReporter,
-            timeoutCts.Token
+            timeoutCts.Token,
+            firstProgress.LastProgressUpdate
         );
         if (pollResult.Result is not null)
         {
@@ -930,51 +654,122 @@ public sealed class LocalDependencyRepairService
         };
     }
 
-    private async Task<LocalDependencyRepairResult> WaitForRepairStatusAsync(
-        Task<LocalDependencyRepairResult> repairTask,
+    private async Task<RepairStatusPollResult> WaitForRepairWorkerProgressAsync(
+        Process process,
         string statusPath,
         Action<LocalDependencyRepairProgress>? progressReporter,
         CancellationToken cancellationToken
     )
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(RepairProcessTimeout);
-        var pollResult = await PollRepairStatusUntilAsync(
-            () => repairTask.IsCompleted,
-            statusPath,
-            progressReporter,
-            timeoutCts.Token
-        );
-        if (pollResult.Result is not null)
+        var deadline = DateTimeOffset.UtcNow + _repairProcessFirstProgressTimeout;
+        DateTimeOffset? lastProgressUpdate = null;
+
+        while (DateTimeOffset.UtcNow < deadline && !process.HasExited)
         {
-            ObserveRepairTask(repairTask);
-            return pollResult.Result;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (TryReadStatus(statusPath, out var progress))
+            {
+                ReportProgressIfUpdated(progress, progressReporter, ref lastProgressUpdate);
+
+                if (progress.IsCompleted)
+                {
+                    return new RepairStatusPollResult(
+                        CreateResult(progress),
+                        lastProgressUpdate,
+                        HasWorkerProgress: true
+                    );
+                }
+
+                if (IsRepairWorkerProgress(progress))
+                {
+                    return new RepairStatusPollResult(
+                        null,
+                        lastProgressUpdate,
+                        HasWorkerProgress: true
+                    );
+                }
+            }
+
+            var remaining = deadline - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            var delay =
+                remaining < RepairProcessPollInterval ? remaining : RepairProcessPollInterval;
+            await Task.Delay(delay, cancellationToken);
         }
 
-        var taskResult = await repairTask.WaitAsync(cancellationToken);
-        var lastProgressUpdate = pollResult.LastProgressUpdate;
-        if (TryReadStatus(statusPath, out var result))
+        if (TryReadStatus(statusPath, out var finalProgress))
         {
-            ReportProgressIfUpdated(result, progressReporter, ref lastProgressUpdate);
-
-            if (result.IsCompleted)
+            ReportProgressIfUpdated(finalProgress, progressReporter, ref lastProgressUpdate);
+            if (finalProgress.IsCompleted)
             {
-                return CreateResult(result);
+                return new RepairStatusPollResult(
+                    CreateResult(finalProgress),
+                    lastProgressUpdate,
+                    HasWorkerProgress: true
+                );
+            }
+
+            if (IsRepairWorkerProgress(finalProgress))
+            {
+                return new RepairStatusPollResult(
+                    null,
+                    lastProgressUpdate,
+                    HasWorkerProgress: true
+                );
             }
         }
 
-        return taskResult;
+        return new RepairStatusPollResult(null, lastProgressUpdate, HasWorkerProgress: false);
+    }
+
+    private LocalDependencyRepairResult CreateMissingWorkerProgressFailure(
+        string actionId,
+        string statusPath,
+        Process process
+    )
+    {
+        var detail = string.Create(
+            CultureInfo.InvariantCulture,
+            $"5 秒内未收到修复工作进程状态。日志：{GetRepairLogPath()}；状态文件：{statusPath}"
+        );
+        if (process.HasExited)
+        {
+            detail = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{detail}；修复进程退出码：{process.ExitCode}"
+            );
+        }
+
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            ExitCode = process.HasExited ? process.ExitCode : null,
+            Summary = "修复进程未回传进度。",
+            Detail = detail,
+            LogPath = GetRepairLogPath(),
+        };
+    }
+
+    private static bool IsRepairWorkerProgress(LocalDependencyRepairProgress progress)
+    {
+        return progress.IsCompleted
+            || !string.Equals(progress.Phase, "starting", StringComparison.Ordinal)
+            || string.Equals(progress.Message, "修复工作进程已启动。", StringComparison.Ordinal);
     }
 
     private static async Task<RepairStatusPollResult> PollRepairStatusUntilAsync(
         Func<bool> shouldStop,
         string statusPath,
         Action<LocalDependencyRepairProgress>? progressReporter,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        DateTimeOffset? lastProgressUpdate = null
     )
     {
-        DateTimeOffset? lastProgressUpdate = null;
-
         while (!shouldStop())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -986,7 +781,8 @@ public sealed class LocalDependencyRepairService
                 {
                     return new RepairStatusPollResult(
                         CreateResult(interimProgress),
-                        lastProgressUpdate
+                        lastProgressUpdate,
+                        HasWorkerProgress: true
                     );
                 }
             }
@@ -994,7 +790,7 @@ public sealed class LocalDependencyRepairService
             await Task.Delay(RepairProcessPollInterval, cancellationToken);
         }
 
-        return new RepairStatusPollResult(null, lastProgressUpdate);
+        return new RepairStatusPollResult(null, lastProgressUpdate, HasWorkerProgress: false);
     }
 
     private static void ReportProgressIfUpdated(
@@ -1104,412 +900,6 @@ public sealed class LocalDependencyRepairService
         };
     }
 
-    private async Task<LocalDependencyRepairResult?> RunRepairCommandStepAsync(
-        string actionId,
-        string summary,
-        RepairCommand command,
-        string statusPath,
-        string logPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var commandLine = BuildCommandLine(command);
-        await AppendRepairLogAsync(logPath, $"$ {commandLine}", cancellationToken);
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                "commandRunning",
-                $"正在执行：{summary}。",
-                commandLine: commandLine,
-                logPath: logPath
-            ),
-            cancellationToken
-        );
-
-        LocalEnvironmentProcessResult result;
-        try
-        {
-            result = await _processRunner.RunAsync(
-                command.FileName,
-                command.Arguments,
-                RepairCommandTimeout,
-                cancellationToken
-            );
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            await AppendRepairLogAsync(
-                logPath,
-                $"Command '{commandLine}' failed before completion.{Environment.NewLine}{exception.Message}",
-                cancellationToken
-            );
-            return new LocalDependencyRepairResult
-            {
-                ActionId = actionId,
-                Succeeded = false,
-                Summary = $"{summary}失败。",
-                Detail = exception.Message,
-                LogPath = logPath,
-            };
-        }
-
-        await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
-        var recentOutput = ExtractRecentOutput(result.StandardOutput, result.StandardError);
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                result.ExitCode == 0 ? "commandCompleted" : "failed",
-                result.ExitCode == 0 ? $"{summary}命令已完成。" : $"{summary}命令失败。",
-                commandLine: commandLine,
-                recentOutput: recentOutput,
-                logPath: logPath,
-                exitCode: result.ExitCode
-            ),
-            cancellationToken
-        );
-
-        if (result.ExitCode == 0)
-        {
-            return null;
-        }
-
-        var detail =
-            FirstNonEmptyLine(result.StandardError, result.StandardOutput) ?? "命令返回非零退出码。";
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = false,
-            ExitCode = result.ExitCode,
-            Summary = $"{summary}失败。",
-            Detail = string.Create(
-                CultureInfo.InvariantCulture,
-                $"退出码 {result.ExitCode}：{detail}"
-            ),
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<LocalDependencyRepairResult> RepairRequiredEnvironmentAndInstallLatestCodexAsync(
-        string actionId,
-        string statusPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var logPath = GetRepairLogPath();
-        await AppendRepairLogAsync(
-            logPath,
-            "Starting required local environment repair and latest Codex install.",
-            cancellationToken
-        );
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                "running",
-                "正在准备一键修复必备环境并安装最新 Codex。",
-                logPath: logPath
-            ),
-            cancellationToken
-        );
-
-        _processPathRefresher();
-        var wingetFailure = await EnsureWingetAvailableAsync(
-            actionId,
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (wingetFailure is not null)
-        {
-            return wingetFailure;
-        }
-
-        var nodeNpmFailure = await EnsureNodeNpmAvailableAsync(
-            actionId,
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (nodeNpmFailure is not null)
-        {
-            return nodeNpmFailure;
-        }
-
-        var codexFailure = await RunRepairCommandStepAsync(
-            actionId,
-            "安装或升级最新 Codex CLI",
-            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "install", "-g", LatestCodexPackage]),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (codexFailure is not null)
-        {
-            return codexFailure;
-        }
-
-        _processPathRefresher();
-        var pathResult = await RepairUserPathAsync(actionId, statusPath, cancellationToken);
-        if (!pathResult.Succeeded)
-        {
-            return new LocalDependencyRepairResult
-            {
-                ActionId = actionId,
-                Succeeded = false,
-                ExitCode = pathResult.ExitCode,
-                Summary = "一键修复失败。",
-                Detail = pathResult.Detail,
-                LogPath = logPath,
-            };
-        }
-
-        _logger.Info($"Local dependency repair '{actionId}' finished.");
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = true,
-            ExitCode = 0,
-            Summary = "一键修复并安装最新 Codex 已完成。",
-            Detail = "已处理 winget、Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<LocalDependencyRepairResult?> EnsureWingetAvailableAsync(
-        string actionId,
-        string statusPath,
-        string logPath,
-        CancellationToken cancellationToken
-    )
-    {
-        if (
-            await ProbeRepairCommandAsync(
-                actionId,
-                "winget",
-                new RepairCommand("winget", ["--version"]),
-                statusPath,
-                logPath,
-                cancellationToken
-            )
-        )
-        {
-            return null;
-        }
-
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(actionId, "running", "未检测到可用 winget，正在尝试修复。", logPath: logPath),
-            cancellationToken
-        );
-        var repairFailure = await RunRepairCommandStepAsync(
-            actionId,
-            "修复 winget",
-            new RepairCommand(
-                "powershell.exe",
-                [
-                    "-NoLogo",
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    RepairWingetScript,
-                ]
-            ),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (repairFailure is not null)
-        {
-            return repairFailure;
-        }
-
-        _processPathRefresher();
-        if (
-            await ProbeRepairCommandAsync(
-                actionId,
-                "winget",
-                new RepairCommand("winget", ["--version"]),
-                statusPath,
-                logPath,
-                cancellationToken
-            )
-        )
-        {
-            return null;
-        }
-
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = false,
-            Summary = "winget 修复后仍不可用。",
-            Detail = "无法继续安装 Node.js/npm，请查看修复日志确认 winget 状态。",
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<LocalDependencyRepairResult?> EnsureNodeNpmAvailableAsync(
-        string actionId,
-        string statusPath,
-        string logPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var nodeReady = await ProbeRepairCommandAsync(
-            actionId,
-            "Node.js",
-            new RepairCommand("node", ["--version"]),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        var npmReady = await ProbeRepairCommandAsync(
-            actionId,
-            "npm",
-            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (nodeReady && npmReady)
-        {
-            return null;
-        }
-
-        var installFailure = await RunRepairCommandStepAsync(
-            actionId,
-            "安装 Node.js LTS 和 npm",
-            new RepairCommand(
-                "winget",
-                [
-                    "install",
-                    "--id",
-                    "OpenJS.NodeJS.LTS",
-                    "-e",
-                    "--source",
-                    "winget",
-                    "--accept-package-agreements",
-                    "--accept-source-agreements",
-                ]
-            ),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (installFailure is not null)
-        {
-            return installFailure;
-        }
-
-        _processPathRefresher();
-        var installedNodeReady = await ProbeRepairCommandAsync(
-            actionId,
-            "Node.js",
-            new RepairCommand("node", ["--version"]),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        var installedNpmReady = await ProbeRepairCommandAsync(
-            actionId,
-            "npm",
-            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
-            statusPath,
-            logPath,
-            cancellationToken
-        );
-        if (installedNodeReady && installedNpmReady)
-        {
-            return null;
-        }
-
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = false,
-            Summary = "Node.js/npm 安装后仍不可用。",
-            Detail = "无法继续安装 Codex CLI，请查看修复日志确认 node 和 npm 状态。",
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<bool> ProbeRepairCommandAsync(
-        string actionId,
-        string name,
-        RepairCommand command,
-        string statusPath,
-        string logPath,
-        CancellationToken cancellationToken
-    )
-    {
-        var commandLine = BuildCommandLine(command);
-        await AppendRepairLogAsync(logPath, $"$ {commandLine}", cancellationToken);
-        await WriteStatusAsync(
-            statusPath,
-            CreateProgress(
-                actionId,
-                "commandRunning",
-                $"正在检测：{name}。",
-                commandLine: commandLine,
-                logPath: logPath
-            ),
-            cancellationToken
-        );
-
-        try
-        {
-            var result = await _processRunner.RunAsync(
-                command.FileName,
-                command.Arguments,
-                TimeSpan.FromSeconds(15),
-                cancellationToken
-            );
-            await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
-            await WriteStatusAsync(
-                statusPath,
-                CreateProgress(
-                    actionId,
-                    result.ExitCode == 0 ? "commandCompleted" : "running",
-                    result.ExitCode == 0 ? $"{name}检测通过。" : $"{name}检测未通过。",
-                    commandLine: commandLine,
-                    recentOutput: ExtractRecentOutput(
-                        result.StandardOutput,
-                        result.StandardError
-                    ),
-                    logPath: logPath,
-                    exitCode: result.ExitCode
-                ),
-                cancellationToken
-            );
-            return result.ExitCode == 0;
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            await AppendRepairLogAsync(
-                logPath,
-                $"Probe '{commandLine}' failed before completion.{Environment.NewLine}{exception.Message}",
-                cancellationToken
-            );
-            await WriteStatusAsync(
-                statusPath,
-                CreateProgress(
-                    actionId,
-                    "running",
-                    $"{name}检测未通过。",
-                    commandLine: commandLine,
-                    recentOutput: [exception.Message],
-                    logPath: logPath
-                ),
-                cancellationToken
-            );
-            return false;
-        }
-    }
-
     private static LocalDependencyRepairProgress CreateCompletedProgress(
         LocalDependencyRepairResult result,
         LocalDependencyRepairProgress? previousProgress
@@ -1547,80 +937,6 @@ public sealed class LocalDependencyRepairService
         };
     }
 
-    private static List<AllowedPathDirectory> GetAllowedUserPathRepairDirectories()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        var candidates = new List<AllowedPathDirectory>();
-        if (!string.IsNullOrWhiteSpace(appData))
-        {
-            candidates.Add(
-                new AllowedPathDirectory(Path.Combine(appData, "npm"), CreateIfMissing: true)
-            );
-        }
-
-        if (!string.IsNullOrWhiteSpace(programFiles))
-        {
-            candidates.Add(new AllowedPathDirectory(Path.Combine(programFiles, "nodejs")));
-            candidates.Add(new AllowedPathDirectory(Path.Combine(programFiles, "PowerShell", "7")));
-        }
-
-        if (!string.IsNullOrWhiteSpace(programFilesX86))
-        {
-            candidates.Add(new AllowedPathDirectory(Path.Combine(programFilesX86, "nodejs")));
-        }
-
-        return candidates;
-    }
-
-    private static async Task AppendRepairLogAsync(
-        string logPath,
-        string message,
-        CancellationToken cancellationToken
-    )
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-        var line =
-            $"{DateTimeOffset.Now:O} {SensitiveDataRedactor.Redact(message)}{Environment.NewLine}";
-        await File.AppendAllTextAsync(
-            logPath,
-            line,
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            cancellationToken
-        );
-    }
-
-    private static string BuildCommandLog(
-        RepairCommand command,
-        LocalEnvironmentProcessResult result
-    )
-    {
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"Command '{BuildCommandLine(command)}' exited {result.ExitCode}.{Environment.NewLine}{result.StandardOutput}{Environment.NewLine}{result.StandardError}"
-        );
-    }
-
-    private static string BuildCommandLine(RepairCommand command)
-    {
-        return $"{command.FileName} {string.Join(" ", command.Arguments)}";
-    }
-
-    private static string[] ExtractRecentOutput(params string[] values)
-    {
-        return values
-            .SelectMany(value =>
-                value.Split(
-                    ['\r', '\n'],
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                )
-            )
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .TakeLast(RecentOutputLineLimit)
-            .ToArray();
-    }
-
     private static LocalDependencyRepairResult Failure(
         string actionId,
         string summary,
@@ -1641,55 +957,6 @@ public sealed class LocalDependencyRepairService
     private static string QuoteArgument(string value)
     {
         return "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
-    }
-
-    private static string? FirstNonEmptyLine(params string[] values)
-    {
-        return values
-            .SelectMany(value =>
-                value.Split(
-                    ['\r', '\n'],
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-                )
-            )
-            .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
-    }
-
-    private static string BuildUserPathRepairDetail(
-        int additions,
-        int duplicateEntriesRemoved,
-        int unreachableEntriesRemoved
-    )
-    {
-        var changes = new List<string>();
-        if (additions > 0)
-        {
-            changes.Add(
-                string.Create(CultureInfo.InvariantCulture, $"补齐 {additions} 个安全目录")
-            );
-        }
-
-        if (duplicateEntriesRemoved > 0)
-        {
-            changes.Add(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"清理 {duplicateEntriesRemoved} 个重复目录"
-                )
-            );
-        }
-
-        if (unreachableEntriesRemoved > 0)
-        {
-            changes.Add(
-                string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"清理 {unreachableEntriesRemoved} 个失效目录"
-                )
-            );
-        }
-
-        return $"已{string.Join("，", changes)}。新终端和重启后的 CodexCliPlus 会读取更新后的 PATH。";
     }
 
     private static void RefreshCurrentProcessPath()
@@ -1789,33 +1056,6 @@ public sealed class LocalDependencyRepairService
         );
     }
 
-    private static bool TryNormalizeResolvedPath(string path, out string normalized)
-    {
-        normalized = string.Empty;
-        var trimmed = path.Trim().Trim('"');
-        if (trimmed.Length == 0)
-        {
-            return false;
-        }
-
-        var expanded = Environment.ExpandEnvironmentVariables(trimmed);
-        if (expanded.Contains('%', StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        try
-        {
-            normalized = Path.GetFullPath(expanded)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            return normalized.Length > 0;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private static string NormalizePath(string path)
     {
         try
@@ -1870,18 +1110,9 @@ public sealed class LocalDependencyRepairService
         out IntPtr result
     );
 
-    private sealed record RepairCommand(string FileName, IReadOnlyList<string> Arguments);
-
-    private sealed record AllowedPathDirectory(string Path, bool CreateIfMissing = false);
-
     private sealed record RepairStatusPollResult(
         LocalDependencyRepairResult? Result,
-        DateTimeOffset? LastProgressUpdate
-    );
-
-    private sealed record UserPathCleanupResult(
-        IReadOnlyList<string> Entries,
-        int DuplicateEntriesRemoved,
-        int UnreachableEntriesRemoved
+        DateTimeOffset? LastProgressUpdate,
+        bool HasWorkerProgress
     );
 }

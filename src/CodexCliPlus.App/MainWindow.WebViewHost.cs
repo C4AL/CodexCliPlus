@@ -610,8 +610,9 @@ public partial class MainWindow
                         && actionIdElement.ValueKind == JsonValueKind.String
                             ? actionIdElement.GetString()
                             : null;
-                    _ = Dispatcher.InvokeAsync(async () =>
-                        await RunLocalDependencyRepairAsync(ReadRequestId(root), actionId)
+                    var repairRequestId = ReadRequestId(root);
+                    _ = Task.Run(() =>
+                        RunLocalDependencyRepairAsync(repairRequestId, actionId)
                     );
                     break;
 
@@ -1099,7 +1100,7 @@ public partial class MainWindow
                 "未知修复动作。",
                 "桌面端只接受内置白名单 action id。"
             );
-            PostWebUiCommand(
+            await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
                     type = "localDependencyRepairResult",
@@ -1114,7 +1115,7 @@ public partial class MainWindow
         LocalDependencySnapshot? snapshot = null;
         try
         {
-            PostWebUiCommand(
+            await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
                     type = "localDependencyRepairStarted",
@@ -1126,7 +1127,7 @@ public partial class MainWindow
             result = await _localDependencyRepairService.RunElevatedRepairAsync(
                 actionId,
                 progress =>
-                    Dispatcher.InvokeAsync(() =>
+                    _ = Dispatcher.InvokeAsync(() =>
                         PostWebUiCommand(
                             new
                             {
@@ -1152,7 +1153,7 @@ public partial class MainWindow
                 );
             }
 
-            PostWebUiCommand(
+            await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
                     type = "localDependencyRepairResult",
@@ -1166,7 +1167,7 @@ public partial class MainWindow
         {
             _logger.LogError($"Local dependency repair '{actionId}' failed before result.", exception);
             result = CreateLocalDependencyRepairFailure(actionId, "本地环境修复失败。", exception.Message);
-            PostWebUiCommand(
+            await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
                     type = "localDependencyRepairResult",
@@ -1179,12 +1180,25 @@ public partial class MainWindow
         if (result.Succeeded)
         {
             _changeBroadcastService.Broadcast("local-environment");
-            _notificationService.ShowAuto(result.Summary);
+            await Dispatcher.InvokeAsync(() => _notificationService.ShowAuto(result.Summary));
         }
         else
         {
-            _notificationService.ShowManual(result.Summary, result.Detail);
+            await Dispatcher.InvokeAsync(() =>
+                _notificationService.ShowManual(result.Summary, result.Detail)
+            );
         }
+    }
+
+    private Task PostWebUiCommandOnDispatcherAsync(object message)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            PostWebUiCommand(message);
+            return Task.CompletedTask;
+        }
+
+        return Dispatcher.InvokeAsync(() => PostWebUiCommand(message)).Task;
     }
 
     private LocalDependencyRepairResult CreateLocalDependencyRepairFailure(

@@ -122,7 +122,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
                         ],
                         progressSink,
                         cancellationToken,
-                        retryWingetInstallAfterSourceUpdate: true
+                        repairWingetSourceOnInstallFailure: true
                     ),
                     LocalDependencyRepairActionIds.InstallPowerShell => await RunCommandRepairAsync(
                         actionId,
@@ -144,7 +144,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
                         ],
                         progressSink,
                         cancellationToken,
-                        retryWingetInstallAfterSourceUpdate: true
+                        repairWingetSourceOnInstallFailure: true
                     ),
                     LocalDependencyRepairActionIds.RepairWinget => await RunCommandRepairAsync(
                         actionId,
@@ -226,7 +226,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
         IReadOnlyList<RepairCommand> commands,
         ILocalDependencyRepairProgressSink progressSink,
         CancellationToken cancellationToken,
-        bool retryWingetInstallAfterSourceUpdate = false
+        bool repairWingetSourceOnInstallFailure = false
     )
     {
         var logPath = GetRepairLogPath();
@@ -244,7 +244,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 progressSink,
                 logPath,
                 cancellationToken,
-                retryWingetInstallAfterSourceUpdate
+                repairWingetSourceOnInstallFailure
             );
             if (failure is not null)
             {
@@ -412,7 +412,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
         ILocalDependencyRepairProgressSink progressSink,
         string logPath,
         CancellationToken cancellationToken,
-        bool retryWingetInstallAfterSourceUpdate = false
+        bool repairWingetSourceOnInstallFailure = false
     )
     {
         var commandLine = BuildCommandLine(command);
@@ -466,17 +466,17 @@ internal sealed class LocalDependencyRepairCommandExecutor
 
         await AppendRepairLogAsync(logPath, BuildCommandLog(command, result), cancellationToken);
         var recentOutput = ExtractRecentOutput(result.StandardOutput, result.StandardError);
-        var shouldUpdateWingetSource =
-            retryWingetInstallAfterSourceUpdate
-            && ShouldRetryAfterWingetSourceUpdate(command, result.ExitCode);
+        var shouldRepairWingetSource =
+            repairWingetSourceOnInstallFailure
+            && ShouldRetryAfterWingetSourceRepair(command, result.ExitCode);
         await progressSink.ReportAsync(
             CreateProgress(
                 actionId,
-                result.ExitCode == 0 ? "commandCompleted" : shouldUpdateWingetSource ? "running" : "failed",
+                result.ExitCode == 0 ? "commandCompleted" : shouldRepairWingetSource ? "running" : "failed",
                 result.ExitCode == 0
                     ? $"{summary}命令已完成。"
-                    : shouldUpdateWingetSource
-                        ? "检测到 winget 源数据异常，正在更新源后重试。"
+                    : shouldRepairWingetSource
+                        ? "检测到 winget 源数据异常，正在修复源后重试。"
                         : $"{summary}命令失败。",
                 commandLine: commandLine,
                 recentOutput: recentOutput,
@@ -491,44 +491,9 @@ internal sealed class LocalDependencyRepairCommandExecutor
             return null;
         }
 
-        if (shouldUpdateWingetSource)
+        if (shouldRepairWingetSource)
         {
-            var sourceUpdateFailure = await RunRepairCommandStepAsync(
-                actionId,
-                "更新 winget 源",
-                new RepairCommand(
-                    "winget",
-                    ["source", "update", "--name", "winget", "--disable-interactivity"]
-                ),
-                progressSink,
-                logPath,
-                cancellationToken
-            );
-            if (sourceUpdateFailure is not null)
-            {
-                return new LocalDependencyRepairResult
-                {
-                    ActionId = actionId,
-                    Succeeded = false,
-                    ExitCode = sourceUpdateFailure.ExitCode,
-                    Summary = $"{summary}失败。",
-                    Detail = $"winget 源数据不可用，自动更新源失败：{sourceUpdateFailure.Detail}",
-                    LogPath = logPath,
-                };
-            }
-
-            await progressSink.ReportAsync(
-                CreateProgress(
-                    actionId,
-                    "commandRunning",
-                    $"winget 源已更新，正在重试：{summary}。",
-                    commandLine: commandLine,
-                    logPath: logPath
-                ),
-                cancellationToken
-            );
-
-            return await RunRepairCommandStepAsync(
+            return await RepairWingetSourceAndRetryCommandAsync(
                 actionId,
                 summary,
                 command,
@@ -548,6 +513,146 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Detail = detail,
             LogPath = logPath,
         };
+    }
+
+    private async Task<LocalDependencyRepairResult?> RepairWingetSourceAndRetryCommandAsync(
+        string actionId,
+        string summary,
+        RepairCommand command,
+        ILocalDependencyRepairProgressSink progressSink,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var commandLine = BuildCommandLine(command);
+        var sourceUpdateFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "更新 winget 源",
+            CreateWingetSourceUpdateCommand(),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+
+        if (sourceUpdateFailure is null)
+        {
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "commandRunning",
+                    $"winget 源已更新，正在重试：{summary}。",
+                    commandLine: commandLine,
+                    logPath: logPath
+                ),
+                cancellationToken
+            );
+
+            var retryFailure = await RunRepairCommandStepAsync(
+                actionId,
+                summary,
+                command,
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+            if (
+                retryFailure is null
+                || retryFailure.ExitCode is not { } retryExitCode
+                || !ShouldRetryAfterWingetSourceRepair(command, retryExitCode)
+            )
+            {
+                return retryFailure;
+            }
+
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "running",
+                    "更新 winget 源后仍无法读取源，正在重置源后重试。",
+                    commandLine: commandLine,
+                    recentOutput: [retryFailure.Detail],
+                    logPath: logPath,
+                    exitCode: retryFailure.ExitCode
+                ),
+                cancellationToken
+            );
+        }
+        else
+        {
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "running",
+                    "更新 winget 源失败，正在重置源后重试。",
+                    recentOutput: [sourceUpdateFailure.Detail],
+                    logPath: logPath,
+                    exitCode: sourceUpdateFailure.ExitCode
+                ),
+                cancellationToken
+            );
+        }
+
+        var sourceResetFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "重置 winget 源",
+            CreateWingetSourceResetCommand(),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (sourceResetFailure is not null)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                ExitCode = sourceResetFailure.ExitCode,
+                Summary = $"{summary}失败。",
+                Detail = $"winget 源数据不可用，自动重置源失败：{sourceResetFailure.Detail}",
+                LogPath = logPath,
+            };
+        }
+
+        var sourceUpdateAfterResetFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "更新 winget 源",
+            CreateWingetSourceUpdateCommand(),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (sourceUpdateAfterResetFailure is not null)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                ExitCode = sourceUpdateAfterResetFailure.ExitCode,
+                Summary = $"{summary}失败。",
+                Detail = $"winget 源已重置，但自动更新源失败：{sourceUpdateAfterResetFailure.Detail}",
+                LogPath = logPath,
+            };
+        }
+
+        await progressSink.ReportAsync(
+            CreateProgress(
+                actionId,
+                "commandRunning",
+                $"winget 源已重置并更新，正在重试：{summary}。",
+                commandLine: commandLine,
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        return await RunRepairCommandStepAsync(
+            actionId,
+            summary,
+            command,
+            progressSink,
+            logPath,
+            cancellationToken
+        );
     }
 
     private async Task<LocalDependencyRepairResult> RepairRequiredEnvironmentAndInstallLatestCodexAsync(
@@ -756,7 +861,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             progressSink,
             logPath,
             cancellationToken,
-            retryWingetInstallAfterSourceUpdate: true
+            repairWingetSourceOnInstallFailure: true
         );
         if (installFailure is not null)
         {
@@ -1094,7 +1199,16 @@ internal sealed class LocalDependencyRepairCommandExecutor
         };
     }
 
-    private static bool ShouldRetryAfterWingetSourceUpdate(RepairCommand command, int exitCode) =>
+    private static RepairCommand CreateWingetSourceUpdateCommand() =>
+        new("winget", ["source", "update", "--name", "winget", "--disable-interactivity"]);
+
+    private static RepairCommand CreateWingetSourceResetCommand() =>
+        new(
+            "winget",
+            ["source", "reset", "--name", "winget", "--force", "--disable-interactivity"]
+        );
+
+    private static bool ShouldRetryAfterWingetSourceRepair(RepairCommand command, int exitCode) =>
         IsWingetInstallCommand(command) && IsWingetSourceRepairableExitCode(exitCode);
 
     private static bool IsWingetSourceRepairableExitCode(int exitCode) =>

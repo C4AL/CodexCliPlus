@@ -273,6 +273,9 @@ public partial class MainWindow
     private void UpdateSettingsOverlayBaseline()
     {
         UpdateShellThemePresentation(CreateShellThemeSnapshot(_settings.ThemeMode, 0));
+        _suppressDebugToolsChange = true;
+        SettingsDebugToolsCheckBox.IsChecked = _settings.EnableDebugTools;
+        _suppressDebugToolsChange = false;
         SetSettingsUpdateStatus($"当前版本 {CurrentApplicationVersion}");
     }
 

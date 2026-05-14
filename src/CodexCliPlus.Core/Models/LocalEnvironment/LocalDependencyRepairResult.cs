@@ -13,4 +13,6 @@ public sealed class LocalDependencyRepairResult
     public string Detail { get; init; } = string.Empty;
 
     public string? LogPath { get; init; }
+
+    public string? DebugReportPath { get; init; }
 }

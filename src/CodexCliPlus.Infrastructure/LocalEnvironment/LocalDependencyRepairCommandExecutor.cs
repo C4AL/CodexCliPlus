@@ -263,7 +263,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Succeeded = true,
             ExitCode = 0,
             Summary = $"{summary}已完成。",
-            Detail = "请重新打开终端或重启 CodexCliPlus 后再次检测。",
+            Detail = "CodexCliPlus 会立即重新检测；已打开的外部终端需重新打开后读取更新后的环境。",
             LogPath = logPath,
         };
     }
@@ -322,7 +322,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 Succeeded = true,
                 ExitCode = 0,
                 Summary = "安装 Node.js LTS 和 npm 已完成。",
-                Detail = "已通过内置安装流程安装 Node.js 官方 LTS 安装包；请重新打开终端或重启 CodexCliPlus 后再次检测。",
+                Detail = "已通过内置安装流程安装 Node.js 官方 LTS 安装包；CodexCliPlus 会立即重新检测，已打开的外部终端需重新打开后读取更新后的环境。",
                 LogPath = logPath,
             };
         }
@@ -1596,7 +1596,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             );
         }
 
-        return $"已{string.Join("，", changes)}。新终端和重启后的 CodexCliPlus 会读取更新后的 PATH。";
+        return $"已{string.Join("，", changes)}。CodexCliPlus 会立即读取更新后的 PATH；已打开的外部终端需重新打开。";
     }
 
     private static string[] SplitPath(string value)

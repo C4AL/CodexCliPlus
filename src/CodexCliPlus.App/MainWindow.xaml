@@ -1412,6 +1412,39 @@
               >
                 <StackPanel>
                   <TextBlock
+                    Text="调试"
+                    FontSize="14"
+                    FontWeight="SemiBold"
+                    Foreground="{DynamicResource PrimaryTextBrush}"
+                  />
+                  <TextBlock
+                    Text="修复失败时在桌面生成可交给 Codex 的诊断报告，并启用内置网页调试工具。"
+                    Margin="0,10,0,12"
+                    FontSize="13"
+                    Foreground="{DynamicResource SecondaryTextBrush}"
+                    TextWrapping="Wrap"
+                  />
+                  <CheckBox
+                    x:Name="SettingsDebugToolsCheckBox"
+                    VerticalAlignment="Center"
+                    Checked="SettingsDebugToolsCheckBox_Changed"
+                    Unchecked="SettingsDebugToolsCheckBox_Changed"
+                    AutomationProperties.AutomationId="SettingsDebugToolsCheckBox"
+                    Content="启用调试模式"
+                  />
+                </StackPanel>
+              </Border>
+
+              <Border
+                Margin="0,16,0,0"
+                Padding="16"
+                CornerRadius="10"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+              >
+                <StackPanel>
+                  <TextBlock
                     Text="主题"
                     FontSize="14"
                     FontWeight="SemiBold"

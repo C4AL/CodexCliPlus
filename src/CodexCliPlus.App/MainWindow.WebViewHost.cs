@@ -1113,6 +1113,7 @@ public partial class MainWindow
 
         LocalDependencyRepairResult result;
         LocalDependencySnapshot? snapshot = null;
+        LocalDependencyRepairProgress? lastProgress = null;
         try
         {
             await PostWebUiCommandOnDispatcherAsync(
@@ -1127,6 +1128,8 @@ public partial class MainWindow
             result = await _localDependencyRepairService.RunElevatedRepairAsync(
                 actionId,
                 progress =>
+                {
+                    lastProgress = progress;
                     _ = Dispatcher.InvokeAsync(() =>
                         PostWebUiCommand(
                             new
@@ -1136,7 +1139,8 @@ public partial class MainWindow
                                 progress,
                             }
                         )
-                    )
+                    );
+                }
             );
             try
             {
@@ -1153,6 +1157,12 @@ public partial class MainWindow
                 );
             }
 
+            result = AttachLocalDependencyRepairDebugReportIfNeeded(
+                requestId,
+                result,
+                snapshot,
+                lastProgress
+            );
             await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
@@ -1167,6 +1177,12 @@ public partial class MainWindow
         {
             _logger.LogError($"Local dependency repair '{actionId}' failed before result.", exception);
             result = CreateLocalDependencyRepairFailure(actionId, "本地环境修复失败。", exception.Message);
+            result = AttachLocalDependencyRepairDebugReportIfNeeded(
+                requestId,
+                result,
+                snapshot,
+                lastProgress
+            );
             await PostWebUiCommandOnDispatcherAsync(
                 new
                 {
@@ -1177,9 +1193,9 @@ public partial class MainWindow
             );
         }
 
+        _changeBroadcastService.Broadcast("local-environment");
         if (result.Succeeded)
         {
-            _changeBroadcastService.Broadcast("local-environment");
             await Dispatcher.InvokeAsync(() => _notificationService.ShowAuto(result.Summary));
         }
         else
@@ -1218,6 +1234,83 @@ public partial class MainWindow
                 ? GetLocalDependencyRepairLogPath()
                 : logPath,
         };
+    }
+
+    private LocalDependencyRepairResult AttachLocalDependencyRepairDebugReportIfNeeded(
+        string? requestId,
+        LocalDependencyRepairResult result,
+        LocalDependencySnapshot? snapshot,
+        LocalDependencyRepairProgress? lastProgress
+    )
+    {
+        if (result.Succeeded || !_settings.EnableDebugTools)
+        {
+            return result;
+        }
+
+        try
+        {
+            var desktopDirectory = Environment.GetFolderPath(
+                Environment.SpecialFolder.DesktopDirectory
+            );
+            var debugReportPath = LocalDependencyRepairDebugReportWriter.WriteToDesktop(
+                desktopDirectory,
+                CurrentApplicationVersion,
+                _buildInfo.InformationalVersion,
+                requestId,
+                result,
+                snapshot,
+                lastProgress,
+                _logger.LogFilePath,
+                DateTimeOffset.Now
+            );
+            _logger.Info($"Local dependency repair debug report saved to '{debugReportPath}'.");
+            return CopyLocalDependencyRepairResult(
+                result,
+                AppendLocalDependencyRepairDetail(result.Detail, $"调试报告已生成：{debugReportPath}"),
+                debugReportPath
+            );
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError("Failed to write local dependency repair debug report.", exception);
+            return CopyLocalDependencyRepairResult(
+                result,
+                AppendLocalDependencyRepairDetail(
+                    result.Detail,
+                    $"调试报告生成失败：{exception.Message}"
+                ),
+                null
+            );
+        }
+    }
+
+    private static LocalDependencyRepairResult CopyLocalDependencyRepairResult(
+        LocalDependencyRepairResult result,
+        string detail,
+        string? debugReportPath
+    )
+    {
+        return new LocalDependencyRepairResult
+        {
+            ActionId = result.ActionId,
+            Succeeded = result.Succeeded,
+            ExitCode = result.ExitCode,
+            Summary = result.Summary,
+            Detail = detail,
+            LogPath = result.LogPath,
+            DebugReportPath = debugReportPath,
+        };
+    }
+
+    private static string AppendLocalDependencyRepairDetail(string detail, string append)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return append;
+        }
+
+        return $"{detail.TrimEnd()}{Environment.NewLine}{append}";
     }
 
     private string GetLocalDependencyRepairLogPath()

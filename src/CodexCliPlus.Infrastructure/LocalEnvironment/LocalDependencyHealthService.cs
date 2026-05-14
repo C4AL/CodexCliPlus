@@ -191,7 +191,7 @@ public sealed class LocalDependencyHealthService
                 Status = LocalDependencyStatus.Missing,
                 Severity = LocalDependencySeverity.Required,
                 Detail = "未找到 node 命令。",
-                Recommendation = "安装 Node.js LTS，安装后重新打开 CodexCliPlus。",
+                Recommendation = "安装 Node.js LTS，安装后可直接重新检测。",
                 RepairActionId = LocalDependencyRepairActionIds.InstallNodeNpm,
             };
         }
@@ -411,7 +411,7 @@ public sealed class LocalDependencyHealthService
                 Status = LocalDependencyStatus.Error,
                 Severity = LocalDependencySeverity.Required,
                 Detail = "当前进程、用户和系统 PATH 均为空。",
-                Recommendation = "恢复系统 PATH 后重新打开 CodexCliPlus。",
+                Recommendation = "恢复系统 PATH 后可直接重新检测。",
             };
         }
 
@@ -901,8 +901,8 @@ public sealed class LocalDependencyHealthService
         }
 
         return hasMissingSafeDirectories
-            ? "用户或系统 PATH 已包含关键目录，重启 CodexCliPlus 后重新检测。"
-            : "请手动清理系统 PATH，或重新打开 CodexCliPlus 后重新检测。";
+            ? "用户或系统 PATH 已包含关键目录，可直接重新检测。"
+            : "请手动清理系统 PATH，然后重新检测。";
     }
 
     private static int CalculateReadinessScore(IEnumerable<LocalDependencyItem> items)

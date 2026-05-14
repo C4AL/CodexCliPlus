@@ -371,34 +371,17 @@ public sealed class MicaSetupConfig
     )
     {
         var displayPngPath = Path.Combine(
-            context.Options.RepositoryRoot,
-            "resources",
-            "icons",
+            context.RepositoryIconsRoot,
             "codexcliplus-display.png"
         );
-        var iconPath = Path.Combine(
-            context.Options.RepositoryRoot,
-            "resources",
-            "icons",
-            "codexcliplus.ico"
-        );
-        var noticePath = Path.Combine(
-            context.Options.RepositoryRoot,
-            "resources",
-            "licenses",
-            "NOTICE.txt"
-        );
+        var iconPath = Path.Combine(context.RepositoryIconsRoot, "codexcliplus.ico");
+        var noticePath = Path.Combine(context.RepositoryLicensesRoot, "NOTICE.txt");
         var licensePath = File.Exists(noticePath)
             ? noticePath
-            : Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt");
+            : context.RepositoryLicensePath;
         return new MicaSetupConfig
         {
-            Template = Path.Combine(
-                context.Options.RepositoryRoot,
-                "build",
-                "micasetup",
-                "source-template"
-            ),
+            Template = context.MicaSetupSourceTemplateRoot,
             Package = payloadArchivePath,
             Output = installerOutputPath,
             AppName = AppConstants.ProductName,

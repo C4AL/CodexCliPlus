@@ -70,35 +70,35 @@ public static class AboutCatalog
             "后端许可",
             "MIT",
             "CLIProxyAPI.LICENSE.txt",
-            Path.Combine("resources", "backend", "windows-x64", "LICENSE"),
+            Path.Combine("src", "CodexCliPlus.Backend", "RuntimeAssets", "windows-x64", "LICENSE"),
             "CLIProxyAPI 后端二进制与契约遵循 MIT 许可。"
         ),
         new(
             "前端界面许可",
             "MIT",
             "CliProxyApiManagementCenter.LICENSE.txt",
-            Path.Combine("resources", "webui", "upstream", "source", "LICENSE"),
+            Path.Combine("src", "CodexCliPlus.WebUi", "LICENSE"),
             "Vendored 前端源码与静态资源遵循 MIT 许可。"
         ),
         new(
             "BetterGI 派生 UI 许可",
             "GPL-3.0",
             "BetterGI.GPL-3.0.txt",
-            Path.Combine("resources", "licenses", "BetterGI.GPL-3.0.txt"),
+            Path.Combine("src", "CodexCliPlus.Assets", "licenses", "BetterGI.GPL-3.0.txt"),
             "BetterGI 派生的桌面外壳、字体和资源按 GPL-3.0 再分发。"
         ),
         new(
             "cpa-usage-keeper 派生持久化许可",
             "MIT",
             "cpa-usage-keeper.MIT.txt",
-            Path.Combine("resources", "licenses", "cpa-usage-keeper.MIT.txt"),
+            Path.Combine("src", "CodexCliPlus.Assets", "licenses", "cpa-usage-keeper.MIT.txt"),
             "本地 SQLite 统计持久化逻辑移植自 cpa-usage-keeper。"
         ),
         new(
             "合并 NOTICE",
             "NOTICE",
             "NOTICE.txt",
-            Path.Combine("resources", "licenses", "NOTICE.txt"),
+            Path.Combine("src", "CodexCliPlus.Assets", "licenses", "NOTICE.txt"),
             "发行包中的合并来源与许可说明。"
         ),
     ];

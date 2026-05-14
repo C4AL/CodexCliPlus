@@ -39,8 +39,8 @@
 # GitHub Linguist language bar policy.
 # Keep the public repository language bar focused on high-share languages while
 # hiding low-share auxiliary formats.
-build/** linguist-detectable=false
-.config/** linguist-detectable=false
+src/CodexCliPlus.Installer/** linguist-detectable=false
+src/CodexCliPlus.Tools/.config/** linguist-detectable=false
 
 *.xaml linguist-detectable=false
 *.xml linguist-detectable=false
@@ -65,5 +65,5 @@ build/** linguist-detectable=false
 *.editorconfig linguist-detectable=false
 LICENSE linguist-detectable=false
 
-resources/webui/upstream/dist/index.html linguist-generated=true
-resources/webui/modules/cpa-uv-overlay/live-assets/*.html linguist-generated=true
+src/CodexCliPlus.WebUi/dist/index.html linguist-generated=true
+src/CodexCliPlus.WebUiOverlay/CpaUvOverlay/live-assets/*.html linguist-generated=true

@@ -1,0 +1,134 @@
+using CodexCliPlus.Infrastructure.Codex;
+
+namespace CodexCliPlus.Tests.Codex;
+
+[Trait("Category", "Fast")]
+public sealed class CodexLocatorTests : IDisposable
+{
+    private readonly string _rootDirectory = Path.Combine(
+        Path.GetTempPath(),
+        $"codexcliplus-codex-locator-{Guid.NewGuid():N}"
+    );
+
+    [Fact]
+    public async Task LocateAsyncReturnsFirstWhereResult()
+    {
+        var locator = new CodexLocator(
+            _ => Task.FromResult((0, "C:\\tools\\codex.cmd\r\nC:\\other\\codex.cmd", string.Empty)),
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal("C:\\tools\\codex.cmd", path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncSplitsWhereOutputOnAnyLineEnding()
+    {
+        var locator = new CodexLocator(
+            _ => Task.FromResult((0, "C:\\tools\\codex.cmd\nC:\\other\\codex.cmd", string.Empty)),
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal("C:\\tools\\codex.cmd", path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncPrefersExecutableCandidateOverExtensionlessShim()
+    {
+        var locator = new CodexLocator(
+            _ => Task.FromResult((0, "C:\\tools\\codex\nC:\\tools\\codex.cmd", string.Empty)),
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal("C:\\tools\\codex.cmd", path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncReturnsFallbackWhenWhereOnlyFindsExtensionlessShim()
+    {
+        Directory.CreateDirectory(_rootDirectory);
+        var fallbackPath = Path.Combine(_rootDirectory, "codex.cmd");
+        await File.WriteAllTextAsync(fallbackPath, "@echo off");
+
+        var locator = new CodexLocator(
+            _ => Task.FromResult((0, "C:\\tools\\codex", string.Empty)),
+            () => fallbackPath
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal(fallbackPath, path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncReturnsFallbackWhenWhereFailsAndNpmCommandExists()
+    {
+        Directory.CreateDirectory(_rootDirectory);
+        var fallbackPath = Path.Combine(_rootDirectory, "codex.cmd");
+        await File.WriteAllTextAsync(fallbackPath, "@echo off");
+
+        var locator = new CodexLocator(
+            _ => Task.FromResult((1, string.Empty, "INFO: Could not find files")),
+            () => fallbackPath
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal(fallbackPath, path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncReturnsFallbackWhenWhereRunnerThrowsAndNpmCommandExists()
+    {
+        Directory.CreateDirectory(_rootDirectory);
+        var fallbackPath = Path.Combine(_rootDirectory, "codex.cmd");
+        await File.WriteAllTextAsync(fallbackPath, "@echo off");
+
+        var locator = new CodexLocator(
+            _ => throw new InvalidOperationException("where failed"),
+            () => fallbackPath
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Equal(fallbackPath, path);
+    }
+
+    [Fact]
+    public async Task LocateAsyncPropagatesWhereRunnerCancellation()
+    {
+        var locator = new CodexLocator(
+            _ => throw new OperationCanceledException(),
+            () => Path.Combine(_rootDirectory, "codex.cmd")
+        );
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => locator.LocateAsync());
+    }
+
+    [Fact]
+    public async Task LocateAsyncReturnsNullWhenWhereFailsAndFallbackDoesNotExist()
+    {
+        var locator = new CodexLocator(
+            _ => Task.FromResult((1, string.Empty, "INFO: Could not find files")),
+            () => Path.Combine(_rootDirectory, "missing.cmd")
+        );
+
+        var path = await locator.LocateAsync();
+
+        Assert.Null(path);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_rootDirectory))
+        {
+            Directory.Delete(_rootDirectory, recursive: true);
+        }
+    }
+}

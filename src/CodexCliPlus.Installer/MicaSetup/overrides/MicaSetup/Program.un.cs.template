@@ -1,0 +1,82 @@
+using System;
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+using MicaSetup.Attributes;
+using MicaSetup.Core;
+using MicaSetup.Design.Controls;
+using MicaSetup.Extension.DependencyInjection;
+using MicaSetup.Services;
+using MicaSetup.Views;
+
+[assembly: Guid("__PRODUCT_GUID__")]
+[assembly: AssemblyTitle("CodexCliPlus 卸载程序")]
+[assembly: AssemblyProduct("CodexCliPlus")]
+[assembly: AssemblyDescription("CodexCliPlus 卸载程序")]
+[assembly: AssemblyCompany("__PUBLISHER__")]
+[assembly: AssemblyVersion("__ASSEMBLY_VERSION__")]
+[assembly: AssemblyFileVersion("__ASSEMBLY_VERSION__")]
+[assembly: RequestExecutionLevel("admin")]
+
+namespace MicaSetup;
+
+internal static class Program
+{
+    [STAThread]
+    internal static void Main()
+    {
+        Hosting.CreateBuilder()
+            .UseAsUninst()
+            .UseLogger(false)
+            .UseSingleInstance("BlackblockInc.CodexCliPlus.Uninstall")
+            .UseTempPathFork()
+            .UseElevated()
+            .UseDpiAware()
+            .UseOptions(option =>
+            {
+                option.IsCreateDesktopShortcut = true;
+                option.IsCreateUninst = true;
+                option.IsUninstLower = false;
+                option.IsCreateRegistryKeys = true;
+                option.IsCreateStartMenu = true;
+                option.IsCreateQuickLaunch = false;
+                option.IsCreateAsAutoRun = false;
+                option.IsUseRegistryPreferX86 = null!;
+                option.IsAllowFirewall = false;
+                option.IsRefreshExplorer = true;
+                option.IsInstallCertificate = false;
+                option.IsEnableUninstallDelayUntilReboot = true;
+                option.IsEnvironmentVariable = false;
+                option.AppName = "CodexCliPlus";
+                option.KeyName = "CodexCliPlus";
+                option.ExeName = "CodexCliPlus.exe";
+                option.KeepMyData = false;
+                option.DisplayName = option.AppName;
+                option.DisplayIcon = option.ExeName;
+                option.DisplayVersion = "__DISPLAY_VERSION__";
+                option.Publisher = "__PUBLISHER__";
+                option.SetupName = option.AppName + " 卸载程序";
+                option.MessageOfPage1 = "CodexCliPlus";
+                option.MessageOfPage2 = "正在卸载 CodexCliPlus";
+                option.MessageOfPage3 = "卸载完成";
+            })
+            .UseServices(service =>
+            {
+                service.AddSingleton<ITrService, TrService>();
+                service.AddScoped<IExplorerService, ExplorerService>();
+            })
+            .CreateApp()
+            .UseLocale()
+            .UseTheme(WindowsTheme.Auto)
+            .UsePages(page =>
+            {
+                page.Add(nameof(MainPage), typeof(MainPage));
+                page.Add(nameof(UninstallPage), typeof(UninstallPage));
+                page.Add(nameof(FinishPage), typeof(FinishPage));
+            })
+            .UseDispatcherUnhandledExceptionCatched()
+            .UseDomainUnhandledExceptionCatched()
+            .UseUnobservedTaskExceptionCatched()
+            .RunApp();
+    }
+}

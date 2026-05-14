@@ -1,0 +1,113 @@
+using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Text;
+
+namespace MicaSetup.Helper;
+
+public static class InstallerSelfCleanupHelper
+{
+    private const string InstallerCleanupArgument = "codexcliplus-installer-cleanup";
+    private const string TargetArgument = "codexcliplus-cleanup-target";
+    private const string ParentProcessArgument = "codexcliplus-cleanup-parent";
+
+    public static void ScheduleDelete(string installerPath, string cleanupHelperPath)
+    {
+        string targetPath = NormalizeInstallerPath(installerPath);
+        string currentExecutablePath = GetCurrentExecutablePath();
+        if (!string.Equals(targetPath, currentExecutablePath, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("[InstallerCleanup] delete target must be the running installer.");
+        }
+
+        string helperPath = NormalizeCleanupHelperPath(cleanupHelperPath, targetPath);
+        int parentProcessId = Process.GetCurrentProcess().Id;
+        string arguments = string.Join(
+            " ",
+            "--" + InstallerCleanupArgument,
+            "--" + TargetArgument + "=" + EncodeArgument(targetPath),
+            "--" + ParentProcessArgument + "=" + parentProcessId.ToString(CultureInfo.InvariantCulture)
+        );
+
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = helperPath,
+                Arguments = arguments,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                WorkingDirectory = Path.GetDirectoryName(helperPath) ?? Path.GetTempPath(),
+            },
+        };
+        process.Start();
+    }
+
+    private static string NormalizeInstallerPath(string installerPath)
+    {
+        if (string.IsNullOrWhiteSpace(installerPath))
+        {
+            throw new ArgumentException("Installer path is empty.", nameof(installerPath));
+        }
+
+        string fullPath = Path.GetFullPath(installerPath);
+        if (!string.Equals(Path.GetExtension(fullPath), ".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("[InstallerCleanup] delete target must be an executable.");
+        }
+
+        return fullPath;
+    }
+
+    private static string NormalizeCleanupHelperPath(string cleanupHelperPath, string targetPath)
+    {
+        if (string.IsNullOrWhiteSpace(cleanupHelperPath))
+        {
+            throw new ArgumentException("Cleanup helper path is empty.", nameof(cleanupHelperPath));
+        }
+
+        string fullPath = Path.GetFullPath(cleanupHelperPath);
+        if (!File.Exists(fullPath))
+        {
+            throw new FileNotFoundException("[InstallerCleanup] cleanup helper is missing.", fullPath);
+        }
+
+        if (!string.Equals(Path.GetExtension(fullPath), ".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("[InstallerCleanup] cleanup helper must be an executable.");
+        }
+
+        if (string.Equals(fullPath, targetPath, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("[InstallerCleanup] cleanup helper cannot be the installer target.");
+        }
+
+        return fullPath;
+    }
+
+    private static string GetCurrentExecutablePath()
+    {
+        try
+        {
+            using Process currentProcess = Process.GetCurrentProcess();
+            string? processPath = currentProcess.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(processPath))
+            {
+                return Path.GetFullPath(processPath);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Warning($"[InstallerCleanup] cannot resolve process executable path: {e.Message}");
+        }
+
+        return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppDomain.CurrentDomain.FriendlyName));
+    }
+
+    private static string EncodeArgument(string value)
+    {
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+    }
+}

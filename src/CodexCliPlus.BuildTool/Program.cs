@@ -382,19 +382,43 @@ public sealed class BuildContext(
 
     public string ToolsRoot => Path.Combine(Options.OutputRoot, "tools");
 
-    public string WebUiRoot =>
-        Path.Combine(Options.RepositoryRoot, "resources", "webui", "upstream");
+    public string RepositorySourceRoot => Path.Combine(Options.RepositoryRoot, "src");
 
-    public string WebUiModulesRoot =>
-        Path.Combine(Options.RepositoryRoot, "resources", "webui", "modules");
+    public string RepositoryAssetsRoot =>
+        Path.Combine(RepositorySourceRoot, "CodexCliPlus.Assets");
 
-    public string WebUiOverlayModuleRoot => Path.Combine(WebUiModulesRoot, "cpa-uv-overlay");
+    public string RepositoryIconsRoot => Path.Combine(RepositoryAssetsRoot, "icons");
+
+    public string RepositoryLicensesRoot => Path.Combine(RepositoryAssetsRoot, "licenses");
+
+    public string RepositoryLicensePath
+    {
+        get
+        {
+            var licensePath = Path.Combine(Options.RepositoryRoot, "LICENSE");
+            return File.Exists(licensePath)
+                ? licensePath
+                : Path.Combine(Options.RepositoryRoot, "LICENSE.txt");
+        }
+    }
+
+    public string MicaSetupRoot =>
+        Path.Combine(RepositorySourceRoot, "CodexCliPlus.Installer", "MicaSetup");
+
+    public string MicaSetupSourceTemplateRoot => Path.Combine(MicaSetupRoot, "source-template");
+
+    public string MicaSetupOverridesRoot => Path.Combine(MicaSetupRoot, "overrides");
+
+    public string WebUiRoot => Path.Combine(RepositorySourceRoot, "CodexCliPlus.WebUi");
+
+    public string WebUiOverlayModuleRoot =>
+        Path.Combine(RepositorySourceRoot, "CodexCliPlus.WebUiOverlay", "CpaUvOverlay");
 
     public string WebUiOverlayManifestPath => Path.Combine(WebUiOverlayModuleRoot, "module.json");
 
     public string WebUiOverlaySourceRoot => Path.Combine(WebUiOverlayModuleRoot, "source");
 
-    public string WebUiSourceRoot => Path.Combine(WebUiRoot, "source");
+    public string WebUiSourceRoot => WebUiRoot;
 
     public string WebUiSourcePackageJsonPath => Path.Combine(WebUiSourceRoot, "package.json");
 
@@ -410,20 +434,18 @@ public sealed class BuildContext(
 
     public string WebUiBuildSourceRoot => Path.Combine(WebUiBuildRoot, "source");
 
-    public string WebUiBuildDistRoot => Path.Combine(WebUiBuildRoot, "dist");
+    public string WebUiBuildDistRoot => Path.Combine(WebUiBuildSourceRoot, "dist");
 
     public string WebUiNodeModulesCacheRoot => Path.Combine(CacheRoot, "webui-node-modules");
 
     public string BackendSourceRoot =>
-        Path.Combine(Options.RepositoryRoot, "resources", "backend", "source");
+        Path.Combine(RepositorySourceRoot, "CodexCliPlus.Backend");
+
+    public string BackendRuntimeAssetsRoot =>
+        Path.Combine(BackendSourceRoot, "RuntimeAssets", "windows-x64");
 
     public string BackendSourceManifestPath =>
-        Path.Combine(
-            Options.RepositoryRoot,
-            "resources",
-            "backend",
-            "backend-source-manifest.json"
-        );
+        Path.Combine(BackendSourceRoot, "backend-source-manifest.json");
 }
 
 public sealed class BuildLogger(TextWriter standardOutput, TextWriter standardError)

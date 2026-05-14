@@ -1,0 +1,19 @@
+CodexCliPlus combined notices
+
+CodexCliPlus original desktop code is licensed under the MIT License.
+Bundled CLIProxyAPI backend files keep their upstream MIT License.
+Bundled CLI Proxy API Management Center WebUI source and static assets keep
+their upstream MIT License.
+The migrated WPF shell styling and copied UI resources derived from BetterGI
+are licensed under GPL-3.0; see BetterGI.GPL-3.0.txt in this directory.
+MahApps.Metro.IconPacks.Lucide is used for WPF shell icons under the MIT
+License. Lucide icon glyphs are provided by lucide-icons/lucide under the ISC
+License.
+Konscious.Security.Cryptography.Argon2 and its Blake2 dependency are used for
+desktop secure account package key derivation under the MIT License.
+The local usage keeper SQLite persistence logic is derived from
+Willxup/cpa-usage-keeper commit 06117c79ca254a5fe5113d05768f17c335d62596
+under the MIT License; see cpa-usage-keeper.MIT.txt in this directory.
+
+This notice is shipped with release packages so users can distinguish original
+MIT components from GPL-3.0-derived shell resources.

@@ -7,10 +7,12 @@ public sealed class WebUiAssetLocator
 {
     private const string BundledRoot = "assets\\webui";
     private const string GeneratedRoot = "artifacts\\buildtool\\assets\\webui";
-    private const string ResourceRoot = "resources\\webui";
-    private const string DistRelativePath = "upstream\\dist";
+    private const string RepositoryWebUiRoot = "src\\CodexCliPlus.WebUi";
+    private const string GeneratedDistRelativePath = "upstream\\dist";
+    private const string RepositoryDistRelativePath = "dist";
     private const string EntryFileName = "index.html";
-    private const string SyncRelativePath = "upstream\\sync.json";
+    private const string GeneratedSyncRelativePath = "upstream\\sync.json";
+    private const string RepositorySyncRelativePath = "sync.json";
 
     [SuppressMessage(
         "Performance",
@@ -39,7 +41,12 @@ public sealed class WebUiAssetLocator
 
     private static bool TryResolveFromBaseDirectory(out WebUiBundleInfo bundle)
     {
-        return TryResolve(Path.Combine(AppContext.BaseDirectory, BundledRoot), out bundle);
+        return TryResolve(
+            Path.Combine(AppContext.BaseDirectory, BundledRoot),
+            GeneratedDistRelativePath,
+            GeneratedSyncRelativePath,
+            out bundle
+        );
     }
 
     private static bool TryResolveFromGeneratedAssets(out WebUiBundleInfo bundle)
@@ -51,7 +58,12 @@ public sealed class WebUiAssetLocator
             return false;
         }
 
-        return TryResolve(Path.Combine(repositoryRoot, GeneratedRoot), out bundle);
+        return TryResolve(
+            Path.Combine(repositoryRoot, GeneratedRoot),
+            GeneratedDistRelativePath,
+            GeneratedSyncRelativePath,
+            out bundle
+        );
     }
 
     private static bool TryResolveFromRepository(out WebUiBundleInfo bundle)
@@ -63,15 +75,25 @@ public sealed class WebUiAssetLocator
             return false;
         }
 
-        return TryResolve(Path.Combine(repositoryRoot, ResourceRoot), out bundle);
+        return TryResolve(
+            Path.Combine(repositoryRoot, RepositoryWebUiRoot),
+            RepositoryDistRelativePath,
+            RepositorySyncRelativePath,
+            out bundle
+        );
     }
 
-    private static bool TryResolve(string rootPath, out WebUiBundleInfo bundle)
+    private static bool TryResolve(
+        string rootPath,
+        string distRelativePath,
+        string syncRelativePath,
+        out WebUiBundleInfo bundle
+    )
     {
         var fullRoot = Path.GetFullPath(rootPath);
-        var distDirectory = Path.Combine(fullRoot, DistRelativePath);
+        var distDirectory = Path.Combine(fullRoot, distRelativePath);
         var entryPath = Path.Combine(distDirectory, EntryFileName);
-        var metadataPath = Path.Combine(fullRoot, SyncRelativePath);
+        var metadataPath = Path.Combine(fullRoot, syncRelativePath);
 
         if (
             !Directory.Exists(distDirectory)

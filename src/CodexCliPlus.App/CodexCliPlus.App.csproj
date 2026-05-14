@@ -19,15 +19,15 @@
 
   <ItemGroup>
     <Resource
-      Include="..\..\resources\icons\*.png"
+      Include="..\CodexCliPlus.Assets\icons\*.png"
       Link="Resources\Icons\%(Filename)%(Extension)"
     />
     <Resource
-      Include="..\..\resources\icons\*.ico"
+      Include="..\CodexCliPlus.Assets\icons\*.ico"
       Link="Resources\Icons\%(Filename)%(Extension)"
     />
     <Resource
-      Include="..\..\resources\fonts\*.ttf"
+      Include="..\CodexCliPlus.Assets\fonts\*.ttf"
       Link="Resources\Fonts\%(Filename)%(Extension)"
     />
     <None
@@ -43,28 +43,28 @@
       Condition="!Exists('..\..\LICENSE') And Exists('..\..\LICENSE.txt')"
     />
     <None
-      Include="..\..\resources\backend\windows-x64\LICENSE"
+      Include="..\CodexCliPlus.Backend\RuntimeAssets\windows-x64\LICENSE"
       Link="Licenses\CLIProxyAPI.LICENSE.txt"
       CopyToOutputDirectory="PreserveNewest"
-      Condition="Exists('..\..\resources\backend\windows-x64\LICENSE')"
+      Condition="Exists('..\CodexCliPlus.Backend\RuntimeAssets\windows-x64\LICENSE')"
     />
     <None
-      Include="..\..\resources\webui\upstream\source\LICENSE"
+      Include="..\CodexCliPlus.WebUi\LICENSE"
       Link="Licenses\CliProxyApiManagementCenter.LICENSE.txt"
       CopyToOutputDirectory="PreserveNewest"
     />
     <None
-      Include="..\..\resources\licenses\BetterGI.GPL-3.0.txt"
+      Include="..\CodexCliPlus.Assets\licenses\BetterGI.GPL-3.0.txt"
       Link="Licenses\BetterGI.GPL-3.0.txt"
       CopyToOutputDirectory="PreserveNewest"
     />
     <None
-      Include="..\..\resources\licenses\cpa-usage-keeper.MIT.txt"
+      Include="..\CodexCliPlus.Assets\licenses\cpa-usage-keeper.MIT.txt"
       Link="Licenses\cpa-usage-keeper.MIT.txt"
       CopyToOutputDirectory="PreserveNewest"
     />
     <None
-      Include="..\..\resources\licenses\NOTICE.txt"
+      Include="..\CodexCliPlus.Assets\licenses\NOTICE.txt"
       Link="Licenses\NOTICE.txt"
       CopyToOutputDirectory="PreserveNewest"
     />
@@ -78,7 +78,7 @@
     <AssemblyName>CodexCliPlus</AssemblyName>
     <RootNamespace>CodexCliPlus</RootNamespace>
     <Product>CodexCliPlus</Product>
-    <ApplicationIcon>..\..\resources\icons\codexcliplus.ico</ApplicationIcon>
+    <ApplicationIcon>..\CodexCliPlus.Assets\icons\codexcliplus.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>

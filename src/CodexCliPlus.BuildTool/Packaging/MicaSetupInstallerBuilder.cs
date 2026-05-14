@@ -111,12 +111,7 @@ public static class MicaSetupInstallerBuilder
     {
         var stageRoot = Path.GetDirectoryName(micaConfigPath)!;
         var distRoot = Path.Combine(stageRoot, ".dist");
-        var sourceTemplateRoot = Path.Combine(
-            context.Options.RepositoryRoot,
-            "build",
-            "micasetup",
-            "source-template"
-        );
+        var sourceTemplateRoot = context.MicaSetupSourceTemplateRoot;
         if (!Directory.Exists(sourceTemplateRoot))
         {
             context.Logger.Error($"MicaSetup source template missing: {sourceTemplateRoot}");
@@ -368,21 +363,12 @@ public static class MicaSetupInstallerBuilder
         hasher.AddText("online-payload-url", onlinePayload?.Url ?? string.Empty);
         await hasher.AddDirectoryAsync(
             "source-template",
-            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "source-template"),
+            context.MicaSetupSourceTemplateRoot,
             ["bin", "obj"]
         );
-        await hasher.AddDirectoryAsync(
-            "overrides",
-            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "overrides")
-        );
-        await hasher.AddDirectoryAsync(
-            "icons",
-            Path.Combine(context.Options.RepositoryRoot, "resources", "icons")
-        );
-        await hasher.AddDirectoryAsync(
-            "licenses",
-            Path.Combine(context.Options.RepositoryRoot, "resources", "licenses")
-        );
+        await hasher.AddDirectoryAsync("overrides", context.MicaSetupOverridesRoot);
+        await hasher.AddDirectoryAsync("icons", context.RepositoryIconsRoot);
+        await hasher.AddDirectoryAsync("licenses", context.RepositoryLicensesRoot);
         return hasher.Finish();
     }
 
@@ -394,13 +380,7 @@ public static class MicaSetupInstallerBuilder
         OnlineInstallerPayload? onlinePayload
     )
     {
-        var overlayRoot = Path.Combine(
-            context.Options.RepositoryRoot,
-            "build",
-            "micasetup",
-            "overrides",
-            "MicaSetup"
-        );
+        var overlayRoot = Path.Combine(context.MicaSetupOverridesRoot, "MicaSetup");
         if (!Directory.Exists(overlayRoot))
         {
             throw new DirectoryNotFoundException(overlayRoot);
@@ -437,12 +417,7 @@ public static class MicaSetupInstallerBuilder
         OnlineInstallerPayload? onlinePayload
     )
     {
-        var noticePath = Path.Combine(
-            context.Options.RepositoryRoot,
-            "resources",
-            "licenses",
-            "NOTICE.txt"
-        );
+        var noticePath = Path.Combine(context.RepositoryLicensesRoot, "NOTICE.txt");
 
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -504,20 +479,19 @@ public static class MicaSetupInstallerBuilder
 
     private static void CopyLicenseDocuments(BuildContext context, string targetDirectory)
     {
-        var repositoryRoot = context.Options.RepositoryRoot;
         var documents = new (string Source, string Target)[]
         {
-            (Path.Combine(repositoryRoot, "LICENSE.txt"), "CodexCliPlus.LICENSE.txt"),
+            (context.RepositoryLicensePath, "CodexCliPlus.LICENSE.txt"),
             (
                 Path.Combine(context.AssetsRoot, "backend", "windows-x64", "LICENSE"),
                 "CLIProxyAPI.LICENSE.txt"
             ),
             (
-                Path.Combine(repositoryRoot, "resources", "licenses", "BetterGI.GPL-3.0.txt"),
+                Path.Combine(context.RepositoryLicensesRoot, "BetterGI.GPL-3.0.txt"),
                 "BetterGI.GPL-3.0.txt"
             ),
-            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "NOTICE.txt"),
-            (Path.Combine(repositoryRoot, "resources", "licenses", "NOTICE.txt"), "license.txt"),
+            (Path.Combine(context.RepositoryLicensesRoot, "NOTICE.txt"), "NOTICE.txt"),
+            (Path.Combine(context.RepositoryLicensesRoot, "NOTICE.txt"), "license.txt"),
         };
 
         foreach (var (source, target) in documents)
@@ -534,14 +508,8 @@ public static class MicaSetupInstallerBuilder
 
     private static void CopyInstallerImages(BuildContext context, string targetDirectory)
     {
-        var repositoryRoot = context.Options.RepositoryRoot;
-        var displayPngPath = Path.Combine(
-            repositoryRoot,
-            "resources",
-            "icons",
-            "codexcliplus-display.png"
-        );
-        var iconPath = Path.Combine(repositoryRoot, "resources", "icons", "codexcliplus.ico");
+        var displayPngPath = Path.Combine(context.RepositoryIconsRoot, "codexcliplus-display.png");
+        var iconPath = Path.Combine(context.RepositoryIconsRoot, "codexcliplus.ico");
         Directory.CreateDirectory(targetDirectory);
 
         if (File.Exists(displayPngPath))

@@ -86,7 +86,7 @@ public sealed class BackendAssetService
         {
             if (await IsExecutableVersionCurrentAsync(executablePath, cancellationToken))
             {
-                _logger.Info("Copied backend files from repository resources.");
+                _logger.Info("Copied backend files from repository assets.");
                 CleanupLegacyManagedExecutable(workingDirectory);
                 return CreateLayout(workingDirectory, executablePath);
             }
@@ -100,7 +100,7 @@ public sealed class BackendAssetService
         {
             throw new InvalidOperationException(
                 "Patched CLIProxyAPI backend assets are unavailable from the application bundle "
-                    + "or repository resources, and remote archive fallback is disabled for this "
+                    + "or repository assets, and remote archive fallback is disabled for this "
                     + "build because the upstream archive has known vulnerable dependencies."
             );
         }
@@ -515,8 +515,9 @@ public sealed class BackendAssetService
     {
         yield return Path.Combine(
             repositoryRoot,
-            AppConstants.ResourcesDirectoryName,
-            "backend",
+            "src",
+            "CodexCliPlus.Backend",
+            "RuntimeAssets",
             "windows-x64"
         );
         yield return Path.Combine(

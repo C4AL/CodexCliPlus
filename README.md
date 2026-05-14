@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/C4AL/CodexCliPlus/main/resources/icons/ico-transparent.png" alt="CodexCliPlus" width="160" />
+  <img src="https://raw.githubusercontent.com/C4AL/CodexCliPlus/main/src/CodexCliPlus.Assets/icons/ico-transparent.png" alt="CodexCliPlus" width="160" />
 </p>
 
 <h1 align="center">CodexCliPlus</h1>
@@ -70,11 +70,10 @@
 git clone https://github.com/C4AL/CodexCliPlus.git
 cd CodexCliPlus
 
-dotnet tool restore
 dotnet restore CodexCliPlus.sln
 dotnet run --project ./src/CodexCliPlus.BuildTool/CodexCliPlus.BuildTool.csproj -- fetch-assets
 dotnet build CodexCliPlus.sln --configuration Release
-dotnet test ./tests/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release
+dotnet test ./src/CodexCliPlus.Tests/CodexCliPlus.Tests.csproj --configuration Release
 ```
 
 ### 3. 启动桌面宿主
@@ -86,7 +85,7 @@ dotnet run --project ./src/CodexCliPlus.App/CodexCliPlus.App.csproj
 ### 4. 验证 WebUI
 
 ```powershell
-Push-Location ./resources/webui/upstream/source
+Push-Location ./src/CodexCliPlus.WebUi
 npm ci
 npm run lint
 npm run type-check

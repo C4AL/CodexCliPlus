@@ -488,10 +488,26 @@ public sealed class DependencyHealthService
             return null;
         }
 
+        var generatedAssets = Path.Combine(
+            repositoryRoot,
+            "artifacts",
+            "buildtool",
+            "assets",
+            "backend",
+            "windows-x64"
+        );
+        if (
+            File.Exists(Path.Combine(generatedAssets, BackendExecutableNames.ManagedExecutableFileName))
+        )
+        {
+            return generatedAssets;
+        }
+
         var repositoryAssets = Path.Combine(
             repositoryRoot,
-            AppConstants.ResourcesDirectoryName,
-            "backend",
+            "src",
+            "CodexCliPlus.Backend",
+            "RuntimeAssets",
             "windows-x64"
         );
         return File.Exists(

@@ -524,25 +524,16 @@ public static class PackageCommands
         await hasher.AddDirectoryAsync("publish", context.PublishRoot);
         await hasher.AddDirectoryAsync(
             "micasetup-source",
-            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "source-template"),
+            context.MicaSetupSourceTemplateRoot,
             ["bin", "obj"]
         );
         await hasher.AddDirectoryAsync(
             "micasetup-overrides",
-            Path.Combine(context.Options.RepositoryRoot, "build", "micasetup", "overrides")
+            context.MicaSetupOverridesRoot
         );
-        await hasher.AddDirectoryAsync(
-            "icons",
-            Path.Combine(context.Options.RepositoryRoot, "resources", "icons")
-        );
-        await hasher.AddDirectoryAsync(
-            "licenses",
-            Path.Combine(context.Options.RepositoryRoot, "resources", "licenses")
-        );
-        await hasher.AddFileAsync(
-            "root-license",
-            Path.Combine(context.Options.RepositoryRoot, "LICENSE.txt")
-        );
+        await hasher.AddDirectoryAsync("icons", context.RepositoryIconsRoot);
+        await hasher.AddDirectoryAsync("licenses", context.RepositoryLicensesRoot);
+        await hasher.AddFileAsync("root-license", context.RepositoryLicensePath);
 
         if (packageKind == InstallerPackageKind.Offline)
         {

@@ -181,13 +181,7 @@ public static class AssetCommands
             )
         )
         {
-            var fallbackPath = Path.Combine(
-                context.Options.RepositoryRoot,
-                "resources",
-                "backend",
-                "windows-x64",
-                file.TargetFileName
-            );
+            var fallbackPath = Path.Combine(context.BackendRuntimeAssetsRoot, file.TargetFileName);
             if (File.Exists(fallbackPath))
             {
                 context.Logger.Warning(

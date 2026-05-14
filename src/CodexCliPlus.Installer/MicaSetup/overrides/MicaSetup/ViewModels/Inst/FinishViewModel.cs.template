@@ -1,0 +1,171 @@
+using MicaSetup.Design.Commands;
+using MicaSetup.Design.ComponentModel;
+using MicaSetup.Helper;
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Input;
+
+namespace MicaSetup.ViewModels;
+
+public partial class FinishViewModel : ObservableObject
+{
+    private bool cleanupInstallerAfterInstall = true;
+    private bool installerDeleteScheduled;
+
+    public string Message => Option.Current.MessageOfPage3;
+
+    public bool CleanupInstallerAfterInstall
+    {
+        get => cleanupInstallerAfterInstall;
+        set => SetProperty(ref cleanupInstallerAfterInstall, value);
+    }
+
+    public FinishViewModel()
+    {
+        if (ApplicationDispatcherHelper.MainWindow is Window window)
+        {
+            window.Closing += OnMainWindowClosing;
+        }
+    }
+
+    [RelayCommand]
+    public void Close()
+    {
+        if (ApplicationDispatcherHelper.MainWindow is Window window)
+        {
+            CleanupOriginalInstallerAfterInstall();
+            SystemCommands.CloseWindow(window);
+        }
+    }
+
+    [RelayCommand]
+    public void Open()
+    {
+        if (ApplicationDispatcherHelper.MainWindow is Window window)
+        {
+            try
+            {
+                FluentProcess.Create()
+                    .FileName(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName))
+                    .WorkingDirectory(Option.Current.InstallLocation)
+                    .UseShellExecute()
+                    .Start()
+                    .Forget();
+            }
+            catch (Exception e)
+            {
+                Logger.Error(e);
+            }
+
+            CleanupOriginalInstallerAfterInstall();
+            SystemCommands.CloseWindow(window);
+        }
+    }
+
+    private void CleanupOriginalInstallerAfterInstall()
+    {
+        UpdateFocusedElementBindings();
+
+        if (!CleanupInstallerAfterInstall || installerDeleteScheduled)
+        {
+            return;
+        }
+
+        try
+        {
+            string currentFullPath = GetCurrentExecutablePath();
+            if (string.IsNullOrWhiteSpace(currentFullPath) || !File.Exists(currentFullPath))
+            {
+                Logger.Information($"[InstallerCleanup] current installer missing: {currentFullPath}");
+                return;
+            }
+
+            if (!string.Equals(Path.GetExtension(currentFullPath), ".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                Logger.Warning($"[InstallerCleanup] current installer is not an exe: {currentFullPath}");
+                return;
+            }
+
+            string installedExecutablePath = Path.GetFullPath(Path.Combine(Option.Current.InstallLocation, Option.Current.ExeName));
+            if (string.Equals(currentFullPath, installedExecutablePath, StringComparison.OrdinalIgnoreCase))
+            {
+                Logger.Warning("[InstallerCleanup] current path is the installed application; skip delete.");
+                return;
+            }
+
+            InstallerSelfCleanupHelper.ScheduleDelete(currentFullPath, installedExecutablePath);
+            installerDeleteScheduled = true;
+            Logger.Information($"[InstallerCleanup] scheduled installer delete: {currentFullPath}");
+        }
+        catch (Exception e)
+        {
+            Logger.Error("[InstallerCleanup] failed to schedule installer delete:", e);
+        }
+    }
+
+    private void OnMainWindowClosing(object? sender, CancelEventArgs e)
+    {
+        CleanupOriginalInstallerAfterInstall();
+
+        if (sender is Window window)
+        {
+            window.Closing -= OnMainWindowClosing;
+        }
+    }
+
+    private static string GetCurrentExecutablePath()
+    {
+        try
+        {
+            using Process currentProcess = Process.GetCurrentProcess();
+            string? processPath = currentProcess.MainModule?.FileName;
+            if (!string.IsNullOrWhiteSpace(processPath))
+            {
+                return Path.GetFullPath(processPath);
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Warning($"[InstallerCleanup] cannot resolve process executable path: {e.Message}");
+        }
+
+        return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppDomain.CurrentDomain.FriendlyName));
+    }
+
+    private static void UpdateFocusedElementBindings()
+    {
+        try
+        {
+            if (Keyboard.FocusedElement is not DependencyObject focusedElement)
+            {
+                return;
+            }
+
+            LocalValueEnumerator localValues = focusedElement.GetLocalValueEnumerator();
+            while (localValues.MoveNext())
+            {
+                if (localValues.Current.Value is BindingExpressionBase bindingExpression)
+                {
+                    bindingExpression.UpdateSource();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Warning($"[InstallerCleanup] failed to refresh focused bindings: {e.Message}");
+        }
+    }
+}
+
+partial class FinishViewModel
+{
+    private RelayCommand? closeCommand;
+    public IRelayCommand CloseCommand => closeCommand ??= new RelayCommand(Close);
+
+    private RelayCommand? openCommand;
+    public IRelayCommand OpenCommand => openCommand ??= new RelayCommand(Open);
+}

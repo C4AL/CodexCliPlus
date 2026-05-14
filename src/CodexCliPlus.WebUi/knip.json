@@ -1,0 +1,14 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": [
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "msw",
+    "vitest-browser-react"
+  ],
+  "rules": {
+    "duplicates": "off",
+    "exports": "off",
+    "types": "off"
+  }
+}

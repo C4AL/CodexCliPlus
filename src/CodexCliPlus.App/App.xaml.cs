@@ -29,6 +29,12 @@ public partial class App : System.Windows.Application, IDisposable
     {
         base.OnStartup(e);
 
+        if (InstallerCleanupMode.TryRun(e.Args, out var installerCleanupExitCode))
+        {
+            Shutdown(installerCleanupExitCode);
+            return;
+        }
+
         var services = new ServiceCollection();
         services.AddCpadInfrastructure();
         services.AddSingleton<IBuildInfo, BuildInfo>();

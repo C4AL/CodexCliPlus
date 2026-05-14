@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.LocalEnvironment;
 using CodexCliPlus.Core.Abstractions.Logging;
@@ -17,6 +19,10 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
+    };
+    private static readonly JsonSerializerOptions BundleJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true,
     };
 
     private const string NodeReleaseIndexJson =
@@ -38,6 +44,16 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.True(
             LocalDependencyRepairActionIds.IsKnown(
                 LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex
+            )
+        );
+        Assert.True(
+            LocalDependencyRepairActionIds.IsKnown(
+                LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex
+            )
+        );
+        Assert.True(
+            LocalDependencyRepairActionIds.IsKnown(
+                LocalDependencyRepairActionIds.UpgradeBundledEnvInstallLatestCodex
             )
         );
     }
@@ -227,6 +243,180 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.True(progress!.IsCompleted);
         Assert.Equal("completed", progress.Phase);
         Assert.Equal(LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex, progress.ActionId);
+    }
+
+    [Fact]
+    public async Task RequiredEnvironmentRepairReturnsNetworkFallbackWhenNodeIndexFails()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(1, "", "node not found"),
+            new LocalEnvironmentProcessResult(1, "", "npm not found")
+        );
+        var service = CreateService(
+            processRunner,
+            downloadStringAsync: (_, _) =>
+                throw new HttpRequestException("DNS failed for nodejs.org")
+        );
+        var statusPath = Path.Combine(_rootDirectory, "runtime", "status.json");
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            statusPath
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("network", result.FailureKind);
+        Assert.Equal(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            result.RecommendedFallbackActionId
+        );
+        var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
+            File.ReadAllText(statusPath),
+            JsonOptions
+        );
+        Assert.Equal("network", progress?.FailureKind);
+        Assert.Equal(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            progress?.RecommendedFallbackActionId
+        );
+    }
+
+    [Fact]
+    public async Task RequiredEnvironmentRepairReturnsNetworkFallbackWhenNpmRegistryFails()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(0, "10.9.0", ""),
+            new LocalEnvironmentProcessResult(
+                1,
+                "",
+                "npm ERR! code ENOTFOUND\nnpm ERR! request to https://registry.npmjs.org/@openai%2fcodex failed"
+            )
+        );
+        var service = CreateService(processRunner);
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("network", result.FailureKind);
+        Assert.Equal(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            result.RecommendedFallbackActionId
+        );
+    }
+
+    [Fact]
+    public async Task RequiredEnvironmentRepairDoesNotOfferOfflineFallbackForMsiFailure()
+    {
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(1, "", "node not found"),
+            new LocalEnvironmentProcessResult(1, "", "npm not found"),
+            new LocalEnvironmentProcessResult(1603, "", "msiexec failed")
+        );
+        var service = CreateService(processRunner);
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.FailureKind);
+        Assert.Null(result.RecommendedFallbackActionId);
+    }
+
+    [Fact]
+    public async Task BundledEnvironmentRepairFailsWithoutManifestAndDoesNotWriteUpgradeMarker()
+    {
+        var assetRoot = Path.Combine(_rootDirectory, "missing-local-environment-assets");
+        var offlinePackageService = CreateOfflinePackageService(assetRoot);
+        var service = CreateService(
+            new RecordingProcessRunner(),
+            offlinePackageService: offlinePackageService
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.False(File.Exists(offlinePackageService.PendingUpgradePath));
+    }
+
+    [Fact]
+    public async Task BundledEnvironmentRepairFailsOnNodeShaMismatchAndDoesNotWriteUpgradeMarker()
+    {
+        var assetRoot = CreateBundledLocalEnvironmentAssets(nodeSha256Override: new string('0', 64));
+        var offlinePackageService = CreateOfflinePackageService(assetRoot);
+        var service = CreateService(
+            new RecordingProcessRunner(),
+            offlinePackageService: offlinePackageService
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("SHA256", result.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(offlinePackageService.PendingUpgradePath));
+    }
+
+    [Fact]
+    public async Task BundledEnvironmentRepairInstallsOfflineCodexAndWritesSingleUpgradeMarker()
+    {
+        var assetRoot = CreateBundledLocalEnvironmentAssets();
+        var offlinePackageService = CreateOfflinePackageService(assetRoot);
+        var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(1, "", "node not found"),
+            new LocalEnvironmentProcessResult(1, "", "npm not found"),
+            new LocalEnvironmentProcessResult(0, "node installed", ""),
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(0, "10.9.0", ""),
+            new LocalEnvironmentProcessResult(0, "codex installed from cache", ""),
+            new LocalEnvironmentProcessResult(0, "codex 0.1.2", "")
+        );
+        var service = CreateService(
+            processRunner,
+            directoryExists: path => path.Contains("nodejs", StringComparison.OrdinalIgnoreCase),
+            createDirectory: _ => { },
+            userPathReader: _ => string.Empty,
+            userPathWriter: _ => { },
+            processPathRefresher: () => { },
+            offlinePackageService: offlinePackageService
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(
+            processRunner.Commands,
+            command =>
+                command.FileName == "cmd.exe"
+                && command.Arguments.Contains("--offline", StringComparison.Ordinal)
+                && command.Arguments.Contains("@openai/codex@0.1.2", StringComparison.Ordinal)
+        );
+        Assert.True(File.Exists(offlinePackageService.PendingUpgradePath));
+        var marker = JsonSerializer.Deserialize<LocalEnvironmentOfflineUpgradeState>(
+            await File.ReadAllTextAsync(offlinePackageService.PendingUpgradePath),
+            JsonOptions
+        );
+        Assert.Equal("v22.12.0", marker?.OfflineNodeVersion);
+        Assert.Equal("0.1.2", marker?.OfflineCodexVersion);
+        Assert.Single(
+            Directory.GetFiles(
+                Path.GetDirectoryName(offlinePackageService.PendingUpgradePath)!,
+                LocalEnvironmentOfflinePackageService.PendingUpgradeFileName
+            )
+        );
     }
 
     [Fact]
@@ -1155,7 +1345,8 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         TimeSpan? repairProgressHeartbeatInterval = null,
         Func<Uri, CancellationToken, Task<string>>? downloadStringAsync = null,
         Func<Uri, string, CancellationToken, Task>? downloadFileAsync = null,
-        Func<Architecture>? osArchitectureProvider = null
+        Func<Architecture>? osArchitectureProvider = null,
+        LocalEnvironmentOfflinePackageService? offlinePackageService = null
     )
     {
         return new LocalDependencyRepairService(
@@ -1176,7 +1367,8 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
             repairProgressHeartbeatInterval: repairProgressHeartbeatInterval,
             downloadStringAsync: downloadStringAsync ?? ((_, _) => Task.FromResult(NodeReleaseIndexJson)),
             downloadFileAsync: downloadFileAsync ?? WriteFakeNodeInstallerAsync,
-            osArchitectureProvider: osArchitectureProvider ?? (() => Architecture.X64)
+            osArchitectureProvider: osArchitectureProvider ?? (() => Architecture.X64),
+            offlinePackageService: offlinePackageService
         );
     }
 
@@ -1298,6 +1490,58 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
             }
         }
         catch { }
+    }
+
+    private LocalEnvironmentOfflinePackageService CreateOfflinePackageService(string assetRoot)
+    {
+        return new LocalEnvironmentOfflinePackageService(
+            new TestPathService(_rootDirectory),
+            new TestLogger(_rootDirectory),
+            assetRootResolver: () => assetRoot
+        );
+    }
+
+    private string CreateBundledLocalEnvironmentAssets(string? nodeSha256Override = null)
+    {
+        var assetRoot = Path.Combine(_rootDirectory, "bundled-local-environment");
+        var nodeRoot = Path.Combine(assetRoot, "node");
+        var cacheRoot = Path.Combine(assetRoot, "npm-cache", "_cacache", "content-v2", "sha512");
+        Directory.CreateDirectory(nodeRoot);
+        Directory.CreateDirectory(cacheRoot);
+
+        var nodePath = Path.Combine(nodeRoot, "node-v22.12.0-x64.msi");
+        File.WriteAllText(nodePath, "fake bundled node msi");
+        File.WriteAllText(Path.Combine(cacheRoot, "cache-entry"), "fake codex tarball");
+
+        var manifest = new LocalEnvironmentBundleManifest
+        {
+            Schema = 1,
+            Runtime = "win-x64",
+            GeneratedAt = DateTimeOffset.UtcNow,
+            Node = new LocalEnvironmentBundleNodeManifest
+            {
+                Version = "v22.12.0",
+                Architecture = "x64",
+                FileName = "node/node-v22.12.0-x64.msi",
+                Sha256 = nodeSha256Override ?? ComputeSha256(nodePath),
+            },
+            Codex = new LocalEnvironmentBundleCodexManifest
+            {
+                Version = "0.1.2",
+                NpmCachePath = "npm-cache",
+            },
+        };
+        File.WriteAllText(
+            Path.Combine(assetRoot, "manifest.json"),
+            JsonSerializer.Serialize(manifest, BundleJsonOptions)
+        );
+        return assetRoot;
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexStringLower(SHA256.HashData(stream));
     }
 
     private sealed class RecordingProcessRunner : ILocalEnvironmentProcessRunner

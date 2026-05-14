@@ -24,6 +24,13 @@ public sealed class ShellNotificationService
         string title,
         string message,
         ShellNotificationLevel? level = null
+    ) => ShowManual(title, message, level, actions: null);
+
+    public void ShowManual(
+        string title,
+        string message,
+        ShellNotificationLevel? level,
+        IReadOnlyList<ShellNotificationAction>? actions
     )
     {
         NotificationRequested?.Invoke(
@@ -32,7 +39,8 @@ public sealed class ShellNotificationService
                 ShellNotificationPlacement.BottomRightManual,
                 title,
                 message,
-                level ?? ResolveManualLevel(title)
+                level ?? ResolveManualLevel(title),
+                actions
             )
         );
     }

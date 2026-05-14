@@ -65,13 +65,18 @@ public partial class MainWindow
                 return;
             }
 
-            ShowManualNotification(request.Title, request.Message, request.Level);
+            ShowManualNotification(
+                request.Title,
+                request.Message,
+                request.Level,
+                request.Actions ?? []
+            );
         });
     }
 
     private void ShowAutoNotification(string message, ShellNotificationLevel level)
     {
-        var card = CreateNotificationCard(message, null, false, level);
+        var card = CreateNotificationCard(message, null, false, level, []);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(0, 18);
         EnforceShellNotificationCapacity(AutoNotificationStack);
@@ -103,9 +108,14 @@ public partial class MainWindow
         }
     }
 
-    private void ShowManualNotification(string title, string message, ShellNotificationLevel level)
+    private void ShowManualNotification(
+        string title,
+        string message,
+        ShellNotificationLevel level,
+        IReadOnlyList<ShellNotificationAction> actions
+    )
     {
-        var card = CreateNotificationCard(message, title, true, level);
+        var card = CreateNotificationCard(message, title, true, level, actions);
         card.Opacity = 0;
         card.RenderTransform = new TranslateTransform(18, 0);
         EnforceShellNotificationCapacity(ManualNotificationStack);
@@ -150,7 +160,8 @@ public partial class MainWindow
         string message,
         string? title,
         bool showCloseButton,
-        ShellNotificationLevel level
+        ShellNotificationLevel level,
+        IReadOnlyList<ShellNotificationAction> actions
     )
     {
         var accent = ResolveNotificationAccent(level, title, showCloseButton);
@@ -227,6 +238,21 @@ public partial class MainWindow
         );
         System.Windows.Automation.AutomationProperties.SetName(messageText, message);
         textStack.Children.Add(messageText);
+        if (actions.Count > 0)
+        {
+            var actionPanel = new StackPanel
+            {
+                Orientation = System.Windows.Controls.Orientation.Horizontal,
+                Margin = new Thickness(0, 10, 0, 0),
+            };
+            foreach (var action in actions)
+            {
+                var actionButton = CreateNotificationActionButton(action);
+                actionPanel.Children.Add(actionButton);
+            }
+
+            textStack.Children.Add(actionPanel);
+        }
         contentGrid.Children.Add(textStack);
 
         if (showCloseButton)
@@ -299,6 +325,25 @@ public partial class MainWindow
         }
 
         return card;
+    }
+
+    private static WpfButton CreateNotificationActionButton(ShellNotificationAction action)
+    {
+        var button = new WpfButton
+        {
+            Content = action.Text,
+            MinWidth = 78,
+            Height = 30,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        System.Windows.Automation.AutomationProperties.SetAutomationId(
+            button,
+            $"ManualNotificationAction_{action.Id}"
+        );
+        System.Windows.Automation.AutomationProperties.SetName(button, action.Text);
+        button.Click += (_, _) => action.Invoke();
+        return button;
     }
 
     private static void UpdateNotificationCardClip(Border card)

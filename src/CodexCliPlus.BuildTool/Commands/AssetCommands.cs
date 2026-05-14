@@ -38,6 +38,7 @@ public static class AssetCommands
         var backendTarget = Path.Combine(context.AssetsRoot, "backend", "windows-x64");
 
         await BuildBackendFromRepositorySourceAsync(context, backendTarget);
+        await LocalEnvironmentAssetCommands.BuildAsync(context);
 
         var manifest = await BuildAssetManifest.CreateAsync(
             context.Options.Version,

@@ -104,6 +104,11 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         Assert.True(
             File.Exists(
+                Path.Combine(stageRoot, "app-package", "assets", "local-environment", "manifest.json")
+            )
+        );
+        Assert.True(
+            File.Exists(
                 Path.Combine(
                     stageRoot,
                     "app-package",
@@ -766,6 +771,7 @@ public sealed class InstallerPackagingTests : IDisposable
                     $"payload/assets/backend/windows-x64/{BackendExecutableNames.ManagedExecutableFileName}"
                 )
             );
+            Assert.NotNull(archive.GetEntry("payload/assets/local-environment/manifest.json"));
             Assert.Null(
                 archive.GetEntry(
                     $"payload/assets/backend/windows-x64/{BackendExecutableNames.UpstreamExecutableFileName}"
@@ -980,6 +986,35 @@ public sealed class InstallerPackagingTests : IDisposable
         );
         File.WriteAllText(
             Path.Combine(publishRoot, "assets", "webui", "upstream", "sync.json"),
+            "{}"
+        );
+        Directory.CreateDirectory(Path.Combine(publishRoot, "assets", "local-environment", "node"));
+        Directory.CreateDirectory(
+            Path.Combine(
+                publishRoot,
+                "assets",
+                "local-environment",
+                "npm-cache",
+                "_cacache"
+            )
+        );
+        File.WriteAllText(
+            Path.Combine(publishRoot, "assets", "local-environment", "node", "node-v0.0.0-x64.msi"),
+            "node"
+        );
+        File.WriteAllText(
+            Path.Combine(
+                publishRoot,
+                "assets",
+                "local-environment",
+                "npm-cache",
+                "_cacache",
+                "cache-entry"
+            ),
+            "cache"
+        );
+        File.WriteAllText(
+            Path.Combine(publishRoot, "assets", "local-environment", "manifest.json"),
             "{}"
         );
     }

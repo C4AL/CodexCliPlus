@@ -46,6 +46,7 @@ public sealed class LocalDependencyRepairService
     private readonly Func<bool> _currentProcessAdministratorChecker;
     private readonly TimeSpan _elevationAuthorizationTimeout;
     private readonly TimeSpan _repairProcessFirstProgressTimeout;
+    private readonly LocalEnvironmentOfflinePackageService _offlinePackageService;
     private readonly LocalDependencyRepairCommandExecutor _commandExecutor;
 
     public LocalDependencyRepairService(
@@ -66,7 +67,8 @@ public sealed class LocalDependencyRepairService
         TimeSpan? repairProgressHeartbeatInterval = null,
         Func<Uri, CancellationToken, Task<string>>? downloadStringAsync = null,
         Func<Uri, string, CancellationToken, Task>? downloadFileAsync = null,
-        Func<Architecture>? osArchitectureProvider = null
+        Func<Architecture>? osArchitectureProvider = null,
+        LocalEnvironmentOfflinePackageService? offlinePackageService = null
     )
     {
         _pathService = pathService;
@@ -103,6 +105,8 @@ public sealed class LocalDependencyRepairService
             && firstProgressTimeout > TimeSpan.Zero
                 ? firstProgressTimeout
                 : TimeSpan.FromSeconds(5);
+        _offlinePackageService =
+            offlinePackageService ?? new LocalEnvironmentOfflinePackageService(_pathService, _logger);
         _commandExecutor = new LocalDependencyRepairCommandExecutor(
             _pathService,
             _logger,
@@ -116,7 +120,8 @@ public sealed class LocalDependencyRepairService
             repairProgressHeartbeatInterval,
             downloadStringAsync,
             downloadFileAsync,
-            osArchitectureProvider
+            osArchitectureProvider,
+            _offlinePackageService
         );
     }
 
@@ -939,6 +944,8 @@ public sealed class LocalDependencyRepairService
                 ? progress.Message
                 : progress.Summary,
             Detail = progress.Detail,
+            FailureKind = progress.FailureKind,
+            RecommendedFallbackActionId = progress.RecommendedFallbackActionId,
             LogPath = progress.LogPath,
         };
     }

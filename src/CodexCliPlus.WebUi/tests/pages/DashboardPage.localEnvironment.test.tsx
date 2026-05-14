@@ -467,6 +467,108 @@ describe('DashboardPage local environment loading', () => {
     });
   });
 
+  it('offers bundled offline fallback after required repair network failure', async () => {
+    bridgeMocks.runLocalDependencyRepair
+      .mockResolvedValueOnce({
+        result: {
+          actionId: 'repair-required-env-install-latest-codex',
+          succeeded: false,
+          exitCode: null,
+          summary: '解析 Node.js LTS 安装包失败。',
+          detail: 'DNS failed',
+          failureKind: 'network',
+          recommendedFallbackActionId: 'repair-required-env-install-bundled-codex',
+          logPath: 'C:\\logs\\local-environment-repair.log',
+        },
+        snapshot,
+      })
+      .mockResolvedValueOnce({
+        result: {
+          actionId: 'repair-required-env-install-bundled-codex',
+          succeeded: true,
+          exitCode: 0,
+          summary: '已使用内置离线包临时安装本地环境。',
+          detail: '之后会提示升级。',
+          logPath: 'C:\\logs\\local-environment-repair.log',
+        },
+        snapshot: repairedSnapshot,
+      });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repair',
+      })
+    );
+
+    const firstConfirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      firstConfirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(storeState.notifications.showConfirmation).toHaveBeenCalledTimes(2);
+    });
+    const fallbackConfirmation = storeState.notifications.showConfirmation.mock.calls[1][0];
+    expect(fallbackConfirmation.title).toBe('dashboard.local_environment_offline_fallback_title');
+    expect(fallbackConfirmation.confirmText).toBe(
+      'dashboard.local_environment_offline_fallback_confirm'
+    );
+
+    await act(async () => {
+      fallbackConfirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenNthCalledWith(
+      1,
+      'repair-required-env-install-latest-codex',
+      expect.any(Function)
+    );
+    expect(bridgeMocks.runLocalDependencyRepair).toHaveBeenNthCalledWith(
+      2,
+      'repair-required-env-install-bundled-codex',
+      expect.any(Function)
+    );
+  });
+
+  it('does not offer bundled offline fallback after non-network required repair failure', async () => {
+    bridgeMocks.runLocalDependencyRepair.mockResolvedValue({
+      result: {
+        actionId: 'repair-required-env-install-latest-codex',
+        succeeded: false,
+        exitCode: 1603,
+        summary: '安装 Node.js LTS 和 npm 失败。',
+        detail: 'msiexec failed',
+        logPath: 'C:\\logs\\local-environment-repair.log',
+      },
+      snapshot,
+    });
+    renderDashboard();
+
+    fireEvent.click(getLocalEnvironmentButton());
+    await screen.findByText(snapshot.summary);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'dashboard.local_environment_required_repair',
+      })
+    );
+
+    const firstConfirmation = storeState.notifications.showConfirmation.mock.calls[0][0];
+    await act(async () => {
+      firstConfirmation.onConfirm();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('dashboard.local_environment_repair_detail')).toBeInTheDocument();
+    });
+    expect(storeState.notifications.showConfirmation).toHaveBeenCalledTimes(1);
+  });
+
   it('shows required environment repair progress in the panel header', async () => {
     bridgeMocks.runLocalDependencyRepair.mockImplementation((_actionId, onProgress) => {
       onProgress({

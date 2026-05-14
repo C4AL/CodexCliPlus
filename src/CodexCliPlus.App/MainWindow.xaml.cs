@@ -133,6 +133,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private readonly IManagementAuthService _managementAuthService;
     private readonly LocalDependencyHealthService _localDependencyHealthService;
     private readonly LocalDependencyRepairService _localDependencyRepairService;
+    private readonly LocalEnvironmentOfflinePackageService _offlinePackageService;
     private readonly CodexConfigService _codexConfigService;
     private readonly WebUiAssetLocator _webUiAssetLocator;
     private readonly ShellNotificationService _notificationService;
@@ -176,6 +177,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private TaskCompletionSource<bool>? _webViewNavigationCompletion;
     private CancellationTokenSource? _usageStatsSyncDebounceCts;
     private CancellationTokenSource? _postStartupPersistenceCts;
+    private CancellationTokenSource? _offlineEnvironmentUpgradeCheckCts;
+    private bool _offlineEnvironmentUpgradeCheckStarted;
     private readonly SemaphoreSlim _shellThemePersistenceLock = new(1, 1);
     private readonly object _localDependencySnapshotLock = new();
     private Task<LocalDependencySnapshot>? _localDependencySnapshotTask;
@@ -202,6 +205,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         IManagementAuthService managementAuthService,
         LocalDependencyHealthService localDependencyHealthService,
         LocalDependencyRepairService localDependencyRepairService,
+        LocalEnvironmentOfflinePackageService offlinePackageService,
         CodexConfigService codexConfigService,
         WebUiAssetLocator webUiAssetLocator,
         ShellNotificationService notificationService,
@@ -228,6 +232,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
         _managementAuthService = managementAuthService;
         _localDependencyHealthService = localDependencyHealthService;
         _localDependencyRepairService = localDependencyRepairService;
+        _offlinePackageService = offlinePackageService;
         _codexConfigService = codexConfigService;
         _webUiAssetLocator = webUiAssetLocator;
         _notificationService = notificationService;

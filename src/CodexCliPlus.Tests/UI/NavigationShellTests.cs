@@ -2598,9 +2598,13 @@ public sealed class NavigationShellTests
         Assert.Contains("Success", requestSource, StringComparison.Ordinal);
         Assert.Contains("Warning", requestSource, StringComparison.Ordinal);
         Assert.Contains("Error", requestSource, StringComparison.Ordinal);
+        Assert.Contains("ShellNotificationAction", requestSource, StringComparison.Ordinal);
+        Assert.Contains("IReadOnlyList<ShellNotificationAction>?", requestSource, StringComparison.Ordinal);
         Assert.Contains("ShowAuto", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ShowManual", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ShowShellNotification", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("CreateNotificationActionButton", hostSource, StringComparison.Ordinal);
+        Assert.Contains("ManualNotificationAction_", hostSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", hostSource, StringComparison.Ordinal);
         Assert.Contains("AutoNotificationDefaultWidth = 380", hostSource, StringComparison.Ordinal);
         Assert.Contains(
@@ -2672,6 +2676,46 @@ public sealed class NavigationShellTests
             hostSource,
             StringComparison.Ordinal
         );
+    }
+
+    [Fact]
+    public void OfflineLocalEnvironmentUpgradeUsesManualNotificationActions()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var upgradeSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "MainWindow.LocalEnvironmentUpgrade.cs"
+            ),
+            Encoding.UTF8
+        );
+        var startupSource = File.ReadAllText(
+            Path.Combine(
+                repositoryRoot,
+                "src",
+                "CodexCliPlus.App",
+                "MainWindow.ShellStartupPresentation.cs"
+            ),
+            Encoding.UTF8
+        );
+
+        Assert.Contains("StartOfflineEnvironmentUpgradeCheck();", startupSource, StringComparison.Ordinal);
+        Assert.Contains("TryReadPendingUpgradeAsync", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("IsUpgradeNetworkReadyAsync", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("_notificationService.ShowManual(", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("new ShellNotificationAction(", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("\"立即升级\"", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("\"稍后\"", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains(
+            "LocalDependencyRepairActionIds.UpgradeBundledEnvInstallLatestCodex",
+            upgradeSource,
+            StringComparison.Ordinal
+        );
+        Assert.Contains("ClearPendingUpgradeAsync", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("PostponePendingUpgradeAsync", upgradeSource, StringComparison.Ordinal);
+        Assert.Contains("IsRequiredLocalEnvironmentReady", upgradeSource, StringComparison.Ordinal);
     }
 
     [Fact]

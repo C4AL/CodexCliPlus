@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -28,6 +29,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
     private const int WingetFailedToOpenAllSourcesExitCode = unchecked((int)0x8A15004B);
     private const int WingetPackageAlreadyInstalledExitCode = unchecked((int)0x8A150061);
     private const int WingetInstallCancelledByUserExitCode = unchecked((int)0x8A15010C);
+    private const string NetworkFailureKind = "network";
     private const string LatestCodexPackage = "@openai/codex@latest";
     private const string NodeDistributionBaseUrl = "https://nodejs.org/dist/";
     private const string RepairWingetScript =
@@ -62,6 +64,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
     private readonly Action _environmentChangeBroadcaster;
     private readonly Action _processPathRefresher;
     private readonly TimeSpan _repairProgressHeartbeatInterval;
+    private readonly LocalEnvironmentOfflinePackageService _offlinePackageService;
 
     public LocalDependencyRepairCommandExecutor(
         IPathService pathService,
@@ -76,7 +79,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
         TimeSpan? repairProgressHeartbeatInterval = null,
         Func<Uri, CancellationToken, Task<string>>? downloadStringAsync = null,
         Func<Uri, string, CancellationToken, Task>? downloadFileAsync = null,
-        Func<Architecture>? osArchitectureProvider = null
+        Func<Architecture>? osArchitectureProvider = null,
+        LocalEnvironmentOfflinePackageService? offlinePackageService = null
     )
     {
         _pathService = pathService;
@@ -95,6 +99,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
             repairProgressHeartbeatInterval is { } interval && interval > TimeSpan.Zero
                 ? interval
                 : DefaultRepairProgressHeartbeatInterval;
+        _offlinePackageService =
+            offlinePackageService ?? new LocalEnvironmentOfflinePackageService(_pathService, _logger);
     }
 
     public async Task<LocalDependencyRepairResult> ExecuteAsync(
@@ -171,6 +177,18 @@ internal sealed class LocalDependencyRepairCommandExecutor
                         cancellationToken
                     ),
                     LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex =>
+                        await RepairRequiredEnvironmentAndInstallLatestCodexAsync(
+                            actionId,
+                            progressSink,
+                            cancellationToken
+                        ),
+                    LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex =>
+                        await RepairRequiredEnvironmentAndInstallBundledCodexAsync(
+                            actionId,
+                            progressSink,
+                            cancellationToken
+                        ),
+                    LocalDependencyRepairActionIds.UpgradeBundledEnvInstallLatestCodex =>
                         await RepairRequiredEnvironmentAndInstallLatestCodexAsync(
                             actionId,
                             progressSink,
@@ -370,6 +388,10 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 Succeeded = false,
                 Summary = "解析 Node.js LTS 安装包失败。",
                 Detail = exception.Message,
+                FailureKind = IsNetworkException(exception) ? NetworkFailureKind : null,
+                RecommendedFallbackActionId = IsNetworkException(exception)
+                    ? LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex
+                    : null,
                 LogPath = logPath,
             };
         }
@@ -475,6 +497,10 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 Succeeded = false,
                 Summary = "下载 Node.js LTS 安装包失败。",
                 Detail = exception.Message,
+                FailureKind = IsNetworkException(exception) ? NetworkFailureKind : null,
+                RecommendedFallbackActionId = IsNetworkException(exception)
+                    ? LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex
+                    : null,
                 LogPath = logPath,
             };
         }
@@ -725,6 +751,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
         }
 
         var detail = BuildCommandFailureDetail(command, result);
+        var npmNetworkFailure = IsNpmOnlineInstallCommand(command)
+            && IsNpmNetworkFailureOutput(result.StandardOutput, result.StandardError);
         return new LocalDependencyRepairResult
         {
             ActionId = actionId,
@@ -732,6 +760,10 @@ internal sealed class LocalDependencyRepairCommandExecutor
             ExitCode = result.ExitCode,
             Summary = $"{summary}失败。",
             Detail = detail,
+            FailureKind = npmNetworkFailure ? NetworkFailureKind : null,
+            RecommendedFallbackActionId = npmNetworkFailure
+                ? LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex
+                : null,
             LogPath = logPath,
         };
     }
@@ -946,6 +978,205 @@ internal sealed class LocalDependencyRepairCommandExecutor
             ExitCode = 0,
             Summary = "一键修复并安装最新 Codex 已完成。",
             Detail = "已处理 Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<LocalDependencyRepairResult> RepairRequiredEnvironmentAndInstallBundledCodexAsync(
+        string actionId,
+        ILocalDependencyRepairProgressSink progressSink,
+        CancellationToken cancellationToken
+    )
+    {
+        var logPath = GetRepairLogPath();
+        await AppendRepairLogAsync(
+            logPath,
+            "Starting bundled local environment repair.",
+            cancellationToken
+        );
+        await progressSink.ReportAsync(
+            CreateProgress(
+                actionId,
+                "running",
+                "正在准备内置离线包修复本地环境。",
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        LocalEnvironmentBundledInstallPlan installPlan;
+        try
+        {
+            installPlan = await _offlinePackageService.PrepareInstallAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Bundled local environment package validation failed.{Environment.NewLine}{exception.Message}",
+                cancellationToken
+            );
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                Summary = "内置离线包不可用。",
+                Detail = exception.Message,
+                LogPath = logPath,
+            };
+        }
+
+        _processPathRefresher();
+        var nodeReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Node.js",
+            new RepairCommand("node", ["--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        var npmReady = await ProbeRepairCommandAsync(
+            actionId,
+            "npm",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (!nodeReady || !npmReady)
+        {
+            var nodeInstallFailure = await RunRepairCommandStepAsync(
+                actionId,
+                "安装内置 Node.js LTS 和 npm",
+                new RepairCommand(
+                    "msiexec.exe",
+                    ["/i", installPlan.NodeInstallerPath, "/qn", "/norestart"],
+                    SuccessfulExitCodes: [0, MsiRebootRequiredSuccessExitCode]
+                ),
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+            if (nodeInstallFailure is not null)
+            {
+                return new LocalDependencyRepairResult
+                {
+                    ActionId = actionId,
+                    Succeeded = false,
+                    ExitCode = nodeInstallFailure.ExitCode,
+                    Summary = "安装内置 Node.js LTS 和 npm 失败。",
+                    Detail = nodeInstallFailure.Detail,
+                    LogPath = logPath,
+                };
+            }
+
+            _processPathRefresher();
+            nodeReady = await ProbeRepairCommandAsync(
+                actionId,
+                "Node.js",
+                new RepairCommand("node", ["--version"]),
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+            npmReady = await ProbeRepairCommandAsync(
+                actionId,
+                "npm",
+                new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+                progressSink,
+                logPath,
+                cancellationToken
+            );
+            if (!nodeReady || !npmReady)
+            {
+                return CreateNodeNpmUnavailableAfterInstallFailure(actionId, logPath);
+            }
+        }
+
+        var codexPackage = $"@openai/codex@{installPlan.Manifest.Codex.Version}";
+        var codexFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "使用内置离线缓存安装 Codex CLI",
+            new RepairCommand(
+                "cmd.exe",
+                [
+                    "/d",
+                    "/c",
+                    "npm",
+                    "install",
+                    "-g",
+                    codexPackage,
+                    "--offline",
+                    "--cache",
+                    installPlan.WritableNpmCachePath,
+                ]
+            ),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (codexFailure is not null)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                ExitCode = codexFailure.ExitCode,
+                Summary = "离线安装 Codex CLI 失败。",
+                Detail = codexFailure.Detail,
+                LogPath = logPath,
+            };
+        }
+
+        _processPathRefresher();
+        var pathResult = await RepairUserPathAsync(actionId, progressSink, cancellationToken);
+        if (!pathResult.Succeeded)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                ExitCode = pathResult.ExitCode,
+                Summary = "离线修复失败。",
+                Detail = pathResult.Detail,
+                LogPath = logPath,
+            };
+        }
+
+        _processPathRefresher();
+        var codexReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Codex CLI",
+            new RepairCommand("cmd.exe", ["/d", "/c", "codex", "--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (!codexReady)
+        {
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                Summary = "离线安装后 Codex CLI 仍不可用。",
+                Detail = "无法确认 codex 命令可执行，请查看修复日志确认 npm 全局安装目录和 PATH。",
+                LogPath = logPath,
+            };
+        }
+
+        await _offlinePackageService.WritePendingUpgradeAsync(
+            installPlan.Manifest,
+            cancellationToken
+        );
+
+        _logger.Info($"Local dependency repair '{actionId}' installed bundled Codex.");
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = true,
+            ExitCode = 0,
+            Summary = "已使用内置离线包临时安装本地环境。",
+            Detail = "已安装 Node.js/npm 和 Codex CLI；应用会在网络恢复后提示升级到最新版本。",
             LogPath = logPath,
         };
     }
@@ -1272,6 +1503,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Succeeded = result.Succeeded,
             Summary = result.Summary,
             Detail = result.Detail,
+            FailureKind = result.FailureKind,
+            RecommendedFallbackActionId = result.RecommendedFallbackActionId,
         };
     }
 
@@ -1453,6 +1686,74 @@ internal sealed class LocalDependencyRepairCommandExecutor
             WingetInstallCancelledByUserExitCode => "安装已被用户取消。",
             _ => null,
         };
+    }
+
+    private static bool IsNetworkException(Exception exception)
+    {
+        if (exception is HttpRequestException or SocketException)
+        {
+            return true;
+        }
+
+        if (
+            exception.InnerException is not null
+            && !ReferenceEquals(exception.InnerException, exception)
+        )
+        {
+            return IsNetworkException(exception.InnerException);
+        }
+
+        var message = exception.Message;
+        return ContainsAnyNetworkToken(message);
+    }
+
+    private static bool IsNpmOnlineInstallCommand(RepairCommand command)
+    {
+        if (
+            !string.Equals(command.FileName, "cmd.exe", StringComparison.OrdinalIgnoreCase)
+            || command.Arguments.Count < 6
+            || !command.Arguments.Any(argument =>
+                string.Equals(argument, "npm", StringComparison.OrdinalIgnoreCase)
+            )
+            || !command.Arguments.Any(argument =>
+                string.Equals(argument, "install", StringComparison.OrdinalIgnoreCase)
+            )
+            || command.Arguments.Any(argument =>
+                string.Equals(argument, "--offline", StringComparison.OrdinalIgnoreCase)
+            )
+        )
+        {
+            return false;
+        }
+
+        return command.Arguments.Any(argument =>
+            argument.StartsWith("@openai/codex@", StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    private static bool IsNpmNetworkFailureOutput(params string[] values)
+    {
+        return values.Any(ContainsAnyNetworkToken);
+    }
+
+    private static bool ContainsAnyNetworkToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var text = value.ToLowerInvariant();
+        return text.Contains("enotfound", StringComparison.Ordinal)
+            || text.Contains("eai_again", StringComparison.Ordinal)
+            || text.Contains("econnreset", StringComparison.Ordinal)
+            || text.Contains("etimedout", StringComparison.Ordinal)
+            || text.Contains("network", StringComparison.Ordinal)
+            || text.Contains("socket", StringComparison.Ordinal)
+            || text.Contains("registry.npmjs.org", StringComparison.Ordinal)
+            || text.Contains("nodejs.org", StringComparison.Ordinal)
+            || text.Contains("name resolution", StringComparison.Ordinal)
+            || text.Contains("dns", StringComparison.Ordinal);
     }
 
     private static RepairCommand CreateWingetSourceUpdateCommand() =>

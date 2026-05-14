@@ -1157,6 +1157,11 @@ public partial class MainWindow
                 );
             }
 
+            result = await HandleOfflineEnvironmentUpgradeRepairOutcomeAsync(
+                actionId,
+                result,
+                snapshot
+            );
             result = AttachLocalDependencyRepairDebugReportIfNeeded(
                 requestId,
                 result,
@@ -1298,6 +1303,8 @@ public partial class MainWindow
             ExitCode = result.ExitCode,
             Summary = result.Summary,
             Detail = detail,
+            FailureKind = result.FailureKind,
+            RecommendedFallbackActionId = result.RecommendedFallbackActionId,
             LogPath = result.LogPath,
             DebugReportPath = debugReportPath,
         };

@@ -12,6 +12,10 @@ public sealed class LocalDependencyRepairResult
 
     public string Detail { get; init; } = string.Empty;
 
+    public string? FailureKind { get; init; }
+
+    public string? RecommendedFallbackActionId { get; init; }
+
     public string? LogPath { get; init; }
 
     public string? DebugReportPath { get; init; }

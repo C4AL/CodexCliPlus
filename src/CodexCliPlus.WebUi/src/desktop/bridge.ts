@@ -56,6 +56,8 @@ export interface LocalDependencyRepairResult {
   exitCode?: number | null;
   summary: string;
   detail: string;
+  failureKind?: string | null;
+  recommendedFallbackActionId?: string | null;
   logPath?: string | null;
   debugReportPath?: string | null;
 }
@@ -465,6 +467,11 @@ function normalizeLocalDependencyRepairResult(value: unknown): LocalDependencyRe
     exitCode: typeof value.exitCode === 'number' ? value.exitCode : null,
     summary: typeof value.summary === 'string' ? value.summary : '',
     detail: typeof value.detail === 'string' ? value.detail : '',
+    failureKind: typeof value.failureKind === 'string' ? value.failureKind : null,
+    recommendedFallbackActionId:
+      typeof value.recommendedFallbackActionId === 'string'
+        ? value.recommendedFallbackActionId
+        : null,
     logPath: typeof value.logPath === 'string' ? value.logPath : null,
     debugReportPath: typeof value.debugReportPath === 'string' ? value.debugReportPath : null,
   };

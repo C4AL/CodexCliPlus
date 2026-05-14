@@ -260,6 +260,8 @@ describe('local dependency desktop bridge', () => {
         exitCode: 0,
         summary: '一键修复并安装最新 Codex 已完成。',
         detail: '已完成。',
+        failureKind: 'network',
+        recommendedFallbackActionId: 'repair-required-env-install-bundled-codex',
       },
       snapshot: sampleSnapshot,
     });
@@ -268,6 +270,8 @@ describe('local dependency desktop bridge', () => {
       result: {
         actionId: 'repair-required-env-install-latest-codex',
         succeeded: true,
+        failureKind: 'network',
+        recommendedFallbackActionId: 'repair-required-env-install-bundled-codex',
       },
       snapshot: { readinessScore: 100 },
     });

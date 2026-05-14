@@ -98,6 +98,8 @@ public partial class MainWindow
         _firstRunConfirmCountdown?.Dispose();
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
+        _offlineEnvironmentUpgradeCheckCts?.Cancel();
+        _offlineEnvironmentUpgradeCheckCts?.Dispose();
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
         CloseSettingsOverlayImmediately();
@@ -117,6 +119,8 @@ public partial class MainWindow
         _firstRunConfirmCountdown?.Dispose();
         _settingsOverviewRefreshCts?.Cancel();
         _settingsOverviewRefreshCts?.Dispose();
+        _offlineEnvironmentUpgradeCheckCts?.Cancel();
+        _offlineEnvironmentUpgradeCheckCts?.Dispose();
         CancelUsageStatsSyncDebounce();
         CancelPostStartupPersistenceImport();
         CloseSettingsOverlayImmediately();

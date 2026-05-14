@@ -42,6 +42,7 @@ type LocalRepairTarget = {
 };
 
 const REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID = 'repair-required-env-install-latest-codex';
+const BUNDLED_ENVIRONMENT_REPAIR_ACTION_ID = 'repair-required-env-install-bundled-codex';
 const REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID = 'required-env-codex';
 const NODE_NPM_DISPLAY_ID = 'node-npm';
 const NODE_NPM_REPAIR_ACTION_ID = 'install-node-npm';
@@ -557,6 +558,22 @@ export function DashboardPage() {
       } else {
         await fetchLocalEnvironment();
       }
+      if (
+        actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID &&
+        !response.result.succeeded &&
+        response.result.failureKind === 'network' &&
+        response.result.recommendedFallbackActionId === BUNDLED_ENVIRONMENT_REPAIR_ACTION_ID
+      ) {
+        showConfirmation({
+          title: t('dashboard.local_environment_offline_fallback_title'),
+          message: t('dashboard.local_environment_offline_fallback_message'),
+          confirmText: t('dashboard.local_environment_offline_fallback_confirm'),
+          variant: 'danger',
+          onConfirm: () => {
+            void startLocalDependencyRepair(itemId, BUNDLED_ENVIRONMENT_REPAIR_ACTION_ID);
+          },
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('common.unknown_error');
       setLocalRepairProgressItemId(itemId);
@@ -691,10 +708,12 @@ export function DashboardPage() {
   );
   const isRequiredEnvironmentRepairing =
     repairingTarget?.itemId === REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID &&
-    repairingTarget.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID;
+    (repairingTarget.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID ||
+      repairingTarget.actionId === BUNDLED_ENVIRONMENT_REPAIR_ACTION_ID);
   const requiredEnvironmentRepairProgress =
     localRepairProgressItemId === REQUIRED_ENVIRONMENT_REPAIR_TARGET_ID &&
-    localRepairProgress?.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID
+    (localRepairProgress?.actionId === REQUIRED_ENVIRONMENT_REPAIR_ACTION_ID ||
+      localRepairProgress?.actionId === BUNDLED_ENVIRONMENT_REPAIR_ACTION_ID)
       ? localRepairProgress
       : null;
   const requiredEnvironmentRepairAvailable =

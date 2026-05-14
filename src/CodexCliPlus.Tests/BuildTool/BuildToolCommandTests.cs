@@ -300,6 +300,10 @@ public sealed class BuildToolCommandTests : IDisposable
                 )
             )
         );
+        Assert.True(
+            File.Exists(Path.Combine(outputRoot, "assets", "local-environment", "manifest.json"))
+        );
+        Assert.Contains("local-environment/manifest.json", manifestText, StringComparison.Ordinal);
         Assert.False(
             File.Exists(
                 Path.Combine(

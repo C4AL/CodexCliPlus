@@ -200,6 +200,7 @@ public partial class MainWindow
         ManagementWebView.Visibility = Visibility.Visible;
         UpdateNavigationDockPopupVisibility();
         RevealInitialPresentation();
+        StartOfflineEnvironmentUpgradeCheck();
     }
 
     private void RevealInitialPresentation()
@@ -495,6 +496,7 @@ public partial class MainWindow
         ManagementEntryTransitionPopup.IsOpen = false;
         _isManagementEntryTransitionActive = false;
         SetManagementEntryTransitionPhase(ManagementEntryTransitionPhase.Idle);
+        StartOfflineEnvironmentUpgradeCheck();
     }
 
     private Task FadeManagementEntryTransitionOverlayAsync(double opacity, int milliseconds)

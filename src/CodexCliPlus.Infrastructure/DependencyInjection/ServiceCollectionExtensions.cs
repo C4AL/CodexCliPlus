@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DirectoryAccessService>();
         services.AddSingleton<DependencyHealthService>();
         services.AddSingleton<LocalDependencyHealthService>();
+        services.AddSingleton<LocalEnvironmentOfflinePackageService>();
         services.AddSingleton<LocalDependencyRepairService>();
         services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<DiagnosticsService>();

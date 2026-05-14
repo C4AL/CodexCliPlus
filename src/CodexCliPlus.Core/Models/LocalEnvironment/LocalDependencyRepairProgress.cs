@@ -25,4 +25,8 @@ public sealed class LocalDependencyRepairProgress
     public string Summary { get; init; } = string.Empty;
 
     public string Detail { get; init; } = string.Empty;
+
+    public string? FailureKind { get; init; }
+
+    public string? RecommendedFallbackActionId { get; init; }
 }

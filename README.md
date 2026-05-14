@@ -4,11 +4,6 @@
 
 <h1 align="center">CodexCliPlus</h1>
 
-<p align="center">
-  基于 CLIProxyAPI 的 Codex Windows CLI 一站式管理增强平台
-  <br />
-  C# / WPF / WebView2 / .NET 10 + CLIProxyAPI Go 后端 + Codex CLI 增强层
-</p>
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6?style=flat-square" />

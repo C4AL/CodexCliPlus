@@ -971,12 +971,10 @@ public sealed class LocalDependencyHealthService
         var powershellReady = items.Any(item =>
             item.Id == "powershell" && item.Status == LocalDependencyStatus.Ready
         );
-        var npmReady = toolState.NpmUsable;
         var wslPresent = !string.IsNullOrWhiteSpace(toolState.WslPath);
         var hasMissingSafePathDirectories = toolState.MissingSafePathDirectories.Length > 0;
         var pathRepairAvailable =
             hasMissingSafePathDirectories || toolState.UserPathCleanupAvailable;
-        var requiredEnvironmentRepairAvailable = npmReady || wingetReady || powershellReady;
 
         return
         [
@@ -984,19 +982,15 @@ public sealed class LocalDependencyHealthService
             {
                 ActionId = LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
                 Name = "一键修复",
-                IsAvailable = requiredEnvironmentRepairAvailable,
-                Detail = requiredEnvironmentRepairAvailable
-                    ? "将一次提权修复 winget、Node.js/npm、Codex CLI 和用户 PATH，不处理 WSL。"
-                    : "需要 winget、PowerShell 或 npm 至少一项可用。",
+                IsAvailable = true,
+                Detail = "将一次提权安装或修复 Node.js/npm、Codex CLI 和用户 PATH，不处理 WSL。",
             },
             new LocalDependencyRepairCapability
             {
                 ActionId = LocalDependencyRepairActionIds.InstallNodeNpm,
                 Name = "安装 Node.js LTS 和 npm",
-                IsAvailable = wingetReady,
-                Detail = wingetReady
-                    ? "将通过 winget 安装 OpenJS.NodeJS.LTS。"
-                    : "需要 winget 可用。",
+                IsAvailable = true,
+                Detail = "将通过内置流程下载并安装 Node.js 官方 LTS 安装包。",
             },
             new LocalDependencyRepairCapability
             {
@@ -1020,8 +1014,8 @@ public sealed class LocalDependencyHealthService
             {
                 ActionId = LocalDependencyRepairActionIds.InstallCodexCli,
                 Name = "安装 Codex CLI",
-                IsAvailable = npmReady,
-                Detail = npmReady ? "将通过 npm 全局安装 @openai/codex。" : "需要 npm 可用。",
+                IsAvailable = toolState.NpmUsable,
+                Detail = toolState.NpmUsable ? "将通过 npm 全局安装 @openai/codex。" : "需要 npm 可用。",
             },
             new LocalDependencyRepairCapability
             {

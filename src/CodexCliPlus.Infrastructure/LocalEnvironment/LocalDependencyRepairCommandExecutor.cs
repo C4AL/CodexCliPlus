@@ -1,5 +1,8 @@
 using System.Globalization;
+using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using CodexCliPlus.Core.Abstractions.LocalEnvironment;
 using CodexCliPlus.Core.Abstractions.Logging;
 using CodexCliPlus.Core.Abstractions.Paths;
@@ -12,8 +15,10 @@ namespace CodexCliPlus.Infrastructure.LocalEnvironment;
 internal sealed class LocalDependencyRepairCommandExecutor
 {
     private const int RecentOutputLineLimit = 20;
+    private const int MsiRebootRequiredSuccessExitCode = 3010;
     private const int WingetSourcesInvalidExitCode = unchecked((int)0x8A15000B);
     private const int WingetSourceDataMissingExitCode = unchecked((int)0x8A15000F);
+    private const int WingetSourceNameNotFoundExitCode = unchecked((int)0x8A150012);
     private const int WingetDownloadFailedExitCode = unchecked((int)0x8A150008);
     private const int WingetCommandRequiresAdminExitCode = unchecked((int)0x8A150019);
     private const int WingetSourceDataIntegrityFailureExitCode = unchecked((int)0x8A15003F);
@@ -24,6 +29,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
     private const int WingetPackageAlreadyInstalledExitCode = unchecked((int)0x8A150061);
     private const int WingetInstallCancelledByUserExitCode = unchecked((int)0x8A15010C);
     private const string LatestCodexPackage = "@openai/codex@latest";
+    private const string NodeDistributionBaseUrl = "https://nodejs.org/dist/";
     private const string RepairWingetScript =
         "$ErrorActionPreference = 'Stop'\n"
         + "$ProgressPreference = 'SilentlyContinue'\n"
@@ -33,10 +39,22 @@ internal sealed class LocalDependencyRepairCommandExecutor
         + "Repair-WinGetPackageManager -AllUsers -Latest -Force";
     private static readonly TimeSpan RepairCommandTimeout = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan DefaultRepairProgressHeartbeatInterval = TimeSpan.FromSeconds(5);
+    private static readonly Uri NodeDistributionIndexUri = new(NodeDistributionBaseUrl + "index.json");
+    private static readonly HttpClient SharedHttpClient = new()
+    {
+        Timeout = TimeSpan.FromMinutes(10),
+    };
+    private static readonly JsonSerializerOptions NodeReleaseJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+    };
 
     private readonly IPathService _pathService;
     private readonly IAppLogger _logger;
     private readonly ILocalEnvironmentProcessRunner _processRunner;
+    private readonly Func<Uri, CancellationToken, Task<string>> _downloadStringAsync;
+    private readonly Func<Uri, string, CancellationToken, Task> _downloadFileAsync;
+    private readonly Func<Architecture> _osArchitectureProvider;
     private readonly Func<string, bool> _directoryExists;
     private readonly Action<string> _createDirectory;
     private readonly Func<EnvironmentVariableTarget, string?> _userPathReader;
@@ -55,12 +73,18 @@ internal sealed class LocalDependencyRepairCommandExecutor
         Action<string> userPathWriter,
         Action environmentChangeBroadcaster,
         Action processPathRefresher,
-        TimeSpan? repairProgressHeartbeatInterval = null
+        TimeSpan? repairProgressHeartbeatInterval = null,
+        Func<Uri, CancellationToken, Task<string>>? downloadStringAsync = null,
+        Func<Uri, string, CancellationToken, Task>? downloadFileAsync = null,
+        Func<Architecture>? osArchitectureProvider = null
     )
     {
         _pathService = pathService;
         _logger = logger;
         _processRunner = processRunner;
+        _downloadStringAsync = downloadStringAsync ?? DownloadStringAsync;
+        _downloadFileAsync = downloadFileAsync ?? DownloadFileAsync;
+        _osArchitectureProvider = osArchitectureProvider ?? (() => RuntimeInformation.OSArchitecture);
         _directoryExists = directoryExists;
         _createDirectory = createDirectory;
         _userPathReader = userPathReader;
@@ -102,28 +126,8 @@ internal sealed class LocalDependencyRepairCommandExecutor
                 _logger.Info($"Executing local dependency repair '{actionId}'.");
                 result = actionId switch
                 {
-                    LocalDependencyRepairActionIds.InstallNodeNpm => await RunCommandRepairAsync(
-                        actionId,
-                        "安装 Node.js LTS 和 npm",
-                        [
-                            new RepairCommand(
-                                "winget",
-                                [
-                                    "install",
-                                    "--id",
-                                    "OpenJS.NodeJS.LTS",
-                                    "-e",
-                                    "--source",
-                                    "winget",
-                                    "--accept-package-agreements",
-                                    "--accept-source-agreements",
-                                ]
-                            ),
-                        ],
-                        progressSink,
-                        cancellationToken,
-                        repairWingetSourceOnInstallFailure: true
-                    ),
+                    LocalDependencyRepairActionIds.InstallNodeNpm =>
+                        await InstallNodeNpmAsync(actionId, progressSink, cancellationToken),
                     LocalDependencyRepairActionIds.InstallPowerShell => await RunCommandRepairAsync(
                         actionId,
                         "安装 PowerShell 7",
@@ -262,6 +266,222 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Detail = "请重新打开终端或重启 CodexCliPlus 后再次检测。",
             LogPath = logPath,
         };
+    }
+
+    private async Task<LocalDependencyRepairResult> InstallNodeNpmAsync(
+        string actionId,
+        ILocalDependencyRepairProgressSink progressSink,
+        CancellationToken cancellationToken
+    )
+    {
+        var logPath = GetRepairLogPath();
+        await progressSink.ReportAsync(
+            CreateProgress(
+                actionId,
+                "running",
+                "正在准备内置 Node.js LTS 和 npm 安装。",
+                logPath: logPath
+            ),
+            cancellationToken
+        );
+
+        var installFailure = await InstallNodeLtsFromOfficialInstallerAsync(
+            actionId,
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (installFailure is not null)
+        {
+            return installFailure;
+        }
+
+        _processPathRefresher();
+        var nodeReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Node.js",
+            new RepairCommand("node", ["--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        var npmReady = await ProbeRepairCommandAsync(
+            actionId,
+            "npm",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (nodeReady && npmReady)
+        {
+            _logger.Info($"Local dependency repair '{actionId}' installed Node.js and npm.");
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = true,
+                ExitCode = 0,
+                Summary = "安装 Node.js LTS 和 npm 已完成。",
+                Detail = "已通过内置安装流程安装 Node.js 官方 LTS 安装包；请重新打开终端或重启 CodexCliPlus 后再次检测。",
+                LogPath = logPath,
+            };
+        }
+
+        return CreateNodeNpmUnavailableAfterInstallFailure(actionId, logPath);
+    }
+
+    private async Task<LocalDependencyRepairResult?> InstallNodeLtsFromOfficialInstallerAsync(
+        string actionId,
+        ILocalDependencyRepairProgressSink progressSink,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        NodeLtsInstallPlan installPlan;
+        try
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Resolving Node.js LTS release from {NodeDistributionIndexUri}.",
+                cancellationToken
+            );
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "running",
+                    "正在解析 Node.js 官方 LTS 安装包。",
+                    commandLine: NodeDistributionIndexUri.ToString(),
+                    logPath: logPath
+                ),
+                cancellationToken
+            );
+            installPlan = await BuildNodeLtsInstallPlanAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Failed to resolve Node.js LTS installer.{Environment.NewLine}{exception.Message}",
+                cancellationToken
+            );
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                Summary = "解析 Node.js LTS 安装包失败。",
+                Detail = exception.Message,
+                LogPath = logPath,
+            };
+        }
+
+        var downloadFailure = await DownloadNodeInstallerAsync(
+            actionId,
+            installPlan,
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (downloadFailure is not null)
+        {
+            return downloadFailure;
+        }
+
+        var installFailure = await RunRepairCommandStepAsync(
+            actionId,
+            "静默安装 Node.js LTS 和 npm",
+            new RepairCommand(
+                "msiexec.exe",
+                ["/i", installPlan.InstallerPath, "/qn", "/norestart"],
+                SuccessfulExitCodes: [0, MsiRebootRequiredSuccessExitCode]
+            ),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (installFailure is null)
+        {
+            return null;
+        }
+
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            ExitCode = installFailure.ExitCode,
+            Summary = "安装 Node.js LTS 和 npm失败。",
+            Detail = installFailure.Detail,
+            LogPath = logPath,
+        };
+    }
+
+    private async Task<LocalDependencyRepairResult?> DownloadNodeInstallerAsync(
+        string actionId,
+        NodeLtsInstallPlan installPlan,
+        ILocalDependencyRepairProgressSink progressSink,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        Directory.CreateDirectory(installPlan.CacheDirectory);
+        var temporaryPath = installPlan.InstallerPath + ".download";
+        try
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+
+            await AppendRepairLogAsync(
+                logPath,
+                $"Downloading Node.js {installPlan.Version} installer from {installPlan.DownloadUri}.",
+                cancellationToken
+            );
+            await progressSink.ReportAsync(
+                CreateProgress(
+                    actionId,
+                    "commandRunning",
+                    $"正在下载 Node.js {installPlan.Version} LTS 官方安装包。",
+                    commandLine: installPlan.DownloadUri.ToString(),
+                    logPath: logPath
+                ),
+                cancellationToken
+            );
+            await _downloadFileAsync(installPlan.DownloadUri, temporaryPath, cancellationToken);
+
+            var downloadedFile = new FileInfo(temporaryPath);
+            if (!downloadedFile.Exists || downloadedFile.Length <= 0)
+            {
+                throw new InvalidOperationException("下载后的 Node.js 安装包为空。");
+            }
+
+            File.Move(temporaryPath, installPlan.InstallerPath, overwrite: true);
+            await AppendRepairLogAsync(
+                logPath,
+                $"Downloaded Node.js installer to {installPlan.InstallerPath}.",
+                cancellationToken
+            );
+            return null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            await AppendRepairLogAsync(
+                logPath,
+                $"Failed to download Node.js installer.{Environment.NewLine}{exception.Message}",
+                cancellationToken
+            );
+            return new LocalDependencyRepairResult
+            {
+                ActionId = actionId,
+                Succeeded = false,
+                Summary = "下载 Node.js LTS 安装包失败。",
+                Detail = exception.Message,
+                LogPath = logPath,
+            };
+        }
+        finally
+        {
+            TryDeleteFile(temporaryPath);
+        }
     }
 
     private async Task<LocalDependencyRepairResult> RepairUserPathAsync(
@@ -469,11 +689,12 @@ internal sealed class LocalDependencyRepairCommandExecutor
         var shouldRepairWingetSource =
             repairWingetSourceOnInstallFailure
             && ShouldRetryAfterWingetSourceRepair(command, result.ExitCode);
+        var commandSucceeded = IsSuccessExitCode(command, result.ExitCode);
         await progressSink.ReportAsync(
             CreateProgress(
                 actionId,
-                result.ExitCode == 0 ? "commandCompleted" : shouldRepairWingetSource ? "running" : "failed",
-                result.ExitCode == 0
+                commandSucceeded ? "commandCompleted" : shouldRepairWingetSource ? "running" : "failed",
+                commandSucceeded
                     ? $"{summary}命令已完成。"
                     : shouldRepairWingetSource
                         ? "检测到 winget 源数据异常，正在修复源后重试。"
@@ -486,7 +707,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             cancellationToken
         );
 
-        if (result.ExitCode == 0)
+        if (commandSucceeded)
         {
             return null;
         }
@@ -678,17 +899,6 @@ internal sealed class LocalDependencyRepairCommandExecutor
         );
 
         _processPathRefresher();
-        var wingetFailure = await EnsureWingetAvailableAsync(
-            actionId,
-            progressSink,
-            logPath,
-            cancellationToken
-        );
-        if (wingetFailure is not null)
-        {
-            return wingetFailure;
-        }
-
         var nodeNpmFailure = await EnsureNodeNpmAvailableAsync(
             actionId,
             progressSink,
@@ -735,81 +945,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Succeeded = true,
             ExitCode = 0,
             Summary = "一键修复并安装最新 Codex 已完成。",
-            Detail = "已处理 winget、Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
-            LogPath = logPath,
-        };
-    }
-
-    private async Task<LocalDependencyRepairResult?> EnsureWingetAvailableAsync(
-        string actionId,
-        ILocalDependencyRepairProgressSink progressSink,
-        string logPath,
-        CancellationToken cancellationToken
-    )
-    {
-        if (
-            await ProbeRepairCommandAsync(
-                actionId,
-                "winget",
-                new RepairCommand("winget", ["--version"]),
-                progressSink,
-                logPath,
-                cancellationToken
-            )
-        )
-        {
-            return null;
-        }
-
-        await progressSink.ReportAsync(
-            CreateProgress(actionId, "running", "未检测到可用 winget，正在尝试修复。", logPath: logPath),
-            cancellationToken
-        );
-        var repairFailure = await RunRepairCommandStepAsync(
-            actionId,
-            "修复 winget",
-            new RepairCommand(
-                "powershell.exe",
-                [
-                    "-NoLogo",
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    RepairWingetScript,
-                ]
-            ),
-            progressSink,
-            logPath,
-            cancellationToken
-        );
-        if (repairFailure is not null)
-        {
-            return repairFailure;
-        }
-
-        _processPathRefresher();
-        if (
-            await ProbeRepairCommandAsync(
-                actionId,
-                "winget",
-                new RepairCommand("winget", ["--version"]),
-                progressSink,
-                logPath,
-                cancellationToken
-            )
-        )
-        {
-            return null;
-        }
-
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = false,
-            Summary = "winget 修复后仍不可用。",
-            Detail = "无法继续安装 Node.js/npm，请查看修复日志确认 winget 状态。",
+            Detail = "已处理 Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
             LogPath = logPath,
         };
     }
@@ -842,26 +978,11 @@ internal sealed class LocalDependencyRepairCommandExecutor
             return null;
         }
 
-        var installFailure = await RunRepairCommandStepAsync(
+        var installFailure = await InstallNodeLtsFromOfficialInstallerAsync(
             actionId,
-            "安装 Node.js LTS 和 npm",
-            new RepairCommand(
-                "winget",
-                [
-                    "install",
-                    "--id",
-                    "OpenJS.NodeJS.LTS",
-                    "-e",
-                    "--source",
-                    "winget",
-                    "--accept-package-agreements",
-                    "--accept-source-agreements",
-                ]
-            ),
             progressSink,
             logPath,
-            cancellationToken,
-            repairWingetSourceOnInstallFailure: true
+            cancellationToken
         );
         if (installFailure is not null)
         {
@@ -890,14 +1011,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             return null;
         }
 
-        return new LocalDependencyRepairResult
-        {
-            ActionId = actionId,
-            Succeeded = false,
-            Summary = "Node.js/npm 安装后仍不可用。",
-            Detail = "无法继续安装 Codex CLI，请查看修复日志确认 node 和 npm 状态。",
-            LogPath = logPath,
-        };
+        return CreateNodeNpmUnavailableAfterInstallFailure(actionId, logPath);
     }
 
     private async Task<bool> ProbeRepairCommandAsync(
@@ -1015,6 +1129,93 @@ internal sealed class LocalDependencyRepairCommandExecutor
         }
     }
 
+    private async Task<NodeLtsInstallPlan> BuildNodeLtsInstallPlanAsync(
+        CancellationToken cancellationToken
+    )
+    {
+        var indexJson = await _downloadStringAsync(NodeDistributionIndexUri, cancellationToken);
+        var releases = JsonSerializer.Deserialize<List<NodeReleaseIndexEntry>>(
+            indexJson,
+            NodeReleaseJsonOptions
+        );
+        if (releases is null || releases.Count == 0)
+        {
+            throw new InvalidOperationException("Node.js 官方版本索引为空。");
+        }
+
+        var architecture = ResolveNodeWindowsArchitecture(_osArchitectureProvider());
+        var assetKey = $"win-{architecture}-msi";
+        var release = releases.FirstOrDefault(candidate =>
+            IsLtsRelease(candidate)
+            && IsValidNodeVersion(candidate.Version)
+            && candidate.Files is not null
+            && candidate.Files.Contains(assetKey, StringComparer.OrdinalIgnoreCase)
+        );
+        if (release is null || string.IsNullOrWhiteSpace(release.Version))
+        {
+            throw new InvalidOperationException(
+                $"未在 Node.js 官方版本索引中找到适用于 win-{architecture} 的 LTS 安装包。"
+            );
+        }
+
+        var version = release.Version.Trim();
+        var installerFileName = $"node-{version}-{architecture}.msi";
+        var cacheDirectory = Path.Combine(
+            _pathService.Directories.CacheDirectory,
+            "local-environment",
+            "nodejs",
+            version
+        );
+        return new NodeLtsInstallPlan(
+            version,
+            architecture,
+            new Uri($"{NodeDistributionBaseUrl}{version}/{installerFileName}"),
+            cacheDirectory,
+            Path.Combine(cacheDirectory, installerFileName)
+        );
+    }
+
+    private static string ResolveNodeWindowsArchitecture(Architecture architecture) =>
+        architecture switch
+        {
+            Architecture.X86 => "x86",
+            Architecture.Arm64 => "arm64",
+            _ => "x64",
+        };
+
+    private static bool IsLtsRelease(NodeReleaseIndexEntry release)
+    {
+        return release.Lts.ValueKind
+            is not JsonValueKind.False
+                and not JsonValueKind.Null
+                and not JsonValueKind.Undefined;
+    }
+
+    private static bool IsValidNodeVersion(string? version)
+    {
+        if (string.IsNullOrWhiteSpace(version) || !version.StartsWith('v'))
+        {
+            return false;
+        }
+
+        return version.Skip(1).All(character => char.IsDigit(character) || character == '.');
+    }
+
+    private static LocalDependencyRepairResult CreateNodeNpmUnavailableAfterInstallFailure(
+        string actionId,
+        string logPath
+    )
+    {
+        return new LocalDependencyRepairResult
+        {
+            ActionId = actionId,
+            Succeeded = false,
+            Summary = "Node.js/npm 安装后仍不可用。",
+            Detail = "无法继续安装 Codex CLI，请查看修复日志确认 node 和 npm 状态。",
+            LogPath = logPath,
+        };
+    }
+
     private string GetRepairLogPath()
     {
         var logPath = Path.Combine(
@@ -1101,6 +1302,45 @@ internal sealed class LocalDependencyRepairCommandExecutor
         return candidates;
     }
 
+    private static async Task<string> DownloadStringAsync(
+        Uri uri,
+        CancellationToken cancellationToken
+    )
+    {
+        using var response = await SharedHttpClient.GetAsync(
+            uri,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken
+        );
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    private static async Task DownloadFileAsync(
+        Uri uri,
+        string destinationPath,
+        CancellationToken cancellationToken
+    )
+    {
+        using var response = await SharedHttpClient.GetAsync(
+            uri,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken
+        );
+        response.EnsureSuccessStatusCode();
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+        await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
+        await using var output = new FileStream(
+            destinationPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            bufferSize: 81920,
+            useAsync: true
+        );
+        await input.CopyToAsync(output, cancellationToken);
+    }
+
     private static async Task AppendRepairLogAsync(
         string logPath,
         string message,
@@ -1132,6 +1372,21 @@ internal sealed class LocalDependencyRepairCommandExecutor
     private static string BuildCommandLine(RepairCommand command)
     {
         return $"{command.FileName} {string.Join(" ", command.Arguments)}";
+    }
+
+    private static bool IsSuccessExitCode(RepairCommand command, int exitCode) =>
+        command.SuccessfulExitCodes?.Contains(exitCode) ?? exitCode == 0;
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch { }
     }
 
     private static string[] ExtractRecentOutput(params string[] values)
@@ -1185,6 +1440,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
         return exitCode switch
         {
             WingetSourceDataMissingExitCode => "winget 源数据缺失或索引未就绪，无法读取安装包清单。",
+            WingetSourceNameNotFoundExitCode => "winget 未找到指定源名称，源可能已被重置或注册信息缺失。",
             WingetSourcesInvalidExitCode => "winget 源配置无效，需要更新或重置源。",
             WingetSourceDataIntegrityFailureExitCode => "winget 源数据完整性校验失败，需要重新更新源。",
             WingetSourceOpenFailedExitCode => "winget 无法打开包源，可能是源索引损坏或暂时不可用。",
@@ -1215,6 +1471,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
         exitCode
             is WingetSourcesInvalidExitCode
                 or WingetSourceDataMissingExitCode
+                or WingetSourceNameNotFoundExitCode
                 or WingetSourceDataIntegrityFailureExitCode
                 or WingetSourceOpenFailedExitCode
                 or WingetFailedToOpenAllSourcesExitCode;
@@ -1400,7 +1657,11 @@ internal sealed class LocalDependencyRepairCommandExecutor
         }
     }
 
-    private sealed record RepairCommand(string FileName, IReadOnlyList<string> Arguments);
+    private sealed record RepairCommand(
+        string FileName,
+        IReadOnlyList<string> Arguments,
+        IReadOnlyCollection<int>? SuccessfulExitCodes = null
+    );
 
     private sealed record AllowedPathDirectory(string Path, bool CreateIfMissing = false);
 
@@ -1409,4 +1670,21 @@ internal sealed class LocalDependencyRepairCommandExecutor
         int DuplicateEntriesRemoved,
         int UnreachableEntriesRemoved
     );
+
+    private sealed record NodeLtsInstallPlan(
+        string Version,
+        string Architecture,
+        Uri DownloadUri,
+        string CacheDirectory,
+        string InstallerPath
+    );
+
+    private sealed class NodeReleaseIndexEntry
+    {
+        public string? Version { get; init; }
+
+        public JsonElement Lts { get; init; }
+
+        public string[]? Files { get; init; }
+    }
 }

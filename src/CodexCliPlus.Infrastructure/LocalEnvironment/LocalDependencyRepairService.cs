@@ -63,7 +63,10 @@ public sealed class LocalDependencyRepairService
         TimeSpan? elevationAuthorizationTimeout = null,
         Func<bool>? currentProcessAdministratorChecker = null,
         TimeSpan? repairProcessFirstProgressTimeout = null,
-        TimeSpan? repairProgressHeartbeatInterval = null
+        TimeSpan? repairProgressHeartbeatInterval = null,
+        Func<Uri, CancellationToken, Task<string>>? downloadStringAsync = null,
+        Func<Uri, string, CancellationToken, Task>? downloadFileAsync = null,
+        Func<Architecture>? osArchitectureProvider = null
     )
     {
         _pathService = pathService;
@@ -110,7 +113,10 @@ public sealed class LocalDependencyRepairService
             _userPathWriter,
             _environmentChangeBroadcaster,
             _processPathRefresher,
-            repairProgressHeartbeatInterval
+            repairProgressHeartbeatInterval,
+            downloadStringAsync,
+            downloadFileAsync,
+            osArchitectureProvider
         );
     }
 

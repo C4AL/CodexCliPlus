@@ -930,8 +930,7 @@ internal sealed class LocalDependencyRepairCommandExecutor
             cancellationToken
         );
 
-        _processPathRefresher();
-        var nodeNpmFailure = await EnsureNodeNpmAvailableAsync(
+        var nodeNpmFailure = await InstallLatestNodeLtsAndVerifyAsync(
             actionId,
             progressSink,
             logPath,
@@ -980,6 +979,47 @@ internal sealed class LocalDependencyRepairCommandExecutor
             Detail = "已处理 Node.js/npm、Codex CLI 和用户 PATH；重新检测后应能读取最新状态。",
             LogPath = logPath,
         };
+    }
+
+    private async Task<LocalDependencyRepairResult?> InstallLatestNodeLtsAndVerifyAsync(
+        string actionId,
+        ILocalDependencyRepairProgressSink progressSink,
+        string logPath,
+        CancellationToken cancellationToken
+    )
+    {
+        var installFailure = await InstallNodeLtsFromOfficialInstallerAsync(
+            actionId,
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        if (installFailure is not null)
+        {
+            return installFailure;
+        }
+
+        _processPathRefresher();
+        var nodeReady = await ProbeRepairCommandAsync(
+            actionId,
+            "Node.js",
+            new RepairCommand("node", ["--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+        var npmReady = await ProbeRepairCommandAsync(
+            actionId,
+            "npm",
+            new RepairCommand("cmd.exe", ["/d", "/c", "npm", "--version"]),
+            progressSink,
+            logPath,
+            cancellationToken
+        );
+
+        return nodeReady && npmReady
+            ? null
+            : CreateNodeNpmUnavailableAfterInstallFailure(actionId, logPath);
     }
 
     private async Task<LocalDependencyRepairResult> RepairRequiredEnvironmentAndInstallBundledCodexAsync(

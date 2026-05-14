@@ -195,8 +195,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task ExecuteRepairModeAsyncRunsRequiredEnvironmentAndLatestCodexInstallInOrder()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(0, "node installed", ""),
             new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
             new LocalEnvironmentProcessResult(0, "10.9.0", ""),
@@ -223,8 +221,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         Assert.Equal("一键修复并安装最新 Codex 已完成。", result.Summary);
         Assert.Equal(
             [
-                "node --version",
-                "cmd.exe /d /c npm --version",
                 $"msiexec.exe /i {Path.Combine(_rootDirectory, "cache", "local-environment", "nodejs", "v22.12.0", "node-v22.12.0-x64.msi")} /qn /norestart",
                 "node --version",
                 "cmd.exe /d /c npm --version",
@@ -234,7 +230,7 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
         );
         Assert.Contains("npm", writtenPath, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("nodejs", writtenPath, StringComparison.OrdinalIgnoreCase);
-        Assert.True(refreshCount >= 3);
+        Assert.True(refreshCount >= 2);
         var progress = JsonSerializer.Deserialize<LocalDependencyRepairProgress>(
             File.ReadAllText(statusPath),
             JsonOptions
@@ -246,12 +242,44 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RequiredEnvironmentRepairReturnsNetworkFallbackWhenNodeIndexFails()
+    public async Task UpgradeBundledEnvironmentInstallsLatestNodeLtsBeforeLatestCodex()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found")
+            new LocalEnvironmentProcessResult(0, "node installed", ""),
+            new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
+            new LocalEnvironmentProcessResult(0, "10.9.0", ""),
+            new LocalEnvironmentProcessResult(0, "updated latest codex", "")
         );
+        var service = CreateService(
+            processRunner,
+            directoryExists: path => path.Contains("nodejs", StringComparison.OrdinalIgnoreCase),
+            createDirectory: _ => { },
+            userPathReader: _ => string.Empty,
+            userPathWriter: _ => { },
+            processPathRefresher: () => { }
+        );
+
+        var result = await service.ExecuteRepairModeAsync(
+            LocalDependencyRepairActionIds.UpgradeBundledEnvInstallLatestCodex,
+            Path.Combine(_rootDirectory, "runtime", "status.json")
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(
+            [
+                $"msiexec.exe /i {Path.Combine(_rootDirectory, "cache", "local-environment", "nodejs", "v22.12.0", "node-v22.12.0-x64.msi")} /qn /norestart",
+                "node --version",
+                "cmd.exe /d /c npm --version",
+                "cmd.exe /d /c npm install -g @openai/codex@latest",
+            ],
+            processRunner.Commands.Select(command => $"{command.FileName} {command.Arguments}")
+        );
+    }
+
+    [Fact]
+    public async Task RequiredEnvironmentRepairReturnsNetworkFallbackWhenNodeIndexFails()
+    {
+        var processRunner = new RecordingProcessRunner();
         var service = CreateService(
             processRunner,
             downloadStringAsync: (_, _) =>
@@ -279,12 +307,14 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
             LocalDependencyRepairActionIds.RepairRequiredEnvInstallBundledCodex,
             progress?.RecommendedFallbackActionId
         );
+        Assert.Empty(processRunner.Commands);
     }
 
     [Fact]
     public async Task RequiredEnvironmentRepairReturnsNetworkFallbackWhenNpmRegistryFails()
     {
         var processRunner = new ScriptedProcessRunner(
+            new LocalEnvironmentProcessResult(0, "node installed", ""),
             new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
             new LocalEnvironmentProcessResult(0, "10.9.0", ""),
             new LocalEnvironmentProcessResult(
@@ -312,8 +342,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task RequiredEnvironmentRepairDoesNotOfferOfflineFallbackForMsiFailure()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(1603, "", "msiexec failed")
         );
         var service = CreateService(processRunner);
@@ -423,8 +451,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task ExecuteRepairModeAsyncUsesBuiltInNodeInstallerDuringRequiredEnvironmentRepair()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(0, "node installed", ""),
             new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
             new LocalEnvironmentProcessResult(0, "10.9.0", ""),
@@ -462,8 +488,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task ExecuteRepairModeAsyncDoesNotRepairWingetBeforeRequiredEnvironmentInstall()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(0, "node installed", ""),
             new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
             new LocalEnvironmentProcessResult(0, "10.9.0", ""),
@@ -499,8 +523,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task ExecuteRepairModeAsyncStopsRequiredEnvironmentInstallWhenNodeInstallerFails()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(9, "", "msiexec 安装失败")
         );
         var service = CreateService(processRunner, processPathRefresher: () => { });
@@ -523,8 +545,6 @@ public sealed class LocalDependencyRepairServiceTests : IDisposable
     public async Task ExecuteRepairModeAsyncStopsRequiredEnvironmentInstallWhenNpmStillUnavailable()
     {
         var processRunner = new ScriptedProcessRunner(
-            new LocalEnvironmentProcessResult(1, "", "node not found"),
-            new LocalEnvironmentProcessResult(1, "", "npm not found"),
             new LocalEnvironmentProcessResult(0, "node installed", ""),
             new LocalEnvironmentProcessResult(0, "v22.12.0", ""),
             new LocalEnvironmentProcessResult(1, "", "npm still not found")

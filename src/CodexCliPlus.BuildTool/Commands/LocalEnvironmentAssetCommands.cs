@@ -163,7 +163,7 @@ internal static class LocalEnvironmentAssetCommands
         await File.WriteAllTextAsync(Path.Combine(workingDirectory, "package.json"), "{}");
 
         var exitCode = await context.ProcessRunner.RunAsync(
-            "npm",
+            ProcessExecutableResolver.ResolveNpmExecutable(),
             [
                 "install",
                 $"{CodexPackageName}@{codexVersion}",

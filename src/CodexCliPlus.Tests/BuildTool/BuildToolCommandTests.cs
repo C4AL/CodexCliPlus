@@ -139,6 +139,25 @@ public sealed class BuildToolCommandTests : IDisposable
     }
 
     [Fact]
+    public void NpmExecutableResolverPrefersPathCandidateForCurrentPlatform()
+    {
+        var nodeRoot = Path.Combine(_rootDirectory, "tool-path", "node");
+        Directory.CreateDirectory(nodeRoot);
+
+        var expectedName = OperatingSystem.IsWindows() ? "npm.cmd" : "npm";
+        var expectedPath = Path.Combine(nodeRoot, expectedName);
+        File.WriteAllText(expectedPath, string.Empty);
+        if (OperatingSystem.IsWindows())
+        {
+            File.WriteAllText(Path.Combine(nodeRoot, "npm"), string.Empty);
+        }
+
+        var resolved = ProcessExecutableResolver.ResolveNpmExecutable($"\"{nodeRoot}\"");
+
+        Assert.Equal(expectedPath, resolved);
+    }
+
+    [Fact]
     public void FileMaterializerFallsBackToCopyWhenHardLinkFails()
     {
         var sourceRoot = Path.Combine(_rootDirectory, "materialize-source");

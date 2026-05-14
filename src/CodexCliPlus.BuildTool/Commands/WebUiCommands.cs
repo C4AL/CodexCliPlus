@@ -105,7 +105,7 @@ public static class WebUiCommands
         {
             context.Logger.Info("installing vendored WebUI dependencies in temporary worktree");
             var installExitCode = await context.ProcessRunner.RunAsync(
-                ResolveNpmExecutable(),
+                ProcessExecutableResolver.ResolveNpmExecutable(),
                 ["ci"],
                 context.WebUiBuildSourceRoot,
                 context.Logger
@@ -141,7 +141,7 @@ public static class WebUiCommands
 
         context.Logger.Info("building vendored WebUI");
         var buildExitCode = await context.ProcessRunner.RunAsync(
-            ResolveNpmExecutable(),
+            ProcessExecutableResolver.ResolveNpmExecutable(),
             ["run", "build"],
             context.WebUiBuildSourceRoot,
             context.Logger
@@ -348,49 +348,6 @@ public static class WebUiCommands
                 $"Vendored WebUI overlay source directory not found: {context.WebUiOverlaySourceRoot}"
             );
         }
-    }
-
-    private static string ResolveNpmExecutable()
-    {
-        var candidateNames = OperatingSystem.IsWindows()
-            ? new[] { "npm.cmd", "npm.exe", "npm" }
-            : new[] { "npm" };
-
-        foreach (var candidateName in candidateNames)
-        {
-            var resolvedPath = TryResolveFromPath(candidateName);
-            if (resolvedPath is not null)
-            {
-                return resolvedPath;
-            }
-        }
-
-        return candidateNames[0];
-    }
-
-    private static string? TryResolveFromPath(string fileName)
-    {
-        var pathValue = Environment.GetEnvironmentVariable("PATH");
-        if (string.IsNullOrWhiteSpace(pathValue))
-        {
-            return null;
-        }
-
-        foreach (
-            var segment in pathValue.Split(
-                Path.PathSeparator,
-                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
-            )
-        )
-        {
-            var candidatePath = Path.Combine(segment.Trim('"'), fileName);
-            if (File.Exists(candidatePath))
-            {
-                return candidatePath;
-            }
-        }
-
-        return null;
     }
 
     private sealed record WebUiBundleReport(

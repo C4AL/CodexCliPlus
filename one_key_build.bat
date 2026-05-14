@@ -9,6 +9,10 @@ set "OUTPUT_FILE="
 set "EXIT_FILE="
 set "COMMAND_FILE="
 set "REPO_PUSHED="
+set "RUNNING_PROGRESS_LIMIT=95"
+set "RUNNING_PROGRESS_SCALE=2"
+set "RUNNING_PROGRESS_STEP_UNITS=12"
+set /a "RUNNING_PROGRESS_LIMIT_UNITS=RUNNING_PROGRESS_LIMIT*RUNNING_PROGRESS_SCALE"
 
 :find_repo_root
 if exist "%SEARCH_DIR%CodexCliPlus.sln" (
@@ -69,13 +73,16 @@ if errorlevel 1 (
 )
 
 set "PROGRESS=3"
+set /a "PROGRESS_UNITS=PROGRESS*RUNNING_PROGRESS_SCALE"
 
 :progress_loop
 if exist "%EXIT_FILE%" goto build_finished
 
-set /a PROGRESS+=1
-if %PROGRESS% GTR 95 set "PROGRESS=95"
+set /a "PROGRESS_UNITS+=RUNNING_PROGRESS_STEP_UNITS"
+if %PROGRESS_UNITS% GTR %RUNNING_PROGRESS_LIMIT_UNITS% set "PROGRESS_UNITS=%RUNNING_PROGRESS_LIMIT_UNITS%"
+set /a "PROGRESS=PROGRESS_UNITS/RUNNING_PROGRESS_SCALE"
 call :draw_progress %PROGRESS% "正在构建离线安装包..."
+if exist "%EXIT_FILE%" goto build_finished
 ping -n 2 127.0.0.1 >nul
 goto progress_loop
 
@@ -83,7 +90,6 @@ goto progress_loop
 set "EXIT_CODE="
 set /p EXIT_CODE=<"%EXIT_FILE%"
 if not defined EXIT_CODE set "EXIT_CODE=1"
-ping -n 2 127.0.0.1 >nul
 
 if "%EXIT_CODE%"=="0" (
     call :draw_progress 100 "构建完成，窗口即将关闭。"

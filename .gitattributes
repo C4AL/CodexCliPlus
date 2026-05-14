@@ -38,12 +38,9 @@
 
 # GitHub Linguist language bar policy.
 # Keep the public repository language bar focused on high-share languages while
-# hiding low-share auxiliary formats. The complete tracked-file language profile
-# lives in docs/language-statistics.md.
+# hiding low-share auxiliary formats.
 build/** linguist-detectable=false
-.github/** linguist-detectable=false
 .config/** linguist-detectable=false
-docs/** linguist-detectable=false
 
 *.xaml linguist-detectable=false
 *.xml linguist-detectable=false
@@ -66,7 +63,6 @@ docs/** linguist-detectable=false
 *.ps1 linguist-detectable=false
 *.gitignore linguist-detectable=false
 *.editorconfig linguist-detectable=false
-justfile linguist-detectable=false
 LICENSE linguist-detectable=false
 
 resources/webui/upstream/dist/index.html linguist-generated=true

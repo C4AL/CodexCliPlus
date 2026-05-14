@@ -20,14 +20,6 @@
 </p>
 
 <p align="center">
-  <a href="./docs/architecture-freeze.md">架构约束</a>
-  ·
-  <a href="./docs/build-and-release.md">构建与发布</a>
-  ·
-  <a href="./docs/testing.md">测试与验收</a>
-  ·
-  <a href="./docs/management-api-mapping.md">管理 API 映射</a>
-  ·
   <a href="https://qm.qq.com/q/HVH9TOEaYk">QQ群聊</a>
 </p>
 

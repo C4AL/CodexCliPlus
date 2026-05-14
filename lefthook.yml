@@ -1,8 +1,0 @@
-pre-commit:
-  parallel: true
-  commands:
-    gitleaks:
-      run: gitleaks protect --staged --redact --no-banner --config .gitleaks.toml
-    actionlint:
-      glob: ".github/workflows/*.{yml,yaml}"
-      run: actionlint {staged_files}

@@ -983,7 +983,7 @@ public sealed class LocalDependencyHealthService
             new LocalDependencyRepairCapability
             {
                 ActionId = LocalDependencyRepairActionIds.RepairRequiredEnvInstallLatestCodex,
-                Name = "一键修复并安装最新 Codex",
+                Name = "一键修复",
                 IsAvailable = requiredEnvironmentRepairAvailable,
                 Detail = requiredEnvironmentRepairAvailable
                     ? "将一次提权修复 winget、Node.js/npm、Codex CLI 和用户 PATH，不处理 WSL。"

@@ -1243,7 +1243,7 @@ public partial class MainWindow
         LocalDependencyRepairProgress? lastProgress
     )
     {
-        if (result.Succeeded || !_settings.EnableDebugTools)
+        if (result.Succeeded || !_settings.EnableLocalRepairDebugReport)
         {
             return result;
         }

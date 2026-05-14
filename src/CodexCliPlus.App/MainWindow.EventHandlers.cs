@@ -450,49 +450,35 @@ public partial class MainWindow
         await SetShellThemeAsync(explicitTheme);
     }
 
-    private async void SettingsDebugToolsCheckBox_Changed(object sender, RoutedEventArgs e)
+    private async void SettingsLocalRepairDebugReportCheckBox_Changed(object sender, RoutedEventArgs e)
     {
-        if (_suppressDebugToolsChange)
+        if (_suppressLocalRepairDebugReportChange)
         {
             return;
         }
 
-        var enabled = SettingsDebugToolsCheckBox.IsChecked == true;
-        if (_settings.EnableDebugTools == enabled)
+        var enabled = SettingsLocalRepairDebugReportCheckBox.IsChecked == true;
+        if (_settings.EnableLocalRepairDebugReport == enabled)
         {
             return;
         }
 
-        var previous = _settings.EnableDebugTools;
-        _settings.EnableDebugTools = enabled;
-        ApplyDebugToolsSettings();
+        var previous = _settings.EnableLocalRepairDebugReport;
+        _settings.EnableLocalRepairDebugReport = enabled;
 
         try
         {
             await _appConfigurationService.SaveAsync(_settings);
-            _notificationService.ShowAuto("调试设置已更新。");
+            _notificationService.ShowAuto("修复调试报告设置已更新。");
         }
         catch (Exception exception)
         {
-            _settings.EnableDebugTools = previous;
-            ApplyDebugToolsSettings();
-            _suppressDebugToolsChange = true;
-            SettingsDebugToolsCheckBox.IsChecked = previous;
-            _suppressDebugToolsChange = false;
-            _notificationService.ShowManual("调试设置保存失败", exception.Message);
+            _settings.EnableLocalRepairDebugReport = previous;
+            _suppressLocalRepairDebugReportChange = true;
+            SettingsLocalRepairDebugReportCheckBox.IsChecked = previous;
+            _suppressLocalRepairDebugReportChange = false;
+            _notificationService.ShowManual("修复调试报告设置保存失败", exception.Message);
         }
-    }
-
-    private void ApplyDebugToolsSettings()
-    {
-        if (!_webViewConfigured || ManagementWebView.CoreWebView2 is null)
-        {
-            return;
-        }
-
-        var enabled = _settings.EnableDebugTools;
-        ManagementWebView.CoreWebView2.Settings.AreDevToolsEnabled = enabled;
-        ManagementWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = enabled;
     }
 
     private void SettingsOpenMainRepoButton_Click(object sender, RoutedEventArgs e)

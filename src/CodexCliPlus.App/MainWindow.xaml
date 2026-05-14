@@ -1418,19 +1418,19 @@
                     Foreground="{DynamicResource PrimaryTextBrush}"
                   />
                   <TextBlock
-                    Text="修复失败时在桌面生成可交给 Codex 的诊断报告，并启用内置网页调试工具。"
+                    Text="修复失败时在桌面生成可交给 Codex 的诊断报告和修复指南。"
                     Margin="0,10,0,12"
                     FontSize="13"
                     Foreground="{DynamicResource SecondaryTextBrush}"
                     TextWrapping="Wrap"
                   />
                   <CheckBox
-                    x:Name="SettingsDebugToolsCheckBox"
+                    x:Name="SettingsLocalRepairDebugReportCheckBox"
                     VerticalAlignment="Center"
-                    Checked="SettingsDebugToolsCheckBox_Changed"
-                    Unchecked="SettingsDebugToolsCheckBox_Changed"
-                    AutomationProperties.AutomationId="SettingsDebugToolsCheckBox"
-                    Content="启用调试模式"
+                    Checked="SettingsLocalRepairDebugReportCheckBox_Changed"
+                    Unchecked="SettingsLocalRepairDebugReportCheckBox_Changed"
+                    AutomationProperties.AutomationId="SettingsLocalRepairDebugReportCheckBox"
+                    Content="启用修复调试报告"
                   />
                 </StackPanel>
               </Border>

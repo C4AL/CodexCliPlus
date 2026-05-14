@@ -33,6 +33,8 @@ public sealed class AppSettings
 
     public bool EnableDebugTools { get; set; }
 
+    public bool EnableLocalRepairDebugReport { get; set; }
+
     public string? LastRepositoryPath { get; set; }
 
     public bool SecurityKeyOnboardingCompleted { get; set; }

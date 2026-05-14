@@ -333,6 +333,8 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
 
         public bool EnableDebugTools { get; init; }
 
+        public bool EnableLocalRepairDebugReport { get; init; }
+
         public string? LastRepositoryPath { get; init; }
 
         public bool? SecurityKeyOnboardingCompleted { get; init; }
@@ -361,6 +363,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 ThemeMode = ThemeMode,
                 MinimumLogLevel = MinimumLogLevel,
                 EnableDebugTools = EnableDebugTools,
+                EnableLocalRepairDebugReport = EnableLocalRepairDebugReport,
                 LastRepositoryPath = LastRepositoryPath,
                 SecurityKeyOnboardingCompleted = SecurityKeyOnboardingCompleted ?? true,
                 LastSeenApplicationVersion = string.IsNullOrWhiteSpace(LastSeenApplicationVersion)
@@ -411,6 +414,7 @@ public sealed class JsonAppConfigurationService : IAppConfigurationService
                 ThemeMode = settings.ThemeMode,
                 MinimumLogLevel = settings.MinimumLogLevel,
                 EnableDebugTools = settings.EnableDebugTools,
+                EnableLocalRepairDebugReport = settings.EnableLocalRepairDebugReport,
                 LastRepositoryPath = settings.LastRepositoryPath,
                 SecurityKeyOnboardingCompleted = settings.SecurityKeyOnboardingCompleted,
                 LastSeenApplicationVersion = string.IsNullOrWhiteSpace(

@@ -162,7 +162,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow, IDisposable
     private bool _isInitializing;
     private bool _webViewConfigured;
     private bool _settingsOverlayOpen;
-    private bool _suppressDebugToolsChange;
+    private bool _suppressLocalRepairDebugReportChange;
     private bool _isShellBrandDockClosing;
     private bool _isAuthenticationCompactWindowMode;
     private bool _initialPresentationRevealed;

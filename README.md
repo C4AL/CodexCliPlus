@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/C4AL/CodexCliPlus/main/src/CodexCliPlus.Assets/icons/ico-transparent.png" alt="CodexCliPlus" width="160" />
+  <img src="src/Packaging/Assets/icons/codexcliplus-display.png" alt="CodexCliPlus" width="160" />
 </p>
 
 <h1 align="center">CodexCliPlus</h1>

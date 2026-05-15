@@ -1,0 +1,760 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using CodexCliPlus.Core.Constants;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+
+namespace CodexCliPlus.BuildTool;
+
+public static class PackageCommands
+{
+    public static async Task<int> BuildReleaseAsync(BuildContext context)
+    {
+        context.Logger.Info(
+            $"selected release package(s): {context.Options.ReleasePackages.ToDisplayString()}"
+        );
+
+        var publishExitCode = await PublishCommands.PublishAsync(context);
+        if (publishExitCode != 0)
+        {
+            return publishExitCode;
+        }
+
+        if (
+            context.Options.ReleasePackages.IncludesUpdatePackage()
+            || context.Options.ReleasePackages.IncludesOnlineInstaller()
+        )
+        {
+            if (context.Options.Parallel && context.Options.ReleasePackages.IncludesOfflineInstaller())
+            {
+                context.Logger.Info(
+                    "building offline installer in parallel with update/online release chain"
+                );
+                var updateAndOnlineTask = BuildUpdateAndOnlinePackagesAsync(context);
+                var offlineTask = PackageInstallerAsync(context, InstallerPackageKind.Offline);
+                var results = await Task.WhenAll(updateAndOnlineTask, offlineTask);
+                foreach (var exitCode in results)
+                {
+                    if (exitCode != 0)
+                    {
+                        return exitCode;
+                    }
+                }
+
+                return await VerifyPackagesAsync(context);
+            }
+
+            var updateAndOnlineExitCode = await BuildUpdateAndOnlinePackagesAsync(context);
+            if (updateAndOnlineExitCode != 0)
+            {
+                return updateAndOnlineExitCode;
+            }
+        }
+
+        if (context.Options.ReleasePackages.IncludesOfflineInstaller())
+        {
+            var offlineInstallerExitCode = await PackageInstallerAsync(
+                context,
+                InstallerPackageKind.Offline
+            );
+            if (offlineInstallerExitCode != 0)
+            {
+                return offlineInstallerExitCode;
+            }
+        }
+
+        return await VerifyPackagesAsync(context);
+    }
+
+    private static async Task<int> BuildUpdateAndOnlinePackagesAsync(BuildContext context)
+    {
+        var updateExitCode = await PackageUpdateAsync(context);
+        if (updateExitCode != 0)
+        {
+            return updateExitCode;
+        }
+
+        if (context.Options.ReleasePackages.IncludesOnlineInstaller())
+        {
+            var onlineInstallerExitCode = await PackageInstallerAsync(
+                context,
+                InstallerPackageKind.Online
+            );
+            if (onlineInstallerExitCode != 0)
+            {
+                return onlineInstallerExitCode;
+            }
+        }
+
+        return 0;
+    }
+
+    public static async Task<int> PackageInstallerAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind
+    )
+    {
+        var packageType =
+            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        return await BuildTiming.TimeAsync(
+            context,
+            packageType,
+            () => PackageInstallerCoreAsync(context, packageKind)
+        );
+    }
+
+    private static async Task<int> PackageInstallerCoreAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind
+    )
+    {
+        var packageMoniker = packageKind == InstallerPackageKind.Online ? "Online" : "Offline";
+        var packageType =
+            packageKind == InstallerPackageKind.Online ? "online-installer" : "offline-installer";
+        var isOnline = packageKind == InstallerPackageKind.Online;
+        var stageRoot = Path.Combine(context.InstallerRoot, packageType, "stage");
+        var appPackageRoot = isOnline ? null : Path.Combine(stageRoot, "app-package");
+        var payloadArchivePath = isOnline ? null : Path.Combine(stageRoot, "publish.7z");
+        var installerOutputPath = Path.Combine(
+            context.PackageRoot,
+            $"{AppConstants.InstallerNamePrefix}.{packageMoniker}.{context.Options.Version}.exe"
+        );
+
+        OnlineInstallerPayload? onlinePayload = null;
+        if (isOnline)
+        {
+            onlinePayload = await CreateOnlineInstallerPayloadAsync(context);
+        }
+        else
+        {
+            SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+        }
+
+        var installerInputHash = await ComputeInstallerInputHashAsync(
+            context,
+            packageKind,
+            onlinePayload
+        );
+        if (
+            context.Options.Incremental
+            && !context.Options.ForceRebuild.Includes(ForceRebuildStage.Installer)
+        )
+        {
+            var cache = await IncrementalBuildCache.LookupFileAsync(
+                context,
+                packageType,
+                installerInputHash,
+                installerOutputPath
+            );
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
+            {
+                ArtifactSidecarCleanup.DeleteLegacySidecars(installerOutputPath);
+                return 0;
+            }
+        }
+        else if (!context.Options.Incremental)
+        {
+            context.Logger.Info($"{packageType} incremental cache disabled");
+        }
+        else
+        {
+            context.Logger.Info($"{packageType} force rebuild requested");
+        }
+
+        CleanInstallerStage(context, stageRoot);
+        long payloadUncompressedBytes;
+        WebView2RuntimeAssets webView2Assets;
+        if (isOnline)
+        {
+            await WriteJsonAsync(Path.Combine(stageRoot, "online-payload.json"), onlinePayload!);
+            payloadUncompressedBytes = GetUpdatePackagePayloadSize(context, onlinePayload!);
+            webView2Assets = await WebView2RuntimeAssets.StageAsync(
+                context,
+                stageRoot,
+                packageKind
+            );
+        }
+        else
+        {
+            var materialized = FileMaterializer.MaterializeDirectory(
+                context.PublishRoot,
+                appPackageRoot!,
+                preferHardLinks: true
+            );
+            context.Logger.Info(
+                $"offline staging materialized: {materialized.LinkedFiles} hardlink(s), {materialized.CopiedFiles} copy fallback(s)"
+            );
+            webView2Assets = await WebView2RuntimeAssets.StageAsync(
+                context,
+                appPackageRoot!,
+                packageKind
+            );
+            installerInputHash = await ComputeInstallerInputHashAsync(
+                context,
+                packageKind,
+                onlinePayload
+            );
+            payloadUncompressedBytes = GetDirectorySize(appPackageRoot!);
+        }
+
+        var installerPlan = new InstallerPlan
+        {
+            ProductName = AppConstants.ProductName,
+            InstallerName = Path.GetFileName(installerOutputPath),
+            AppUserModelId = AppConstants.AppUserModelId,
+            CurrentUserDefault = false,
+            PayloadDirectory = isOnline ? "payload" : "app-package",
+            PayloadMode = isOnline ? "download-update-zip" : "bundled-archive",
+            OnlinePayload = onlinePayload,
+            MicaSetupRoute = true,
+            RequestExecutionLevel = "admin",
+            InstallDirectoryHint = $"%ProgramFiles%\\{AppConstants.ProductKey}",
+            LaunchAfterInstall = true,
+            CleanupInstallerAfterInstallDefault = false,
+            StableReleaseSource = "https://github.com/C4AL/CodexCliPlus/releases/latest",
+            BetaChannelReserved = true,
+        };
+        await WriteJsonAsync(Path.Combine(stageRoot, "mica-setup.json"), installerPlan);
+        await InstallerMetadata.WriteAsync(
+            context,
+            appPackageRoot,
+            stageRoot,
+            webView2Assets,
+            packageKind,
+            onlinePayload
+        );
+
+        if (!isOnline)
+        {
+            var archiveExitCode = await CreateMicaPayloadArchiveAsync(
+                context,
+                appPackageRoot!,
+                payloadArchivePath!,
+                installerInputHash
+            );
+            if (archiveExitCode != 0)
+            {
+                return archiveExitCode;
+            }
+        }
+
+        var micaConfigPath = Path.Combine(stageRoot, "micasetup.json");
+        var micaConfig = MicaSetupConfig.Create(
+            context,
+            payloadArchivePath ?? onlinePayload!.Url,
+            installerOutputPath
+        );
+        await File.WriteAllTextAsync(
+            micaConfigPath,
+            JsonSerializer.Serialize(micaConfig, MicaSetupConfig.JsonOptions),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        var buildExitCode = await MicaSetupInstallerBuilder.BuildAsync(
+            context,
+            micaConfigPath,
+            payloadArchivePath,
+            payloadUncompressedBytes,
+            installerOutputPath,
+            packageKind,
+            onlinePayload
+        );
+        if (buildExitCode != 0)
+        {
+            return buildExitCode;
+        }
+
+        ArtifactSidecarCleanup.DeleteLegacySidecars(installerOutputPath);
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteFileAsync(
+                context,
+                packageType,
+                installerInputHash,
+                installerOutputPath
+            );
+        }
+
+        Directory.CreateDirectory(Path.Combine(stageRoot, "output"));
+        File.Copy(
+            installerOutputPath,
+            Path.Combine(stageRoot, "output", Path.GetFileName(installerOutputPath)),
+            overwrite: true
+        );
+
+        CleanupPackageStaging(context, stageRoot);
+        context.Logger.Info($"installer executable: {installerOutputPath}");
+        return 0;
+    }
+
+    public static Task<int> VerifyPackagesAsync(BuildContext context)
+    {
+        return BuildTiming.TimeAsync(context, "verify", () => VerifyPackagesCoreAsync(context));
+    }
+
+    private static Task<int> VerifyPackagesCoreAsync(BuildContext context)
+    {
+        var verifier = new PackageVerifier(
+            context,
+            releasePackages: context.Options.ReleasePackages
+        );
+        var failures = verifier.VerifyAll();
+        if (failures.Count > 0)
+        {
+            foreach (var failure in failures)
+            {
+                context.Logger.Error(failure);
+            }
+
+            return Task.FromResult(1);
+        }
+
+        context.Logger.Info("package verification passed");
+        return Task.FromResult(0);
+    }
+
+    public static async Task<int> PackageUpdateAsync(BuildContext context)
+    {
+        SafeFileSystem.RequirePublishRoot(context.PublishRoot);
+
+        var stageRoot = Path.Combine(context.InstallerRoot, "update-package", "stage");
+        var payloadRoot = Path.Combine(stageRoot, "payload");
+        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
+        FileMaterializer.MaterializeDirectory(context.PublishRoot, payloadRoot);
+
+        var files = Directory
+            .EnumerateFiles(payloadRoot, "*", SearchOption.AllDirectories)
+            .Select(path => new FileInfo(path))
+            .OrderBy(
+                file => Path.GetRelativePath(payloadRoot, file.FullName),
+                StringComparer.OrdinalIgnoreCase
+            )
+            .ToArray();
+        var entries = new List<object>();
+        foreach (var file in files)
+        {
+            var relativePath = Path.GetRelativePath(payloadRoot, file.FullName).Replace('\\', '/');
+            entries.Add(
+                new
+                {
+                    path = relativePath,
+                    size = file.Length,
+                    sha256 = await ComputeSha256Async(file.FullName),
+                }
+            );
+        }
+
+        var manifest = new
+        {
+            product = AppConstants.ProductName,
+            version = context.Options.Version,
+            runtime = context.Options.Runtime,
+            createdAtUtc = DateTimeOffset.UtcNow,
+            updateKind = "file-manifest-diff",
+            files = entries,
+        };
+
+        await File.WriteAllTextAsync(
+            Path.Combine(stageRoot, "update-manifest.json"),
+            JsonSerializer.Serialize(manifest, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        Directory.CreateDirectory(context.PackageRoot);
+        var packagePath = Path.Combine(
+            context.PackageRoot,
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip"
+        );
+        if (File.Exists(packagePath))
+        {
+            File.Delete(packagePath);
+        }
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
+
+        ZipFile.CreateFromDirectory(
+            stageRoot,
+            packagePath,
+            context.Options.Compression.ToCompressionLevel(),
+            includeBaseDirectory: false
+        );
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
+        CleanupPackageStaging(context, stageRoot);
+        context.Logger.Info($"update package: {packagePath}");
+        return 0;
+    }
+
+    private static async Task<OnlineInstallerPayload> CreateOnlineInstallerPayloadAsync(
+        BuildContext context
+    )
+    {
+        var fileName =
+            $"CodexCliPlus.Update.{context.Options.Version}.{context.Options.Runtime}.zip";
+        var packagePath = Path.Combine(context.PackageRoot, fileName);
+        if (!File.Exists(packagePath))
+        {
+            throw new FileNotFoundException(
+                "Online installer requires the update package. Run package-update before package-online-installer.",
+                packagePath
+            );
+        }
+
+        var baseUrl = string.IsNullOrWhiteSpace(context.Options.OnlinePayloadBaseUrl)
+            ? $"https://github.com/C4AL/CodexCliPlus/releases/download/v{context.Options.Version}"
+            : context.Options.OnlinePayloadBaseUrl.Trim().TrimEnd('/', '\\');
+        return new OnlineInstallerPayload
+        {
+            FileName = fileName,
+            Url = $"{baseUrl}/{fileName}",
+            Size = new FileInfo(packagePath).Length,
+            Sha256 = await ComputeSha256Async(packagePath),
+            InstallRoot = "payload",
+        };
+    }
+
+    private static long GetUpdatePackagePayloadSize(
+        BuildContext context,
+        OnlineInstallerPayload onlinePayload
+    )
+    {
+        var packagePath = Path.Combine(context.PackageRoot, onlinePayload.FileName);
+        using var archive = ZipFile.OpenRead(packagePath);
+        return archive
+            .Entries.Where(entry =>
+                entry.FullName.StartsWith("payload/", StringComparison.OrdinalIgnoreCase)
+                && !entry.FullName.EndsWith('/')
+            )
+            .Sum(entry => entry.Length);
+    }
+
+    private static void CleanupPackageStaging(BuildContext context, string stageRoot)
+    {
+        if (context.Options.KeepPackageStaging)
+        {
+            context.Logger.Info($"kept package staging: {stageRoot}");
+            return;
+        }
+
+        if (context.Options.Incremental && Directory.Exists(Path.Combine(stageRoot, ".dist")))
+        {
+            try
+            {
+                TrimInstallerBuildCache(context, Path.Combine(stageRoot, ".dist"));
+                SafeFileSystem.CleanDirectoryExcept(stageRoot, context.Options.OutputRoot, [".dist"]);
+                context.Logger.Info(
+                    $"removed package staging; kept trimmed MicaSetup source cache: {stageRoot}"
+                );
+                return;
+            }
+            catch (IOException exception)
+            {
+                context.Logger.Warning(
+                    $"Could not trim package staging because it is in use: {exception.Message}"
+                );
+                return;
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                context.Logger.Warning(
+                    $"Could not trim package staging because access was denied: {exception.Message}"
+                );
+                return;
+            }
+        }
+
+        try
+        {
+            SafeFileSystem.DeleteDirectory(stageRoot, context.Options.OutputRoot);
+            context.Logger.Info($"removed package staging: {stageRoot}");
+        }
+        catch (IOException exception)
+        {
+            context.Logger.Warning(
+                $"Could not remove package staging because it is in use: {exception.Message}"
+            );
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            context.Logger.Warning(
+                $"Could not remove package staging because access was denied: {exception.Message}"
+            );
+        }
+    }
+
+    private static void TrimInstallerBuildCache(BuildContext context, string distRoot)
+    {
+        var cacheDirectories = new[]
+        {
+            Path.Combine(distRoot, "bin"),
+            Path.Combine(distRoot, "obj"),
+        };
+
+        foreach (var directory in cacheDirectories)
+        {
+            SafeFileSystem.DeleteDirectory(directory, context.Options.OutputRoot);
+        }
+
+        var payloadCopyPath = Path.Combine(distRoot, "Resources", "Setups", "publish.7z");
+        if (File.Exists(payloadCopyPath))
+        {
+            File.Delete(payloadCopyPath);
+        }
+    }
+
+    private static async Task CreatePackageAsync(
+        BuildContext context,
+        string stageRoot,
+        string packagePath,
+        string packageType
+    )
+    {
+        Directory.CreateDirectory(context.PackageRoot);
+        if (File.Exists(packagePath))
+        {
+            File.Delete(packagePath);
+        }
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
+
+        var manifest = new PackageManifest
+        {
+            Product = AppConstants.ProductName,
+            Version = context.Options.Version,
+            Runtime = context.Options.Runtime,
+            PackageType = packageType,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await File.WriteAllTextAsync(
+            Path.Combine(stageRoot, "package-manifest.json"),
+            JsonSerializer.Serialize(manifest, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+
+        ZipFile.CreateFromDirectory(
+            stageRoot,
+            packagePath,
+            context.Options.Compression.ToCompressionLevel(),
+            includeBaseDirectory: false
+        );
+        ArtifactSidecarCleanup.DeleteLegacySidecars(packagePath);
+        context.Logger.Info($"{packageType} package: {packagePath}");
+    }
+
+    private static async Task<string> ComputeSha256Async(string path)
+    {
+        await using var stream = File.OpenRead(path);
+        var hash = await SHA256.HashDataAsync(stream);
+        return Convert.ToHexStringLower(hash);
+    }
+
+    private static void CleanInstallerStage(BuildContext context, string stageRoot)
+    {
+        if (context.Options.Incremental)
+        {
+            SafeFileSystem.CleanDirectoryExcept(stageRoot, context.Options.OutputRoot, [".dist"]);
+            return;
+        }
+
+        SafeFileSystem.CleanDirectory(stageRoot, context.Options.OutputRoot);
+    }
+
+    private static async Task<string> ComputeInstallerInputHashAsync(
+        BuildContext context,
+        InstallerPackageKind packageKind,
+        OnlineInstallerPayload? onlinePayload
+    )
+    {
+        var hasher = new IncrementalInputHasher();
+        hasher.AddText("stage", packageKind == InstallerPackageKind.Online ? "online" : "offline");
+        hasher.AddText("version", context.Options.Version);
+        hasher.AddText("runtime", context.Options.Runtime);
+        hasher.AddText("configuration", context.Options.Configuration);
+        hasher.AddText("compression", context.Options.Compression.ToArgumentValue());
+        await hasher.AddDirectoryAsync("publish", context.PublishRoot);
+        await hasher.AddDirectoryAsync(
+            "micasetup-source",
+            context.MicaSetupSourceTemplateRoot,
+            ["bin", "obj"]
+        );
+        await hasher.AddDirectoryAsync(
+            "micasetup-overrides",
+            context.MicaSetupOverridesRoot
+        );
+        await hasher.AddDirectoryAsync("icons", context.RepositoryIconsRoot);
+        await hasher.AddDirectoryAsync("licenses", context.RepositoryLicensesRoot);
+        await hasher.AddFileAsync("root-license", context.RepositoryLicensePath);
+
+        if (packageKind == InstallerPackageKind.Offline)
+        {
+            await hasher.AddFileAsync(
+                "webview2-standalone-x64",
+                Path.Combine(
+                    context.CacheRoot,
+                    "webview2",
+                    WebView2RuntimeAssets.StandaloneX64FileName
+                )
+            );
+        }
+        else if (onlinePayload is not null)
+        {
+            hasher.AddText("online-payload-file", onlinePayload.FileName);
+            hasher.AddText("online-payload-url", onlinePayload.Url);
+            hasher.AddText(
+                "online-payload-size",
+                onlinePayload.Size.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            );
+            hasher.AddText("online-payload-sha256", onlinePayload.Sha256);
+        }
+
+        return hasher.Finish();
+    }
+
+    private static Task<int> CreateMicaPayloadArchiveAsync(
+        BuildContext context,
+        string appPackageRoot,
+        string archivePath,
+        string installerInputHash
+    )
+    {
+        return BuildTiming.TimeAsync(
+            context,
+            "payload archive",
+            () => CreateMicaPayloadArchiveCoreAsync(
+                context,
+                appPackageRoot,
+                archivePath,
+                installerInputHash
+            )
+        );
+    }
+
+    private static async Task<int> CreateMicaPayloadArchiveCoreAsync(
+        BuildContext context,
+        string appPackageRoot,
+        string archivePath,
+        string installerInputHash
+    )
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(archivePath)!);
+        if (File.Exists(archivePath))
+        {
+            File.Delete(archivePath);
+        }
+
+        var appPackageHash = await IncrementalInputHasher.HashDirectoryAsync(appPackageRoot);
+        var archiveInputHasher = new IncrementalInputHasher();
+        archiveInputHasher.AddText("stage", "payload-archive");
+        archiveInputHasher.AddText("installer-input", installerInputHash);
+        archiveInputHasher.AddText("app-package", appPackageHash);
+        archiveInputHasher.AddText("compression", context.Options.Compression.ToArgumentValue());
+        var archiveInputHash = archiveInputHasher.Finish();
+        var cachedArchivePath = Path.Combine(
+            context.IncrementalCacheRoot,
+            "payload",
+            $"offline-{context.Options.Version}-{context.Options.Runtime}-{context.Options.Compression.ToArgumentValue()}.7z"
+        );
+        if (context.Options.Incremental)
+        {
+            var cache = await IncrementalBuildCache.LookupFileAsync(
+                context,
+                "payload-archive",
+                archiveInputHash,
+                cachedArchivePath
+            );
+            context.Logger.Info(cache.Reason);
+            if (cache.Hit)
+            {
+                FileMaterializer.MaterializeFile(
+                    cachedArchivePath,
+                    archivePath,
+                    preferHardLink: true
+                );
+                PrunePayloadArchiveCache(context, cachedArchivePath);
+                return File.Exists(archivePath) ? 0 : 1;
+            }
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(cachedArchivePath)!);
+        if (File.Exists(cachedArchivePath))
+        {
+            File.Delete(cachedArchivePath);
+        }
+
+        ZipFile.CreateFromDirectory(
+            appPackageRoot,
+            cachedArchivePath,
+            context.Options.Compression.ToCompressionLevel(),
+            includeBaseDirectory: false
+        );
+        if (context.Options.Incremental)
+        {
+            await IncrementalBuildCache.WriteFileAsync(
+                context,
+                "payload-archive",
+                archiveInputHash,
+                cachedArchivePath
+            );
+        }
+
+        FileMaterializer.MaterializeFile(cachedArchivePath, archivePath, preferHardLink: true);
+        PrunePayloadArchiveCache(context, cachedArchivePath);
+        context.Logger.Info("MicaSetup payload archive created from repo package contents.");
+        return File.Exists(archivePath) ? 0 : 1;
+    }
+
+    private static void PrunePayloadArchiveCache(BuildContext context, string currentArchivePath)
+    {
+        if (context.Options.ArtifactRetention == 0)
+        {
+            return;
+        }
+
+        var payloadCacheRoot = Path.Combine(context.IncrementalCacheRoot, "payload");
+        if (!Directory.Exists(payloadCacheRoot))
+        {
+            return;
+        }
+
+        var fullCurrentArchivePath = Path.GetFullPath(currentArchivePath);
+        var olderArchives = Directory
+            .EnumerateFiles(payloadCacheRoot, "offline-*.7z", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFullPath)
+            .Where(path => !SafeFileSystem.PathsEqual(path, fullCurrentArchivePath))
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .ToArray();
+        var archivesToKeep = Math.Max(context.Options.ArtifactRetention - 1, 0);
+
+        foreach (var oldArchive in olderArchives.Skip(archivesToKeep))
+        {
+            SafeFileSystem.DeleteFile(oldArchive, context.Options.OutputRoot);
+            context.Logger.Info($"removed old payload archive cache: {oldArchive}");
+        }
+    }
+
+    private static long GetDirectorySize(string directory)
+    {
+        return Directory
+            .EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+            .Sum(path => new FileInfo(path).Length);
+    }
+
+    private static Task WriteJsonAsync(string path, object value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        return File.WriteAllTextAsync(
+            path,
+            JsonSerializer.Serialize(value, JsonDefaults.Options),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+        );
+    }
+}
+
+public enum InstallerPackageKind
+{
+    Online,
+    Offline,
+}

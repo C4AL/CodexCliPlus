@@ -1,0 +1,1026 @@
+@use './variables.scss' as *;
+
+// ─── Container ──────────────────────────────────────────
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  width: 100%;
+  max-width: 1000px;
+  min-width: 0;
+  margin: 0 auto;
+  position: relative;
+}
+
+// ─── Decorative Background Orbs ─────────────────────────
+
+.backgroundOrbs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.orb1 {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary-color) 8%, transparent),
+    transparent 70%
+  );
+  top: -140px;
+  right: -80px;
+  animation: orbFloat 22s ease-in-out infinite alternate;
+}
+
+.orb2 {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--success-color) 6%, transparent),
+    transparent 70%
+  );
+  bottom: 18%;
+  left: -100px;
+  animation: orbFloat 28s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes orbFloat {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(30px, -20px) scale(1.1);
+  }
+}
+
+// ─── Hero Welcome Section ───────────────────────────────
+
+.hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $spacing-lg;
+  padding: $spacing-2xl $spacing-xl;
+  border-radius: $radius-lg;
+  --glass-blur: 12px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg-primary) 92%, transparent),
+    color-mix(in srgb, var(--bg-secondary) 80%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  overflow: hidden;
+  animation: heroEnter 0.6s ease-out both;
+
+  @media (max-width: $breakpoint-mobile) {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: $spacing-xl $spacing-lg;
+  }
+}
+
+// Large watermark text behind hero content
+.heroWatermark {
+  position: absolute;
+  top: 50%;
+  left: $spacing-xl;
+  transform: translateY(-50%);
+  font-size: clamp(64px, 12vw, 120px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  opacity: 0.04;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  animation: watermarkEnter 0.8s ease-out 0.1s both;
+
+  @media (max-width: $breakpoint-mobile) {
+    font-size: clamp(48px, 14vw, 80px);
+    left: $spacing-lg;
+  }
+}
+
+@keyframes watermarkEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-20px);
+  }
+  to {
+    opacity: 0.04;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.heroGreeting {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+  animation: fadeSlideUp 0.5s ease-out 0.1s both;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 48px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  animation: fadeSlideUp 0.5s ease-out 0.2s both;
+}
+
+.heroCaring {
+  margin: $spacing-xs 0 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  animation: fadeSlideUp 0.5s ease-out 0.3s both;
+}
+
+// ─── Hero Meta (right side) ─────────────────────────────
+
+.heroMeta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: $spacing-sm;
+  flex-shrink: 0;
+  animation: fadeSlideUp 0.5s ease-out 0.35s both;
+
+  @media (max-width: $breakpoint-mobile) {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
+}
+
+.dateTimeBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+
+  @media (max-width: $breakpoint-mobile) {
+    align-items: flex-start;
+  }
+}
+
+.time {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+// ─── Connection Pill ────────────────────────────────────
+
+.connectionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: $radius-full;
+  --glass-blur: 8px;
+  background: var(--glass-bg-secondary);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-backdrop-filter);
+  -webkit-backdrop-filter: var(--glass-backdrop-filter);
+  font-size: 12px;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $gray-400;
+  flex-shrink: 0;
+
+  &.connected {
+    background: $success-color;
+    box-shadow: 0 0 6px rgba($success-color, 0.5);
+  }
+
+  &.connecting {
+    background: $warning-color;
+    animation: pulse 1s ease-in-out infinite;
+  }
+
+  &.disconnected {
+    background: $error-color;
+  }
+}
+
+.pillText {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.buildDate {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+
+  @media (max-width: $breakpoint-mobile) {
+    text-align: left;
+  }
+}
+
+// ─── Bento Stats Grid ───────────────────────────────────
+
+.statsSection {
+  position: relative;
+  z-index: 1;
+}
+
+.sectionHeading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 0 0 $spacing-md;
+}
+
+.bentoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: $spacing-md;
+
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 500px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bentoCard {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  text-decoration: none;
+  transition:
+    border-color $transition-fast,
+    box-shadow $transition-fast,
+    transform $transition-fast;
+  animation: cardEnter 0.4s ease-out both;
+
+  &:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-3px);
+  }
+}
+
+// First card spans 2 rows — the "hero stat"
+.bentoLarge {
+  grid-row: 1 / 3;
+  justify-content: center;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--primary-color) 6%, var(--bg-primary)),
+    var(--bg-primary)
+  );
+
+  .bentoValue {
+    font-size: 44px;
+  }
+
+  .bentoIcon {
+    width: 56px;
+    height: 56px;
+  }
+
+  @media (max-width: 900px) {
+    grid-row: auto;
+
+    .bentoValue {
+      font-size: 32px;
+    }
+
+    .bentoIcon {
+      width: 44px;
+      height: 44px;
+    }
+  }
+}
+
+.bentoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: $radius-md;
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-secondary));
+  color: var(--primary-color);
+  transition: background $transition-fast;
+}
+
+.bentoCard:hover .bentoIcon {
+  background: color-mix(in srgb, var(--primary-color) 16%, var(--bg-secondary));
+}
+
+.localEnvironmentCard {
+  width: 100%;
+  min-height: 156px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.localEnvironmentPanel {
+  margin-top: $spacing-md;
+  padding: $spacing-lg;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  animation: cardEnter 0.24s ease-out both;
+}
+
+.localEnvironmentHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  span {
+    display: inline-flex;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  @media (max-width: $breakpoint-mobile) {
+    flex-direction: column;
+  }
+}
+
+.localEnvironmentHeaderMain {
+  min-width: 0;
+}
+
+.localEnvironmentHeaderActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 320px;
+
+  small {
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: right;
+  }
+
+  @media (max-width: $breakpoint-mobile) {
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+
+    small {
+      text-align: left;
+    }
+  }
+}
+
+.localEnvironmentRepairButton:global(.btn.btn-secondary) {
+  background: var(--success-badge-bg);
+  border-color: var(--success-badge-border);
+  color: var(--success-badge-text);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--success-color) 12%, transparent);
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--success-color) 18%, var(--success-badge-bg));
+    border-color: color-mix(in srgb, var(--success-color) 56%, var(--success-badge-border));
+    color: var(--success-badge-text);
+  }
+
+  &:disabled {
+    opacity: 1;
+    background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-secondary));
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+    box-shadow: none;
+  }
+
+  [data-theme='dark'] & {
+    color: var(--success-badge-text);
+  }
+
+  [data-theme='dark'] &:disabled {
+    color: var(--text-secondary);
+  }
+}
+
+.localEnvironmentPanel > .localDependencyRepairProgress {
+  margin-bottom: $spacing-md;
+}
+
+.localEnvironmentError,
+.localEnvironmentNotice {
+  margin-bottom: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.localEnvironmentError {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: $error-color;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.2);
+}
+
+.localEnvironmentErrorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.localEnvironmentNotice {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.localEnvironmentItems {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.localReadyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  order: -1;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--success-color) 28%, var(--border-color));
+  border-radius: $radius-md;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--success-color) 12%, transparent),
+      transparent 28px
+    ),
+    color-mix(in srgb, var(--success-color) 6%, var(--bg-primary));
+}
+
+.localReadyToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  width: 100%;
+  padding: $spacing-sm $spacing-md;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition:
+    background $transition-fast,
+    color $transition-fast;
+
+  &:hover {
+    background: color-mix(in srgb, var(--success-color) 10%, transparent);
+  }
+
+  svg {
+    flex-shrink: 0;
+    color: #047857;
+  }
+}
+
+.localReadyToggleText {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-align: left;
+
+  strong {
+    color: var(--text-primary);
+    font-size: 13px;
+  }
+
+  span {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.localReadyGroupItems {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 $spacing-sm $spacing-sm $spacing-md;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: $spacing-sm;
+    left: $spacing-sm;
+    width: 1px;
+    background: color-mix(in srgb, var(--success-color) 38%, transparent);
+  }
+}
+
+.localIssueItems {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.localReadyGroup + .localIssueItems {
+  margin-top: $spacing-xs;
+  padding-top: $spacing-sm;
+  border-top: 1px dashed color-mix(in srgb, var(--border-color) 72%, transparent);
+}
+
+.localDependencyItem {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: $spacing-md;
+  align-items: center;
+  padding: $spacing-md;
+  border: 1px solid var(--border-color);
+  border-radius: $radius-md;
+  background: var(--bg-secondary);
+
+  @media (max-width: $breakpoint-mobile) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.localDependencyItemReady {
+  border-color: color-mix(in srgb, var(--success-color) 30%, var(--border-color));
+  background: color-mix(in srgb, var(--success-color) 5%, var(--bg-secondary));
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--success-color) 72%, transparent);
+}
+
+.localDependencyItemIssue {
+  border-color: var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.localDependencyMain {
+  min-width: 0;
+
+  p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  small {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-tertiary);
+  }
+}
+
+.localDependencyTitleRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  min-width: 0;
+
+  strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+}
+
+.localDependencyMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+
+  span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    padding: 2px 6px;
+    border-radius: $radius-sm;
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-family: $font-mono;
+  }
+}
+
+.localDependencyRepairProgress {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 24%, var(--border-color));
+  border-radius: $radius-md;
+  background: color-mix(in srgb, var(--primary-color) 6%, var(--bg-primary));
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+}
+
+.localDependencyRepairProgressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-sm;
+
+  strong {
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  span {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+}
+
+.localDependencyRepairProgressTrack {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: $radius-full;
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--bg-secondary));
+}
+
+.localDependencyRepairProgressFill {
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--primary-color),
+    color-mix(in srgb, var(--success-color) 72%, var(--primary-color))
+  );
+  transition: width 0.28s ease;
+}
+
+.localDependencyRepairProgressFillActive {
+  background-image:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.28) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.28) 50%,
+      rgba(255, 255, 255, 0.28) 75%,
+      transparent 75%,
+      transparent
+    ),
+    linear-gradient(
+      90deg,
+      var(--primary-color),
+      color-mix(in srgb, var(--success-color) 72%, var(--primary-color))
+    );
+  background-size:
+    24px 24px,
+    100% 100%;
+  animation: repairProgressStripe 0.8s linear infinite;
+}
+
+.localDependencyRepairProgressFillFailed {
+  background: $error-color;
+}
+
+.localDependencyRepairField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  span {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  code,
+  pre {
+    margin: 0;
+    max-height: 160px;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    padding: 8px;
+    border-radius: $radius-sm;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-family: $font-mono;
+    font-size: 12px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+  }
+}
+
+.localStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.localStatusReady {
+  color: $success-color;
+  background: rgba($success-color, 0.1);
+}
+
+.localStatusWarning {
+  color: $warning-color;
+  background: rgba($warning-color, 0.12);
+}
+
+.localStatusError {
+  color: $error-color;
+  background: rgba($error-color, 0.1);
+}
+
+.localStatusOptional {
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+}
+
+.bentoContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bentoValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.bentoLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.bentoSublabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+// ─── Config Pills Section ───────────────────────────────
+
+.configSection {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  animation: cardEnter 0.4s ease-out 0.5s both;
+}
+
+.configPillGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.configPill {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: 6px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-full;
+  font-size: 13px;
+  transition: border-color $transition-fast;
+
+  &:hover {
+    border-color: var(--border-hover);
+  }
+}
+
+.configPillWide {
+  flex-basis: 100%;
+  border-radius: $radius-md;
+}
+
+.configPillLabel {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.configPillValue {
+  font-weight: 600;
+  color: var(--text-primary);
+
+  &.on {
+    color: $success-color;
+  }
+
+  &.off {
+    color: var(--text-secondary);
+  }
+}
+
+.configPillMono {
+  font-size: 12px;
+  font-family: $font-mono;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+// Config badges (routing strategy)
+.configBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.configBadgeRoundRobin {
+  color: var(--primary-color);
+  border-color: rgba($primary-color, 0.24);
+  background: rgba($primary-color, 0.12);
+}
+
+.configBadgeFillFirst {
+  color: $success-color;
+  border-color: rgba($success-color, 0.3);
+  background: rgba($success-color, 0.12);
+}
+
+.configBadgeUnknown {
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+}
+
+// ─── View More Link ─────────────────────────────────────
+
+.viewMoreLink {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-top: $spacing-xs;
+  transition: color $transition-fast;
+
+  &:hover {
+    text-decoration: underline;
+    color: var(--primary-hover);
+  }
+}
+
+// ─── Animations ─────────────────────────────────────────
+
+@keyframes heroEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes repairProgressStripe {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      24px 0,
+      0 0;
+  }
+}

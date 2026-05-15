@@ -1,0 +1,597 @@
+using MicaSetup.Design.Commands;
+using MicaSetup.Design.ComponentModel;
+using MicaSetup.Design.Controls;
+using MicaSetup.Helper;
+using MicaSetup.Shell.Dialogs;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using DialogResult = System.Windows.Forms.DialogResult;
+using FolderBrowserDialog = System.Windows.Forms.FolderBrowserDialog;
+
+namespace MicaSetup.ViewModels;
+
+public partial class MainViewModel : ObservableObject
+{
+    private const long RequestedPayloadUncompressedBytes = __PAYLOAD_UNCOMPRESSED_BYTES__;
+    private UninstallInfo? installedInfo;
+    private bool keepMyData = false;
+
+    public string Message => Option.Current.MessageOfPage1;
+    public bool IsInstalled { get; private set; }
+    public string MaintenanceTitle { get; private set; } = "CodexCliPlus 已安装";
+    public string InstalledSummary { get; private set; } = string.Empty;
+    public string UpdateButtonText => "更新";
+    public string RepairButtonText => "修复/重新安装";
+    public string UninstallButtonText => "卸载";
+    public string KeepMyDataText => "卸载时保留个人配置和数据";
+
+    public bool KeepMyData
+    {
+        get => keepMyData;
+        set
+        {
+            if (!SetProperty(ref keepMyData, value))
+            {
+                return;
+            }
+
+            Option.Current.KeepMyData = value;
+            if (!value)
+            {
+                _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "NotKeepMyDataTips".Tr("KeepMyDataTips".Tr()));
+            }
+        }
+    }
+
+    [ObservableProperty]
+    private string installPath = PrepareInstallPathHelper.GetPrepareInstallPath(Option.Current.KeyName,
+        Option.Current.IsUseInstallPathPreferX86,
+        Option.Current.IsUseInstallPathPreferAppDataLocalPrograms,
+        Option.Current.IsUseInstallPathPreferAppDataRoaming);
+
+    partial void OnInstallPathChanged(string value)
+    {
+        try
+        {
+            value = Path.Combine(value).TrimEnd('\\', '/');
+            if (value.EndsWith(":"))
+            {
+                value += Path.DirectorySeparatorChar;
+            }
+            availableFreeSpaceLong = DriveInfoHelper.GetAvailableFreeSpace(value);
+            AvailableFreeSpace = availableFreeSpaceLong.ToFreeSpaceString();
+            Option.Current.InstallLocation = (value?.EndsWith(Option.Current.KeyName, StringComparison.OrdinalIgnoreCase) ?? false) ? value : Path.Combine(value, Option.Current.KeyName);
+            Logger.Debug($"[InstallLocation] {Option.Current.InstallLocation}");
+            IsIllegalPath = false;
+        }
+        catch
+        {
+            IsIllegalPath = true;
+        }
+    }
+
+    [ObservableProperty]
+    private string requestedFreeSpace = null!;
+
+    private long requestedFreeSpaceLong = default;
+
+    [ObservableProperty]
+    private string availableFreeSpace = null!;
+
+    private long availableFreeSpaceLong = default;
+
+    [ObservableProperty]
+    private bool isIllegalPath = false;
+
+    [ObservableProperty]
+    private bool isElevated = RuntimeHelper.IsElevated;
+
+    [ObservableProperty]
+    private bool isCustomizeVisiableAutoRun = Option.Current.IsCustomizeVisiableAutoRun;
+
+    [ObservableProperty]
+    private bool autoRun = Option.Current.IsCreateAsAutoRun;
+
+    partial void OnAutoRunChanged(bool value)
+    {
+        Option.Current.IsCreateAsAutoRun = value;
+    }
+
+    [ObservableProperty]
+    private bool desktopShortcut = Option.Current.IsCreateDesktopShortcut;
+
+    partial void OnDesktopShortcutChanged(bool value)
+    {
+        Option.Current.IsCreateDesktopShortcut = value;
+    }
+
+    public MainViewModel()
+    {
+        requestedFreeSpaceLong = RequestedPayloadUncompressedBytes + (Option.Current.IsCreateUninst ? 2048000 : 0);
+        RequestedFreeSpace = requestedFreeSpaceLong.ToFreeSpaceString();
+        availableFreeSpaceLong = DriveInfoHelper.GetAvailableFreeSpace(installPath);
+        AvailableFreeSpace = availableFreeSpaceLong.ToFreeSpaceString();
+        InitializeInstalledState();
+    }
+
+    private void InitializeInstalledState()
+    {
+        try
+        {
+            UninstallInfo info = RegistyUninstallHelper.Read(Option.Current.KeyName);
+            if (!IsUsableInstalledInfo(info))
+            {
+                return;
+            }
+
+            installedInfo = info;
+            IsInstalled = true;
+            Option.Current.InstallLocation = info.InstallLocation;
+            installPath = info.InstallLocation;
+
+            string version = string.IsNullOrWhiteSpace(info.DisplayVersion)
+                ? "版本未知"
+                : "版本 " + info.DisplayVersion;
+            InstalledSummary = version + "，" + info.InstallLocation;
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+        }
+    }
+
+    private static bool IsUsableInstalledInfo(UninstallInfo info)
+    {
+        if (string.IsNullOrWhiteSpace(info.InstallLocation))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Directory.Exists(Path.GetFullPath(info.InstallLocation));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    [ObservableProperty]
+    private bool installPathShown = false;
+
+    [RelayCommand]
+    public void ShowOrHideInstallPath()
+    {
+        InstallPathShown = !InstallPathShown;
+    }
+
+    [RelayCommand]
+    public void SelectFolder()
+    {
+        if (Option.Current.IsUseFolderPickerPreferClassic)
+        {
+            using FolderBrowserDialog dialog = new()
+            {
+                ShowNewFolderButton = true,
+            };
+
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                string selectedFolder = dialog.SelectedPath;
+                Option.Current.InstallLocation = InstallPath = selectedFolder;
+            }
+        }
+        else
+        {
+            using CommonOpenFileDialog dialog = new()
+            {
+                IsFolderPicker = true,
+            };
+
+            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+            {
+                string selectedFolder = dialog.FileName;
+                Option.Current.InstallLocation = InstallPath = selectedFolder;
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void StartInstall()
+    {
+        OnInstallPathChanged(InstallPath);
+
+        if (IsIllegalPath)
+        {
+            _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "IllegalPathTips".Tr());
+            return;
+        }
+
+        try
+        {
+            if (requestedFreeSpaceLong >= availableFreeSpaceLong)
+            {
+                _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "AvailableFreeSpaceInsufficientTips".Tr());
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+        }
+
+        try
+        {
+            if (!FileWritableHelper.CheckWritable(Path.Combine(InstallPath, Option.Current.ExeName)))
+            {
+                _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "LockedTipsAndExitTry".Tr(Option.Current.ExeName));
+                return;
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+        }
+
+        Routing.GoToNext();
+    }
+
+    [RelayCommand]
+    public void StartUpdate()
+    {
+        StartMaintenance(SetupMaintenanceAction.Update);
+    }
+
+    [RelayCommand]
+    public void StartRepair()
+    {
+        StartMaintenance(SetupMaintenanceAction.Repair);
+    }
+
+    [RelayCommand]
+    public void StartUninstall()
+    {
+        StartMaintenance(SetupMaintenanceAction.Uninstall);
+    }
+
+    private void StartMaintenance(SetupMaintenanceAction action)
+    {
+        if (!PrepareMaintenanceAction(action))
+        {
+            return;
+        }
+
+        Option.Current.MaintenanceAction = action;
+        switch (action)
+        {
+            case SetupMaintenanceAction.Update:
+                Option.Current.MessageOfPage2 = "正在更新 CodexCliPlus";
+                Option.Current.MessageOfPage3 = "更新完成";
+                break;
+            case SetupMaintenanceAction.Repair:
+                Option.Current.KeepMyData = true;
+                Option.Current.MessageOfPage2 = "正在修复 CodexCliPlus";
+                Option.Current.MessageOfPage3 = "修复完成";
+                break;
+            case SetupMaintenanceAction.Uninstall:
+                Option.Current.KeepMyData = KeepMyData;
+                Option.Current.MessageOfPage2 = "正在卸载 CodexCliPlus";
+                Option.Current.MessageOfPage3 = "卸载完成";
+                break;
+        }
+
+        Routing.GoToNext();
+    }
+
+    private bool PrepareMaintenanceAction(SetupMaintenanceAction action)
+    {
+        if (installedInfo is null || string.IsNullOrWhiteSpace(installedInfo.InstallLocation))
+        {
+            _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "未检测到已安装的 CodexCliPlus。");
+            return false;
+        }
+
+        string installLocation;
+        try
+        {
+            installLocation = Path.GetFullPath(installedInfo.InstallLocation);
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+            _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "已安装路径无效。");
+            return false;
+        }
+
+        if (!Directory.Exists(installLocation))
+        {
+            _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "已安装目录不存在，请重新安装。");
+            return false;
+        }
+
+        Option.Current.InstallLocation = installLocation;
+        installPath = installLocation;
+
+        try
+        {
+            if (!FileWritableHelper.CheckWritable(Path.Combine(installLocation, Option.Current.ExeName)))
+            {
+                _ = MessageBox.Info(ApplicationDispatcherHelper.MainWindow, "LockedTipsAndExitTry".Tr(Option.Current.ExeName));
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e);
+        }
+
+        Logger.Information($"[Maintenance] {action} at {installLocation}");
+        return true;
+    }
+}
+
+partial class MainViewModel
+{
+    public string InstallPath
+    {
+        get => installPath;
+        set
+        {
+            if (!EqualityComparer<string>.Default.Equals(installPath, value))
+            {
+                OnInstallPathChanging(value);
+                OnInstallPathChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("InstallPath"));
+                installPath = value;
+                OnInstallPathChanged(value);
+                OnInstallPathChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("InstallPath"));
+            }
+        }
+    }
+
+    public string RequestedFreeSpace
+    {
+        get => requestedFreeSpace;
+        set
+        {
+            if (!EqualityComparer<string>.Default.Equals(requestedFreeSpace, value))
+            {
+                OnRequestedFreeSpaceChanging(value);
+                OnRequestedFreeSpaceChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("RequestedFreeSpace"));
+                requestedFreeSpace = value;
+                OnRequestedFreeSpaceChanged(value);
+                OnRequestedFreeSpaceChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("RequestedFreeSpace"));
+            }
+        }
+    }
+
+    public string AvailableFreeSpace
+    {
+        get => availableFreeSpace;
+        set
+        {
+            if (!EqualityComparer<string>.Default.Equals(availableFreeSpace, value))
+            {
+                OnAvailableFreeSpaceChanging(value);
+                OnAvailableFreeSpaceChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("AvailableFreeSpace"));
+                availableFreeSpace = value;
+                OnAvailableFreeSpaceChanged(value);
+                OnAvailableFreeSpaceChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("AvailableFreeSpace"));
+            }
+        }
+    }
+
+    public bool IsIllegalPath
+    {
+        get => isIllegalPath;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(isIllegalPath, value))
+            {
+                OnIsIllegalPathChanging(value);
+                OnIsIllegalPathChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("IsIllegalPath"));
+                isIllegalPath = value;
+                OnIsIllegalPathChanged(value);
+                OnIsIllegalPathChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("IsIllegalPath"));
+            }
+        }
+    }
+
+    public bool IsElevated
+    {
+        get => isElevated;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(isElevated, value))
+            {
+                OnIsElevatedChanging(value);
+                OnIsElevatedChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("IsElevated"));
+                isElevated = value;
+                OnIsElevatedChanged(value);
+                OnIsElevatedChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("IsElevated"));
+            }
+        }
+    }
+
+    public bool IsCustomizeVisiableAutoRun
+    {
+        get => isCustomizeVisiableAutoRun;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(isCustomizeVisiableAutoRun, value))
+            {
+                OnIsCustomizeVisiableAutoRunChanging(value);
+                OnIsCustomizeVisiableAutoRunChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("IsCustomizeVisiableAutoRun"));
+                isCustomizeVisiableAutoRun = value;
+                OnIsCustomizeVisiableAutoRunChanged(value);
+                OnIsCustomizeVisiableAutoRunChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("IsCustomizeVisiableAutoRun"));
+            }
+        }
+    }
+
+    public bool AutoRun
+    {
+        get => autoRun;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(autoRun, value))
+            {
+                OnAutoRunChanging(value);
+                OnAutoRunChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("AutoRun"));
+                autoRun = value;
+                OnAutoRunChanged(value);
+                OnAutoRunChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("AutoRun"));
+            }
+        }
+    }
+
+    public bool DesktopShortcut
+    {
+        get => desktopShortcut;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(desktopShortcut, value))
+            {
+                OnDesktopShortcutChanging(value);
+                OnDesktopShortcutChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("DesktopShortcut"));
+                desktopShortcut = value;
+                OnDesktopShortcutChanged(value);
+                OnDesktopShortcutChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("DesktopShortcut"));
+            }
+        }
+    }
+
+    public bool InstallPathShown
+    {
+        get => installPathShown;
+        set
+        {
+            if (!EqualityComparer<bool>.Default.Equals(installPathShown, value))
+            {
+                OnInstallPathShownChanging(value);
+                OnInstallPathShownChanging(default, value);
+                OnPropertyChanging(new PropertyChangingEventArgs("InstallPathShown"));
+                installPathShown = value;
+                OnInstallPathShownChanged(value);
+                OnInstallPathShownChanged(default, value);
+                OnPropertyChanged(new PropertyChangedEventArgs("InstallPathShown"));
+            }
+        }
+    }
+
+    partial void OnInstallPathChanging(string value);
+
+    partial void OnInstallPathChanging(string? oldValue, string newValue);
+
+    partial void OnInstallPathChanged(string value);
+
+    partial void OnInstallPathChanged(string? oldValue, string newValue);
+
+    partial void OnRequestedFreeSpaceChanging(string value);
+
+    partial void OnRequestedFreeSpaceChanging(string? oldValue, string newValue);
+
+    partial void OnRequestedFreeSpaceChanged(string value);
+
+    partial void OnRequestedFreeSpaceChanged(string? oldValue, string newValue);
+
+    partial void OnAvailableFreeSpaceChanging(string value);
+
+    partial void OnAvailableFreeSpaceChanging(string? oldValue, string newValue);
+
+    partial void OnAvailableFreeSpaceChanged(string value);
+
+    partial void OnAvailableFreeSpaceChanged(string? oldValue, string newValue);
+
+    partial void OnIsIllegalPathChanging(bool value);
+
+    partial void OnIsIllegalPathChanging(bool oldValue, bool newValue);
+
+    partial void OnIsIllegalPathChanged(bool value);
+
+    partial void OnIsIllegalPathChanged(bool oldValue, bool newValue);
+
+    partial void OnIsElevatedChanging(bool value);
+
+    partial void OnIsElevatedChanging(bool oldValue, bool newValue);
+
+    partial void OnIsElevatedChanged(bool value);
+
+    partial void OnIsElevatedChanged(bool oldValue, bool newValue);
+
+    partial void OnIsCustomizeVisiableAutoRunChanging(bool value);
+
+    partial void OnIsCustomizeVisiableAutoRunChanging(bool oldValue, bool newValue);
+
+    partial void OnIsCustomizeVisiableAutoRunChanged(bool value);
+
+    partial void OnIsCustomizeVisiableAutoRunChanged(bool oldValue, bool newValue);
+
+    partial void OnAutoRunChanging(bool value);
+
+    partial void OnAutoRunChanging(bool oldValue, bool newValue);
+
+    partial void OnAutoRunChanged(bool value);
+
+    partial void OnAutoRunChanged(bool oldValue, bool newValue);
+
+    partial void OnDesktopShortcutChanging(bool value);
+
+    partial void OnDesktopShortcutChanging(bool oldValue, bool newValue);
+
+    partial void OnDesktopShortcutChanged(bool value);
+
+    partial void OnDesktopShortcutChanged(bool oldValue, bool newValue);
+
+    partial void OnInstallPathShownChanging(bool value);
+
+    partial void OnInstallPathShownChanging(bool oldValue, bool newValue);
+
+    partial void OnInstallPathShownChanged(bool value);
+
+    partial void OnInstallPathShownChanged(bool oldValue, bool newValue);
+}
+
+partial class MainViewModel
+{
+    private RelayCommand? showOrHideInstallPathCommand;
+    public IRelayCommand ShowOrHideInstallPathCommand => showOrHideInstallPathCommand ??= new RelayCommand(ShowOrHideInstallPath);
+
+    private RelayCommand? selectFolderCommand;
+
+    public IRelayCommand SelectFolderCommand => selectFolderCommand ??= new RelayCommand(SelectFolder);
+
+    private RelayCommand? startInstallCommand;
+
+    public IRelayCommand StartInstallCommand => startInstallCommand ??= new RelayCommand(StartInstall);
+
+    private RelayCommand? startUpdateCommand;
+
+    public IRelayCommand StartUpdateCommand => startUpdateCommand ??= new RelayCommand(StartUpdate);
+
+    private RelayCommand? startRepairCommand;
+
+    public IRelayCommand StartRepairCommand => startRepairCommand ??= new RelayCommand(StartRepair);
+
+    private RelayCommand? startUninstallCommand;
+
+    public IRelayCommand StartUninstallCommand => startUninstallCommand ??= new RelayCommand(StartUninstall);
+}

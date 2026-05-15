@@ -12,5 +12,9 @@
     <Company>Blackblock-inc</Company>
     <Product>CodexCliPlus</Product>
     <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+    <RepositoryArtifactsRoot Condition="'$(RepositoryArtifactsRoot)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'artifacts'))</RepositoryArtifactsRoot>
+    <BaseOutputPath Condition="'$(BaseOutputPath)' == ''">$([MSBuild]::NormalizeDirectory('$(RepositoryArtifactsRoot)', 'dotnet', 'bin', '$(MSBuildProjectName)'))</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)' == ''">$([MSBuild]::NormalizeDirectory('$(RepositoryArtifactsRoot)', 'dotnet', 'obj', '$(MSBuildProjectName)'))</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath Condition="'$(MSBuildProjectExtensionsPath)' == ''">$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
   </PropertyGroup>
 </Project>

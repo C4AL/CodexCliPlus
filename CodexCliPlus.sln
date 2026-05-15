@@ -1,23 +1,23 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.App", "src\CodexCliPlus.App\CodexCliPlus.App.csproj", "{B3BB3960-8D4D-405E-83A8-D41BE780F48D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.App", "src\DesktopShell\App\CodexCliPlus.App.csproj", "{B3BB3960-8D4D-405E-83A8-D41BE780F48D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Core", "src\CodexCliPlus.Core\CodexCliPlus.Core.csproj", "{38576E85-9A26-4C79-A6C2-8F76520F2D82}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Core", "src\DesktopShell\Core\CodexCliPlus.Core.csproj", "{38576E85-9A26-4C79-A6C2-8F76520F2D82}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Infrastructure", "src\CodexCliPlus.Infrastructure\CodexCliPlus.Infrastructure.csproj", "{E9AE0544-B538-4283-87B7-F72EF3303015}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Infrastructure", "src\DesktopShell\Infrastructure\CodexCliPlus.Infrastructure.csproj", "{E9AE0544-B538-4283-87B7-F72EF3303015}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.BuildTool", "src\CodexCliPlus.BuildTool\CodexCliPlus.BuildTool.csproj", "{B9789BBF-EFA1-4CD4-838F-396D5CB9B991}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.BuildTool", "src\BuildPipeline\BuildTool\CodexCliPlus.BuildTool.csproj", "{B9789BBF-EFA1-4CD4-838F-396D5CB9B991}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Tests", "src\CodexCliPlus.Tests\CodexCliPlus.Tests.csproj", "{331779DB-6067-4AA7-BFD6-24F6DAF7C51E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Tests", "src\Tests\CodexCliPlus.Tests.csproj", "{331779DB-6067-4AA7-BFD6-24F6DAF7C51E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Updater", "src\CodexCliPlus.Updater\CodexCliPlus.Updater.csproj", "{50A4247B-004A-421D-AD86-F58EA3379501}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.Updater", "src\DesktopShell\Updater\CodexCliPlus.Updater.csproj", "{50A4247B-004A-421D-AD86-F58EA3379501}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.OfflineBuilder", "src\CodexCliPlus.OfflineBuilder\CodexCliPlus.OfflineBuilder.csproj", "{7BB0FCED-2DB5-44EB-95FF-C5460B19A80E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexCliPlus.OfflineBuilder", "src\BuildPipeline\OfflineBuilder\CodexCliPlus.OfflineBuilder.csproj", "{7BB0FCED-2DB5-44EB-95FF-C5460B19A80E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

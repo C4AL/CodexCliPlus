@@ -1,0 +1,52 @@
+@use './variables' as *;
+
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+  padding-bottom: $spacing-2xl;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.pageTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+  scroll-margin-top: calc(var(--header-height, 0px) + 76px);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding-bottom: $spacing-xs;
+  border-bottom: 1px solid var(--border-color);
+
+  h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+  }
+}

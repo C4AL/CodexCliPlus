@@ -1,0 +1,861 @@
+[CmdletBinding()]
+param(
+    [string]$RepoRoot,
+    [string]$AppPath,
+    [string]$SmokeRoot,
+    [switch]$Launch,
+    [switch]$RemoveSmokeRoot,
+    [int]$LaunchWaitSeconds = 12,
+    [int]$HealthWaitSeconds = 10
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
+function Write-Section {
+    param([string]$Title)
+
+    Write-Output ""
+    Write-Output ("=== {0} ===" -f $Title)
+}
+
+function Write-Utf8NoBom {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Content
+    )
+
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($Path)) | Out-Null
+    [System.IO.File]::WriteAllText($Path, $Content, $encoding)
+}
+
+function Resolve-RepositoryRoot {
+    param([string]$Override)
+
+    $candidate = if ([string]::IsNullOrWhiteSpace($Override)) {
+        [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\.."))
+    }
+    else {
+        [System.IO.Path]::GetFullPath($Override)
+    }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $candidate "CodexCliPlus.sln"))) {
+        throw "Repository root does not contain CodexCliPlus.sln: $candidate"
+    }
+
+    return $candidate
+}
+
+function Get-DisplayPath {
+    param(
+        [string]$FullPath,
+        [string]$Root
+    )
+
+    if ($FullPath.StartsWith($Root, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $FullPath.Substring($Root.Length).TrimStart("\")
+    }
+
+    return $FullPath
+}
+
+function Add-Finding {
+    param(
+        [System.Collections.Generic.List[object]]$List,
+        [string]$Kind,
+        [string]$Detail
+    )
+
+    $List.Add([pscustomobject]@{
+            Kind   = $Kind
+            Detail = $Detail
+        }) | Out-Null
+}
+
+if (-not ("SafeSmokeUser32" -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class SafeSmokeUser32
+{
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc enumFunc, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+}
+'@
+}
+
+function Get-VisibleTopLevelWindowsForProcess {
+    param([int]$ProcessId)
+
+    $windows = New-Object System.Collections.Generic.List[object]
+    $callback = [SafeSmokeUser32+EnumWindowsProc]{
+        param(
+            [IntPtr]$Handle,
+            [IntPtr]$Parameter
+        )
+
+        $windowProcessId = [uint32]0
+        [void][SafeSmokeUser32]::GetWindowThreadProcessId($Handle, [ref]$windowProcessId)
+        if ($windowProcessId -ne [uint32]$ProcessId) {
+            return $true
+        }
+
+        if (-not [SafeSmokeUser32]::IsWindowVisible($Handle)) {
+            return $true
+        }
+
+        $rect = New-Object SafeSmokeUser32+RECT
+        if (-not [SafeSmokeUser32]::GetWindowRect($Handle, [ref]$rect)) {
+            return $true
+        }
+
+        $width = $rect.Right - $rect.Left
+        $height = $rect.Bottom - $rect.Top
+        if ($width -le 30 -or $height -le 30) {
+            return $true
+        }
+
+        $titleBuilder = New-Object System.Text.StringBuilder 256
+        [void][SafeSmokeUser32]::GetWindowText($Handle, $titleBuilder, $titleBuilder.Capacity)
+
+        $windows.Add([pscustomobject]@{
+                Handle = ("0x{0:X}" -f $Handle.ToInt64())
+                Title  = $titleBuilder.ToString()
+                Left   = $rect.Left
+                Top    = $rect.Top
+                Width  = $width
+                Height = $height
+            }) | Out-Null
+
+        return $true
+    }
+
+    [void][SafeSmokeUser32]::EnumWindows($callback, [IntPtr]::Zero)
+    return @($windows | Sort-Object -Property Width, Height)
+}
+
+function Wait-FirstVisibleWindowSnapshot {
+    param(
+        [int]$ProcessId,
+        [int]$TimeoutSeconds
+    )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $windows = @(Get-VisibleTopLevelWindowsForProcess -ProcessId $ProcessId)
+        if ($windows.Count -gt 0) {
+            return [pscustomobject]@{
+                ElapsedMilliseconds = $stopwatch.ElapsedMilliseconds
+                Windows             = $windows
+            }
+        }
+
+        Start-Sleep -Milliseconds 80
+    }
+
+    throw ("CodexCliPlus.exe did not create a top-level visible window within {0}s." -f $TimeoutSeconds)
+}
+
+function Assert-AuthenticationStartupWindowSnapshot {
+    param([object]$Snapshot)
+
+    $windows = @($Snapshot.Windows)
+    $compactWindow = $windows |
+    Where-Object {
+        $_.Width -ge 280 -and
+        $_.Width -le 440 -and
+        $_.Height -ge 400 -and
+        $_.Height -le 580
+    } |
+    Select-Object -First 1
+
+    if ($null -eq $compactWindow) {
+        $details = $windows |
+        ForEach-Object { "{0}x{1} title='{2}' handle={3}" -f $_.Width, $_.Height, $_.Title, $_.Handle }
+        throw ("First visible window was not close to the authentication compact size 320x460. Windows: {0}" -f ($details -join "; "))
+    }
+
+    $largeWindows = @(
+        $windows |
+        Where-Object {
+            $_.Width -ge 900 -or
+            $_.Height -ge 700
+        }
+    )
+    if ($largeWindows.Count -gt 0) {
+        $details = $largeWindows |
+        ForEach-Object { "{0}x{1} title='{2}' handle={3}" -f $_.Width, $_.Height, $_.Title, $_.Handle }
+        throw ("First visible window snapshot included an oversized desktop host window: {0}" -f ($details -join "; "))
+    }
+
+    Write-Output ("[pass] First visible window stayed compact after {0}ms: {1}x{2}." -f $Snapshot.ElapsedMilliseconds, $compactWindow.Width, $compactWindow.Height)
+}
+
+function Get-ActiveTreeFiles {
+    param(
+        [string]$Root,
+        [string[]]$RelativeRoots,
+        [string[]]$AllowedExtensions
+    )
+
+    $files = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+    foreach ($relativeRoot in $RelativeRoots) {
+        $absoluteRoot = Join-Path $Root $relativeRoot
+        if (-not (Test-Path -LiteralPath $absoluteRoot)) {
+            continue
+        }
+
+        $items = Get-ChildItem -LiteralPath $absoluteRoot -Recurse -File | Where-Object {
+            $_.FullName -notmatch "\\(bin|obj|artifacts|reference-repos)\\"
+        }
+
+        if ($AllowedExtensions.Count -gt 0) {
+            $items = $items | Where-Object { $AllowedExtensions -contains $_.Extension.ToLowerInvariant() }
+        }
+
+        foreach ($item in $items) {
+            $files.Add($item) | Out-Null
+        }
+    }
+
+    return $files
+}
+
+function Get-MatchDetails {
+    param(
+        [System.Collections.Generic.List[System.IO.FileInfo]]$Files,
+        [string]$Pattern,
+        [string]$RepoRoot
+    )
+
+    if ($Files.Count -eq 0) {
+        return @()
+    }
+
+    return @(
+        $Files |
+        Select-String -Pattern $Pattern |
+        ForEach-Object {
+            "{0}:{1}: {2}" -f (Get-DisplayPath -FullPath $_.Path -Root $RepoRoot), $_.LineNumber, $_.Line.Trim()
+        }
+    )
+}
+
+function Get-GeneratedResidueSample {
+    param(
+        [string]$Path,
+        [string]$RepoRoot,
+        [string[]]$NamePatterns,
+        [int]$MaxCount = 5
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    $results = Get-ChildItem -LiteralPath $Path -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+        foreach ($pattern in $NamePatterns) {
+            if ($_.Name -like $pattern) {
+                return $true
+            }
+        }
+
+        return $false
+    }
+
+    if (-not $results) {
+        return $null
+    }
+
+    $sample = $results | Select-Object -First $MaxCount | ForEach-Object {
+        Get-DisplayPath -FullPath $_.FullName -Root $RepoRoot
+    }
+
+    return [pscustomobject]@{
+        Count  = $results.Count
+        Sample = @($sample)
+    }
+}
+
+function New-SmokeRoot {
+    param([string]$Override)
+
+    if (-not [string]::IsNullOrWhiteSpace($Override)) {
+        return [System.IO.Path]::GetFullPath($Override)
+    }
+
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    return Join-Path ([System.IO.Path]::GetTempPath()) ("codexcliplus-safe-smoke-{0}-{1}" -f $stamp, $PID)
+}
+
+function Escape-YamlString {
+    param([string]$Value)
+
+    return $Value.Replace("\", "\\").Replace('"', '\"')
+}
+
+function Write-IsolatedConfiguration {
+    param(
+        [string]$SmokeRootPath,
+        [string]$RepositoryRoot
+    )
+
+    $configDirectory = Join-Path $SmokeRootPath "config"
+    $userProfileDirectory = Join-Path $SmokeRootPath "userprofile"
+    $legacyConfigDirectory = Join-Path $userProfileDirectory ".cli-proxy-api"
+    $legacyAuthDirectory = Join-Path $SmokeRootPath "legacy-auth"
+    $codexHomeDirectory = Join-Path $SmokeRootPath "codex-home"
+    $tempDirectory = Join-Path $SmokeRootPath "tmp"
+
+    foreach ($directory in @(
+            $SmokeRootPath,
+            $configDirectory,
+            $userProfileDirectory,
+            $legacyConfigDirectory,
+            $legacyAuthDirectory,
+            $codexHomeDirectory,
+            $tempDirectory
+        )) {
+        [System.IO.Directory]::CreateDirectory($directory) | Out-Null
+    }
+
+    $desktopSettings = @'
+{
+  "backendPort": 5317,
+  "managementKeyReference": "codexcliplus-management-key",
+  "preferredCodexSource": "Official",
+  "startWithWindows": false,
+  "minimizeToTrayOnClose": true,
+  "enableTrayIcon": true,
+  "checkForUpdatesOnStartup": false,
+  "useBetaChannel": false,
+  "themeMode": "System",
+  "minimumLogLevel": "Information",
+  "enableDebugTools": false,
+  "lastRepositoryPath": "__REPO_ROOT__"
+}
+'@.Replace("__REPO_ROOT__", $RepositoryRoot.Replace("\", "\\"))
+    Write-Utf8NoBom -Path (Join-Path $configDirectory "appsettings.json") -Content $desktopSettings
+
+    $legacyConfig = @"
+host: "127.0.0.1"
+port: 5317
+remote-management:
+  allow-remote: false
+  secret-key: "smoke-only"
+  disable-control-panel: true
+  disable-auto-update-panel: true
+auth-dir: "$(Escape-YamlString -Value $legacyAuthDirectory)"
+api-keys:
+  - "sk-smoke"
+logging-to-file: true
+oauth-model-alias:
+  codex:
+    - name: "gpt-5.4"
+      alias: "gpt-5-codex"
+      fork: true
+"@
+    Write-Utf8NoBom -Path (Join-Path $legacyConfigDirectory "config.yaml") -Content $legacyConfig
+
+    return [pscustomobject]@{
+        SmokeRoot       = $SmokeRootPath
+        UserProfileRoot = $userProfileDirectory
+        CodexHomeRoot   = $codexHomeDirectory
+        TempRoot        = $tempDirectory
+    }
+}
+
+function Get-ProcessNode {
+    param([int]$ProcessId)
+
+    $process = Get-CimInstance Win32_Process -Filter ("ProcessId = {0}" -f $ProcessId) -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        return $null
+    }
+
+    return [pscustomobject]@{
+        ProcessId      = [int]$process.ProcessId
+        ParentProcessId = [int]$process.ParentProcessId
+        Name           = [string]$process.Name
+        ExecutablePath = [string]$process.ExecutablePath
+    }
+}
+
+function Get-ChildProcessTree {
+    param([int]$RootProcessId)
+
+    $results = New-Object System.Collections.Generic.List[object]
+    $pending = New-Object System.Collections.Generic.Queue[int]
+    $pending.Enqueue($RootProcessId)
+
+    while ($pending.Count -gt 0) {
+        $parentId = $pending.Dequeue()
+        $children = Get-CimInstance Win32_Process -Filter ("ParentProcessId = {0}" -f $parentId) -ErrorAction SilentlyContinue
+        foreach ($child in $children) {
+            $node = [pscustomobject]@{
+                ProcessId      = [int]$child.ProcessId
+                ParentProcessId = [int]$child.ParentProcessId
+                Name           = [string]$child.Name
+                ExecutablePath = [string]$child.ExecutablePath
+            }
+            $results.Add($node) | Out-Null
+            $pending.Enqueue([int]$child.ProcessId)
+        }
+    }
+
+    return $results
+}
+
+function Stop-ExactProcess {
+    param(
+        [int]$ProcessId,
+        [switch]$TryCloseWindow
+    )
+
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        return
+    }
+
+    if ($TryCloseWindow -and $process.MainWindowHandle -ne 0) {
+        $null = $process.CloseMainWindow()
+        if ($process.WaitForExit(5000)) {
+            return
+        }
+    }
+
+    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    $finished = $process.WaitForExit(5000)
+    if (-not $finished) {
+        throw "Process $ProcessId did not exit within 5 seconds."
+    }
+}
+
+function Invoke-StaticVerification {
+    param([string]$RepositoryRoot)
+
+    Write-Section "Static Verification"
+
+    $failures = New-Object System.Collections.Generic.List[object]
+    $warnings = New-Object System.Collections.Generic.List[object]
+
+    $mainWindowXamlPath = Join-Path $RepositoryRoot "src\DesktopShell\App\MainWindow.xaml"
+    if (-not (Test-Path -LiteralPath $mainWindowXamlPath)) {
+        Add-Finding -List $failures -Kind "Missing main window host XAML" -Detail (Get-DisplayPath -FullPath $mainWindowXamlPath -Root $RepositoryRoot)
+    }
+    else {
+        $mainWindowXaml = [System.IO.File]::ReadAllText($mainWindowXamlPath, [System.Text.Encoding]::UTF8)
+        if ($mainWindowXaml -notmatch "<wv2:WebView2") {
+            Add-Finding -List $failures -Kind "WebView2 host missing" -Detail "src\DesktopShell\App\MainWindow.xaml does not declare the WebView2 host control."
+        }
+
+        if ($mainWindowXaml -match "<ui:NavigationView") {
+            Add-Finding -List $failures -Kind "Legacy native navigation shell still active" -Detail "src\DesktopShell\App\MainWindow.xaml still contains a runtime NavigationView shell."
+        }
+
+        foreach ($trayHandler in @(
+                "TrayOpenMenuItem_Click",
+                "TrayRestartBackendMenuItem_Click",
+                "TrayCheckUpdatesMenuItem_Click",
+                "TrayExitMenuItem_Click"
+            )) {
+            if ($mainWindowXaml -notmatch [Regex]::Escape($trayHandler)) {
+                Add-Finding -List $failures -Kind "Tray contract mismatch" -Detail ("MainWindow tray menu is missing handler '{0}'." -f $trayHandler)
+            }
+        }
+    }
+
+    $mainWindowSourceRoot = Join-Path $RepositoryRoot "src\DesktopShell\App"
+    $mainWindowCodeBehindPath = Join-Path $mainWindowSourceRoot "MainWindow.xaml.cs"
+    if (-not (Test-Path -LiteralPath $mainWindowCodeBehindPath)) {
+        Add-Finding -List $failures -Kind "Missing main window host code-behind" -Detail (Get-DisplayPath -FullPath $mainWindowCodeBehindPath -Root $RepositoryRoot)
+    }
+    else {
+        $mainWindowSources = @(
+            [System.IO.Directory]::EnumerateFiles($mainWindowSourceRoot, "MainWindow*.cs", [System.IO.SearchOption]::TopDirectoryOnly) |
+            Sort-Object |
+            ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
+        )
+        $mainWindowCodeBehind = [string]::Join([Environment]::NewLine, $mainWindowSources)
+        foreach ($requiredToken in @(
+                "SetVirtualHostNameToFolderMapping",
+                "AddScriptToExecuteOnDocumentCreatedAsync",
+                "WebMessageReceived",
+                "WebView2RuntimeNotFoundException"
+            )) {
+            if ($mainWindowCodeBehind -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "WebView2 host behavior missing" -Detail ("MainWindow sources are missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $appSourcePath = Join-Path $RepositoryRoot "src\DesktopShell\App\App.xaml.cs"
+    if (-not (Test-Path -LiteralPath $appSourcePath)) {
+        Add-Finding -List $failures -Kind "Missing application startup source" -Detail (Get-DisplayPath -FullPath $appSourcePath -Root $RepositoryRoot)
+    }
+    else {
+        $appSource = [System.IO.File]::ReadAllText($appSourcePath, [System.Text.Encoding]::UTF8)
+        if ($appSource -notmatch "AddSingleton<WebUiAssetLocator>\(\)") {
+            Add-Finding -List $failures -Kind "WebUI asset locator not registered" -Detail "src\DesktopShell\App\App.xaml.cs no longer registers WebUiAssetLocator."
+        }
+
+        foreach ($forbiddenToken in @(
+                "IManagementNavigationService",
+                "DashboardPageViewModel",
+                "ConfigPageViewModel",
+                "AiProvidersPageViewModel",
+                "DashboardPage",
+                "ConfigPage",
+                "AiProvidersPage"
+            )) {
+            if ($appSource -match [Regex]::Escape($forbiddenToken)) {
+                Add-Finding -List $failures -Kind "Legacy runtime page registration still active" -Detail ("src\DesktopShell\App\App.xaml.cs still contains '{0}'." -f $forbiddenToken)
+            }
+        }
+    }
+
+    $appProjectPath = Join-Path $RepositoryRoot "src\DesktopShell\App\CodexCliPlus.App.csproj"
+    if (-not (Test-Path -LiteralPath $appProjectPath)) {
+        Add-Finding -List $failures -Kind "Missing app project file" -Detail (Get-DisplayPath -FullPath $appProjectPath -Root $RepositoryRoot)
+    }
+    else {
+        $appProject = [System.IO.File]::ReadAllText($appProjectPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "Microsoft.Web.WebView2"
+            )) {
+            if ($appProject -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "WebView2 package missing" -Detail ("src\DesktopShell\App\CodexCliPlus.App.csproj is missing '{0}'." -f $requiredToken)
+            }
+        }
+
+        if ($appProject -match [Regex]::Escape("CodexCliPlus.Management.DesignSystem")) {
+            Add-Finding -List $failures -Kind "Legacy design system still referenced" -Detail "src\DesktopShell\App\CodexCliPlus.App.csproj still references the removed native management design system."
+        }
+    }
+
+    foreach ($removedPath in @(
+            "src\DesktopShell\App\Views\Pages",
+            "src\DesktopShell\App\ViewModels\Pages",
+            "src\DesktopShell\App\Services\SecondaryRoutes",
+            "src\DesktopShell\CodexCliPlus.Management.DesignSystem",
+            "src\DesktopShell\App\Services\ManagementNavigationService.cs",
+            "src\DesktopShell\App\Services\ManagementRouteCatalog.cs",
+            "src\DesktopShell\Core\Abstractions\Management\IManagementNavigationService.cs",
+            "src\DesktopShell\Core\Models\Management\ManagementRouteDefinition.cs"
+        )) {
+        $fullRemovedPath = Join-Path $RepositoryRoot $removedPath
+        if (Test-Path -LiteralPath $fullRemovedPath) {
+            Add-Finding -List $failures -Kind "Legacy native management artifact still present" -Detail $removedPath
+        }
+    }
+
+    $buildToolRoot = Join-Path $RepositoryRoot "src\BuildPipeline\BuildTool"
+    if (-not (Test-Path -LiteralPath $buildToolRoot)) {
+        Add-Finding -List $failures -Kind "Missing BuildTool source" -Detail (Get-DisplayPath -FullPath $buildToolRoot -Root $RepositoryRoot)
+    }
+    else {
+        $buildToolSources = @(
+            [System.IO.Directory]::EnumerateFiles($buildToolRoot, "*.cs", [System.IO.SearchOption]::AllDirectories) |
+            Where-Object {
+                $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "bin" + [System.IO.Path]::DirectorySeparatorChar) -and
+                $_ -notmatch [Regex]::Escape([System.IO.Path]::DirectorySeparatorChar + "obj" + [System.IO.Path]::DirectorySeparatorChar)
+            } |
+            Sort-Object |
+            ForEach-Object { [System.IO.File]::ReadAllText($_, [System.Text.Encoding]::UTF8) }
+        )
+        $buildTool = [string]::Join([Environment]::NewLine, $buildToolSources)
+        foreach ($requiredToken in @(
+                "build-webui",
+                "WebUiGeneratedDistRoot",
+                "Path.Combine(context.PublishRoot, ""assets"", ""webui"")"
+            )) {
+            if ($buildTool -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "Generated WebUI packaging missing" -Detail ("src\BuildPipeline\BuildTool sources are missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $syncMetadataPath = Join-Path $RepositoryRoot "src\ManagementWeb\sync.json"
+    if (-not (Test-Path -LiteralPath $syncMetadataPath)) {
+        Add-Finding -List $failures -Kind "WebUI metadata missing" -Detail "src\ManagementWeb\sync.json was not found."
+    }
+    else {
+        $syncMetadata = [System.IO.File]::ReadAllText($syncMetadataPath, [System.Text.Encoding]::UTF8)
+        foreach ($requiredToken in @(
+                "router-for-me/Cli-Proxy-API-Management-Center.git",
+                "b45639aa0169de8441bc964fb765f2405c10ccf4"
+            )) {
+            if ($syncMetadata -notmatch [Regex]::Escape($requiredToken)) {
+                Add-Finding -List $failures -Kind "WebUI metadata mismatch" -Detail ("src\ManagementWeb\sync.json is missing '{0}'." -f $requiredToken)
+            }
+        }
+    }
+
+    $webUiBridgePath = Join-Path $RepositoryRoot "src\ManagementWeb\src\api\desktopBridge.ts"
+    if (-not (Test-Path -LiteralPath $webUiBridgePath)) {
+        Add-Finding -List $failures -Kind "WebUI desktop bridge missing" -Detail "src\ManagementWeb\src\api\desktopBridge.ts was not found."
+    }
+
+    $embeddedGitPath = Join-Path $RepositoryRoot "src\ManagementWeb\.git"
+    if (Test-Path -LiteralPath $embeddedGitPath) {
+        Add-Finding -List $failures -Kind "Embedded upstream repository metadata present" -Detail "src\ManagementWeb\.git should not be shipped as a nested repository."
+    }
+
+    $activeFiles = Get-ActiveTreeFiles -Root $RepositoryRoot -RelativeRoots @("src") -AllowedExtensions @()
+    $legacyNamedFiles = $activeFiles | Where-Object {
+        $_.FullName -notlike "*\src\Tests\Smoke\*" -and (
+            $_.Name -ieq "management.html" -or
+            $_.Name -like "*DesktopHost*" -or
+            $_.Name -like "*Onboarding*"
+        )
+    }
+    foreach ($file in $legacyNamedFiles) {
+        Add-Finding -List $failures -Kind "Legacy file still present in active tree" -Detail (Get-DisplayPath -FullPath $file.FullName -Root $RepositoryRoot)
+    }
+
+    $publishResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "artifacts\publish") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "management.html")
+    if ($null -ne $publishResidue) {
+        Add-Finding -List $warnings -Kind "Historical publish residue" -Detail ("{0} matching files under artifacts\publish; sample: {1}" -f $publishResidue.Count, ($publishResidue.Sample -join ", "))
+    }
+
+    $installerPath = Join-Path $RepositoryRoot "artifacts\installer"
+    if (Test-Path -LiteralPath $installerPath) {
+        $installerFiles = Get-ChildItem -LiteralPath $installerPath -Recurse -File -ErrorAction SilentlyContinue
+        if ($installerFiles) {
+            $sample = $installerFiles | Select-Object -First 3 | ForEach-Object { Get-DisplayPath -FullPath $_.FullName -Root $RepositoryRoot }
+            Add-Finding -List $warnings -Kind "Installer output exists" -Detail ("{0} file(s) under artifacts\installer; sample: {1}" -f $installerFiles.Count, ($sample -join ", "))
+        }
+    }
+
+    $generatedSourceResidue = Get-GeneratedResidueSample -Path (Join-Path $RepositoryRoot "src") -RepoRoot $RepositoryRoot -NamePatterns @("DesktopHost*", "management.html")
+    if ($null -ne $generatedSourceResidue) {
+        Add-Finding -List $warnings -Kind "Generated source residue in bin/obj" -Detail ("{0} matching files under src; sample: {1}" -f $generatedSourceResidue.Count, ($generatedSourceResidue.Sample -join ", "))
+    }
+
+    if ($failures.Count -eq 0) {
+        Write-Output "[pass] WebView2 host baseline and packaged WebUI markers were detected."
+    }
+    else {
+        Write-Output ("[fail] Static baseline findings: {0}" -f $failures.Count)
+        foreach ($failure in $failures) {
+            Write-Output ("  - {0}: {1}" -f $failure.Kind, $failure.Detail)
+        }
+    }
+
+    if ($warnings.Count -eq 0) {
+        Write-Output "[pass] No generated or documentation residue warnings were detected."
+    }
+    else {
+        Write-Output ("[warn] Residue and acceptance warnings: {0}" -f $warnings.Count)
+        foreach ($warning in $warnings) {
+            Write-Output ("  - {0}: {1}" -f $warning.Kind, $warning.Detail)
+        }
+    }
+
+    return [pscustomobject]@{
+        Failures = $failures
+        Warnings = $warnings
+    }
+}
+
+function Invoke-LaunchSmoke {
+    param(
+        [string]$RepositoryRoot,
+        [string]$ApplicationPath,
+        [string]$SmokeRootOverride,
+        [bool]$DeleteSmokeRoot,
+        [int]$WaitSeconds,
+        [int]$HealthSeconds
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ApplicationPath)) {
+        throw "Launch mode requires -AppPath."
+    }
+
+    $resolvedAppPath = [System.IO.Path]::GetFullPath($ApplicationPath)
+    if (-not (Test-Path -LiteralPath $resolvedAppPath)) {
+        throw "CodexCliPlus.exe was not found: $resolvedAppPath"
+    }
+
+    if ([System.IO.Path]::GetFileName($resolvedAppPath) -ne "CodexCliPlus.exe") {
+        throw "Launch mode only accepts CodexCliPlus.exe. Refusing to run: $resolvedAppPath"
+    }
+
+    Write-Section "Launch Smoke"
+
+    $resolvedSmokeRoot = New-SmokeRoot -Override $SmokeRootOverride
+    $isolatedRoots = Write-IsolatedConfiguration -SmokeRootPath $resolvedSmokeRoot -RepositoryRoot $RepositoryRoot
+
+    Write-Output ("Smoke root : {0}" -f $isolatedRoots.SmokeRoot)
+    Write-Output ("USERPROFILE: {0}" -f $isolatedRoots.UserProfileRoot)
+    Write-Output ("CODEX_HOME : {0}" -f $isolatedRoots.CodexHomeRoot)
+
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $resolvedAppPath
+    $startInfo.WorkingDirectory = [System.IO.Path]::GetDirectoryName($resolvedAppPath)
+    $startInfo.UseShellExecute = $false
+    $startInfo.EnvironmentVariables["CODEXCLIPLUS_APP_ROOT"] = $isolatedRoots.SmokeRoot
+    $startInfo.EnvironmentVariables["CODEXCLIPLUS_APP_MODE"] = "development"
+    $startInfo.EnvironmentVariables["USERPROFILE"] = $isolatedRoots.UserProfileRoot
+    $startInfo.EnvironmentVariables["HOME"] = $isolatedRoots.UserProfileRoot
+    $startInfo.EnvironmentVariables["CODEX_HOME"] = $isolatedRoots.CodexHomeRoot
+    $startInfo.EnvironmentVariables["TEMP"] = $isolatedRoots.TempRoot
+    $startInfo.EnvironmentVariables["TMP"] = $isolatedRoots.TempRoot
+
+    $rootProcess = $null
+    try {
+        $rootProcess = [System.Diagnostics.Process]::Start($startInfo)
+        if ($null -eq $rootProcess) {
+            throw "Failed to start CodexCliPlus.exe."
+        }
+
+        Write-Output ("Started CodexCliPlus.exe (PID {0})." -f $rootProcess.Id)
+        $launchStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $firstWindowSnapshot = Wait-FirstVisibleWindowSnapshot -ProcessId $rootProcess.Id -TimeoutSeconds $WaitSeconds
+        Assert-AuthenticationStartupWindowSnapshot -Snapshot $firstWindowSnapshot
+        $remainingWaitSeconds = [Math]::Max(0, $WaitSeconds - [int][Math]::Floor($launchStopwatch.Elapsed.TotalSeconds))
+        if ($remainingWaitSeconds -gt 0) {
+            Start-Sleep -Seconds $remainingWaitSeconds
+        }
+
+        if ($rootProcess.HasExited) {
+            throw ("CodexCliPlus.exe exited early with code {0}." -f $rootProcess.ExitCode)
+        }
+
+        $childProcesses = Get-ChildProcessTree -RootProcessId $rootProcess.Id
+        $backendProcess = $childProcesses | Where-Object {
+            $_.Name -ieq "ccp-core.exe" -and
+            -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
+            $_.ExecutablePath.StartsWith($isolatedRoots.SmokeRoot, [System.StringComparison]::OrdinalIgnoreCase)
+        } | Select-Object -First 1
+
+        if ($null -ne $backendProcess) {
+            $backendConfigPath = Join-Path $isolatedRoots.SmokeRoot "config\backend.yaml"
+            $healthUrl = $null
+            if (Test-Path -LiteralPath $backendConfigPath) {
+                $portMatch = Select-String -LiteralPath $backendConfigPath -Pattern "^\s*port:\s*(\d+)\s*$" -AllMatches
+                if ($portMatch) {
+                    $port = $portMatch.Matches[0].Groups[1].Value
+                    $healthUrl = "http://127.0.0.1:{0}/healthz" -f $port
+                }
+            }
+
+            if ($null -ne $healthUrl) {
+                $deadline = (Get-Date).AddSeconds($HealthSeconds)
+                $healthy = $false
+                while ((Get-Date) -lt $deadline) {
+                    try {
+                        $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 2
+                        if ($response.StatusCode -eq 200) {
+                            $healthy = $true
+                            break
+                        }
+                    }
+                    catch {
+                        Start-Sleep -Milliseconds 300
+                    }
+                }
+
+                if ($healthy) {
+                    Write-Output ("[pass] Isolated backend reached health endpoint: {0}" -f $healthUrl)
+                }
+                else {
+                    Write-Output ("[warn] Backend child process exists, but health endpoint did not become ready within {0}s: {1}" -f $HealthSeconds, $healthUrl)
+                }
+            }
+            else {
+                Write-Output "[warn] Backend child process exists, but backend.yaml was not available for health probing."
+            }
+        }
+        else {
+            Write-Output "[pass] CodexCliPlus.exe stayed running without spawning a backend child during the smoke window."
+        }
+
+        Write-Output "[pass] Launch smoke completed with isolated environment variables."
+    }
+    finally {
+        if ($null -ne $rootProcess) {
+            $children = Get-ChildProcessTree -RootProcessId $rootProcess.Id
+            $ownedBackendProcesses = $children | Where-Object {
+                $_.Name -ieq "ccp-core.exe" -and
+                -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
+                $_.ExecutablePath.StartsWith($isolatedRoots.SmokeRoot, [System.StringComparison]::OrdinalIgnoreCase)
+            }
+
+            foreach ($child in $ownedBackendProcesses) {
+                Stop-ExactProcess -ProcessId $child.ProcessId
+            }
+
+            Stop-ExactProcess -ProcessId $rootProcess.Id -TryCloseWindow
+        }
+
+        if ($DeleteSmokeRoot -and (Test-Path -LiteralPath $isolatedRoots.SmokeRoot)) {
+            Remove-Item -LiteralPath $isolatedRoots.SmokeRoot -Recurse -Force
+            Write-Output ("Removed smoke root: {0}" -f $isolatedRoots.SmokeRoot)
+        }
+    }
+}
+
+$resolvedRepoRoot = Resolve-RepositoryRoot -Override $RepoRoot
+$staticOutput = @(Invoke-StaticVerification -RepositoryRoot $resolvedRepoRoot)
+foreach ($item in $staticOutput) {
+    if ($item -is [string]) {
+        Write-Output $item
+    }
+}
+
+$staticResult = $staticOutput |
+Where-Object { $null -ne $_.PSObject.Properties["Failures"] -and $null -ne $_.PSObject.Properties["Warnings"] } |
+Select-Object -Last 1
+if ($null -eq $staticResult) {
+    throw "Static verification did not return a structured result."
+}
+
+if ($Launch) {
+    Invoke-LaunchSmoke `
+        -RepositoryRoot $resolvedRepoRoot `
+        -ApplicationPath $AppPath `
+        -SmokeRootOverride $SmokeRoot `
+        -DeleteSmokeRoot $RemoveSmokeRoot.IsPresent `
+        -WaitSeconds $LaunchWaitSeconds `
+        -HealthSeconds $HealthWaitSeconds
+}
+
+Write-Section "Summary"
+Write-Output ("Failures: {0}" -f $staticResult.Failures.Count)
+Write-Output ("Warnings: {0}" -f $staticResult.Warnings.Count)
+if (-not $Launch) {
+    Write-Output "Launch smoke was skipped. Re-run with -Launch -AppPath <path-to-CodexCliPlus.exe> to verify isolated startup."
+}
+
+if ($staticResult.Failures.Count -gt 0) {
+    exit 1
+}

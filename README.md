@@ -4,6 +4,8 @@
 
 <h1 align="center">CodexCliPlus</h1>
 
+> [!WARNING]
+> **维护公告**：因无法继续维持订阅成本，CodexCliPlus 自 2026-05-17 起不再进行维护。
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6?style=flat-square" />
